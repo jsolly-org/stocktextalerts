@@ -11,7 +11,6 @@ import {
 	PRESERVED_USER_ID,
 } from "./helpers/constants";
 import { shutdownHttpTestServer } from "./helpers/http/server";
-import { assertLiveProviderKey, isLiveProviderEnabled } from "./helpers/live-api";
 import { adminClient } from "./helpers/test-env";
 import { cleanupTestUser } from "./helpers/test-user";
 import { takeTestUserIdsForCleanup } from "./helpers/test-user-cleanup";
@@ -31,27 +30,11 @@ vi.mock("../src/lib/db/env", async (importOriginal) => {
 	};
 });
 
-// Live API tests are opt-in by provider:
-//   npm run test:live:data
-//   npm run test:live:xai
-//   npm run test:live:email   (routes through local Mailpit, not real SES)
-// Providers not explicitly enabled are stubbed to prevent accidental network calls.
-assertLiveProviderKey({ provider: "massive", envVar: "MASSIVE_API_KEY" });
-assertLiveProviderKey({ provider: "finnhub", envVar: "FINNHUB_API_KEY" });
-assertLiveProviderKey({ provider: "xai", envVar: "XAI_API_KEY" });
-// Live email requires EMAIL_SMTP_HOST (set by run-vitest.ts on --live=email).
-// It does NOT require AWS credentials — the Mailpit branch in
-// src/lib/messaging/email/utils.ts never constructs a SES client.
-assertLiveProviderKey({ provider: "email", envVar: "EMAIL_SMTP_HOST" });
-assertLiveProviderKey({
-	provider: "twilio",
-	envVar: "TWILIO_TEST_ACCOUNT_SID",
-});
-assertLiveProviderKey({
-	provider: "twilio",
-	envVar: "TWILIO_TEST_AUTH_TOKEN",
-});
-
+// Live provider keys exist only in the Lambda runtime (SAM params). Locally
+// they are always stubbed — the real providers are exercised in production by
+// the scheduled `live-provider-check` Lambda (src/handlers/live-provider-check.ts),
+// not by the local test suite.
+//
 // Email/SMS mocking is handled in the source factories themselves:
 //   - createEmailSender (src/lib/messaging/email/utils.ts) gates on MODE
 //     and EMAIL_SMTP_HOST. Non-prod builds either mock or route to Mailpit.
@@ -62,17 +45,9 @@ assertLiveProviderKey({
 // Data-provider stubs set a dummy API key so requireEnv() doesn't throw.
 // Actual HTTP calls are prevented by fetch mocks or module-level mocks in
 // individual test files.
-if (!isLiveProviderEnabled("massive")) {
-	vi.stubEnv("MASSIVE_API_KEY", "test-massive-key");
-}
-
-if (!isLiveProviderEnabled("finnhub")) {
-	vi.stubEnv("FINNHUB_API_KEY", "test-finnhub-key");
-}
-
-if (!isLiveProviderEnabled("xai")) {
-	vi.stubEnv("XAI_API_KEY", "");
-}
+vi.stubEnv("MASSIVE_API_KEY", "test-massive-key");
+vi.stubEnv("FINNHUB_API_KEY", "test-finnhub-key");
+vi.stubEnv("XAI_API_KEY", "");
 
 // Provide a valid UNSUBSCRIBE_TOKEN_SECRET for tests that generate unsubscribe tokens
 if (

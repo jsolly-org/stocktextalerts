@@ -9,17 +9,17 @@ The harness hard-gates real-delivery paths so no test can reach prod SES or prod
   - `createEmailSender` — `src/lib/messaging/email/utils.ts`
   - `createSmsSender` — `src/lib/messaging/sms/twilio-utils.ts`
   - `sendVerification` / `checkVerification` (Twilio Verify) — `src/lib/auth/sms-verification.ts`
-- **App SMS sender remains production-gated.** `createSmsSender` still mocks outside production mode; live Twilio API tests run in a dedicated test file and do not route through app delivery flows.
+- **App SMS sender remains production-gated.** `createSmsSender` mocks outside production mode, so no test routes through real Twilio delivery.
 
-## Mailpit (local + live email tests)
+## Mailpit (local dev + e2e email)
 
-- **Live email tests** route through local **Mailpit** (Supabase's bundled Inbucket container) via SMTP on `localhost:1025`. `tests/run-vitest.ts` auto-sets `EMAIL_SMTP_HOST=localhost` when `--live=email` is passed, which makes `createEmailSender` pick the `nodemailer` branch instead of constructing a real SES client. Inspect delivered messages at <http://localhost:54324>.
+- **E2E tests** route email through local **Mailpit** (Supabase's bundled Inbucket container) via SMTP on `localhost:1025`, where `createEmailSender` picks the `nodemailer` branch instead of constructing a real SES client. Inspect delivered messages at <http://localhost:54324>. (`tests/run-vitest.ts` strips `EMAIL_SMTP_HOST` for the unit suite so those tests stay on the in-process mock sender.)
 - **`astro dev`** routes email through Mailpit automatically when `EMAIL_SMTP_HOST=localhost` is set in `.env.local` (the committed default). Real SES env vars in dev would defeat the gate.
 - **Assertions**: use `tests/helpers/mailpit.ts` (`waitForMailpitMessage`, `waitForMailpitMessageTo`, `clearMailpit`) to inspect Mailpit content. For prod-safety unit assertions on the gates themselves, see `tests/lib/messaging/sender-gates.test.ts`.
 
 ## Twilio in tests
 
-- **Live Twilio tests use Twilio test credentials only** (`test:live:twilio` / `--live=twilio`). They call Twilio's API with magic numbers (`+15005550006`, `+15005550009`) and do not deliver real SMS or incur charges.
+- **There is no live Twilio test tier.** `createSmsSender` always mocks outside production, so SMS code paths are covered by unit/integration assertions against the mock's recorded request shape — never a real Twilio call.
 - **Twilio Verify** always mocks in non-prod. The mock accepts `000000` as the only approved OTP, so local signup OTP flows can exercise both success and failure paths without hitting Twilio.
 
 ## Test recipients
@@ -35,7 +35,6 @@ The harness hard-gates real-delivery paths so no test can reach prod SES or prod
 | **Direct handler / API** | `tests/api/**/*.test.ts` | Precise handler behavior, security edges, and DB seeding that HTTP tests do not need to repeat. |
 | **Library integration** | `tests/lib/**` (e.g. `schedule/run.test.ts`, `flat-alerts/process.test.ts`) | Scheduled jobs and notification pipelines with real Supabase rows; provider HTTP stubbed. |
 | **Pure unit** | `tests/lib/**` formatters, parsers, time math | No DB; fast logic checks only. |
-| **Live provider (opt-in)** | `npm run test:live:*` | Real Massive, Finnhub, xAI, Mailpit SMTP, or Twilio test credentials — never run in default `npm test`. |
 | **Infra guardrails** | `tests/scripts/`, hook/guard tests | Scripts, agent guards, sender gates — not product scenarios. |
 
 ### E2E helpers

@@ -18,7 +18,6 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 ```
 
 **Single test file:** `npm test -- tests/lib/some-file.test.ts`
-**Live provider tests:** `npm test -- --live=massive,finnhub tests/lib/live-provider-apis.test.ts`
 Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-if-exists`.
 
 ## Architecture
@@ -73,7 +72,7 @@ Supabase/Docker bootstrap on cloud VMs: `docs/cloud-supabase-bootstrap.md`.
 - **Console spies**: Tests fail on unexpected `console.warn`/`console.error`. Use `expectConsoleWarning()`/`expectConsoleError()` from `tests/setup.ts`.
 - **Schema version**: When adding migrations, update `app_metadata.schema_version` in SQL and `EXPECTED_DB_SCHEMA_VERSION` in `tests/helpers/constants.ts`.
 - `formatPriceAlertSms` is **async** (shortens Grok link URLs via the `short_urls` table). Mock supabase for it must include a `.from().select().eq().gt().limit().single()` chain for the shortener dedup lookup. All other SMS formatters are sync.
-- **Live API tests**: `npm run test:live:email`, `test:live:data`, `test:live:xai`, `test:live:all`. Always reproduce live test failures locally before fixing.
+- **No local live provider tests.** Provider keys (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`, `XAI_API_KEY`) live only in the Lambda runtime and are always stubbed in the local suite. Real Massive/Finnhub round-trips are validated in production by the scheduled `stocktextalerts-live-provider-check` Lambda (`src/handlers/live-provider-check.ts`); invoke it with `aws lambda invoke` to test on demand.
 - **Test concurrency lock:** `npm test` and `npm run test:e2e` acquire a per-repo lock at `<git-common-dir>/test.lock` (cross-worktree). If another worktree is already running tests, the second invocation fails fast with a message identifying the holder. Stale locks (dead PID) are taken over silently. Force-clear with `rm $(git rev-parse --git-common-dir)/test.lock` if you're sure the holder is dead.
 - **Fresh worktree?** Run `npm run worktree:init` before anything else — a new worktree branches from `origin/main` and lacks gitignored `.env.local` + `scripts/data/users.json` and `node_modules`. It does a real `npm ci` (never symlink `node_modules` — Vite `server.fs.allow` 403s on a symlink) and `db:bootstrap` (isolated Supabase stack written into the worktree's own `config.toml`, `skip-worktree`'d). `db:reset`/`db:doctor` **fail closed** until the worktree is provisioned. Tear down with `supabase stop --workdir <path>` before `git worktree remove`. See `docs/local-supabase.md`.
 
@@ -118,6 +117,10 @@ See `docs/local-supabase.md` for `db:bootstrap`, seed hardening, and Podman setu
 ## AWS / SAM Deploy
 
 Lambda **code** ships automatically on push to `main` (the pre-push deploy runs `update-function-code` under the scoped `fleet-deploy` role). A **full SAM deploy** is still required when changing `aws/template.yaml` or `aws/deploy.sh` (infra/config): run `npm run deploy:aws` manually with admin creds. Copy `aws/samconfig.toml.example` → gitignored `aws/samconfig.toml`; use `AWS_PROFILE` locally. Never commit personal/admin AWS profile names in tracked files (the shared fleet convention `fleet-deploy` is the documented exception).
+
+### Post-deploy live verification (no local live-test tier)
+
+Provider keys live only in the Lambda runtime, so the local suite stubs every external call and cannot catch a real-API regression. After a push+deploy whose diff touched **live-affecting code** — `src/lib/providers/`, the provider clients, response parsing, auth/scoping, retry/timeout, or notification content built from live data — **manually invoke the scheduled `stocktextalerts-live-provider-check` Lambda** (`src/handlers/live-provider-check.ts`) with `aws lambda invoke` and confirm it succeeds (no thrown error / no `LiveProviderCheckFunctionErrorAlarm`). This is `/ship`'s post-deploy live-verification step for this repo. Run it during market hours when snapshot data is fresh.
 
 ## External APIs
 

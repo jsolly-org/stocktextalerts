@@ -66,7 +66,7 @@ Local Supabase seed (`scripts/data/users.json`) creates this user with `approved
 
 `.env.local` sets `EMAIL_SMTP_HOST=localhost` and `EMAIL_SMTP_PORT=1025` so any email the dev server would otherwise send through SES lands in Mailpit at `http://localhost:54324` instead. Requires local Supabase running (`npm run db:start`).
 
-`tests/run-vitest.ts` strips both env vars under plain `npm test` so unit tests stay on the in-process mock sender, and re-exports them when `--live=email` is passed.
+`tests/run-vitest.ts` strips `EMAIL_SMTP_HOST` under `npm test` so unit tests stay on the in-process mock sender (`EMAIL_SMTP_PORT` is left intact for tests that explicitly opt into SMTP, e.g. `sender-gates`).
 
 ## Worktrees
 

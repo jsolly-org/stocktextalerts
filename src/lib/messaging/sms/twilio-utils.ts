@@ -61,12 +61,11 @@ export function createTwilioClient(config: TwilioSenderConfig): TwilioClient {
 /**
  * Create an SMS sender function backed by Twilio.
  *
- * SMS has **no live test tier**. Tests and `astro dev` always receive a
- * deterministic mock; only production builds reach real Twilio. `--live=sms`
- * was removed on 2026-04-11 — see AGENTS.md#testing-philosophy — because
- * the harness had no way to prevent real-number delivery or per-message
- * Twilio charges. SMS code paths are covered by unit/integration tests
- * that assert against the mock's recorded request shape.
+ * SMS has **no live test tier** — see docs/testing.md. Tests and
+ * `astro dev` always receive a deterministic mock; only production builds reach
+ * real Twilio, because the harness has no way to prevent real-number delivery
+ * or per-message Twilio charges. SMS code paths are covered by unit/integration
+ * tests that assert against the mock's recorded request shape.
  */
 export function createSmsSender(client: TwilioClient, defaultFromNumber: string): SmsSender {
 	// Hard gate: non-production always mocks. The `client` arg is ignored in

@@ -261,32 +261,11 @@ For local development, run `npm run db:reset` before `npm run test` to ensure yo
 
 The pre-push hook (`.git-hooks/pre-push`, the committed gate) runs the full CI battery on push to `main` — biome, yaml, types, markdown, knip, SQL/squawk, migration grants, db privileges, unit + E2E — then deploys (the production build runs inside the deploy, `aws/deploy-web.sh`). See [docs/prepush-gate.md](docs/prepush-gate.md) for the command list (the gate needs local Supabase up: `npm run db:start`).
 
-### Optional: Live Provider Tests (Massive/Finnhub/xAI)
+### Live provider validation
 
-Vitest runs offline by default and stubs external provider keys. To opt into one or more real providers for targeted integration tests, pass `--live` to `npm test`:
+Vitest runs fully offline and stubs every external provider key (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`, `XAI_API_KEY`); Twilio and SES are always faked in tests. There is **no way to run live provider tests locally** — the provider keys live only in the Lambda runtime (SAM params).
 
-```bash
-# Massive only
-npm test -- --live=massive tests/lib/live-provider-apis.test.ts
-
-# Finnhub only
-npm test -- --live=finnhub tests/lib/live-provider-apis.test.ts
-
-# Both Massive + Finnhub
-npm test -- --live=massive,finnhub tests/lib/live-provider-apis.test.ts
-
-# xAI (Grok) only
-npm test -- --live=xai tests/lib/live-xai-apis.test.ts
-
-# Package scripts
-npm run test:live:data
-npm run test:live:xai
-```
-
-Notes:
-
-- `MASSIVE_API_KEY`, `FINNHUB_API_KEY`, and/or `XAI_API_KEY` must be present in your environment when enabled.
-- Twilio and SES remain fake/stubbed in tests.
+Real Massive/Finnhub round-trips are exercised in production by the scheduled `stocktextalerts-live-provider-check` Lambda ([src/handlers/live-provider-check.ts](src/handlers/live-provider-check.ts)), which throws on any failure and surfaces it through the standard Lambda error alarm. Invoke it on demand with `aws lambda invoke` to validate providers against the real APIs.
 
 ## Usage
 

@@ -7,11 +7,12 @@
  * worktree whose stack isn't on the default ports.
  *
  * Mailpit is the only approved destination for test email delivery —
- * tests never hit real SES. See `AGENTS.md#testing-philosophy`. Routing
+ * tests never hit real SES. See `docs/testing.md`. Routing
  * to Mailpit is unlocked by setting `EMAIL_SMTP_HOST=localhost` in the
- * test environment; `tests/run-vitest.ts` sets it automatically when
- * `--live=email` is passed. `src/lib/messaging/email/utils.ts` picks up
- * the env var and returns a nodemailer-backed sender instead of SES.
+ * test environment (the E2E/Playwright web server and `astro dev` set it;
+ * the vitest unit suite strips it via `tests/run-vitest.ts` to stay on the
+ * in-process mock sender). `src/lib/messaging/email/utils.ts` picks up the
+ * env var and returns a nodemailer-backed sender instead of SES.
  */
 
 const SUPABASE_API_PORT = Number(

@@ -40,7 +40,7 @@ The live vendor-API health check runs as the scheduled `stocktextalerts-live-pro
 The gate always runs everything on push, but run it manually first when touching:
 
 1. `tests/**` non-additively (moving/renaming, setup/teardown, helpers, vitest/playwright config).
-2. `tests/run-vitest.ts`, `playwright.config.ts`, `tests/setup.ts`, `tests/helpers/live-api.ts`, or anything gating test behavior on env vars.
+2. `tests/run-vitest.ts`, `playwright.config.ts`, `tests/setup.ts`, or anything gating test behavior on env vars.
 3. `supabase/config.toml` (service toggles, migration loader, SMTP settings).
 4. `package.json` scripts the gate/deploy call (`test`, `test:e2e`, `build`).
 5. Core build tooling: `astro.config.mjs`, `vitest.config.ts`, `tsconfig*.json`.

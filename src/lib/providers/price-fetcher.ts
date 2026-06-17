@@ -22,7 +22,6 @@ import {
 	fetchSnapshotQuotes,
 	marketDataFetch,
 } from "./massive";
-import { isLiveProviderEnabledInTests } from "./vendor-fetch";
 
 // Re-exported so messaging-layer consumers don't reach into `providers/massive`
 // directly — `price-fetcher` is the public abstraction over the snapshot API.
@@ -112,7 +111,7 @@ export async function getCurrentMarketSession(): Promise<MarketSession> {
 	// (without explicitly mocking) rely on the synthetic "regular" return.
 	// Migration would need to thread session mocks through every test path
 	// that triggers Massive's /v1/marketstatus/now — separate cleanup.
-	if (isTest() && !isLiveProviderEnabledInTests("massive")) {
+	if (isTest()) {
 		return "regular";
 	}
 	const [data, closure] = await Promise.all([
@@ -293,7 +292,7 @@ export async function fetchSparklines(
 	// pipeline). Removing this requires migrating tests that transitively call
 	// fetchSparklines but mock at the price-fetcher level rather than at
 	// fetchDailyCloses — not worth bundling with the closed-session fix.
-	if (isTest() && !isLiveProviderEnabledInTests("massive")) {
+	if (isTest()) {
 		const stubValues = [1, 2, 3, 5, 7, 5, 3];
 		for (const s of symbols) {
 			result.set(s, { values: stubValues, ascii: "▁▂▃▅▇▅▃", window: "7-trading-days" });
@@ -408,7 +407,7 @@ export async function fetchIntradaySparklines(
 	// fetchSparklines above; safe to defer because the closed-session bug class
 	// doesn't apply here (intraday bars are explicitly session-relative and
 	// callers pass prevCloseMap directly).
-	if (isTest() && !isLiveProviderEnabledInTests("massive")) {
+	if (isTest()) {
 		const stubBars = [100, 100.5, 101.2, 100.8, 101.5, 102.1, 101.9, 102.4];
 		for (const s of symbols) {
 			const rawPrev = prevCloseMap.get(s);
