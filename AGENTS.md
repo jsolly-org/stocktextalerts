@@ -120,7 +120,7 @@ Lambda **code** ships automatically on push to `main` (the pre-push deploy runs 
 
 ### Post-deploy live verification (no local live-test tier)
 
-Provider keys live only in the Lambda runtime, so the local suite stubs every external call and cannot catch a real-API regression. After a push+deploy whose diff touched **live-affecting code** — `src/lib/providers/`, the provider clients, response parsing, auth/scoping, retry/timeout, or notification content built from live data — **manually invoke the scheduled `stocktextalerts-live-provider-check` Lambda** (`src/handlers/live-provider-check.ts`) with `aws lambda invoke` and confirm it succeeds (no thrown error / no `LiveProviderCheckFunctionErrorAlarm`). This is `/ship`'s post-deploy live-verification step for this repo. Run it during market hours when snapshot data is fresh.
+Provider keys live only in the Lambda runtime, so the local suite stubs every external call and cannot catch a real-API regression. After a push+deploy whose diff touched **live-affecting code** — `src/lib/providers/`, the provider clients, response parsing, auth/scoping, retry/timeout, or notification content built from live data — **manually invoke the scheduled `stocktextalerts-live-provider-check` Lambda** (`src/handlers/live-provider-check.ts`) with `aws lambda invoke` and confirm it succeeds (no thrown error / no `LiveProviderCheckFunctionErrorAlarm`). This is `/ship`'s post-deploy live-verification step for this repo. Run it during market hours when snapshot data is fresh. The `fleet-deploy` profile (`agent-deploy` role) is scoped to invoke `*-live-provider-check`, so an agent can run this directly — no admin step-up.
 
 ## External APIs
 
@@ -134,7 +134,7 @@ The pre-push hook (`.git-hooks/pre-push`, the committed gate) runs the full CI b
 
 ## AWS IAM
 
-- `agent-deploy` — scoped deploy role (S3, CloudFront, ECR, `lambda:UpdateFunctionCode`, `cloudformation:DescribeStackResource`). Used locally via the `fleet-deploy` profile for code-only deploys.
+- `agent-deploy` — scoped deploy role (S3, CloudFront, ECR, `lambda:UpdateFunctionCode`, `cloudformation:DescribeStackResource`, plus `lambda:InvokeFunction` on `*-live-provider-check` only — for the post-deploy live check). Used locally via the `fleet-deploy` profile for code-only deploys. Defined fleet-wide in `shared-infra/aws/template.yaml`.
 - `stocktextalerts-crons-*` — SAM-managed Lambda execution roles (auto-created; SES send via execution role, not static keys)
 
 ## Tooling Setup
