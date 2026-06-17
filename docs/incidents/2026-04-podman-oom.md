@@ -2,7 +2,7 @@
 
 ## Symptom
 
-Vitest died inside the Podman VM with `SIGKILL` and **no test-level error** — the process simply vanished mid-suite. Local `npm test` outside the VM passed cleanly. Symptoms surfaced when running CI reproductions via Act.
+Vitest died inside the Podman VM with `SIGKILL` and **no test-level error** — the process simply vanished mid-suite. Local `npm test` outside the VM passed cleanly. Symptoms surfaced when running the suite inside Podman-backed containers.
 
 ## Root cause
 

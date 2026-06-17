@@ -15,7 +15,6 @@ logs/
 
 # environment variables
 .env*
-.act.secrets
 aws/env.json
 aws/samconfig.toml
 
