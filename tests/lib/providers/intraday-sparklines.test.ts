@@ -41,6 +41,7 @@ describe("A subscriber in early pre-market receives a notification before any 5-
 			timestamps: [Date.UTC(2026, 0, 12, 9, 35)],
 			startTimestamp: Date.UTC(2026, 0, 12, 9, 35),
 			endTimestamp: Date.UTC(2026, 0, 12, 9, 35),
+			candles: null,
 		});
 
 		const prevCloseMap = new Map<string, number | null | undefined>([["LDOS", 178.42]]);
@@ -64,6 +65,7 @@ describe("A subscriber in early pre-market receives a notification before any 5-
 			],
 			startTimestamp: Date.UTC(2026, 0, 12, 14, 35),
 			endTimestamp: Date.UTC(2026, 0, 12, 14, 55),
+			candles: null,
 		});
 
 		const prevCloseMap = new Map<string, number | null | undefined>([["NEWCO", null]]);
@@ -104,6 +106,7 @@ describe("Pre-market snapshot quote is fresher than the latest 5-minute aggregat
 			],
 			startTimestamp: Date.UTC(2026, 5, 1, 11, 0),
 			endTimestamp: Date.UTC(2026, 5, 1, 11, 20),
+			candles: null,
 		});
 
 		const prevCloseMap = new Map<string, number | null | undefined>([["NOC", 563.68]]);
@@ -129,6 +132,7 @@ describe("Pre-market snapshot quote is fresher than the latest 5-minute aggregat
 			timestamps: [Date.UTC(2026, 5, 1, 11, 0), Date.UTC(2026, 5, 1, 11, 5)],
 			startTimestamp: Date.UTC(2026, 5, 1, 11, 0),
 			endTimestamp: Date.UTC(2026, 5, 1, 11, 5),
+			candles: null,
 		});
 
 		const prevCloseMap = new Map<string, number | null | undefined>([["NOC", 563.68]]);

@@ -234,6 +234,15 @@ channel — and is **not** a clean `type×channel` grid (news/rumors are email-o
 
 ## 6. Phase 2 — Roll across all types + retrofit SMS/email as down-renders
 
+**Status (2026-06-19):** the **price-move (anomaly) single-asset alert** now delivers via Telegram with a
+candlestick chart (`market-notifications/delivery.ts` `deliverPriceAlert`, threading a Telegram sender the
+same way as the SMS sender; consumes the `telegram/chart.ts` candlestick module via
+`telegram/price-alert.ts`). It piggybacks on the alert-level cooldown dedup — no separate Telegram ledger
+needed for this type. **Still to do (same pattern, documented follow-up):** **flat-price** alerts
+(`flat-alerts/delivery.ts`) and **price-target** alerts. Both need the same `formatPriceAlertTelegram`-style
+renderer + a telegram branch threaded into their delivery; flat-price is real-time and should reuse its
+existing idempotency key for a Telegram sent-message ledger if exactly-once matters.
+
 - Build the canonical artifact for daily digest, asset events, price-target, flat-price, price-move (the
   remaining dossier §1 sites). For real-time types with no claim row, add a Telegram sent-message ledger
   keyed on the idempotency key flat-alerts already compute.

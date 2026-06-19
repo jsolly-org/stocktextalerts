@@ -1,5 +1,5 @@
 /** Minimal user fields needed to decide Telegram deliverability. */
-export interface TelegramEligibilityUser {
+interface TelegramEligibilityUser {
 	telegram_chat_id: number | null;
 	telegram_opted_out: boolean;
 }

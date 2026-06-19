@@ -26,6 +26,7 @@ vi.mock("../../../../src/lib/providers/massive", async () => {
 			timestamps: [null, null, null, null, null, null],
 			startTimestamp: null,
 			endTimestamp: Date.now(),
+			candles: null,
 		})),
 	};
 });

@@ -9,6 +9,7 @@ import type { PriceAlertGrokResult } from "../../../src/lib/market-notifications
 import type { PriceAlertUser } from "../../../src/lib/market-notifications/users";
 import type { EmailSender } from "../../../src/lib/messaging/email/utils";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
+import type { TelegramMessage, TelegramSender } from "../../../src/lib/messaging/telegram/sender";
 import type { DeliveryResult } from "../../../src/lib/messaging/types";
 
 function makeSupabaseMock(): AppSupabaseClient {
@@ -35,6 +36,8 @@ function makeStats(): PriceAlertDeliveryStats {
 		emailsFailed: 0,
 		smsSent: 0,
 		smsFailed: 0,
+		telegramSent: 0,
+		telegramFailed: 0,
 		logFailures: 0,
 	};
 }
@@ -72,6 +75,7 @@ function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 		intradayCloses: null,
 		intradayTimestamps: null,
 		intradayEndTimestamp: null,
+		intradayCandles: null,
 		prevClose: 194.42,
 		isPositiveMove: false,
 		...overrides,
@@ -91,6 +95,8 @@ function makeUser(overrides: Partial<PriceAlertUser> = {}): PriceAlertUser {
 		market_asset_price_alerts_include_sms: true,
 		market_asset_price_alert_move_size: "extreme",
 		use_24_hour_time: false,
+		telegram_chat_id: null,
+		telegram_opted_out: false,
 		...overrides,
 	};
 }
@@ -474,5 +480,153 @@ describe("deliverPriceAlert intraday sparklines", () => {
 		const svg = Buffer.from(svgBase64, "base64").toString("utf-8");
 		// 24h format shows "10:00" for 10:00; 12h would show "10a"
 		expect(svg).toContain("10:00");
+	});
+});
+
+type TelegramPrefRowFixture = { notification_type: string; content: string; enabled: boolean };
+type RecordedInsert = { table: string; row: Record<string, unknown> };
+
+/**
+ * Supabase mock for the Telegram delivery path: serves `notification_preferences`
+ * rows from a fixture and records every `notification_log` insert so the test can
+ * assert the persisted delivery_method. The Grok-URL-shortener chain (used by the
+ * SMS path only) is also stubbed so a mixed email/SMS+Telegram user doesn't crash.
+ */
+function makeTelegramSupabaseMock(prefRows: TelegramPrefRowFixture[]): {
+	client: AppSupabaseClient;
+	inserts: RecordedInsert[];
+} {
+	const inserts: RecordedInsert[] = [];
+	const client = {
+		from(table: string) {
+			if (table === "notification_preferences") {
+				// .select(...).eq(...).eq(...).eq(...) is awaited at the last .eq(); model it as a
+				// resolved Promise carrying an `eq` method so any number of chained .eq() calls
+				// return the same awaitable (a real Promise, so no hand-rolled `then`).
+				const result = { data: prefRows, error: null };
+				const eqChain: Promise<typeof result> & { eq: () => typeof eqChain } = Object.assign(
+					Promise.resolve(result),
+					{ eq: () => eqChain },
+				);
+				return { select: () => eqChain };
+			}
+			if (table === "notification_log") {
+				return {
+					insert: async (row: Record<string, unknown>) => {
+						inserts.push({ table, row });
+						return { error: null };
+					},
+				};
+			}
+			// short_urls dedup lookup used by the SMS formatter.
+			return {
+				select: () => ({
+					eq: () => ({
+						gt: () => ({ limit: () => ({ single: async () => ({ data: null, error: null }) }) }),
+					}),
+				}),
+				insert: async (row: Record<string, unknown>) => {
+					inserts.push({ table, row });
+					return { error: null };
+				},
+			};
+		},
+	} as unknown as AppSupabaseClient;
+	return { client, inserts };
+}
+
+describe("A Telegram-linked user receives an anomaly price alert via Telegram", () => {
+	it("sends a Telegram message and logs delivery_method='telegram' when the market_asset_price_alerts Telegram pref is enabled", async () => {
+		const { client, inserts } = makeTelegramSupabaseMock([
+			{ notification_type: "market_asset_price_alerts", content: "", enabled: true },
+		]);
+		const sendTelegram = vi.fn<TelegramSender>(async () => ({
+			success: true,
+			messageSid: "tg-123",
+		}));
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
+		const stats = makeStats();
+
+		const delivered = await deliverPriceAlert({
+			// Telegram-only user: email/SMS off, Telegram chat linked.
+			user: makeUser({
+				market_asset_price_alerts_include_email: false,
+				market_asset_price_alerts_include_sms: false,
+				telegram_chat_id: 987654321,
+			}),
+			alert: makeAlert(),
+			supabase: client,
+			sendEmail,
+			sendSms: null,
+			sendTelegram,
+			stats,
+		});
+
+		expect(delivered).toBe(true);
+		expect(sendTelegram).toHaveBeenCalledOnce();
+		const sent = sendTelegram.mock.calls[0]![0] as TelegramMessage;
+		expect(sent.chatId).toBe(987654321);
+		expect(sent.text).toContain("LDOS");
+		expect(stats.telegramSent).toBe(1);
+		expect(sendEmail).not.toHaveBeenCalled();
+
+		const tgLog = inserts.find(
+			(i) => i.table === "notification_log" && i.row.delivery_method === "telegram",
+		);
+		expect(tgLog).toBeDefined();
+		expect(tgLog?.row.type).toBe("price_alert");
+		expect(tgLog?.row.message_delivered).toBe(true);
+	});
+
+	it("skips Telegram when the user has no market_asset_price_alerts Telegram pref enabled", async () => {
+		const { client, inserts } = makeTelegramSupabaseMock([
+			{ notification_type: "market_asset_price_alerts", content: "", enabled: false },
+		]);
+		const sendTelegram = vi.fn<TelegramSender>(async () => ({ success: true }));
+		const stats = makeStats();
+
+		await deliverPriceAlert({
+			user: makeUser({
+				market_asset_price_alerts_include_email: false,
+				market_asset_price_alerts_include_sms: false,
+				telegram_chat_id: 987654321,
+			}),
+			alert: makeAlert(),
+			supabase: client,
+			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
+			sendSms: null,
+			sendTelegram,
+			stats,
+		});
+
+		expect(sendTelegram).not.toHaveBeenCalled();
+		expect(stats.telegramSent).toBe(0);
+		expect(
+			inserts.some((i) => i.table === "notification_log" && i.row.delivery_method === "telegram"),
+		).toBe(false);
+	});
+
+	it("does not query Telegram prefs or send when the channel is unusable (no linked chat)", async () => {
+		const { client } = makeTelegramSupabaseMock([
+			{ notification_type: "market_asset_price_alerts", content: "", enabled: true },
+		]);
+		const sendTelegram = vi.fn<TelegramSender>(async () => ({ success: true }));
+		const stats = makeStats();
+
+		await deliverPriceAlert({
+			user: makeUser({
+				market_asset_price_alerts_include_email: false,
+				market_asset_price_alerts_include_sms: false,
+				telegram_chat_id: null,
+			}),
+			alert: makeAlert(),
+			supabase: client,
+			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
+			sendSms: null,
+			sendTelegram,
+			stats,
+		});
+
+		expect(sendTelegram).not.toHaveBeenCalled();
 	});
 });

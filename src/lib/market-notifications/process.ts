@@ -7,7 +7,8 @@ import {
 import { rootLogger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
 import { createLogoCache } from "../messaging/logo-fetcher";
-import { fetchIntradayBars } from "../providers/massive";
+import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
+import { fetchIntradayBars, type IntradayCandle } from "../providers/massive";
 import {
 	type ExtendedAssetQuote,
 	type ExtendedQuoteMap,
@@ -18,6 +19,7 @@ import {
 import { SECTOR_ETF_MAP } from "../providers/sector-mapping";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 import { createSmsSenderProvider } from "../schedule/sms-sender";
+import { createTelegramSenderProvider } from "../schedule/telegram-sender";
 import { getAnomalyThreshold } from "./alert-profile";
 import { computeAnomalyScore } from "./anomaly-detection";
 import { fetchDailyStats } from "./daily-stats";
@@ -180,6 +182,8 @@ export async function processPriceAlerts(options: {
 		emailsFailed: 0,
 		smsSent: 0,
 		smsFailed: 0,
+		telegramSent: 0,
+		telegramFailed: 0,
 		logFailures: 0,
 	};
 	const emptyResult = {
@@ -338,6 +342,8 @@ export async function processPriceAlerts(options: {
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 	let smsSender: ReturnType<typeof getSmsSender>["sender"] | null = null;
+	const getTelegramSender = createTelegramSenderProvider();
+	let telegramSender: ReturnType<typeof getTelegramSender>["sender"] | null = null;
 	const logoCache = createLogoCache();
 
 	// Pre-compute benchmark moves for SPY and all sector ETFs
@@ -457,12 +463,14 @@ export async function processPriceAlerts(options: {
 		let intradayCloses: number[] | null = null;
 		let intradayTimestamps: (number | null)[] | null = null;
 		let intradayEndTimestamp: number | null = null;
+		let intradayCandles: IntradayCandle[] | null = null;
 		try {
 			const bars = await fetchIntradayBars(symbol);
 			if (bars) {
 				intradayCloses = bars.closes;
 				intradayTimestamps = bars.timestamps;
 				intradayEndTimestamp = bars.endTimestamp;
+				intradayCandles = bars.candles;
 			}
 		} catch (err) {
 			rootLogger.error("Failed to fetch intraday bars for price alert enrichment", { symbol }, err);
@@ -491,6 +499,7 @@ export async function processPriceAlerts(options: {
 				intradayCloses,
 				intradayTimestamps,
 				intradayEndTimestamp,
+				intradayCandles,
 				iconUrl: assetIconUrlMap.get(symbol) ?? null,
 				iconBase64: assetIconBase64Map.get(symbol) ?? null,
 				benchmarkDirection:
@@ -521,12 +530,28 @@ export async function processPriceAlerts(options: {
 				}
 			}
 
+			// Mirror the SMS provider threading: lazily build (and cache) the Telegram sender
+			// once for any user whose channel is linked. The per-option pref is checked inside
+			// deliverPriceAlert; here we only need the channel to be usable.
+			if (isTelegramChannelUsable(user) && !telegramSender) {
+				try {
+					telegramSender = getTelegramSender().sender;
+				} catch (error) {
+					rootLogger.error(
+						"Failed to initialize Telegram sender for price alerts",
+						{ action: "price_alerts" },
+						error,
+					);
+				}
+			}
+
 			const delivered = await deliverPriceAlert({
 				user,
 				alert: enrichedAlert,
 				supabase,
 				sendEmail,
 				sendSms: smsSender,
+				sendTelegram: telegramSender,
 				stats: totals,
 				logoCache,
 			});

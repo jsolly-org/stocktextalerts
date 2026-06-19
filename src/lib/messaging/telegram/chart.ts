@@ -11,12 +11,12 @@ export interface Candle {
 }
 
 /** A time label rendered on the x-axis (position is a 0–1 fraction across the plot). */
-export interface ChartTimeLabel {
+interface ChartTimeLabel {
 	position: number;
 	label: string;
 }
 
-export interface CandlestickChartOptions {
+interface CandlestickChartOptions {
 	/** Logical SVG width in px (rendered at 2× for crispness). */
 	width?: number;
 	/** Logical SVG height in px. */

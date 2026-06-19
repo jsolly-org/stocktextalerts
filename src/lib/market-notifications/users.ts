@@ -14,6 +14,10 @@ export interface PriceAlertUser {
 	market_asset_price_alerts_include_sms: boolean;
 	market_asset_price_alert_move_size: AlertMoveSize;
 	use_24_hour_time: boolean;
+	/** Linked Telegram chat (null when never linked); gates the Telegram delivery branch. */
+	telegram_chat_id: number | null;
+	/** True after a verified outbound 403 ("bot blocked"); suppresses Telegram delivery. */
+	telegram_opted_out: boolean;
 }
 
 /**
@@ -26,11 +30,15 @@ export async function fetchPriceAlertUsers(
 	const { data, error } = await (supabase
 		.from("users")
 		.select(
-			"id, email, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, market_asset_price_alerts_include_email, market_asset_price_alerts_include_sms, market_asset_price_alert_move_size, use_24_hour_time",
+			"id, email, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, market_asset_price_alerts_include_email, market_asset_price_alerts_include_sms, market_asset_price_alert_move_size, use_24_hour_time, telegram_chat_id, telegram_opted_out",
 		)
 		.eq("market_asset_price_alerts_enabled", true)
+		// Email/SMS gate is unchanged; the third clause additively pulls in Telegram-linked
+		// users (incl. those with email/SMS off) so the delivery loop can check their
+		// per-option Telegram pref. A linked-but-not-opted-out chat is the cheap pre-filter;
+		// the actual market_asset_price_alerts Telegram pref is checked at delivery time.
 		.or(
-			"market_asset_price_alerts_include_email.eq.true,market_asset_price_alerts_include_sms.eq.true",
+			"market_asset_price_alerts_include_email.eq.true,market_asset_price_alerts_include_sms.eq.true,telegram_chat_id.not.is.null",
 		) as unknown as Promise<{
 		data: PriceAlertUser[] | null;
 		error: unknown;

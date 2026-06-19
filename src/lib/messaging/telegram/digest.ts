@@ -16,7 +16,7 @@ function formatPrice(p: number): string {
 	return p.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export interface DailyDigestTelegramOptions {
+interface DailyDigestTelegramOptions {
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
 	extras: SmsExtras;
