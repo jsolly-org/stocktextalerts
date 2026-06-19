@@ -1,0 +1,181 @@
+import type { BrowserContext, Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { rootLogger } from "../../src/lib/logging";
+import { TEST_PASSWORD } from "../helpers/constants";
+import { signIn } from "../helpers/e2e/auth";
+import { waitForAutosave } from "../helpers/e2e/dashboard";
+import { adminClient } from "../helpers/test-env";
+import { cleanupTestUser, createTestUser } from "../helpers/test-user";
+
+// Absolute screenshot targets at the worktree root, so the calling agent can
+// read them off disk after the run.
+const WORKTREE_ROOT = "/Users/johnsolly/code/.worktrees/stocktextalerts/telegram-channel";
+const SCREENSHOT_CONNECT = `${WORKTREE_ROOT}/_ui-connect.png`;
+const SCREENSHOT_PANEL = `${WORKTREE_ROOT}/_ui-panel.png`;
+const SCREENSHOT_DROPDOWN = `${WORKTREE_ROOT}/_ui-dropdown.png`;
+
+// A linked Telegram chat id (set by the bot /start webhook in production). Its
+// presence flips the Connect card to "Connected" and enables the Telegram option
+// in every channel multiselect.
+const TELEGRAM_CHAT_ID = 8675309;
+
+async function getTelegramPreference(
+	userId: string,
+	content: string,
+): Promise<boolean | null> {
+	const { data, error } = await adminClient
+		.from("notification_preferences")
+		.select("enabled")
+		.eq("user_id", userId)
+		.eq("notification_type", "daily_digest")
+		.eq("content", content)
+		.eq("channel", "telegram")
+		.maybeSingle();
+	if (error) {
+		throw new Error(`Failed to read telegram preference (${content}): ${error.message}`);
+	}
+	return data?.enabled ?? null;
+}
+
+test.describe("Telegram dashboard UI", () => {
+	test.describe.configure({ mode: "serial" });
+
+	let context: BrowserContext;
+	let page: Page;
+	let userId: string | null = null;
+	let email = "";
+
+	test.beforeAll(async ({ browser }) => {
+		context = await browser.newContext();
+		page = await context.newPage();
+
+		// Warm the Vite dev server (cold-start route compile races the first
+		// navigation otherwise — see delivery-times.e2e.spec.ts).
+		await page.goto("/", { waitUntil: "networkidle" });
+
+		// Email-enabled + tracked asset so the daily-digest panel isn't blocked by
+		// the "needs a channel / needs tracked assets" setup notice (which would
+		// disable every multiselect, Telegram included).
+		const user = await createTestUser({
+			confirmed: true,
+			approved: true,
+			emailNotificationsEnabled: true,
+			trackedAssets: ["AAPL"],
+		});
+		userId = user.id;
+		email = user.email;
+
+		// Link Telegram: chat id + linked timestamp ⇒ Connect card shows "Connected"
+		// and the Telegram channel option becomes selectable.
+		const { error: linkError } = await adminClient
+			.from("users")
+			.update({
+				telegram_chat_id: TELEGRAM_CHAT_ID,
+				telegram_linked_at: new Date().toISOString(),
+			})
+			.eq("id", userId);
+		if (linkError) {
+			throw new Error(`Failed to link telegram chat id: ${linkError.message}`);
+		}
+
+		// Pre-select Telegram for the daily-digest "prices" option so the panel
+		// renders one multiselect with Telegram already chosen (server reads this
+		// row into the panel's `telegramPrefs` prop).
+		const { error: prefError } = await adminClient
+			.from("notification_preferences")
+			.insert({
+				user_id: userId,
+				notification_type: "daily_digest",
+				content: "prices",
+				channel: "telegram",
+				enabled: true,
+			});
+		if (prefError) {
+			throw new Error(`Failed to seed prices/telegram preference: ${prefError.message}`);
+		}
+
+		await signIn(page, email, TEST_PASSWORD);
+	});
+
+	test.afterAll(async () => {
+		if (userId) {
+			try {
+				// notification_preferences rows are FK'd to users with ON DELETE CASCADE,
+				// so deleting the user row clears the seeded telegram preference too.
+				await cleanupTestUser(userId);
+			} catch (error) {
+				rootLogger.warn("Failed to cleanup telegram-dashboard test user", {
+					context: { error },
+				});
+			}
+		}
+		if (page) {
+			await page.close();
+		}
+		if (context) {
+			await context.close();
+		}
+	});
+
+	test("renders Connect card + channel multiselects, captures screenshots, persists a Telegram toggle", async () => {
+		await page.goto("/dashboard");
+
+		// --- Connect Telegram card ---------------------------------------------
+		// The card root is the nearest `rounded-lg border` div ancestor of the
+		// <h3>Telegram</h3> heading. That root also holds the "Connected" pill,
+		// which a tighter ancestor (the inner min-w-0 div) would exclude.
+		const connectHeading = page.getByRole("heading", { name: "Telegram", exact: true });
+		await expect(connectHeading).toBeVisible();
+		const connectCard = connectHeading.locator(
+			"xpath=ancestor::div[contains(concat(' ', normalize-space(@class), ' '), ' rounded-lg ')][1]",
+		);
+		// Linked state shows the "Connected" pill + the linked-account copy.
+		await expect(connectCard.getByText("Connected", { exact: true })).toBeVisible();
+		await connectCard.scrollIntoViewIfNeeded();
+		await connectCard.screenshot({ path: SCREENSHOT_CONNECT });
+
+		// --- Daily Digest panel (multiselect triggers) -------------------------
+		const digestForm = page.locator('form[aria-label="Daily Digest"]');
+		await expect(digestForm).toBeVisible();
+
+		const pricesTrigger = page.locator("#daily_digest_include_prices-channel-trigger");
+		const topMoversTrigger = page.locator("#daily_digest_include_top_movers-channel-trigger");
+		await expect(pricesTrigger).toBeVisible();
+		await expect(topMoversTrigger).toBeVisible();
+
+		// The seeded prices/telegram row must surface in the trigger summary text.
+		await expect(pricesTrigger).toHaveAttribute("aria-haspopup", "listbox");
+		await expect(pricesTrigger).toContainText("Telegram");
+
+		await digestForm.scrollIntoViewIfNeeded();
+		await digestForm.screenshot({ path: SCREENSHOT_PANEL });
+
+		// --- Open one multiselect and screenshot the open listbox --------------
+		await topMoversTrigger.click();
+		const topMoversListbox = page.locator("#daily_digest_include_top_movers-channel-listbox");
+		await expect(topMoversListbox).toBeVisible();
+		await expect(topMoversListbox).toHaveAttribute("role", "listbox");
+		// All three channels render for prices/top_movers (Email, SMS, Telegram).
+		const telegramOption = topMoversListbox.getByRole("option", { name: "Telegram" });
+		await expect(telegramOption).toBeVisible();
+		await expect(topMoversListbox.getByRole("option", { name: "Email" })).toBeVisible();
+		await expect(topMoversListbox.getByRole("option", { name: "SMS" })).toBeVisible();
+		await page.screenshot({ path: SCREENSHOT_DROPDOWN });
+
+		// --- Behavior: toggling Telegram on for Top Movers persists a DB row ---
+		// Precondition: no top_movers/telegram row yet.
+		expect(await getTelegramPreference(userId as string, "top_movers")).toBeNull();
+
+		await waitForAutosave(page, async () => {
+			await telegramOption.click();
+		});
+
+		// The new row persisted as enabled.
+		expect(await getTelegramPreference(userId as string, "top_movers")).toBe(true);
+		// The pre-seeded prices/telegram row is untouched (still enabled).
+		expect(await getTelegramPreference(userId as string, "prices")).toBe(true);
+
+		// The trigger summary now reflects the new Telegram selection in the UI.
+		await expect(topMoversTrigger).toContainText("Telegram");
+	});
+});
