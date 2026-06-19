@@ -1,0 +1,106 @@
+import { autoRetry } from "@grammyjs/auto-retry";
+import { Bot, GrammyError, InputFile } from "grammy";
+import type { InlineKeyboardMarkup, MessageEntity } from "grammy/types";
+import { requireEnv } from "../../db/env";
+import { rootLogger } from "../../logging";
+import { isProduction } from "../../runtime/mode";
+import type { DeliveryResult } from "../types";
+
+/** A fully-rendered outbound Telegram message (text carries out-of-band entities). */
+export interface TelegramMessage {
+	chatId: number | string;
+	/** Plain text; formatting travels via `entities`, not parse_mode. */
+	text: string;
+	/** Entity markers (offset/length) from the parse-mode `fmt` builder. */
+	entities?: MessageEntity[];
+	/** When present, send as a photo with `text` as the caption (≤1024 chars). */
+	photo?: Buffer;
+	/** Inline keyboard for actionable alerts. */
+	replyMarkup?: InlineKeyboardMarkup;
+	/** Silent delivery (e.g. routine digest) — maps to Telegram's disable_notification. */
+	disableNotification?: boolean;
+}
+
+export type TelegramSender = (message: TelegramMessage) => Promise<DeliveryResult>;
+
+/** Read the bot token (a write credential — Lambda/Vercel runtime only, never tests). */
+export function readTelegramBotToken(): string {
+	return requireEnv("TELEGRAM_BOT_TOKEN");
+}
+
+/**
+ * Construct a grammY Bot with the auto-retry transformer installed.
+ *
+ * auto-retry owns 429/flood and transient 5xx handling: it detects `retry_after`
+ * and waits exactly that long before retrying. We therefore do NOT add artificial
+ * pacing and do NOT wrap sends in `withDeliveryRetry` — stacking a second retry
+ * loop around a 429 would ignore `retry_after` and risk a bot ban
+ * (see docs/plans/2026-06-19-telegram-native-channel.md §2).
+ */
+export function createTelegramBot(token: string): Bot {
+	const bot = new Bot(token);
+	bot.api.config.use(autoRetry({ maxRetryAttempts: 3, maxDelaySeconds: 60 }));
+	return bot;
+}
+
+/**
+ * Create a Telegram sender function.
+ *
+ * Like SMS, Telegram has **no live test tier**: tests and `astro dev` always get a
+ * deterministic mock, because the harness can't prevent real delivery or charges
+ * (here: real messages to real chats). The hard `!isProduction()` gate means even if
+ * upstream constructs a real Bot from a token in `.env.local`, we never call its API.
+ * Mock behavior is driven by `TELEGRAM_TEST_BEHAVIOR` / `TELEGRAM_TEST_ERROR(_CODE)` /
+ * `TELEGRAM_TEST_MESSAGE_ID`, mirroring the `SMS_TEST_*` knobs.
+ */
+export function createTelegramSender(bot: Bot): TelegramSender {
+	if (!isProduction()) {
+		const behavior = process.env.TELEGRAM_TEST_BEHAVIOR ?? "success";
+		const testMessageId = process.env.TELEGRAM_TEST_MESSAGE_ID ?? "mock";
+		const testError = process.env.TELEGRAM_TEST_ERROR ?? "Test Telegram failure";
+		const testErrorCode = process.env.TELEGRAM_TEST_ERROR_CODE;
+		return async (message: TelegramMessage): Promise<DeliveryResult> => {
+			if (message.chatId === "" || message.chatId === undefined || message.text === "") {
+				return { success: false, error: "Test mock: missing required field(s): chatId or text" };
+			}
+			if (behavior === "fail") {
+				return { success: false, error: testError, errorCode: testErrorCode };
+			}
+			return { success: true, messageSid: testMessageId };
+		};
+	}
+
+	return async (message: TelegramMessage): Promise<DeliveryResult> => {
+		try {
+			const sent = message.photo
+				? await bot.api.sendPhoto(message.chatId, new InputFile(message.photo, "chart.png"), {
+						caption: message.text,
+						caption_entities: message.entities,
+						reply_markup: message.replyMarkup,
+						disable_notification: message.disableNotification,
+					})
+				: await bot.api.sendMessage(message.chatId, message.text, {
+						entities: message.entities,
+						reply_markup: message.replyMarkup,
+						disable_notification: message.disableNotification,
+						link_preview_options: { is_disabled: true },
+					});
+			return { success: true, messageSid: String(sent.message_id) };
+		} catch (error) {
+			rootLogger.debug("Telegram send attempt failed", {
+				action: "send_telegram",
+				chatId: String(message.chatId),
+				error: error instanceof Error ? error.message : String(error),
+			});
+			if (error instanceof GrammyError) {
+				// error_code 403 ("bot was blocked by the user") is handled by the caller,
+				// which maps it to telegram_opted_out — never set opt-out from inbound content.
+				return { success: false, error: error.description, errorCode: String(error.error_code) };
+			}
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to send Telegram message",
+			};
+		}
+	};
+}

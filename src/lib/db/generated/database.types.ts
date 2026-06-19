@@ -436,6 +436,44 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          channel: Database["public"]["Enums"]["delivery_method"]
+          content: string
+          created_at: string
+          enabled: boolean
+          notification_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel: Database["public"]["Enums"]["delivery_method"]
+          content?: string
+          created_at?: string
+          enabled?: boolean
+          notification_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["delivery_method"]
+          content?: string
+          created_at?: string
+          enabled?: boolean
+          notification_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       price_move_alert_state: {
         Row: {
           first_of_day_reservation: boolean
@@ -670,6 +708,53 @@ export type Database = {
           },
         ]
       }
+      telegram_link_tokens: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          nonce: string
+          user_id: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          nonce: string
+          user_id: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          nonce?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_link_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      telegram_updates: {
+        Row: {
+          received_at: string
+          update_id: number
+        }
+        Insert: {
+          received_at?: string
+          update_id: number
+        }
+        Update: {
+          received_at?: string
+          update_id?: number
+        }
+        Relationships: []
+      }
       timezones: {
         Row: {
           active: boolean
@@ -773,6 +858,10 @@ export type Database = {
           price_targets_include_sms: boolean
           sms_notifications_enabled: boolean
           sms_opted_out: boolean
+          telegram_chat_id: number | null
+          telegram_id: number | null
+          telegram_linked_at: string | null
+          telegram_opted_out: boolean
           timezone: string
           updated_at: string
           use_24_hour_time: boolean
@@ -826,6 +915,10 @@ export type Database = {
           price_targets_include_sms?: boolean
           sms_notifications_enabled?: boolean
           sms_opted_out?: boolean
+          telegram_chat_id?: number | null
+          telegram_id?: number | null
+          telegram_linked_at?: string | null
+          telegram_opted_out?: boolean
           timezone?: string
           updated_at?: string
           use_24_hour_time?: boolean
@@ -879,6 +972,10 @@ export type Database = {
           price_targets_include_sms?: boolean
           sms_notifications_enabled?: boolean
           sms_opted_out?: boolean
+          telegram_chat_id?: number | null
+          telegram_id?: number | null
+          telegram_linked_at?: string | null
+          telegram_opted_out?: boolean
           timezone?: string
           updated_at?: string
           use_24_hour_time?: boolean
@@ -1021,7 +1118,7 @@ export type Database = {
     }
     Enums: {
       asset_event_type: "earnings" | "dividend" | "split"
-      delivery_method: "email" | "sms"
+      delivery_method: "email" | "sms" | "telegram"
       scheduled_notification_status: "sending" | "sent" | "failed"
       scheduled_notification_type: "market" | "daily" | "asset_events"
     }
@@ -1152,7 +1249,7 @@ export const Constants = {
   public: {
     Enums: {
       asset_event_type: ["earnings", "dividend", "split"],
-      delivery_method: ["email", "sms"],
+      delivery_method: ["email", "sms", "telegram"],
       scheduled_notification_status: ["sending", "sent", "failed"],
       scheduled_notification_type: ["market", "daily", "asset_events"],
     },
