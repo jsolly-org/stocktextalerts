@@ -84,6 +84,8 @@ describe("Daily digest email prices", () => {
 			last_grok_rumors_at: null,
 			grok_window_start: null,
 			grok_sends_in_window: 0,
+			telegram_chat_id: null,
+			telegram_opted_out: false,
 		};
 	}
 
@@ -95,6 +97,8 @@ describe("Daily digest email prices", () => {
 			emailsFailed: 0,
 			smsSent: 0,
 			smsFailed: 0,
+			telegramSent: 0,
+			telegramFailed: 0,
 		};
 	}
 

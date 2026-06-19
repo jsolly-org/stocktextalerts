@@ -23,11 +23,14 @@ import { formatExtrasSection } from "../messaging/sms/formatting";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padDailyDigestSmsSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SparklineData, SparklineMap } from "../messaging/sparkline";
+import { formatDailyDigestTelegram } from "../messaging/telegram/digest";
+import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { DeliveryResult, UserAssetRow, UserRecord } from "../messaging/types";
 import type { AssetPriceMap } from "../providers/price-fetcher";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
+import type { TelegramSenderProvider } from "../schedule/telegram-sender";
 import type { MarketClosureInfo } from "../time/market-calendar";
 
 const TICKER_LINE_RE = /^[A-Z][A-Z0-9.-]{0,9}:\s/;
@@ -697,6 +700,155 @@ export async function processDailyDigestSmsDelivery(options: {
 		scheduledDate,
 		scheduledMinutes,
 		channel: "sms",
+		status: result.success ? "sent" : "failed",
+		error: result.success ? undefined : result.error,
+		logger,
+	});
+}
+
+/**
+ * Deliver a daily digest via Telegram and record the result.
+ *
+ * Mirrors `processDailyDigestSmsDelivery` but renders the Telegram-native digest
+ * (parse-mode entities, no SMS segment limit) and sends a single message via the
+ * Telegram sender. v1 content is prices (+ top movers when the user enabled that
+ * facet for Telegram); Grok news/rumors are intentionally omitted from `extras`
+ * by the caller. Claims the `telegram` channel of the daily slot so it retries
+ * and advances independently of email/SMS.
+ */
+export async function processDailyDigestTelegramDelivery(options: {
+	user: UserRecord;
+	supabase: SupabaseAdminClient;
+	logger: Logger;
+	scheduledDate: string;
+	scheduledMinutes: number;
+	userAssets: UserAssetRow[];
+	assetPrices: AssetPriceMap;
+	extras: SmsExtras;
+	/** Human date label in market tz, e.g. "Thu, Jun 19". */
+	dateLabel: string;
+	marketClosedBanner?: string | null;
+	getTelegramSender: TelegramSenderProvider;
+	stats: ScheduledNotificationTotals;
+}): Promise<void> {
+	const {
+		user,
+		supabase,
+		logger,
+		scheduledDate,
+		scheduledMinutes,
+		userAssets,
+		assetPrices,
+		extras,
+		dateLabel,
+		marketClosedBanner,
+		getTelegramSender,
+		stats,
+	} = options;
+
+	// Channel usability is re-checked here (chat linked + not opted out) so a
+	// concurrent opt-out between content prep and delivery is honored.
+	if (!isTelegramChannelUsable(user) || user.telegram_chat_id == null) {
+		return;
+	}
+
+	const claim = await claimNotification({
+		supabase,
+		userId: user.id,
+		notificationType: "daily",
+		scheduledDate,
+		scheduledMinutes,
+		channel: "telegram",
+		logger,
+	});
+	if (claim.status === "claim_error") {
+		stats.telegramFailed++;
+		return;
+	}
+	if (claim.status === "retries_exhausted" || claim.status === "not_ready") {
+		stats.skipped++;
+		return;
+	}
+
+	let telegramSenderResult: ReturnType<TelegramSenderProvider>;
+	try {
+		telegramSenderResult = getTelegramSender();
+	} catch (error) {
+		stats.telegramFailed++;
+		const errorMessage = extractErrorMessage(error);
+		logger.error(
+			"Failed to resolve Telegram sender for daily digest",
+			{ userId: user.id, scheduledDate, scheduledMinutes },
+			createErrorForLogging(error),
+		);
+		await updateScheduledNotificationRow({
+			supabase,
+			userId: user.id,
+			notificationType: "daily",
+			scheduledDate,
+			scheduledMinutes,
+			channel: "telegram",
+			status: "failed",
+			error: errorMessage,
+			logger,
+		});
+		return;
+	}
+
+	const formatted = formatDailyDigestTelegram({
+		userAssets,
+		assetPrices,
+		extras,
+		dateLabel,
+		marketClosedBanner,
+	});
+
+	const result = await telegramSenderResult.sender({
+		chatId: user.telegram_chat_id,
+		text: formatted.text,
+		entities: formatted.entities,
+		// Routine scheduled digest — deliver silently like other passive updates.
+		disableNotification: true,
+	});
+
+	if (!result.success) {
+		logger.error(
+			"Failed to send Daily Digest Telegram message",
+			{
+				userId: user.id,
+				scheduledDate,
+				scheduledMinutes,
+				errorCode: result.errorCode ?? null,
+			},
+			new Error(result.error ?? "Daily Digest Telegram send failed"),
+		);
+	}
+
+	const logged = await recordNotification(supabase, {
+		user_id: user.id,
+		type: "daily",
+		delivery_method: "telegram",
+		message_delivered: result.success,
+		message: formatted.text,
+		...deliveryResultToLogFields(result),
+	});
+	if (!logged) {
+		stats.logFailures++;
+	}
+
+	if (result.success) {
+		stats.telegramSent++;
+	} else {
+		stats.telegramFailed++;
+	}
+
+	await updateScheduledNotificationRow({
+		supabase,
+		userId: user.id,
+		notificationType: "daily",
+		scheduledDate,
+		scheduledMinutes,
+		channel: "telegram",
 		status: result.success ? "sent" : "failed",
 		error: result.success ? undefined : result.error,
 		logger,

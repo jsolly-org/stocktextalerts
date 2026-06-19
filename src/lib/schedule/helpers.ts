@@ -29,6 +29,8 @@ export interface ScheduledNotificationTotals {
 	emailsFailed: number;
 	smsSent: number;
 	smsFailed: number;
+	telegramSent: number;
+	telegramFailed: number;
 }
 
 /**

@@ -42,6 +42,8 @@ export function makeUserRecord(overrides: Partial<UserRecord> = {}): UserRecord 
 		last_grok_rumors_at: null,
 		grok_window_start: null,
 		grok_sends_in_window: 0,
+		telegram_chat_id: null,
+		telegram_opted_out: false,
 		...overrides,
 	};
 }

@@ -120,6 +120,8 @@ export async function deliverStagedNotifications(options: {
 		emailsFailed: 0,
 		smsSent: 0,
 		smsFailed: 0,
+		telegramSent: 0,
+		telegramFailed: 0,
 	};
 
 	// Track which user+type combos were handled via staging so fallback can skip them.

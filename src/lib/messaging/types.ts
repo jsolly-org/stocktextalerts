@@ -63,6 +63,8 @@ export type UserRecord = Pick<
 	market_asset_price_alerts_include_sms: boolean;
 	price_move_alerts_include_email: boolean;
 	price_move_alerts_include_sms: boolean;
+	telegram_chat_id: number | null;
+	telegram_opted_out: boolean;
 } & GrokRumorsPreferences;
 
 /** Minimal user shape needed to send email. */

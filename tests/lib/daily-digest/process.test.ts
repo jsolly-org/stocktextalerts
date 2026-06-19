@@ -12,6 +12,7 @@ import { processDailyDigestUser } from "../../../src/lib/daily-digest/process";
 import { rootLogger } from "../../../src/lib/logging";
 import type { EmailSender } from "../../../src/lib/messaging/email/utils";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
+import type { TelegramSender } from "../../../src/lib/messaging/telegram/sender";
 import type { UserRecord } from "../../../src/lib/messaging/types";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
@@ -148,6 +149,9 @@ describe("Daily digest process scenarios", () => {
 			getSmsSender: () => ({
 				sender: vi.fn<SmsSender>(async () => ({ success: true })),
 			}),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
+			}),
 		});
 
 		expect(stats.skipped).toBe(1);
@@ -224,6 +228,9 @@ describe("Daily digest process scenarios", () => {
 			sendEmail,
 			getSmsSender: () => ({
 				sender: smsSender,
+			}),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
 			}),
 		});
 
@@ -311,6 +318,9 @@ describe("Daily digest process scenarios", () => {
 			currentTime: saturdayInstant,
 			sendEmail,
 			getSmsSender: () => ({ sender: smsSender }),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
+			}),
 		});
 
 		expect(stats.skipped).toBe(0);
@@ -368,6 +378,9 @@ describe("Daily digest process scenarios", () => {
 			getSmsSender: () => ({
 				sender: vi.fn<SmsSender>(async () => ({ success: true })),
 			}),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
+			}),
 		});
 
 		expect(fetchFinnhubExtrasMock).not.toHaveBeenCalled();
@@ -416,6 +429,9 @@ describe("Daily digest process scenarios", () => {
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
 			getSmsSender: () => ({
 				sender: vi.fn<SmsSender>(async () => ({ success: true })),
+			}),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
 			}),
 		});
 
@@ -476,6 +492,9 @@ describe("Daily digest process scenarios", () => {
 					error: "simulated SMS failure",
 				})),
 			}),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
+			}),
 		});
 
 		const { data: after } = await adminClient
@@ -530,6 +549,9 @@ describe("Daily digest process scenarios", () => {
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
 			getSmsSender: () => ({
 				sender: vi.fn<SmsSender>(async () => ({ success: true })),
+			}),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
 			}),
 		});
 

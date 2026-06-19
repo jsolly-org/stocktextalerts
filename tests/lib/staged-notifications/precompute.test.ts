@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { processDailyDigestUser } from "../../../src/lib/daily-digest/process";
 import type { EmailSender } from "../../../src/lib/messaging/email/utils";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
+import type { TelegramSender } from "../../../src/lib/messaging/telegram/sender";
 import type { UserRecord } from "../../../src/lib/messaging/types";
 import { precomputeDailyDigest } from "../../../src/lib/staged-notifications/precompute";
 import { getRealAssetSymbols } from "../../helpers/asset-data";
@@ -107,6 +108,9 @@ describe("A cron job precomputes daily digest content for upcoming users.", () =
 			currentTime,
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
 			getSmsSender: () => ({ sender: vi.fn<SmsSender>(async () => ({ success: true })) }),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
+			}),
 			stageOnly: true,
 			marketOpen: true,
 		});

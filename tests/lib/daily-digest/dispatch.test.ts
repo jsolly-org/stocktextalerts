@@ -130,6 +130,8 @@ describe("Daily digest dispatch (direct function call)", () => {
 			emailsFailed: 0,
 			smsSent: 0,
 			smsFailed: 0,
+			telegramSent: 0,
+			telegramFailed: 0,
 		});
 		expect(processDailyDigestUserMock).not.toHaveBeenCalled();
 	});
@@ -155,6 +157,8 @@ describe("Daily digest dispatch (direct function call)", () => {
 			emailsFailed: 0,
 			smsSent: 0,
 			smsFailed: 0,
+			telegramSent: 0,
+			telegramFailed: 0,
 		});
 	});
 
@@ -180,6 +184,8 @@ describe("Daily digest dispatch (direct function call)", () => {
 			emailsFailed: 0,
 			smsSent: 0,
 			smsFailed: 0,
+			telegramSent: 0,
+			telegramFailed: 0,
 		});
 	});
 });

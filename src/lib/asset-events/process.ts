@@ -43,6 +43,8 @@ export async function processAssetEventsUser(options: {
 		emailsFailed: 0,
 		smsSent: 0,
 		smsFailed: 0,
+		telegramSent: 0,
+		telegramFailed: 0,
 	};
 	const {
 		user,

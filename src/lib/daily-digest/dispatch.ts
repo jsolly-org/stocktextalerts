@@ -5,6 +5,10 @@ import { createEmailSender, type EmailSender } from "../messaging/email/utils";
 import type { UserRecord } from "../messaging/types";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { createSmsSenderProvider, type SmsSenderProvider } from "../schedule/sms-sender";
+import {
+	createTelegramSenderProvider,
+	type TelegramSenderProvider,
+} from "../schedule/telegram-sender";
 import type { MarketClosureInfo } from "../time/market-calendar";
 import { processDailyDigestUser } from "./process";
 
@@ -42,6 +46,8 @@ type DailyDigestUserRow = Pick<
 	| "last_grok_rumors_at"
 	| "grok_window_start"
 	| "grok_sends_in_window"
+	| "telegram_chat_id"
+	| "telegram_opted_out"
 >;
 
 const EMPTY_STATS: ScheduledNotificationTotals = {
@@ -51,6 +57,8 @@ const EMPTY_STATS: ScheduledNotificationTotals = {
 	emailsFailed: 0,
 	smsSent: 0,
 	smsFailed: 0,
+	telegramSent: 0,
+	telegramFailed: 0,
 };
 
 /** Process daily-digest for one user by calling processDailyDigestUser directly. */
@@ -69,6 +77,8 @@ export async function dispatchDailyDigestUser(options: {
 	sendEmail?: EmailSender;
 	/** Shared SMS provider from the cron run (reuses Twilio client cache). */
 	getSmsSender?: SmsSenderProvider;
+	/** Shared Telegram provider from the cron run (reuses bot/sender cache). */
+	getTelegramSender?: TelegramSenderProvider;
 }): Promise<ScheduledNotificationTotals> {
 	const {
 		userId,
@@ -79,6 +89,7 @@ export async function dispatchDailyDigestUser(options: {
 		supabase: supabaseOption,
 		sendEmail: sendEmailOption,
 		getSmsSender: getSmsSenderOption,
+		getTelegramSender: getTelegramSenderOption,
 	} = options;
 
 	try {
@@ -129,7 +140,9 @@ export async function dispatchDailyDigestUser(options: {
 				market_asset_price_alerts_include_sms,
 				last_grok_rumors_at,
 				grok_window_start,
-				grok_sends_in_window
+				grok_sends_in_window,
+				telegram_chat_id,
+				telegram_opted_out
 			`,
 			)
 			.eq("id", userId)
@@ -154,6 +167,7 @@ export async function dispatchDailyDigestUser(options: {
 
 		const sendEmail = sendEmailOption ?? createEmailSender();
 		const getSmsSender = getSmsSenderOption ?? createSmsSenderProvider();
+		const getTelegramSender = getTelegramSenderOption ?? createTelegramSenderProvider();
 
 		const dailyDigestUser: UserRecord = {
 			...(user as DailyDigestUserRow),
@@ -175,6 +189,7 @@ export async function dispatchDailyDigestUser(options: {
 			currentTime,
 			sendEmail,
 			getSmsSender,
+			getTelegramSender,
 			stageOnly: precompute === true,
 			marketOpen,
 			marketClosureInfo,
