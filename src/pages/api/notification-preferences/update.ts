@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { jsonResponse } from "../../../lib/api/json-response";
+import { persistTelegramPreferences } from "../../../lib/api/notification-preferences-telegram";
 import { buildNotificationPreferencesUpdatePayload } from "../../../lib/api/notification-preferences-update";
 import { createUserService, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
@@ -44,6 +45,20 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	price_move_alerts_include_sms: { type: "boolean" },
 	price_targets_include_email: { type: "boolean" },
 	price_targets_include_sms: { type: "boolean" },
+	// Telegram per-option prefs. No legacy `users` columns exist for these — they
+	// persist to `notification_preferences` (channel='telegram'), not the users table.
+	daily_digest_include_prices_telegram: { type: "boolean" },
+	daily_digest_include_news_telegram: { type: "boolean" },
+	daily_digest_include_rumors_telegram: { type: "boolean" },
+	daily_digest_include_top_movers_telegram: { type: "boolean" },
+	asset_events_include_analyst_telegram: { type: "boolean" },
+	asset_events_include_calendar_telegram: { type: "boolean" },
+	asset_events_include_insider_telegram: { type: "boolean" },
+	asset_events_include_ipo_telegram: { type: "boolean" },
+	market_asset_price_alerts_include_telegram: { type: "boolean" },
+	market_scheduled_asset_price_include_telegram: { type: "boolean" },
+	price_move_alerts_include_telegram: { type: "boolean" },
+	price_targets_include_telegram: { type: "boolean" },
 } as const satisfies FormSchema;
 
 const SMS_INCLUDE_FIELDS = [
@@ -209,11 +224,30 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			return jsonResponse(400, { ok: false, message: "phone_not_set" });
 		}
 
-		const updatedUser = await userService.update(user.id, safeNotificationPreferenceUpdates);
+		// A Telegram-only submission carries no `users`-column changes, so the payload
+		// can be empty. Skip the no-op `users` UPDATE (PostgREST returns 0 rows for an
+		// empty update, which `.single()` rejects) and reuse the freshly-fetched row.
+		const updatedUser =
+			Object.keys(safeNotificationPreferenceUpdates).length === 0
+				? dbUser
+				: await userService.update(user.id, safeNotificationPreferenceUpdates);
 		if (!updatedUser) {
 			logger.error("User update returned null", { userId: user.id });
 			return jsonResponse(404, { ok: false, message: "user_not_found" });
 		}
+
+		// Telegram prefs have no legacy `users` columns — persist any submitted
+		// `*_telegram` selections to notification_preferences. The session-scoped
+		// `supabase` client (authed in getCurrentUser) satisfies the per-user RLS.
+		// v1 persists Telegram only; email/sms still read from the users columns
+		// above, so we don't mirror them into the table here (Phase-2 follow-up).
+		await persistTelegramPreferences({
+			supabase,
+			userId: user.id,
+			parsedData: parsed.data,
+			formData,
+			logger,
+		});
 
 		return jsonResponse(200, {
 			ok: true,
