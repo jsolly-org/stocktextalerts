@@ -379,6 +379,8 @@ Resources:
         Variables:
           MASSIVE_API_KEY: !Ref MassiveApiKey
           FINNHUB_API_KEY: !Ref FinnhubApiKey
+          # Read-only Telegram token check (getMe/getWebhookInfo) — never a send.
+          TELEGRAM_BOT_TOKEN: !Ref TelegramBotToken
       Events:
         WeekdayMidSession:
           Type: ScheduleV2

@@ -4,14 +4,14 @@
  * Like the send-path tests, this installs a grammY transformer so the real
  * getMe()/getWebhookInfo() call path runs WITHOUT a real token or network: the
  * transformer answers each method with a canned response. This keeps the default
- * `npm test` suite mock-only — `npm run telegram:health` itself (which needs a
- * real TELEGRAM_BOT_TOKEN) is never invoked here.
+ * `npm test` suite mock-only — the live check (`checkTelegramLive` against a real
+ * `TELEGRAM_BOT_TOKEN`) runs only inside the live-provider-check Lambda, never here.
  */
 import type { Bot, Transformer } from "grammy";
 import type { ApiResponse, UserFromGetMe, WebhookInfo } from "grammy/types";
 import { describe, expect, it } from "vitest";
-import { runHealthCheck, shapeHealthReport } from "../../scripts/telegram/health";
-import { createTelegramBot } from "../../src/lib/messaging/telegram/sender";
+import { checkTelegramLive, shapeHealthReport } from "../../../src/lib/messaging/telegram/health";
+import { createTelegramBot } from "../../../src/lib/messaging/telegram/sender";
 
 const FAKE_TOKEN = "123:fake-token-for-health-tests-only";
 
@@ -85,14 +85,14 @@ describe("shapeHealthReport flattens the two read-only API reads", () => {
 	});
 });
 
-describe("runHealthCheck drives the real getMe/getWebhookInfo path (transformer-mocked)", () => {
+describe("checkTelegramLive drives the real getMe/getWebhookInfo path (transformer-mocked)", () => {
 	it("returns the shaped report assembled from both probes", async () => {
 		const bot = mockBot(ME, {
 			url: "https://stocktextalerts.com/api/messaging/telegram",
 			has_custom_certificate: false,
 			pending_update_count: 1,
 		});
-		const report = await runHealthCheck(bot);
+		const report = await checkTelegramLive(bot);
 		expect(report).toEqual({
 			ok: true,
 			botId: 777,

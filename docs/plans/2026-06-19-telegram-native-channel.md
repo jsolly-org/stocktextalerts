@@ -337,8 +337,9 @@ existing idempotency key for a Telegram sent-message ledger if exactly-once matt
 
 ### Test tiers for the Telegram send path
 
-The send path has four layers of coverage, from always-on to deliberately-opt-in. The first two run on
-every `npm test` (mock-only, CI-safe); the last two never send from CI.
+The send path has three layers of coverage. The first two run on every `npm test` (mock-only, CI-safe);
+the third is a read-only check that lives in the live-provider-check Lambda — **there is no local live tier
+and nothing ever sends from CI or an agent.**
 
 1. **Mocked unit/integration (default, always on).** `createTelegramSender` hard-gates on
    `!isProduction()` and returns a deterministic mock before `bot.api` is ever touched
@@ -354,23 +355,22 @@ every `npm test` (mock-only, CI-safe); the last two never send from CI.
    `InputFile` + `caption_entities`; a returned `{ ok:false, error_code:403 }` → grammY throws a real
    `GrammyError` → `{ success:false, errorCode:"403" }`; `message_id` → `messageSid`. (A transformer must
    **return** an error response, not throw — a thrown error is re-wrapped as `HttpError`, bypassing the
-   errorCode mapping.) The health-shaping test (`tests/scripts/telegram-health.test.ts`) uses the same
-   transformer technique for `getMe`/`getWebhookInfo`.
-3. **Read-only live health check (`npm run telegram:health`).** `scripts/telegram/health.ts` reads the
-   real `TELEGRAM_BOT_TOKEN` and calls only `getMe()` + `getWebhookInfo()` — side-effect-free, NEVER
-   sends. This is `/ship`'s Telegram live-verification step (allowed for agents because it sends nothing);
-   it exits non-zero with a clear message on a missing token or a failed `getMe`.
-4. **Gated live-send (`npm run test:live:telegram`).** `tests/live/telegram-live-send.test.ts` is
-   `describe.skipIf`-skipped unless **both** `TELEGRAM_LIVE_TEST=1` and `TELEGRAM_LIVE_TEST_CHAT_ID` are
-   set; when enabled it uses the real token to actually deliver a text message and a candlestick-chart
-   photo (`buildCandlestickSvg` → `renderChartPng` → `sendViaBot`) to that chat, asserting each returns a
-   numeric `message_id`. Default-skipped so `npm test` stays mock-only. Run against a **dedicated test
-   chat** — never a real subscriber.
+   errorCode mapping.) The health-shaping test (`tests/lib/messaging/telegram-health.test.ts`) uses the
+   same transformer technique for `getMe`/`getWebhookInfo` against `src/lib/messaging/telegram/health.ts`.
+3. **Read-only live token check (inside the live-provider-check Lambda).**
+   `src/lib/messaging/telegram/health.ts` exports `checkTelegramLive(bot)` (calls only `getMe()` +
+   `getWebhookInfo()`) and the pure `shapeHealthReport(...)`. The scheduled
+   `stocktextalerts-live-provider-check` Lambda (`src/handlers/live-provider-check.ts`) builds a bot from
+   the runtime `TELEGRAM_BOT_TOKEN` and runs `checkTelegramLive`, **throwing** if the token is invalid /
+   `getMe` fails so `LiveProviderCheckFunctionErrorAlarm` fires. It is **side-effect-free** — never
+   sendMessage/sendPhoto — so it is safe for an agent to invoke (`aws lambda invoke`) and stays within the
+   `*-live-provider-check` agent-access boundary. There is **no local live test and no `npm run` live/send
+   target.** Provider keys + the bot token exist only in the Lambda runtime.
 
-**Telegram test environment (fully isolated live runs).** For live runs that can't possibly reach a real
-user, Telegram exposes a separate test data center with its own bots/accounts
-(`core.telegram.org/bots/webapps#testing-mini-apps`, `core.telegram.org/api/auth#test-accounts`). Point
-the gated live-send (tier 4) at a test-DC bot + chat for a hermetic real-delivery check.
+**Real-message-landed check (one-time, manual).** Confirming a real message actually *lands* in a Telegram
+client is a one-time manual post-deploy E2E: send the bot `/start` from your own account and confirm the
+welcome reply arrives. This is the only step that involves a real send, and a human does it by hand — it is
+never automated and never run by an agent.
 
 ## 13. Observability & ops (P1-5)
 

@@ -1,20 +1,25 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { createLogger } from "../lib/logging";
 import { runWithRequestContext } from "../lib/logging/request-context";
+import { checkTelegramLive } from "../lib/messaging/telegram/health";
+import { createTelegramBot, readTelegramBotToken } from "../lib/messaging/telegram/sender";
 import { fetchDailyCloses, fetchEarnings, fetchPrevClose } from "../lib/providers/massive";
 import { fetchAssetPrices, getCurrentMarketSession } from "../lib/providers/price-fetcher";
 
 /**
- * Scheduled live data-provider health check (Massive + Finnhub).
+ * Scheduled live data-provider health check (Massive + Finnhub + Telegram).
  *
  * This is the only place real provider round-trips run — against the real
- * Massive/Finnhub APIs during market hours, when snapshot data is fresh — and
- * throws on any failure. (There is no local live-test tier; provider keys exist
- * only in this Lambda's env.) The thrown error surfaces on the
- * `AWS/Lambda Errors` metric, which `LiveProviderCheckFunctionErrorAlarm` routes
- * to the shared-infra SNS topic (same enriched-email path as every other
- * function alarm). Provider keys come from the function's env (SAM params),
- * exactly like the other scheduled Lambdas.
+ * Massive/Finnhub APIs during market hours, when snapshot data is fresh, plus a
+ * read-only Telegram token check — and throws on any failure. (There is no local
+ * live-test tier; provider keys + the bot token exist only in this Lambda's env.)
+ * The Telegram check is deliberately side-effect-free: it calls only the read-only
+ * `getMe()` + `getWebhookInfo()` Bot-API methods (never sendMessage/sendPhoto), so
+ * an agent invoking this Lambda can never trigger a real message. The thrown error
+ * surfaces on the `AWS/Lambda Errors` metric, which `LiveProviderCheckFunctionErrorAlarm`
+ * routes to the shared-infra SNS topic (same enriched-email path as every other
+ * function alarm). Provider keys + the bot token come from the function's env (SAM
+ * params), exactly like the other scheduled Lambdas.
  */
 
 interface CheckResult {
@@ -73,6 +78,15 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				const result = await fetchEarnings(isoDaysFromNow(0), isoDaysFromNow(14));
 				if (result.failed) {
 					throw new Error("fetchEarnings reported failed=true");
+				}
+			}),
+			await runCheck("telegram:get-me", async () => {
+				// Read-only: getMe() + getWebhookInfo() only — never a send. Throws if
+				// the token is invalid (getMe fails) or resolves to no bot id.
+				const bot = createTelegramBot(readTelegramBotToken());
+				const report = await checkTelegramLive(bot);
+				if (!report.ok) {
+					throw new Error(`getMe() returned no bot id (botId=${report.botId})`);
 				}
 			}),
 		];
