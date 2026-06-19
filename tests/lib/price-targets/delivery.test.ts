@@ -23,6 +23,8 @@ function makeStats(): PriceTargetDeliveryStats {
 		emailsFailed: 0,
 		smsSent: 0,
 		smsFailed: 0,
+		telegramSent: 0,
+		telegramFailed: 0,
 		logFailures: 0,
 	};
 }
@@ -48,6 +50,8 @@ function makeUser(overrides: Partial<PriceTargetUser> = {}): PriceTargetUser {
 		sms_opted_out: false,
 		price_targets_include_email: true,
 		price_targets_include_sms: true,
+		telegram_chat_id: null,
+		telegram_opted_out: false,
 		...overrides,
 	};
 }

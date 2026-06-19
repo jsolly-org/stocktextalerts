@@ -3,6 +3,7 @@ import type { Logger } from "../logging";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/delay-banner";
 import type { EmailSender } from "../messaging/email/utils";
 import { shouldSendSms } from "../messaging/sms";
+import { enabledTelegramFacets, isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { UserRecord } from "../messaging/types";
 import type {
 	ScheduledNotificationTotals,
@@ -11,10 +12,15 @@ import type {
 } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
+import type { TelegramSenderProvider } from "../schedule/telegram-sender";
 import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
-import { buildAssetEventsContentForChannels } from "./content";
-import { processAssetEventsEmailDelivery, processAssetEventsSmsDelivery } from "./delivery";
+import { type AssetEventsTelegramFacets, buildAssetEventsContentForChannels } from "./content";
+import {
+	processAssetEventsEmailDelivery,
+	processAssetEventsSmsDelivery,
+	processAssetEventsTelegramDelivery,
+} from "./delivery";
 import { updateUserAssetEventsNextSendAt } from "./next-send-at";
 import { shouldAdvanceAssetEventsSchedule } from "./schedule-state";
 
@@ -31,6 +37,7 @@ export async function processAssetEventsUser(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
+	getTelegramSender: TelegramSenderProvider;
 	/** Pre-fetched user assets (avoids N+1 when batch processing). */
 	userAssetsMap?: UserAssetsMap;
 	/** Prefetched market closure info (avoids per-user API calls when provided). */
@@ -53,6 +60,7 @@ export async function processAssetEventsUser(options: {
 		currentTime,
 		sendEmail,
 		getSmsSender,
+		getTelegramSender,
 		userAssetsMap,
 		marketClosureInfo: passedMarketClosureInfo,
 	} = options;
@@ -123,6 +131,44 @@ export async function processAssetEventsUser(options: {
 		const delayBannerText = buildDelayBannerText(delayBannerOpts);
 		const delayBannerHtml = buildDelayBannerHtml(delayBannerOpts);
 
+		// Telegram facets live in notification_preferences (per option×channel rows),
+		// not the legacy per-column user flags. Only query for users who can actually
+		// receive Telegram (linked + not opted out) — skips a lookup for the majority
+		// who never linked Telegram.
+		let telegramFacets: AssetEventsTelegramFacets = {
+			calendar: false,
+			ipo: false,
+			insider: false,
+			analyst: false,
+		};
+		if (isTelegramChannelUsable(user)) {
+			const { data: telegramPrefRows, error: telegramPrefError } = await supabase
+				.from("notification_preferences")
+				.select("notification_type, content, enabled")
+				.eq("user_id", user.id)
+				.eq("notification_type", "asset_events")
+				.eq("channel", "telegram");
+			if (telegramPrefError) {
+				logger.error(
+					"Failed to load Telegram asset-events preferences",
+					{ action: "asset_events_run", userId: user.id },
+					telegramPrefError,
+				);
+			}
+			const facets = enabledTelegramFacets(telegramPrefRows ?? [], "asset_events");
+			telegramFacets = {
+				calendar: facets.has("calendar"),
+				ipo: facets.has("ipo"),
+				insider: facets.has("insider"),
+				analyst: facets.has("analyst"),
+			};
+		}
+		const wantsTelegram =
+			telegramFacets.calendar ||
+			telegramFacets.ipo ||
+			telegramFacets.insider ||
+			telegramFacets.analyst;
+
 		const hasAnyAssetEventsOption =
 			user.asset_events_include_calendar_email ||
 			user.asset_events_include_calendar_sms ||
@@ -131,7 +177,8 @@ export async function processAssetEventsUser(options: {
 			user.asset_events_include_analyst_email ||
 			user.asset_events_include_analyst_sms ||
 			user.asset_events_include_insider_email ||
-			user.asset_events_include_insider_sms;
+			user.asset_events_include_insider_sms ||
+			wantsTelegram;
 
 		if (!hasAnyAssetEventsOption) {
 			stats.skipped++;
@@ -150,7 +197,7 @@ export async function processAssetEventsUser(options: {
 		const emailEnabled = user.email_notifications_enabled;
 		const smsEnabled = shouldSendSms(user);
 
-		if (!emailEnabled && !smsEnabled) {
+		if (!emailEnabled && !smsEnabled && !wantsTelegram) {
 			stats.skipped++;
 			await updateUserAssetEventsNextSendAt({
 				user,
@@ -184,13 +231,16 @@ export async function processAssetEventsUser(options: {
 		let emailContent: Awaited<ReturnType<typeof buildAssetEventsContentForChannels>>["email"] =
 			null;
 		let smsContent: Awaited<ReturnType<typeof buildAssetEventsContentForChannels>>["sms"] = null;
+		let telegramContent: Awaited<
+			ReturnType<typeof buildAssetEventsContentForChannels>
+		>["telegram"] = null;
 		let shouldUpdateAnalystMonth = false;
 
 		const channels: Array<"email" | "sms"> = [];
 		if (wantsEmail) channels.push("email");
 		if (wantsSms) channels.push("sms");
 
-		if (channels.length > 0) {
+		if (channels.length > 0 || wantsTelegram) {
 			const built = await buildAssetEventsContentForChannels({
 				user,
 				supabase,
@@ -198,9 +248,11 @@ export async function processAssetEventsUser(options: {
 				localDate,
 				tickers,
 				channels,
+				...(wantsTelegram ? { telegramFacets } : {}),
 			});
 			emailContent = built.email;
 			smsContent = built.sms;
+			telegramContent = built.telegram;
 			shouldUpdateAnalystMonth = built.shouldUpdateAnalystMonth;
 		}
 
@@ -245,6 +297,27 @@ export async function processAssetEventsUser(options: {
 			});
 		}
 
+		// Telegram: facet filtering already happened in the content builder — the
+		// telegram block only carries sections for the user's Telegram-enabled facets.
+		if (wantsTelegram && telegramContent?.hasAnyContent) {
+			await processAssetEventsTelegramDelivery({
+				user,
+				supabase,
+				logger,
+				scheduledDate,
+				scheduledMinutes,
+				earningsSection: telegramContent.eventsSection?.earnings ?? null,
+				dividendsSection: telegramContent.eventsSection?.dividends ?? null,
+				splitsSection: telegramContent.eventsSection?.splits ?? null,
+				iposSection: telegramContent.eventsSection?.ipos ?? null,
+				analystSection: telegramContent.analystSection,
+				insiderSection: telegramContent.insiderSection,
+				marketClosureInfo,
+				getTelegramSender,
+				stats,
+			});
+		}
+
 		if (shouldUpdateAnalystMonth) {
 			const currentMonth = localDate.slice(0, 7); // YYYY-MM
 			const { error } = await supabase
@@ -262,6 +335,7 @@ export async function processAssetEventsUser(options: {
 
 		const emailRequired = wantsEmail && Boolean(emailContent?.hasAnyContent);
 		const smsRequired = wantsSms && Boolean(smsContent?.hasAnyContent);
+		const telegramRequired = wantsTelegram && Boolean(telegramContent?.hasAnyContent);
 		const canAdvance = await shouldAdvanceAssetEventsSchedule({
 			supabase,
 			user,
@@ -269,6 +343,7 @@ export async function processAssetEventsUser(options: {
 			scheduledMinutes,
 			emailRequired,
 			smsRequired,
+			telegramRequired,
 		});
 
 		if (canAdvance) {
@@ -286,6 +361,7 @@ export async function processAssetEventsUser(options: {
 				scheduledMinutes,
 				emailRequired,
 				smsRequired,
+				telegramRequired,
 			});
 		}
 

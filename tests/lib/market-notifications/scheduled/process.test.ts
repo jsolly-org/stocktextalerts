@@ -16,6 +16,7 @@ vi.mock("../../../../src/lib/market-notifications/scheduled/schedule-state", () 
 vi.mock("../../../../src/lib/market-notifications/scheduled/delivery", () => ({
 	processMarketScheduledEmailDelivery: vi.fn(),
 	processMarketScheduledSmsDelivery: vi.fn(),
+	processMarketScheduledTelegramDelivery: vi.fn(),
 }));
 
 vi.mock("../../../../src/lib/schedule/helpers", async () => {
@@ -69,6 +70,7 @@ describe("processMarketScheduledUser schedule advancement", () => {
 			currentTime: DateTime.fromISO("2026-06-07T13:35:00.000Z"),
 			sendEmail: vi.fn() as never,
 			getSmsSender: vi.fn() as never,
+			getTelegramSender: vi.fn() as never,
 			priceMap: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 } as never]]),
 			marketSession: "regular",
 		});
@@ -97,6 +99,7 @@ describe("processMarketScheduledUser schedule advancement", () => {
 			currentTime: DateTime.fromISO("2026-06-07T13:35:00.000Z"),
 			sendEmail: vi.fn() as never,
 			getSmsSender: vi.fn(() => ({ sender: vi.fn() })) as never,
+			getTelegramSender: vi.fn(() => ({ sender: vi.fn() })) as never,
 			priceMap: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 } as never]]),
 			marketSession: "regular",
 		});

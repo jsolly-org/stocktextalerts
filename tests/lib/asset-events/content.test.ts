@@ -396,3 +396,66 @@ describe("buildAssetEventsContent", () => {
 		expect(result.email?.hasAnyContent).toBe(false);
 	});
 });
+
+describe("buildAssetEventsContentForChannels Telegram facets", () => {
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("renders a Telegram block gated by the facet selection — enabled facet present, disabled facet absent", async () => {
+		const supabase = createAssetEventsSupabase({
+			calendarEvents: [
+				{ symbol: "AAPL", event_type: "earnings", event_date: "2026-02-11", data: {} },
+			],
+			marketEvents: [
+				{
+					symbol: "ACME",
+					event_type: "ipo",
+					event_date: "2026-02-11",
+					data: { issuerName: "Acme Corp" },
+				},
+			],
+		});
+
+		// Email off entirely (no channels); only the Telegram calendar facet is on.
+		const result = await buildAssetEventsContentForChannels({
+			user: makeUser(),
+			supabase: supabase as never,
+			logger: logger as never,
+			localDate: "2026-02-10",
+			tickers: ["AAPL"],
+			channels: [],
+			telegramFacets: { calendar: true, ipo: false, insider: false, analyst: false },
+		});
+
+		expect(result.telegram).not.toBeNull();
+		expect(result.telegram?.hasAnyContent).toBe(true);
+		// Calendar facet on → earnings present.
+		expect(result.telegram?.eventsSection?.earnings).toContain("AAPL");
+		// IPO facet off → no IPO section, even though an IPO row exists.
+		expect(result.telegram?.eventsSection?.ipos ?? null).toBeNull();
+		// email/sms untouched (no channels requested).
+		expect(result.email).toBeNull();
+		expect(result.sms).toBeNull();
+	});
+
+	it("returns null Telegram content when no Telegram facet is enabled", async () => {
+		const supabase = createAssetEventsSupabase({
+			calendarEvents: [
+				{ symbol: "AAPL", event_type: "earnings", event_date: "2026-02-11", data: {} },
+			],
+		});
+
+		const result = await buildAssetEventsContentForChannels({
+			user: makeUser(),
+			supabase: supabase as never,
+			logger: logger as never,
+			localDate: "2026-02-10",
+			tickers: ["AAPL"],
+			channels: [],
+			telegramFacets: { calendar: false, ipo: false, insider: false, analyst: false },
+		});
+
+		expect(result.telegram).toBeNull();
+	});
+});

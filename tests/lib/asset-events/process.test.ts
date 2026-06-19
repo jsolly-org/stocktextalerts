@@ -30,6 +30,7 @@ vi.mock("../../../src/lib/asset-events/delivery", async () => {
 		...actual,
 		processAssetEventsEmailDelivery: vi.fn(),
 		processAssetEventsSmsDelivery: vi.fn(),
+		processAssetEventsTelegramDelivery: vi.fn(),
 	};
 });
 
@@ -73,6 +74,7 @@ describe("processAssetEventsUser", () => {
 				hasAnyContent: true,
 			},
 			sms: null,
+			telegram: null,
 			analystFetchAttempted: false,
 			shouldUpdateAnalystMonth: false,
 		});
@@ -104,6 +106,7 @@ describe("processAssetEventsUser", () => {
 			marketClosureInfo: null,
 			sendEmail: vi.fn(async () => ({ success: true })) as never,
 			getSmsSender: vi.fn(() => ({ sender: "+15555550123" })) as never,
+			getTelegramSender: vi.fn(() => ({ sender: vi.fn() })) as never,
 		});
 
 		expect(stats.skipped).toBe(0);
@@ -126,6 +129,7 @@ describe("processAssetEventsUser", () => {
 				analystSection: null,
 				hasAnyContent: true,
 			},
+			telegram: null,
 			analystFetchAttempted: false,
 			shouldUpdateAnalystMonth: false,
 		});
@@ -162,6 +166,7 @@ describe("processAssetEventsUser", () => {
 			marketClosureInfo: null,
 			sendEmail: vi.fn(async () => ({ success: true })) as never,
 			getSmsSender: vi.fn(() => ({ sender: "+15555550123" })) as never,
+			getTelegramSender: vi.fn(() => ({ sender: vi.fn() })) as never,
 		});
 
 		expect(vi.mocked(processAssetEventsEmailDelivery)).toHaveBeenCalledOnce();

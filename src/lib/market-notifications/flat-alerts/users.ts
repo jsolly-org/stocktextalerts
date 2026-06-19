@@ -1,7 +1,7 @@
 import { rootLogger } from "../../logging";
 import type { SupabaseAdminClient } from "../../schedule/helpers";
 
-/** Minimal user shape for flat price alert delivery across email + SMS. */
+/** Minimal user shape for flat price alert delivery across email + SMS + Telegram. */
 export interface FlatPriceAlertUser {
 	id: string;
 	email: string;
@@ -14,6 +14,10 @@ export interface FlatPriceAlertUser {
 	price_move_alerts_include_email: boolean;
 	price_move_alerts_include_sms: boolean;
 	use_24_hour_time: boolean;
+	/** Linked Telegram chat (null when never linked); gates the Telegram delivery branch. */
+	telegram_chat_id: number | null;
+	/** True after a verified outbound 403 ("bot blocked"); suppresses Telegram delivery. */
+	telegram_opted_out: boolean;
 }
 
 /**
@@ -28,10 +32,13 @@ export async function fetchFlatPriceAlertUsers(
 	const { data, error } = await (supabase
 		.from("users")
 		.select(
-			"id, email, email_notifications_enabled, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, price_move_alerts_include_email, price_move_alerts_include_sms, use_24_hour_time",
+			"id, email, email_notifications_enabled, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, price_move_alerts_include_email, price_move_alerts_include_sms, use_24_hour_time, telegram_chat_id, telegram_opted_out",
 		)
+		// Email/SMS gate is unchanged; the third clause additively pulls in Telegram-linked
+		// users (incl. those with email/SMS off) so the delivery loop can check their
+		// per-option Telegram pref.
 		.or(
-			"price_move_alerts_include_email.eq.true,price_move_alerts_include_sms.eq.true",
+			"price_move_alerts_include_email.eq.true,price_move_alerts_include_sms.eq.true,telegram_chat_id.not.is.null",
 		) as unknown as Promise<{
 		data: FlatPriceAlertUser[] | null;
 		error: unknown;

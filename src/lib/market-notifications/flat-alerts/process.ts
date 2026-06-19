@@ -4,10 +4,12 @@ import { createLogger } from "../../logging";
 import { createEmailSender } from "../../messaging/email/utils";
 import { createLogoCache } from "../../messaging/logo-fetcher";
 import type { SparklineData } from "../../messaging/sparkline";
+import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import { fetchIntradayBars, type IntradayBarsResult } from "../../providers/massive";
 import { type ExtendedQuoteMap, fetchSparklines } from "../../providers/price-fetcher";
 import type { SupabaseAdminClient } from "../../schedule/helpers";
 import { createSmsSenderProvider } from "../../schedule/sms-sender";
+import { createTelegramSenderProvider } from "../../schedule/telegram-sender";
 import { FLAT_PRICE_ALERT_THRESHOLD_PERCENT } from "./constants";
 import { deliverFlatPriceAlert, type FlatPriceAlertDeliveryStats } from "./delivery";
 import {
@@ -55,6 +57,8 @@ function emptyTotals(): FlatPriceAlertTotals {
 		emailsFailed: 0,
 		smsSent: 0,
 		smsFailed: 0,
+		telegramSent: 0,
+		telegramFailed: 0,
 		logFailures: 0,
 	};
 }
@@ -292,6 +296,11 @@ export async function processFlatPriceAlerts(options: {
 	const getSmsSender = createSmsSenderProvider();
 	const anySmsEnabled = eligibleAlerts.some((a) => a.user.price_move_alerts_include_sms);
 	const sendSms = anySmsEnabled ? getSmsSender().sender : null;
+	// Mirror the SMS provider threading: build the Telegram sender once if any eligible
+	// user has a usable Telegram channel; the per-option pref is checked in delivery.
+	const getTelegramSender = createTelegramSenderProvider();
+	const anyTelegramUsable = eligibleAlerts.some((a) => isTelegramChannelUsable(a.user));
+	const sendTelegram = anyTelegramUsable ? getTelegramSender().sender : null;
 	const logoCache = createLogoCache();
 	const nowMs = Date.now();
 
@@ -317,6 +326,7 @@ export async function processFlatPriceAlerts(options: {
 			supabase,
 			sendEmail,
 			sendSms,
+			sendTelegram,
 			logoCache,
 			stats: totals,
 		});

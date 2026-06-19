@@ -1,15 +1,23 @@
 import { getSiteUrl } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
+import type { EnrichedAlert } from "../market-notifications/enrichment";
 import { escapeHtml } from "../messaging/asset-formatting";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
-import { recordNotification } from "../messaging/shared";
+import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { isSmsChannelUsable, sendUserSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SmsSender } from "../messaging/sms/twilio-utils";
+import {
+	isTelegramChannelUsable,
+	shouldSendTelegram,
+	type TelegramPrefRow,
+} from "../messaging/telegram/eligibility";
+import { formatPriceAlertTelegram } from "../messaging/telegram/price-alert";
+import type { TelegramSender } from "../messaging/telegram/sender";
 import type { PriceTargetUser, TriggeredPriceTarget } from "./process";
 
 /** Per-run delivery counters for price target notifications. */
@@ -18,7 +26,31 @@ export interface PriceTargetDeliveryStats {
 	emailsFailed: number;
 	smsSent: number;
 	smsFailed: number;
+	telegramSent: number;
+	telegramFailed: number;
 	logFailures: number;
+}
+
+/**
+ * Build a minimal text-only `EnrichedAlert` from a triggered price target so the
+ * shared `formatPriceAlertTelegram` renderer can be reused. Price targets carry no
+ * intraday candles, so the message is text-only (no chart).
+ */
+function buildPriceTargetEnriched(target: TriggeredPriceTarget): EnrichedAlert {
+	const verb = target.direction === "above" ? "rose to" : "fell to";
+	return {
+		symbol: target.symbol,
+		priceContext: `${target.symbol} ${verb} $${target.currentPrice.toFixed(2)}, hitting your target of $${target.targetPrice.toFixed(2)}`,
+		signalContext: "",
+		grokContext: "",
+		grokResult: null,
+		intradayCloses: null,
+		intradayTimestamps: null,
+		intradayEndTimestamp: null,
+		intradayCandles: null,
+		prevClose: null,
+		isPositiveMove: target.direction === "above",
+	};
 }
 
 function formatPrice(price: number): string {
@@ -97,10 +129,12 @@ export async function deliverPriceTargetAlert(options: {
 	supabase: AppSupabaseClient;
 	sendEmail: EmailSender;
 	sendSms: SmsSender | null;
+	/** Telegram sender, threaded the same way as `sendSms` (lazy provider in process.ts). */
+	sendTelegram?: TelegramSender | null;
 	stats: PriceTargetDeliveryStats;
 	logoCache?: ReturnType<typeof createLogoCache>;
 }): Promise<boolean> {
-	const { user, target, supabase, sendEmail, sendSms, stats } = options;
+	const { user, target, supabase, sendEmail, sendSms, sendTelegram, stats } = options;
 	const logoCache = options.logoCache ?? createLogoCache();
 	let delivered = false;
 
@@ -172,6 +206,61 @@ export async function deliverPriceTargetAlert(options: {
 				message_delivered: result.success,
 				message: smsBody,
 				error: result.success ? undefined : result.error,
+			});
+			if (!logged) stats.logFailures++;
+		}
+	}
+
+	// Telegram delivery (additive; never alters the email/SMS paths above). Real-time
+	// alert — the target's CAS claim already deduped delivery, so Telegram piggybacks.
+	// Only query per-option prefs for users whose channel is usable (linked + not opted
+	// out). Text-only: price targets carry no intraday candles.
+	if (sendTelegram && isTelegramChannelUsable(user)) {
+		const { data: prefRows, error: prefError } = await supabase
+			.from("notification_preferences")
+			.select("notification_type, content, enabled")
+			.eq("user_id", user.id)
+			.eq("notification_type", "price_targets")
+			.eq("channel", "telegram");
+		if (prefError) {
+			rootLogger.error(
+				"Failed to load Telegram price-target preferences",
+				{ userId: user.id, symbol: target.symbol },
+				prefError,
+			);
+		}
+		const telegramPrefs: TelegramPrefRow[] = prefRows ?? [];
+
+		if (shouldSendTelegram(user, telegramPrefs, "price_targets")) {
+			const enriched = buildPriceTargetEnriched(target);
+			const { text, entities, photo } = formatPriceAlertTelegram(enriched, []);
+			const result = await sendTelegram({
+				// telegram_chat_id is non-null here: isTelegramChannelUsable requires it.
+				chatId: user.telegram_chat_id as number,
+				text,
+				entities,
+				...(photo ? { photo } : {}),
+			});
+
+			if (result.success) {
+				stats.telegramSent++;
+				delivered = true;
+			} else {
+				stats.telegramFailed++;
+				rootLogger.error(
+					"Failed to send price target Telegram message",
+					{ userId: user.id, symbol: target.symbol, errorCode: result.errorCode ?? null },
+					new Error(result.error ?? "Price target Telegram send failed"),
+				);
+			}
+
+			const logged = await recordNotification(supabase, {
+				user_id: user.id,
+				type: "price_target",
+				delivery_method: "telegram",
+				message_delivered: result.success,
+				message: text,
+				...deliveryResultToLogFields(result),
 			});
 			if (!logged) stats.logFailures++;
 		}

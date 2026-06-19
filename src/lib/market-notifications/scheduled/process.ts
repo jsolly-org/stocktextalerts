@@ -5,9 +5,11 @@ import { formatAssetsTextList } from "../../messaging/asset-formatting";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../../messaging/delay-banner";
 import type { EmailSender } from "../../messaging/email/utils";
 import { safePrefetchLogos } from "../../messaging/logo-fetcher";
+import { buildMarketClosedBannerText } from "../../messaging/market-closure-banner";
 import { recordNotification } from "../../messaging/shared";
 import { shouldSendSms } from "../../messaging/sms";
 import type { SparklineMap } from "../../messaging/sparkline";
+import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/telegram/eligibility";
 import type { UserRecord } from "../../messaging/types";
 import type { AssetPriceMap, MarketSession } from "../../providers/price-fetcher";
 import { fetchIntradaySparklines, NO_SESSION_TRADE } from "../../providers/price-fetcher";
@@ -19,13 +21,19 @@ import type {
 } from "../../schedule/helpers";
 import { loadUserAssets } from "../../schedule/helpers";
 import type { SmsSenderProvider } from "../../schedule/sms-sender";
+import type { TelegramSenderProvider } from "../../schedule/telegram-sender";
 import { isOutsideMarketHours, userLocalToEtMinute } from "../../time/format";
 import type { MarketClosureInfo } from "../../time/market-calendar";
 import { getUsMarketClosureInfoForInstant } from "../../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../../time/scheduled-times";
-import { processMarketScheduledEmailDelivery, processMarketScheduledSmsDelivery } from "./delivery";
+import {
+	processMarketScheduledEmailDelivery,
+	processMarketScheduledSmsDelivery,
+	processMarketScheduledTelegramDelivery,
+} from "./delivery";
 import { updateUserMarketScheduledNextSendAt } from "./next-send-at";
 import { shouldAdvanceMarketScheduledSchedule } from "./schedule-state";
+import { buildSessionFirstLine } from "./session-label";
 
 /** Process a single user's scheduled market asset update notification. */
 export async function processMarketScheduledUser(options: {
@@ -35,6 +43,7 @@ export async function processMarketScheduledUser(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
+	getTelegramSender: TelegramSenderProvider;
 	priceMap: AssetPriceMap;
 	/** Symbols Massive recognized but had no live trade in the current session.
 	 *  The renderer emits "no pre-market trades" / "no after-hours trades" for
@@ -64,6 +73,7 @@ export async function processMarketScheduledUser(options: {
 		sendEmail,
 		currentTime,
 		getSmsSender,
+		getTelegramSender,
 		priceMap,
 		noSessionTrade,
 		marketSession,
@@ -282,6 +292,32 @@ export async function processMarketScheduledUser(options: {
 
 		const shouldAttemptSms = shouldSendSms(user);
 
+		// Telegram preferences live in notification_preferences (per option×channel
+		// rows), not the legacy per-column user flags. Only query for users who can
+		// actually receive Telegram (linked + not opted out) — this skips a per-user
+		// lookup for the majority who have never linked Telegram.
+		let telegramEnabled = false;
+		if (isTelegramChannelUsable(user)) {
+			const { data: telegramPrefRows, error: telegramPrefError } = await supabase
+				.from("notification_preferences")
+				.select("notification_type, content, enabled")
+				.eq("user_id", user.id)
+				.eq("notification_type", "market_scheduled_asset_price")
+				.eq("channel", "telegram");
+			if (telegramPrefError) {
+				logger.error(
+					"Failed to load Telegram scheduled-market preferences",
+					{ action: "market_notifications_run", userId: user.id },
+					telegramPrefError,
+				);
+			}
+			telegramEnabled = shouldSendTelegram(
+				user,
+				telegramPrefRows ?? [],
+				"market_scheduled_asset_price",
+			);
+		}
+
 		const sessionFirstLine = {
 			scheduledEtMinutes: userLocalToEtMinute(scheduledMinutes, user.timezone),
 			is24: user.use_24_hour_time,
@@ -334,9 +370,36 @@ export async function processMarketScheduledUser(options: {
 			});
 		}
 
+		/* ============= Process Telegram ============= */
+		if (telegramEnabled) {
+			attemptedDeliveryMethod = "telegram";
+			const sessionLabel = buildSessionFirstLine(
+				marketSession,
+				sessionFirstLine.scheduledEtMinutes,
+				sessionFirstLine.is24,
+			);
+			const telegramMarketBanner = marketClosureInfo
+				? buildMarketClosedBannerText(marketClosureInfo)
+				: null;
+			await processMarketScheduledTelegramDelivery({
+				user,
+				supabase,
+				logger,
+				scheduledDate,
+				scheduledMinutes,
+				userAssets,
+				priceMap,
+				sessionLabel,
+				marketClosedBanner: telegramMarketBanner,
+				getTelegramSender,
+				stats,
+			});
+		}
+
 		const emailRequired =
 			user.email_notifications_enabled && user.market_scheduled_asset_price_include_email;
 		const smsRequired = shouldAttemptSms && user.market_scheduled_asset_price_include_sms;
+		const telegramRequired = telegramEnabled;
 		const canAdvance = await shouldAdvanceMarketScheduledSchedule({
 			supabase,
 			user,
@@ -344,6 +407,7 @@ export async function processMarketScheduledUser(options: {
 			scheduledMinutes,
 			emailRequired,
 			smsRequired,
+			telegramRequired,
 		});
 
 		if (canAdvance) {
