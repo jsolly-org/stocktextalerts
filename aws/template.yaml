@@ -45,6 +45,10 @@ Parameters:
   UnsubscribeTokenSecret:
     Type: String
     NoEcho: true
+  TelegramBotToken:
+    Type: String
+    NoEcho: true
+    Description: Telegram bot token — outbound sends from the schedule cron (digest + price alerts)
   # Default "false" for local dev (sam local invoke); deploy.sh overrides to "true" for production
   LogMaskPii:
     Type: String
@@ -115,6 +119,7 @@ Resources:
           MASSIVE_API_KEY: !Ref MassiveApiKey
           FINNHUB_API_KEY: !Ref FinnhubApiKey
           XAI_API_KEY: !Ref XaiApiKey
+          TELEGRAM_BOT_TOKEN: !Ref TelegramBotToken
           SUPABASE_URL: !Ref SupabaseUrl
           SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
           EMAIL_FROM: !Ref EmailFrom

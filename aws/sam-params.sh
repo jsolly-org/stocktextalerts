@@ -34,6 +34,7 @@ done < "$_ENV_FILE"
 : "${EMAIL_DISPATCH_SECRET:?EMAIL_DISPATCH_SECRET not set in .env.local}"
 : "${ADMIN_EMAILS:?ADMIN_EMAILS not set in .env.local}"
 : "${PRODUCTION_SITE_URL:?PRODUCTION_SITE_URL not set in .env.local}"
+: "${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN not set in .env.local}"
 
 _GIT_SHA="$(git -C "$_PARAMS_DIR/.." rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
@@ -49,6 +50,7 @@ SAM_PARAMS=(
   "TwilioApiKeySid=$TWILIO_API_KEY_SID"
   "TwilioApiKeySecret=$TWILIO_API_KEY_SECRET"
   "TwilioPhoneNumber=$TWILIO_PHONE_NUMBER"
+  "TelegramBotToken=$TELEGRAM_BOT_TOKEN"
   "UnsubscribeTokenSecret=$UNSUBSCRIBE_TOKEN_SECRET"
   "EmailDispatchSecret=$EMAIL_DISPATCH_SECRET"
   "AdminEmails=$ADMIN_EMAILS"
