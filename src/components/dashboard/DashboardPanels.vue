@@ -39,6 +39,7 @@
 				:emailEnabled="emailEnabled"
 				:phoneVerified="phoneVerified"
 				:hasTrackedAssets="hasTrackedAssets"
+				:telegramPrefs="dailyDigestTelegramPrefs"
 			/>
 		</template>
 
@@ -100,11 +101,19 @@ interface Props {
 	user: User;
 	initialAssets: InitialAsset[];
 	smsPhoneNumber: string;
+	/**
+	 * The user's current daily-digest Telegram selections, keyed by content facet
+	 * ("prices" | "top_movers" | "news" | "rumors"). Loaded server-side from
+	 * `notification_preferences` (channel='telegram') since these prefs aren't on
+	 * the users row. Used to initialize the daily-digest channel multiselect.
+	 */
+	dailyDigestTelegramPrefs: Record<string, boolean>;
 }
 
 const props = defineProps<Props>();
 
 const {
+	dailyDigestTelegramPrefs,
 	initialAssets,
 	smsPhoneNumber,
 	user: userProp,

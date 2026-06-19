@@ -64,6 +64,11 @@
 					name="daily_digest_include_prices_sms"
 					:value="includePricesSms ? 'on' : 'off'"
 				/>
+					<input
+						type="hidden"
+					name="daily_digest_include_prices_telegram"
+					:value="includePricesTelegram ? 'on' : 'off'"
+				/>
 				<div class="min-w-0">
 					<div class="flex items-center gap-2">
 						<span
@@ -80,39 +85,13 @@
 							Include current prices and change percentages for your tracked assets.
 						</p>
 					</div>
-				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-					<label
-						class="inline-flex items-center gap-1.5"
-						:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
-						:title="emailDisabledTitle"
-					>
-						<input
-							type="checkbox"
-							v-model="includePricesEmail"
-							:disabled="emailOnlyDisabled"
-							class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
-							:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
-							aria-label="Asset Prices Email"
-							aria-describedby="daily_digest_include_prices_description"
-						/>
-						<span class="text-sm text-label">Email</span>
-					</label>
-					<label
-						class="inline-flex items-center gap-1.5"
-						:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
-						:title="smsDisabledTitle"
-					>
-						<input
-							type="checkbox"
-							v-model="includePricesSms"
-							:disabled="notificationSetupBlocked || !smsReady"
-							class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
-							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed'"
-							aria-label="Asset Prices SMS"
-							aria-describedby="daily_digest_include_prices_description"
-						/>
-						<span class="text-sm text-label">SMS</span>
-					</label>
+				<div class="shrink-0">
+					<ChannelMultiSelect
+						idPrefix="daily_digest_include_prices"
+						labelledby="daily_digest_include_prices_label"
+						:options="pricesChannelOptions"
+						@toggle="handlePricesToggle"
+					/>
 				</div>
 				</div>
 
@@ -126,6 +105,11 @@
 						type="hidden"
 						name="daily_digest_include_top_movers_sms"
 						:value="includeTopMoversSms ? 'on' : 'off'"
+					/>
+					<input
+						type="hidden"
+						name="daily_digest_include_top_movers_telegram"
+						:value="includeTopMoversTelegram ? 'on' : 'off'"
 					/>
 					<div class="min-w-0">
 						<div class="flex items-center gap-2">
@@ -144,39 +128,13 @@
 							Include the day's biggest market-wide gainers and losers (US stocks priced $5+).
 						</p>
 					</div>
-					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-						<label
-							class="inline-flex items-center gap-1.5"
-							:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
-							:title="emailDisabledTitle"
-						>
-							<input
-								type="checkbox"
-								v-model="includeTopMoversEmail"
-								:disabled="emailOnlyDisabled"
-								class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
-								:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
-								aria-label="Top Movers Email"
-								aria-describedby="daily_digest_include_top_movers_description"
-							/>
-							<span class="text-sm text-label">Email</span>
-						</label>
-						<label
-							class="inline-flex items-center gap-1.5"
-							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
-							:title="smsDisabledTitle"
-						>
-							<input
-								type="checkbox"
-								v-model="includeTopMoversSms"
-								:disabled="notificationSetupBlocked || !smsReady"
-								class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
-								:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed'"
-								aria-label="Top Movers SMS"
-								aria-describedby="daily_digest_include_top_movers_description"
-							/>
-							<span class="text-sm text-label">SMS</span>
-						</label>
+					<div class="shrink-0">
+						<ChannelMultiSelect
+							idPrefix="daily_digest_include_top_movers"
+							labelledby="daily_digest_include_top_movers_label"
+							:options="topMoversChannelOptions"
+							@toggle="handleTopMoversToggle"
+						/>
 					</div>
 				</div>
 
@@ -185,6 +143,11 @@
 						type="hidden"
 						name="daily_digest_include_news_email"
 						:value="includeNewsEmail ? 'on' : 'off'"
+					/>
+					<input
+						type="hidden"
+						name="daily_digest_include_news_telegram"
+						:value="includeNewsTelegram ? 'on' : 'off'"
 					/>
 					<div class="min-w-0">
 						<div class="flex items-center gap-2">
@@ -206,22 +169,12 @@
 						</p>
 					</div>
 					<div class="shrink-0">
-						<label
-							class="inline-flex items-center gap-1.5"
-							:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
-							:title="emailDisabledTitle"
-						>
-							<input
-								type="checkbox"
-								v-model="includeNewsEmail"
-								:disabled="emailOnlyDisabled"
-								class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
-								:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
-								aria-label="News Email"
-								aria-describedby="daily_digest_include_news_description"
-							/>
-							<span class="text-sm text-label">Email</span>
-						</label>
+						<ChannelMultiSelect
+							idPrefix="daily_digest_include_news"
+							labelledby="daily_digest_include_news_label"
+							:options="newsChannelOptions"
+							@toggle="handleNewsToggle"
+						/>
 					</div>
 				</div>
 
@@ -230,6 +183,11 @@
 						type="hidden"
 					name="daily_digest_include_rumors_email"
 					:value="includeRumorsEmail ? 'on' : 'off'"
+				/>
+					<input
+						type="hidden"
+					name="daily_digest_include_rumors_telegram"
+					:value="includeRumorsTelegram ? 'on' : 'off'"
 				/>
 				<div class="min-w-0">
 					<div class="flex items-center gap-2">
@@ -250,22 +208,12 @@
 						</p>
 					</div>
 				<div class="shrink-0">
-					<label
-						class="inline-flex items-center gap-1.5"
-						:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
-						:title="emailDisabledTitle"
-					>
-						<input
-							type="checkbox"
-							v-model="includeRumorsEmail"
-							:disabled="emailOnlyDisabled"
-							class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
-							:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
-							aria-label="Rumors Email"
-							aria-describedby="daily_digest_include_rumors_description"
-						/>
-						<span class="text-sm text-label">Email</span>
-					</label>
+					<ChannelMultiSelect
+						idPrefix="daily_digest_include_rumors"
+						labelledby="daily_digest_include_rumors_label"
+						:options="rumorsChannelOptions"
+						@toggle="handleRumorsToggle"
+					/>
 				</div>
 				</div>
 
@@ -307,6 +255,8 @@ import {
 	useAutoSaveForm,
 } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
+import type { ChannelOption } from "../shared/ChannelMultiSelect.vue";
+import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
 import {
 	getEmailChannelDisabledTitle,
 	getSmsChannelDisabledTitle,
@@ -318,6 +268,14 @@ interface Props {
 	emailEnabled: boolean;
 	phoneVerified: boolean;
 	hasTrackedAssets: boolean;
+	/**
+	 * The user's current daily-digest Telegram selections, keyed by content facet
+	 * ("prices" | "top_movers" | "news" | "rumors"). Loaded server-side from
+	 * `notification_preferences` (channel='telegram'); absent facets default to off.
+	 * The autosave update endpoint persists Telegram to that table but does NOT echo
+	 * it back in its snapshot, so these refs are the panel's own source of truth.
+	 */
+	telegramPrefs: Record<string, boolean>;
 }
 
 const props = defineProps<Props>();
@@ -418,14 +376,111 @@ const includeTopMoversSms = ref(
 const includeNewsEmail = ref(user.value.daily_digest_include_news_email);
 const includeRumorsEmail = ref(user.value.daily_digest_include_rumors_email);
 
+/* =============
+Telegram per-option state. These prefs live in `notification_preferences`
+(channel='telegram'), not the users row, so they initialize from the server-loaded
+`telegramPrefs` prop (absent facet ⇒ off) and are NOT re-synced from `user.value`
+the way the email/sms refs are. Telegram is offered on every option — including
+news/rumors, which are email-only on the legacy columns.
+============= */
+const includePricesTelegram = ref(props.telegramPrefs.prices === true);
+const includeTopMoversTelegram = ref(props.telegramPrefs.top_movers === true);
+const includeNewsTelegram = ref(props.telegramPrefs.news === true);
+const includeRumorsTelegram = ref(props.telegramPrefs.rumors === true);
+
+/** Telegram is selectable only once the account is linked (chat id present). */
+const telegramConnected = computed(() => user.value.telegram_chat_id != null);
+const telegramDisabledTitle = computed(() =>
+	telegramConnected.value
+		? undefined
+		: "Connect Telegram in your notification channels to select this option.",
+);
+
 const dailyEnabled = computed(() =>
 	includePricesEmail.value ||
 	includePricesSms.value ||
+	includePricesTelegram.value ||
 	includeTopMoversEmail.value ||
 	includeTopMoversSms.value ||
+	includeTopMoversTelegram.value ||
 	includeNewsEmail.value ||
-	includeRumorsEmail.value,
+	includeNewsTelegram.value ||
+	includeRumorsEmail.value ||
+	includeRumorsTelegram.value,
 );
+
+/* =============
+Channel multiselect options. Each option carries its selected/disabled/title so the
+multiselect can show every channel that exists for the facet (prices/top_movers get
+Email+SMS+Telegram; news/rumors are Email+Telegram — no SMS) while still surfacing
+why a channel is unavailable. Email/SMS disabled logic mirrors the prior checkboxes.
+============= */
+function emailOption(selected: boolean): ChannelOption {
+	return {
+		value: "email",
+		label: "Email",
+		selected,
+		disabled: emailOnlyDisabled.value,
+		disabledTitle: emailDisabledTitle.value,
+	};
+}
+function smsOption(selected: boolean): ChannelOption {
+	return {
+		value: "sms",
+		label: "SMS",
+		selected,
+		disabled: notificationSetupBlocked.value || !smsReady.value,
+		disabledTitle: smsDisabledTitle.value,
+	};
+}
+function telegramOption(selected: boolean): ChannelOption {
+	return {
+		value: "telegram",
+		label: "Telegram",
+		selected,
+		disabled: !telegramConnected.value,
+		disabledTitle: telegramDisabledTitle.value,
+	};
+}
+
+const pricesChannelOptions = computed<ChannelOption[]>(() => [
+	emailOption(includePricesEmail.value),
+	smsOption(includePricesSms.value),
+	telegramOption(includePricesTelegram.value),
+]);
+const topMoversChannelOptions = computed<ChannelOption[]>(() => [
+	emailOption(includeTopMoversEmail.value),
+	smsOption(includeTopMoversSms.value),
+	telegramOption(includeTopMoversTelegram.value),
+]);
+// News & Rumors are email-only on the legacy columns — no SMS channel offered.
+const newsChannelOptions = computed<ChannelOption[]>(() => [
+	emailOption(includeNewsEmail.value),
+	telegramOption(includeNewsTelegram.value),
+]);
+const rumorsChannelOptions = computed<ChannelOption[]>(() => [
+	emailOption(includeRumorsEmail.value),
+	telegramOption(includeRumorsTelegram.value),
+]);
+
+function handlePricesToggle(channel: string, selected: boolean) {
+	if (channel === "email") includePricesEmail.value = selected;
+	else if (channel === "sms") includePricesSms.value = selected;
+	else if (channel === "telegram") includePricesTelegram.value = selected;
+}
+function handleTopMoversToggle(channel: string, selected: boolean) {
+	if (channel === "email") includeTopMoversEmail.value = selected;
+	else if (channel === "sms") includeTopMoversSms.value = selected;
+	else if (channel === "telegram") includeTopMoversTelegram.value = selected;
+}
+function handleNewsToggle(channel: string, selected: boolean) {
+	if (channel === "email") includeNewsEmail.value = selected;
+	else if (channel === "telegram") includeNewsTelegram.value = selected;
+}
+function handleRumorsToggle(channel: string, selected: boolean) {
+	if (channel === "email") includeRumorsEmail.value = selected;
+	else if (channel === "telegram") includeRumorsTelegram.value = selected;
+}
 
 const hasAnyAssetEventsOptionEnabled = computed(
 	() =>
@@ -521,10 +576,14 @@ watch(
 	[
 		includePricesEmail,
 		includePricesSms,
+		includePricesTelegram,
 		includeTopMoversEmail,
 		includeTopMoversSms,
+		includeTopMoversTelegram,
 		includeNewsEmail,
+		includeNewsTelegram,
 		includeRumorsEmail,
+		includeRumorsTelegram,
 	],
 	() => {
 		notifyChange();

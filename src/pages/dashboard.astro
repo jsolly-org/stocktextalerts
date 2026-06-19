@@ -44,6 +44,22 @@ if (!isUserApproved(dbUser)) {
 const user = dbUser;
 const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: asset.name, type: asset.type, icon_url: asset.icon_url }));
 
+// Telegram per-option prefs live in `notification_preferences` (channel='telegram'),
+// not on the users row, so they aren't carried by `getById`. Load this user's
+// daily_digest telegram rows here (session-scoped client; RLS allows reading own
+// rows) so the daily-digest channel multiselect can initialize its Telegram state.
+// Only the `daily_digest` facets are needed in this prototype scope.
+const { data: telegramDailyDigestRows } = await supabase
+	.from("notification_preferences")
+	.select("content, enabled")
+	.eq("user_id", authUser.id)
+	.eq("notification_type", "daily_digest")
+	.eq("channel", "telegram");
+const dailyDigestTelegramPrefs: Record<string, boolean> = {};
+for (const row of telegramDailyDigestRows ?? []) {
+	dailyDigestTelegramPrefs[row.content] = row.enabled;
+}
+
 const rawTwilioNumber = requireEnv("TWILIO_PHONE_NUMBER");
 const smsPhoneNumber = formatPhoneFromE164(rawTwilioNumber);
 ---
@@ -65,6 +81,7 @@ const smsPhoneNumber = formatPhoneFromE164(rawTwilioNumber);
 				user={user}
 				initialAssets={initialAssets}
 				smsPhoneNumber={smsPhoneNumber}
+				dailyDigestTelegramPrefs={dailyDigestTelegramPrefs}
 			/>
 		</main>
 	</div>
