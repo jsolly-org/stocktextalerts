@@ -335,6 +335,43 @@ existing idempotency key for a Telegram sent-message ledger if exactly-once matt
 - **Backups (P2-10):** new `telegram_*` columns enter backups (`backup/export.ts:80`) — update manifest
   `schema_version` test expectations; confirm `telegram_id/chat_id` acceptable in plaintext exports.
 
+### Test tiers for the Telegram send path
+
+The send path has four layers of coverage, from always-on to deliberately-opt-in. The first two run on
+every `npm test` (mock-only, CI-safe); the last two never send from CI.
+
+1. **Mocked unit/integration (default, always on).** `createTelegramSender` hard-gates on
+   `!isProduction()` and returns a deterministic mock before `bot.api` is ever touched
+   (`tests/lib/messaging/sender-gates.test.ts` locks this in — the 2026-04-11 invariant). Eligibility,
+   formatter, digest, and price-alert tests run against the mock.
+2. **Transformer payload tests (real API-call shape, no network).**
+   `tests/lib/messaging/telegram-send-path.test.ts` exercises the **real** grammY construction the mock
+   skips. `createTelegramSender`'s production body is extracted into an exported
+   `sendViaBot(bot, message)`; the test builds a bot via `createTelegramBot("123:fake")`, installs a
+   capturing transformer (`bot.api.config.use((prev, method, payload) => fakeResponse)`), calls
+   `sendViaBot`, and asserts the captured `(method, payload)`: text → `sendMessage` with `entities` +
+   `link_preview_options.is_disabled` + `disable_notification`; photo Buffer → `sendPhoto` with an
+   `InputFile` + `caption_entities`; a returned `{ ok:false, error_code:403 }` → grammY throws a real
+   `GrammyError` → `{ success:false, errorCode:"403" }`; `message_id` → `messageSid`. (A transformer must
+   **return** an error response, not throw — a thrown error is re-wrapped as `HttpError`, bypassing the
+   errorCode mapping.) The health-shaping test (`tests/scripts/telegram-health.test.ts`) uses the same
+   transformer technique for `getMe`/`getWebhookInfo`.
+3. **Read-only live health check (`npm run telegram:health`).** `scripts/telegram/health.ts` reads the
+   real `TELEGRAM_BOT_TOKEN` and calls only `getMe()` + `getWebhookInfo()` — side-effect-free, NEVER
+   sends. This is `/ship`'s Telegram live-verification step (allowed for agents because it sends nothing);
+   it exits non-zero with a clear message on a missing token or a failed `getMe`.
+4. **Gated live-send (`npm run test:live:telegram`).** `tests/live/telegram-live-send.test.ts` is
+   `describe.skipIf`-skipped unless **both** `TELEGRAM_LIVE_TEST=1` and `TELEGRAM_LIVE_TEST_CHAT_ID` are
+   set; when enabled it uses the real token to actually deliver a text message and a candlestick-chart
+   photo (`buildCandlestickSvg` → `renderChartPng` → `sendViaBot`) to that chat, asserting each returns a
+   numeric `message_id`. Default-skipped so `npm test` stays mock-only. Run against a **dedicated test
+   chat** — never a real subscriber.
+
+**Telegram test environment (fully isolated live runs).** For live runs that can't possibly reach a real
+user, Telegram exposes a separate test data center with its own bots/accounts
+(`core.telegram.org/bots/webapps#testing-mini-apps`, `core.telegram.org/api/auth#test-accounts`). Point
+the gated live-send (tier 4) at a test-DC bot + chat for a hermetic real-delivery check.
+
 ## 13. Observability & ops (P1-5)
 
 - Log Telegram failures at `error` so they ride the existing `ErrorLogAlarm` MetricFilter

@@ -22,6 +22,7 @@
 		"test:e2e": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-playwright.ts",
 		"test:e2e:preview": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-playwright.ts --config playwright.preview.config.ts",
 		"test:all": "npm run test && npm run test:e2e",
+		"test:live:telegram": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-vitest.ts tests/live/telegram-live-send.test.ts",
 		"check:ts": "astro check",
 		"check:biome": "biome check --write --no-errors-on-unmatched",
 		"check:knip": "knip",
@@ -44,7 +45,8 @@
 		"backup:restore": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/backup/restore.ts",
 		"db:fetch-assets": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/fetch-us-assets.ts",
 		"db:generate-seed": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/generate-seed.ts",
-		"telegram:set-webhook": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/telegram/set-webhook.ts"
+		"telegram:set-webhook": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/telegram/set-webhook.ts",
+		"telegram:health": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/telegram/health.ts"
 	},
 	"lint-staged": {
 		"**/*.{ts,tsx,json,css,astro,html,vue}": [
