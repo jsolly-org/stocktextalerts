@@ -14,7 +14,7 @@ After machine reinstalls, Podman upgrades, or Supabase CLI upgrades, run `script
 
 Linked git worktrees (`git worktree add …`) each get an isolated local Supabase stack so `db:reset` in one worktree does not wipe another's `auth.users` / seed state.
 
-**Provision a fresh worktree with one command: `npm run worktree:init`** — it does a real `npm ci` (with the cache redirected to `$TMPDIR` so it works inside the command sandbox; never symlink `node_modules` — a symlink resolves outside the worktree root and Vite's `server.fs.allow` then 403s on `@astrojs/vue/dist/client.js`, breaking island hydration) and then `db:bootstrap`.
+**Provision a fresh worktree with one command: `npm run worktree:init`** — it does a real `npm ci` (never symlink `node_modules` — a symlink resolves outside the worktree root and Vite's `server.fs.allow` then 403s on `@astrojs/vue/dist/client.js`, breaking island hydration) and then `db:bootstrap`.
 
 On first bootstrap in a worktree, `scripts/db/worktree-supabase.ts`:
 
