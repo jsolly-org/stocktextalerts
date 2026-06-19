@@ -19,20 +19,29 @@ const SCREENSHOT_DROPDOWN = `${WORKTREE_ROOT}/_ui-dropdown.png`;
 // in every channel multiselect.
 const TELEGRAM_CHAT_ID = 8675309;
 
+/**
+ * Read a single Telegram notification-preference row's `enabled` flag.
+ *
+ * daily_digest / asset_events rows carry a content facet ("prices", "calendar", …);
+ * the facet-less market types use content='' (the default arg).
+ */
 async function getTelegramPreference(
 	userId: string,
-	content: string,
+	notificationType: string,
+	content = "",
 ): Promise<boolean | null> {
 	const { data, error } = await adminClient
 		.from("notification_preferences")
 		.select("enabled")
 		.eq("user_id", userId)
-		.eq("notification_type", "daily_digest")
+		.eq("notification_type", notificationType)
 		.eq("content", content)
 		.eq("channel", "telegram")
 		.maybeSingle();
 	if (error) {
-		throw new Error(`Failed to read telegram preference (${content}): ${error.message}`);
+		throw new Error(
+			`Failed to read telegram preference (${notificationType}/${content}): ${error.message}`,
+		);
 	}
 	return data?.enabled ?? null;
 }
@@ -81,15 +90,13 @@ test.describe("Telegram dashboard UI", () => {
 		// Pre-select Telegram for the daily-digest "prices" option so the panel
 		// renders one multiselect with Telegram already chosen (server reads this
 		// row into the panel's `telegramPrefs` prop).
-		const { error: prefError } = await adminClient
-			.from("notification_preferences")
-			.insert({
-				user_id: userId,
-				notification_type: "daily_digest",
-				content: "prices",
-				channel: "telegram",
-				enabled: true,
-			});
+		const { error: prefError } = await adminClient.from("notification_preferences").insert({
+			user_id: userId,
+			notification_type: "daily_digest",
+			content: "prices",
+			channel: "telegram",
+			enabled: true,
+		});
 		if (prefError) {
 			throw new Error(`Failed to seed prices/telegram preference: ${prefError.message}`);
 		}
@@ -164,18 +171,68 @@ test.describe("Telegram dashboard UI", () => {
 
 		// --- Behavior: toggling Telegram on for Top Movers persists a DB row ---
 		// Precondition: no top_movers/telegram row yet.
-		expect(await getTelegramPreference(userId as string, "top_movers")).toBeNull();
+		expect(await getTelegramPreference(userId as string, "daily_digest", "top_movers")).toBeNull();
 
 		await waitForAutosave(page, async () => {
 			await telegramOption.click();
 		});
 
 		// The new row persisted as enabled.
-		expect(await getTelegramPreference(userId as string, "top_movers")).toBe(true);
+		expect(await getTelegramPreference(userId as string, "daily_digest", "top_movers")).toBe(true);
 		// The pre-seeded prices/telegram row is untouched (still enabled).
-		expect(await getTelegramPreference(userId as string, "prices")).toBe(true);
+		expect(await getTelegramPreference(userId as string, "daily_digest", "prices")).toBe(true);
 
 		// The trigger summary now reflects the new Telegram selection in the UI.
 		await expect(topMoversTrigger).toContainText("Telegram");
+	});
+
+	test("toggling Telegram on a Market panel option and an Asset Events option each persist a DB row", async () => {
+		await page.goto("/dashboard");
+
+		// --- Market Notifications: 5% Price Move Alerts (content='') -----------
+		// This facet-less market type keys its telegram pref by notification_type.
+		const priceMoveTrigger = page.locator("#price_move_alerts-channel-trigger");
+		await expect(priceMoveTrigger).toBeVisible();
+		await expect(priceMoveTrigger).toHaveAttribute("aria-haspopup", "listbox");
+		await priceMoveTrigger.scrollIntoViewIfNeeded();
+
+		await priceMoveTrigger.click();
+		const priceMoveListbox = page.locator("#price_move_alerts-channel-listbox");
+		await expect(priceMoveListbox).toBeVisible();
+		const priceMoveTelegram = priceMoveListbox.getByRole("option", { name: "Telegram" });
+		await expect(priceMoveTelegram).toBeVisible();
+
+		// Precondition: no price_move_alerts/telegram row yet.
+		expect(await getTelegramPreference(userId as string, "price_move_alerts")).toBeNull();
+
+		await waitForAutosave(page, async () => {
+			await priceMoveTelegram.click();
+		});
+
+		// The new row persisted as enabled (content='' for this market type).
+		expect(await getTelegramPreference(userId as string, "price_move_alerts")).toBe(true);
+		await expect(priceMoveTrigger).toContainText("Telegram");
+
+		// --- Asset Events: Calendar (content='calendar') -----------------------
+		const calendarTrigger = page.locator("#asset_events_calendar-channel-trigger");
+		await expect(calendarTrigger).toBeVisible();
+		await calendarTrigger.scrollIntoViewIfNeeded();
+
+		await calendarTrigger.click();
+		const calendarListbox = page.locator("#asset_events_calendar-channel-listbox");
+		await expect(calendarListbox).toBeVisible();
+		const calendarTelegram = calendarListbox.getByRole("option", { name: "Telegram" });
+		await expect(calendarTelegram).toBeVisible();
+
+		// Precondition: no asset_events/calendar/telegram row yet.
+		expect(await getTelegramPreference(userId as string, "asset_events", "calendar")).toBeNull();
+
+		await waitForAutosave(page, async () => {
+			await calendarTelegram.click();
+		});
+
+		// The new row persisted as enabled, keyed by the calendar content facet.
+		expect(await getTelegramPreference(userId as string, "asset_events", "calendar")).toBe(true);
+		await expect(calendarTrigger).toContainText("Telegram");
 	});
 });

@@ -68,9 +68,9 @@
 			:phoneVerificationSectionId="phoneVerificationSectionId"
 		/>
 
-		<!-- Asset Events — each event type has its own Email/SMS toggles -->
+		<!-- Asset Events — each event type has its own channel multiselect -->
 		<div class="mt-4 space-y-3">
-			<!-- Select all Email / SMS — column header -->
+			<!-- Select all Email / SMS / Telegram — column header -->
 				<div
 					class="flex items-center justify-between gap-3 px-4 transition-opacity duration-200"
 					:class="{ 'opacity-50': needsChannelSelection }"
@@ -111,6 +111,23 @@
 						/>
 						<span class="text-sm font-medium text-body-secondary">SMS</span>
 					</label>
+					<label
+						class="inline-flex items-center gap-1.5"
+						:class="telegramConnected ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+						:title="telegramDisabledTitle"
+					>
+						<input
+							ref="selectAllTelegramRef"
+							type="checkbox"
+							:checked="allTelegramChecked"
+							:disabled="!telegramConnected"
+							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
+							:class="telegramConnected ? 'cursor-pointer' : 'cursor-not-allowed'"
+							aria-label="Select all Telegram"
+							@change="toggleAllTelegram"
+						/>
+						<span class="text-sm font-medium text-body-secondary">Telegram</span>
+					</label>
 				</div>
 			</div>
 
@@ -130,6 +147,11 @@
 					type="hidden"
 					:name="`asset_events_include_${eventType.key}_sms`"
 					:value="assetEventRefs[eventType.key].sms.value ? 'on' : 'off'"
+				/>
+				<input
+					type="hidden"
+					:name="`asset_events_include_${eventType.key}_telegram`"
+					:value="assetEventRefs[eventType.key].telegram.value ? 'on' : 'off'"
 				/>
 				<div class="min-w-0">
 					<div class="flex items-center gap-2">
@@ -155,39 +177,13 @@
 						</template>
 					</p>
 				</div>
-				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-					<label
-						class="inline-flex items-center gap-1.5"
-						:class="isEventTypeBlocked(eventType.key) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'"
-						:title="emailDisabledTitle"
-					>
-						<input
-							type="checkbox"
-							v-model="assetEventRefs[eventType.key].email.value"
-							:disabled="isEventTypeBlocked(eventType.key)"
-							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-							:class="isEventTypeBlocked(eventType.key) ? 'cursor-not-allowed' : 'cursor-pointer'"
-							:aria-label="`${eventType.label} Email`"
-							:aria-describedby="`asset_events_${eventType.key}_description`"
-						/>
-						<span class="text-sm font-normal text-label">Email</span>
-					</label>
-					<label
-						class="inline-flex items-center gap-1.5"
-						:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
-						:title="smsDisabledTitle"
-					>
-						<input
-							type="checkbox"
-							v-model="assetEventRefs[eventType.key].sms.value"
-							:disabled="isEventTypeBlocked(eventType.key) || !smsReady"
-							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed'"
-							:aria-label="`${eventType.label} SMS`"
-							:aria-describedby="`asset_events_${eventType.key}_description`"
-						/>
-						<span class="text-sm font-normal text-label">SMS</span>
-					</label>
+				<div class="shrink-0">
+					<ChannelMultiSelect
+						:idPrefix="`asset_events_${eventType.key}`"
+						:labelledby="`asset_events_${eventType.key}_label`"
+						:options="channelOptionsFor(eventType.key)"
+						@toggle="(channel, selected) => handleAssetEventToggle(eventType.key, channel, selected)"
+					/>
 				</div>
 			</div>
 		</div>
@@ -233,6 +229,8 @@ import {
 	useAutoSaveForm,
 } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
+import type { ChannelOption } from "../shared/ChannelMultiSelect.vue";
+import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
 import {
 	getEmailChannelDisabledTitle,
 	getSmsChannelDisabledTitle,
@@ -244,9 +242,19 @@ interface Props {
 	emailEnabled: boolean;
 	phoneVerified: boolean;
 	hasTrackedAssets: boolean;
+	/**
+	 * The user's current asset-events Telegram selections, keyed by content facet
+	 * ("calendar" | "ipo" | "analyst" | "insider"). Loaded server-side from
+	 * `notification_preferences` (channel='telegram'); absent facets default to off.
+	 * The autosave endpoint persists Telegram to that table but does NOT echo it back
+	 * in its snapshot, so these refs are the panel's own source of truth.
+	 */
+	telegramPrefs?: Record<string, boolean>;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+	telegramPrefs: () => ({}),
+});
 const {
 	emailEnabled,
 	phoneVerified,
@@ -356,6 +364,14 @@ const ASSET_EVENT_TYPES = [
 
 type AssetEventKey = (typeof ASSET_EVENT_TYPES)[number]["key"];
 
+/** Telegram is selectable only once the account is linked (chat id present). */
+const telegramConnected = computed(() => user.value.telegram_chat_id != null);
+const telegramDisabledTitle = computed(() =>
+	telegramConnected.value
+		? undefined
+		: "Connect Telegram in your notification channels to select this option.",
+);
+
 function isEventTypeBlockedByAssets(key: AssetEventKey): boolean {
 	return !hasTrackedAssets.value && key !== "ipo";
 }
@@ -368,22 +384,54 @@ const selectableEventTypes = computed(() =>
 	ASSET_EVENT_TYPES.filter((t) => !isEventTypeBlockedByAssets(t.key)),
 );
 
-/** Per-type email/sms refs, keyed by event type. */
-const assetEventRefs: Record<AssetEventKey, { email: ReturnType<typeof ref<boolean>>; sms: ReturnType<typeof ref<boolean>> }> = {
-	calendar: { email: ref(user.value.asset_events_include_calendar_email), sms: ref(user.value.asset_events_include_calendar_sms) },
-	ipo: { email: ref(user.value.asset_events_include_ipo_email), sms: ref(user.value.asset_events_include_ipo_sms) },
-	analyst: { email: ref(user.value.asset_events_include_analyst_email), sms: ref(user.value.asset_events_include_analyst_sms) },
-	insider: { email: ref(user.value.asset_events_include_insider_email), sms: ref(user.value.asset_events_include_insider_sms) },
+/**
+ * Per-type email/sms/telegram refs, keyed by event type.
+ *
+ * Telegram has no `users` column — its initial state comes from the server-loaded
+ * `telegramPrefs` prop (content facet ⇒ boolean; absent ⇒ off), unlike email/sms
+ * which hydrate from `user.value`.
+ */
+const assetEventRefs: Record<
+	AssetEventKey,
+	{
+		email: ReturnType<typeof ref<boolean>>;
+		sms: ReturnType<typeof ref<boolean>>;
+		telegram: ReturnType<typeof ref<boolean>>;
+	}
+> = {
+	calendar: {
+		email: ref(user.value.asset_events_include_calendar_email),
+		sms: ref(user.value.asset_events_include_calendar_sms),
+		telegram: ref(props.telegramPrefs.calendar === true),
+	},
+	ipo: {
+		email: ref(user.value.asset_events_include_ipo_email),
+		sms: ref(user.value.asset_events_include_ipo_sms),
+		telegram: ref(props.telegramPrefs.ipo === true),
+	},
+	analyst: {
+		email: ref(user.value.asset_events_include_analyst_email),
+		sms: ref(user.value.asset_events_include_analyst_sms),
+		telegram: ref(props.telegramPrefs.analyst === true),
+	},
+	insider: {
+		email: ref(user.value.asset_events_include_insider_email),
+		sms: ref(user.value.asset_events_include_insider_sms),
+		telegram: ref(props.telegramPrefs.insider === true),
+	},
 };
 
 const assetEventsEnabled = computed(() =>
 	ASSET_EVENT_TYPES.some(
-		(t) => assetEventRefs[t.key].email.value || assetEventRefs[t.key].sms.value,
+		(t) =>
+			assetEventRefs[t.key].email.value ||
+			assetEventRefs[t.key].sms.value ||
+			assetEventRefs[t.key].telegram.value,
 	),
 );
 
 /* =============
-Select-all Email / SMS
+Select-all Email / SMS / Telegram
 ============= */
 const allEmailChecked = computed(() =>
 	selectableEventTypes.value.length > 0 &&
@@ -401,8 +449,17 @@ const someSmsChecked = computed(() =>
 	selectableEventTypes.value.some((t) => assetEventRefs[t.key].sms.value),
 );
 
+const allTelegramChecked = computed(() =>
+	selectableEventTypes.value.length > 0 &&
+	selectableEventTypes.value.every((t) => assetEventRefs[t.key].telegram.value),
+);
+const someTelegramChecked = computed(() =>
+	selectableEventTypes.value.some((t) => assetEventRefs[t.key].telegram.value),
+);
+
 const selectAllEmailRef = ref<HTMLInputElement | null>(null);
 const selectAllSmsRef = ref<HTMLInputElement | null>(null);
+const selectAllTelegramRef = ref<HTMLInputElement | null>(null);
 
 watchEffect(() => {
 	if (selectAllEmailRef.value) {
@@ -412,6 +469,12 @@ watchEffect(() => {
 watchEffect(() => {
 	if (selectAllSmsRef.value) {
 		selectAllSmsRef.value.indeterminate = someSmsChecked.value && !allSmsChecked.value;
+	}
+});
+watchEffect(() => {
+	if (selectAllTelegramRef.value) {
+		selectAllTelegramRef.value.indeterminate =
+			someTelegramChecked.value && !allTelegramChecked.value;
 	}
 });
 
@@ -427,6 +490,54 @@ function toggleAllSms() {
 	for (const eventType of selectableEventTypes.value) {
 		assetEventRefs[eventType.key].sms.value = next;
 	}
+}
+
+function toggleAllTelegram() {
+	const next = !allTelegramChecked.value;
+	for (const eventType of selectableEventTypes.value) {
+		assetEventRefs[eventType.key].telegram.value = next;
+	}
+}
+
+/* =============
+Per-row channel multiselect options + toggle handler. Each event type renders one
+multiselect spanning Email / SMS / Telegram. Email/SMS disabled logic mirrors the
+prior per-row checkboxes verbatim; Telegram is disabled only until the account is
+linked (matching the other panels).
+============= */
+function channelOptionsFor(key: AssetEventKey): ChannelOption[] {
+	const blocked = isEventTypeBlocked(key);
+	const refs = assetEventRefs[key];
+	return [
+		{
+			value: "email",
+			label: "Email",
+			selected: refs.email.value === true,
+			disabled: blocked,
+			disabledTitle: emailDisabledTitle.value,
+		},
+		{
+			value: "sms",
+			label: "SMS",
+			selected: refs.sms.value === true,
+			disabled: blocked || !smsReady.value,
+			disabledTitle: smsDisabledTitle.value,
+		},
+		{
+			value: "telegram",
+			label: "Telegram",
+			selected: refs.telegram.value === true,
+			disabled: !telegramConnected.value,
+			disabledTitle: telegramDisabledTitle.value,
+		},
+	];
+}
+
+function handleAssetEventToggle(key: AssetEventKey, channel: string, selected: boolean) {
+	const refs = assetEventRefs[key];
+	if (channel === "email") refs.email.value = selected;
+	else if (channel === "sms") refs.sms.value = selected;
+	else if (channel === "telegram") refs.telegram.value = selected;
 }
 
 const DEFAULT_ASSET_EVENTS_DELIVERY_MINUTES = 540; // 9:00 AM
@@ -512,6 +623,13 @@ for (const eventType of ASSET_EVENT_TYPES) {
 	watch([refs.email, refs.sms], ([email, sms]) => {
 		if (email === user.value[emailField] && sms === user.value[smsField]) return;
 		user.value = { ...user.value, [emailField]: email, [smsField]: sms };
+		notifyChange();
+	});
+
+	// Telegram has no `users` column, so it doesn't push into `user.value` — it
+	// persists to `notification_preferences` server-side. Still trigger autosave so
+	// the hidden `*_telegram` form field submits.
+	watch(refs.telegram, () => {
 		notifyChange();
 	});
 }

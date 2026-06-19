@@ -50,6 +50,7 @@
 				:phoneVerified="phoneVerified"
 				:hasTrackedAssets="hasTrackedAssets"
 				:trackedAssets="currentAssets"
+				:telegramPrefs="marketTelegramPrefs"
 			/>
 		</template>
 
@@ -59,6 +60,7 @@
 				:emailEnabled="emailEnabled"
 				:phoneVerified="phoneVerified"
 				:hasTrackedAssets="hasTrackedAssets"
+				:telegramPrefs="assetEventsTelegramPrefs"
 			/>
 		</template>
 
@@ -102,19 +104,25 @@ interface Props {
 	initialAssets: InitialAsset[];
 	smsPhoneNumber: string;
 	/**
-	 * The user's current daily-digest Telegram selections, keyed by content facet
-	 * ("prices" | "top_movers" | "news" | "rumors"). Loaded server-side from
-	 * `notification_preferences` (channel='telegram') since these prefs aren't on
-	 * the users row. Used to initialize the daily-digest channel multiselect.
+	 * The user's current Telegram selections, loaded server-side from
+	 * `notification_preferences` (channel='telegram') since these prefs aren't on the
+	 * users row. Each panel gets its relevant subset to initialize its channel
+	 * multiselect:
+	 * - daily_digest / asset_events: keyed by content facet ("prices", "calendar", …).
+	 * - market types: keyed by notification_type (content='').
 	 */
 	dailyDigestTelegramPrefs: Record<string, boolean>;
+	assetEventsTelegramPrefs: Record<string, boolean>;
+	marketTelegramPrefs: Record<string, boolean>;
 }
 
 const props = defineProps<Props>();
 
 const {
+	assetEventsTelegramPrefs,
 	dailyDigestTelegramPrefs,
 	initialAssets,
+	marketTelegramPrefs,
 	smsPhoneNumber,
 	user: userProp,
 } = toRefs(props);

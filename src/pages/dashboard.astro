@@ -45,19 +45,30 @@ const user = dbUser;
 const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: asset.name, type: asset.type, icon_url: asset.icon_url }));
 
 // Telegram per-option prefs live in `notification_preferences` (channel='telegram'),
-// not on the users row, so they aren't carried by `getById`. Load this user's
-// daily_digest telegram rows here (session-scoped client; RLS allows reading own
-// rows) so the daily-digest channel multiselect can initialize its Telegram state.
-// Only the `daily_digest` facets are needed in this prototype scope.
-const { data: telegramDailyDigestRows } = await supabase
+// not on the users row, so they aren't carried by `getById`. Load ALL of this user's
+// telegram rows here (session-scoped client; RLS allows reading own rows) and group
+// by notification_type so each panel can initialize its channel-multiselect Telegram
+// state. daily_digest / asset_events key by content facet; the facet-less market types
+// (content='') key by notification_type.
+const { data: telegramRows } = await supabase
 	.from("notification_preferences")
-	.select("content, enabled")
+	.select("notification_type, content, enabled")
 	.eq("user_id", authUser.id)
-	.eq("notification_type", "daily_digest")
 	.eq("channel", "telegram");
+
+// daily_digest + asset_events: keyed by content facet ("prices", "calendar", …).
 const dailyDigestTelegramPrefs: Record<string, boolean> = {};
-for (const row of telegramDailyDigestRows ?? []) {
-	dailyDigestTelegramPrefs[row.content] = row.enabled;
+const assetEventsTelegramPrefs: Record<string, boolean> = {};
+// market types (content=''): keyed by notification_type.
+const marketTelegramPrefs: Record<string, boolean> = {};
+for (const row of telegramRows ?? []) {
+	if (row.notification_type === "daily_digest") {
+		dailyDigestTelegramPrefs[row.content] = row.enabled;
+	} else if (row.notification_type === "asset_events") {
+		assetEventsTelegramPrefs[row.content] = row.enabled;
+	} else {
+		marketTelegramPrefs[row.notification_type] = row.enabled;
+	}
 }
 
 const rawTwilioNumber = requireEnv("TWILIO_PHONE_NUMBER");
@@ -82,6 +93,8 @@ const smsPhoneNumber = formatPhoneFromE164(rawTwilioNumber);
 				initialAssets={initialAssets}
 				smsPhoneNumber={smsPhoneNumber}
 				dailyDigestTelegramPrefs={dailyDigestTelegramPrefs}
+				assetEventsTelegramPrefs={assetEventsTelegramPrefs}
+				marketTelegramPrefs={marketTelegramPrefs}
 			/>
 		</main>
 	</div>

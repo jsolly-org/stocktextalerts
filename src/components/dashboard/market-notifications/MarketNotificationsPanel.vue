@@ -64,6 +64,11 @@
 					/>
 					<input
 						type="hidden"
+						name="market_asset_price_alerts_include_telegram"
+						:value="priceAlertsIncludeTelegram ? 'on' : 'off'"
+					/>
+					<input
+						type="hidden"
 						name="market_asset_price_alert_move_size"
 						:value="priceAlertMoveSize"
 					/>
@@ -83,37 +88,13 @@
 							Automatically detects unusual price movements for your tracked assets during US trading hours. Adapts to each asset's typical volatility — one alert per asset per day.
 						</p>
 					</div>
-					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-						<label
-							class="inline-flex items-center gap-1.5"
-							:class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
-							:title="emailDisabledTitle"
-						>
-							<input
-								type="checkbox"
-								v-model="priceAlertsIncludeEmail"
-								:disabled="notificationSetupBlocked || !emailEnabled"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
-								aria-label="Enable email for smart price alerts"
-								aria-describedby="market_asset_price_alerts_enabled_description"
-							/>
-							<span class="text-sm font-normal text-label" aria-hidden="true">Email</span>
-						</label>
-						<label
-							class="inline-flex items-center gap-1.5"
-							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
-							:title="smsDisabledTitle"
-						>
-							<input
-								type="checkbox"
-								v-model="priceAlertsIncludeSms"
-								:disabled="notificationSetupBlocked || !smsReady"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
-								aria-label="Enable SMS for smart price alerts"
-								aria-describedby="market_asset_price_alerts_enabled_description"
-							/>
-							<span class="text-sm font-normal text-label" aria-hidden="true">SMS</span>
-						</label>
+					<div class="shrink-0">
+						<ChannelMultiSelect
+							idPrefix="market_asset_price_alerts"
+							labelledby="market_asset_price_alerts_enabled_label"
+							:options="priceAlertsChannelOptions"
+							@toggle="handlePriceAlertsToggle"
+						/>
 					</div>
 				</div>
 
@@ -168,6 +149,11 @@
 						name="market_scheduled_asset_price_include_sms"
 						:value="marketIncludeSms ? 'on' : 'off'"
 					/>
+					<input
+						type="hidden"
+						name="market_scheduled_asset_price_include_telegram"
+						:value="marketIncludeTelegram ? 'on' : 'off'"
+					/>
 					<div class="min-w-0">
 						<div class="flex items-center gap-2">
 							<span
@@ -182,37 +168,13 @@
 							Scheduled asset price updates for all tracked assets, including ETFs, at fixed notification times.
 						</p>
 					</div>
-					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-						<label
-							class="inline-flex items-center gap-1.5"
-							:class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
-							:title="emailDisabledTitle"
-						>
-							<input
-								type="checkbox"
-								v-model="marketIncludeEmail"
-								:disabled="notificationSetupBlocked || !emailEnabled"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
-								aria-label="Enable email for scheduled price notifications"
-								aria-describedby="market_scheduled_asset_price_enabled_description"
-							/>
-							<span class="text-sm font-normal text-label" aria-hidden="true">Email</span>
-						</label>
-						<label
-							class="inline-flex items-center gap-1.5"
-							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
-							:title="smsDisabledTitle"
-						>
-							<input
-								type="checkbox"
-								v-model="marketIncludeSms"
-								:disabled="notificationSetupBlocked || !smsReady"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
-								aria-label="Enable SMS for scheduled price notifications"
-								aria-describedby="market_scheduled_asset_price_enabled_description"
-							/>
-							<span class="text-sm font-normal text-label" aria-hidden="true">SMS</span>
-						</label>
+					<div class="shrink-0">
+						<ChannelMultiSelect
+							idPrefix="market_scheduled_asset_price"
+							labelledby="market_scheduled_asset_price_enabled_label"
+							:options="marketScheduledChannelOptions"
+							@toggle="handleMarketScheduledToggle"
+						/>
 					</div>
 				</div>
 
@@ -275,6 +237,11 @@
 					name="price_move_alerts_include_sms"
 					:value="priceMoveAlertsIncludeSms ? 'on' : 'off'"
 				/>
+				<input
+					type="hidden"
+					name="price_move_alerts_include_telegram"
+					:value="priceMoveAlertsIncludeTelegram ? 'on' : 'off'"
+				/>
 				<div class="flex items-start justify-between gap-3">
 					<div class="min-w-0">
 						<span
@@ -290,37 +257,13 @@
 							Applies to every asset in your watchlist — stocks and ETFs alike (although a 5% ETF move is rare). Independent of your other price alerts.
 						</p>
 					</div>
-					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-						<label
-							class="inline-flex items-center gap-1.5"
-							:class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
-							:title="emailDisabledTitle"
-						>
-							<input
-								type="checkbox"
-								v-model="priceMoveAlertsIncludeEmail"
-								:disabled="notificationSetupBlocked || !emailEnabled"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
-								aria-label="Enable email for 5% price move alerts"
-								aria-describedby="price_move_alerts_description"
-							/>
-							<span class="text-sm font-normal text-label" aria-hidden="true">Email</span>
-						</label>
-						<label
-							class="inline-flex items-center gap-1.5"
-							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
-							:title="smsDisabledTitle"
-						>
-							<input
-								type="checkbox"
-								v-model="priceMoveAlertsIncludeSms"
-								:disabled="notificationSetupBlocked || !smsReady"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
-								aria-label="Enable SMS for 5% price move alerts"
-								aria-describedby="price_move_alerts_description"
-							/>
-							<span class="text-sm font-normal text-label" aria-hidden="true">SMS</span>
-						</label>
+					<div class="shrink-0">
+						<ChannelMultiSelect
+							idPrefix="price_move_alerts"
+							labelledby="price_move_alerts_label"
+							:options="priceMoveChannelOptions"
+							@toggle="handlePriceMoveToggle"
+						/>
 					</div>
 				</div>
 			</div>
@@ -339,6 +282,11 @@
 					name="price_targets_include_sms"
 					:value="priceTargetsIncludeSms ? 'on' : 'off'"
 				/>
+				<input
+					type="hidden"
+					name="price_targets_include_telegram"
+					:value="priceTargetsIncludeTelegram ? 'on' : 'off'"
+				/>
 				<div class="flex items-start justify-between gap-3 mb-3">
 					<div class="min-w-0">
 						<span
@@ -351,37 +299,13 @@
 							Set a target price on any watchlist asset. Get notified once when it's hit, then the target clears automatically.
 						</p>
 					</div>
-					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-						<label
-							class="inline-flex items-center gap-1.5"
-							:class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
-							:title="emailDisabledTitle"
-						>
-							<input
-								type="checkbox"
-								v-model="priceTargetsIncludeEmail"
-								:disabled="notificationSetupBlocked || !emailEnabled"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
-								aria-label="Enable email for price targets"
-								aria-describedby="price_targets_description"
-							/>
-							<span class="text-sm font-normal text-label" aria-hidden="true">Email</span>
-						</label>
-						<label
-							class="inline-flex items-center gap-1.5"
-							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
-							:title="smsDisabledTitle"
-						>
-							<input
-								type="checkbox"
-								v-model="priceTargetsIncludeSms"
-								:disabled="notificationSetupBlocked || !smsReady"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
-								aria-label="Enable SMS for price targets"
-								aria-describedby="price_targets_description"
-							/>
-							<span class="text-sm font-normal text-label" aria-hidden="true">SMS</span>
-						</label>
+					<div class="shrink-0">
+						<ChannelMultiSelect
+							idPrefix="price_targets"
+							labelledby="price_targets_label"
+							:options="priceTargetsChannelOptions"
+							@toggle="handlePriceTargetsToggle"
+						/>
 					</div>
 				</div>
 
@@ -526,6 +450,8 @@ import {
 	useAutoSaveForm,
 } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
+import type { ChannelOption } from "../shared/ChannelMultiSelect.vue";
+import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
 import {
 	getEmailChannelDisabledTitle,
 	getSmsChannelDisabledTitle,
@@ -540,10 +466,20 @@ interface Props {
 	phoneVerified: boolean;
 	hasTrackedAssets: boolean;
 	trackedAssets?: InitialAsset[];
+	/**
+	 * The user's current market-notification Telegram selections, keyed by
+	 * notification_type ("market_asset_price_alerts" | "market_scheduled_asset_price"
+	 * | "price_move_alerts" | "price_targets"). Loaded server-side from
+	 * `notification_preferences` (channel='telegram', content=''); absent types
+	 * default to off. The autosave endpoint persists Telegram to that table but does
+	 * NOT echo it back in its snapshot, so these refs are the panel's own source of truth.
+	 */
+	telegramPrefs?: Record<string, boolean>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	trackedAssets: () => [],
+	telegramPrefs: () => ({}),
 });
 const {
 	emailEnabled,
@@ -571,20 +507,55 @@ const {
 
 const marketIncludeEmail = ref(user.value.market_scheduled_asset_price_include_email);
 const marketIncludeSms = ref(user.value.market_scheduled_asset_price_include_sms);
-const marketNotificationsEnabled = computed(
-	() => marketIncludeEmail.value || marketIncludeSms.value,
-);
 
 const priceAlertsIncludeEmail = ref(user.value.market_asset_price_alerts_include_email);
 const priceAlertsIncludeSms = ref(user.value.market_asset_price_alerts_include_sms);
-const priceAlertsEnabled = computed(
-	() => priceAlertsIncludeEmail.value || priceAlertsIncludeSms.value,
-);
 const priceTargetsIncludeEmail = ref(user.value.price_targets_include_email);
 const priceTargetsIncludeSms = ref(user.value.price_targets_include_sms);
 
 const priceMoveAlertsIncludeEmail = ref(user.value.price_move_alerts_include_email);
 const priceMoveAlertsIncludeSms = ref(user.value.price_move_alerts_include_sms);
+
+/* =============
+Telegram per-option state. These prefs live in `notification_preferences`
+(channel='telegram', content=''), not the users row, so they initialize from the
+server-loaded `telegramPrefs` prop (absent type ⇒ off) and are NOT re-synced from
+`user.value` the way the email/sms refs are.
+============= */
+const marketIncludeTelegram = ref(
+	props.telegramPrefs.market_scheduled_asset_price === true,
+);
+const priceAlertsIncludeTelegram = ref(
+	props.telegramPrefs.market_asset_price_alerts === true,
+);
+const priceMoveAlertsIncludeTelegram = ref(
+	props.telegramPrefs.price_move_alerts === true,
+);
+const priceTargetsIncludeTelegram = ref(props.telegramPrefs.price_targets === true);
+
+/** Telegram is selectable only once the account is linked (chat id present). */
+const telegramConnected = computed(() => user.value.telegram_chat_id != null);
+const telegramDisabledTitle = computed(() =>
+	telegramConnected.value
+		? undefined
+		: "Connect Telegram in your notification channels to select this option.",
+);
+
+/* =============
+Master-flag coupling: the hidden `*_enabled` fields drive whether the notification
+fires at all. Telegram must flip them too — otherwise selecting only Telegram would
+persist a Telegram pref but leave the feature disabled, so nothing sends. Mirrors how
+email/sms already gate `*_enabled`.
+============= */
+const marketNotificationsEnabled = computed(
+	() => marketIncludeEmail.value || marketIncludeSms.value || marketIncludeTelegram.value,
+);
+const priceAlertsEnabled = computed(
+	() =>
+		priceAlertsIncludeEmail.value ||
+		priceAlertsIncludeSms.value ||
+		priceAlertsIncludeTelegram.value,
+);
 
 const priceAlertMoveSize = ref<AlertMoveSize>(
 	normalizeMoveSize(user.value.market_asset_price_alert_move_size),
@@ -748,6 +719,80 @@ const smsDisabledTitle = computed(() =>
 	}),
 );
 
+/* =============
+Channel multiselect options. Each option carries its selected/disabled/title so the
+multiselect can show every channel while still surfacing why a channel is unavailable.
+Email/SMS disabled logic mirrors the prior per-option checkboxes verbatim.
+============= */
+function emailOption(selected: boolean): ChannelOption {
+	return {
+		value: "email",
+		label: "Email",
+		selected,
+		disabled: notificationSetupBlocked.value || !emailEnabled.value,
+		disabledTitle: emailDisabledTitle.value,
+	};
+}
+function smsOption(selected: boolean): ChannelOption {
+	return {
+		value: "sms",
+		label: "SMS",
+		selected,
+		disabled: notificationSetupBlocked.value || !smsReady.value,
+		disabledTitle: smsDisabledTitle.value,
+	};
+}
+function telegramOption(selected: boolean): ChannelOption {
+	return {
+		value: "telegram",
+		label: "Telegram",
+		selected,
+		disabled: !telegramConnected.value,
+		disabledTitle: telegramDisabledTitle.value,
+	};
+}
+
+const priceAlertsChannelOptions = computed<ChannelOption[]>(() => [
+	emailOption(priceAlertsIncludeEmail.value),
+	smsOption(priceAlertsIncludeSms.value),
+	telegramOption(priceAlertsIncludeTelegram.value),
+]);
+const marketScheduledChannelOptions = computed<ChannelOption[]>(() => [
+	emailOption(marketIncludeEmail.value),
+	smsOption(marketIncludeSms.value),
+	telegramOption(marketIncludeTelegram.value),
+]);
+const priceMoveChannelOptions = computed<ChannelOption[]>(() => [
+	emailOption(priceMoveAlertsIncludeEmail.value),
+	smsOption(priceMoveAlertsIncludeSms.value),
+	telegramOption(priceMoveAlertsIncludeTelegram.value),
+]);
+const priceTargetsChannelOptions = computed<ChannelOption[]>(() => [
+	emailOption(priceTargetsIncludeEmail.value),
+	smsOption(priceTargetsIncludeSms.value),
+	telegramOption(priceTargetsIncludeTelegram.value),
+]);
+
+function handlePriceAlertsToggle(channel: string, selected: boolean) {
+	if (channel === "email") priceAlertsIncludeEmail.value = selected;
+	else if (channel === "sms") priceAlertsIncludeSms.value = selected;
+	else if (channel === "telegram") priceAlertsIncludeTelegram.value = selected;
+}
+function handleMarketScheduledToggle(channel: string, selected: boolean) {
+	if (channel === "email") marketIncludeEmail.value = selected;
+	else if (channel === "sms") marketIncludeSms.value = selected;
+	else if (channel === "telegram") marketIncludeTelegram.value = selected;
+}
+function handlePriceMoveToggle(channel: string, selected: boolean) {
+	if (channel === "email") priceMoveAlertsIncludeEmail.value = selected;
+	else if (channel === "sms") priceMoveAlertsIncludeSms.value = selected;
+	else if (channel === "telegram") priceMoveAlertsIncludeTelegram.value = selected;
+}
+function handlePriceTargetsToggle(channel: string, selected: boolean) {
+	if (channel === "email") priceTargetsIncludeEmail.value = selected;
+	else if (channel === "sms") priceTargetsIncludeSms.value = selected;
+	else if (channel === "telegram") priceTargetsIncludeTelegram.value = selected;
+}
 
 const needsPhoneVerification = computed(
 	() =>
@@ -1014,6 +1059,25 @@ watch([priceMoveAlertsIncludeEmail, priceMoveAlertsIncludeSms], ([email, sms]) =
 	};
 	notifyChange();
 });
+
+/* =============
+Telegram refs have no `users` columns, so unlike email/sms they don't push into
+`user.value` — they persist to `notification_preferences` server-side. We still
+trigger autosave so the hidden `*_telegram` form fields submit. The hidden
+`*_enabled` fields are bound to the master computeds (which include Telegram), so
+the form already carries the coupled enable flag.
+============= */
+watch(
+	[
+		priceAlertsIncludeTelegram,
+		marketIncludeTelegram,
+		priceMoveAlertsIncludeTelegram,
+		priceTargetsIncludeTelegram,
+	],
+	() => {
+		notifyChange();
+	},
+);
 
 // ── Price Targets ──
 interface PriceTarget {
