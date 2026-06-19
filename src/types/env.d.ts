@@ -24,7 +24,9 @@ interface ImportMetaEnv {
 	readonly MASSIVE_API_KEY: string;
 	readonly FINNHUB_API_KEY: string;
 	readonly TELEGRAM_BOT_TOKEN: string;
+	readonly TELEGRAM_BOT_USERNAME: string;
 	readonly TELEGRAM_WEBHOOK_SECRET: string;
+	readonly TELEGRAM_LINK_TOKEN_SECRET: string;
 }
 
 declare module "*.svg?component" {

@@ -180,6 +180,18 @@ channel — and is **not** a clean `type×channel` grid (news/rumors are email-o
   env + token are live; rotation re-runs it; preview/local use polling or a separate dev bot; document
   `deleteWebhook` teardown.
 
+  **Shipped (`scripts/telegram/set-webhook.ts`).** Run with the bot token, `TELEGRAM_WEBHOOK_SECRET`, and
+  either `TELEGRAM_WEBHOOK_URL` (preferred) or `SITE_URL` (derives `<SITE_URL>/api/messaging/telegram`) in
+  the env:
+
+  ```bash
+  npm run telegram:set-webhook              # set only if the registered URL drifts
+  npm run telegram:set-webhook -- --force   # always re-send (use for secret rotation —
+                                            # Telegram never returns the secret, so drift
+                                            # on the secret alone is undetectable)
+  npm run telegram:set-webhook -- --delete  # tear the webhook down (dev / teardown)
+  ```
+
 ### 4.7 Eligibility predicates
 - `shouldSendTelegram()` / `isTelegramChannelUsable()` mirroring the SMS gates, reading the normalized
   table. Re-point existing `shouldSendSms` tests at the table.
