@@ -11,6 +11,7 @@
 		"dev": "node --env-file-if-exists=.env.local ./node_modules/.bin/astro dev",
 		"prebuild": "node ./node_modules/.bin/tsx scripts/gen-release-id.ts",
 		"build": "node --env-file-if-exists=.env.local ./node_modules/.bin/astro build",
+		"postbuild": "git checkout -- src/lib/logging/release-id.ts",
 		"build:preview": "ASTRO_ADAPTER=node node --env-file-if-exists=.env.local ./node_modules/.bin/astro build",
 		"deploy": "bash aws/deploy-web.sh",
 		"deploy:aws": "npm --prefix aws run deploy",
