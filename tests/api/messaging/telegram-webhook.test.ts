@@ -76,6 +76,44 @@ async function getTelegramFields(userId: string) {
 	return data;
 }
 
+/** Build a webhook update carrying an arbitrary command (e.g. "/stop", "/help"). */
+function buildCommandUpdate(options: {
+	updateId: number;
+	text: string;
+	chatId: number;
+	fromId: number;
+}): Record<string, unknown> {
+	return {
+		update_id: options.updateId,
+		message: {
+			message_id: 1,
+			date: Math.floor(Date.now() / 1000),
+			text: options.text,
+			chat: { id: options.chatId, type: "private" },
+			from: { id: options.fromId, is_bot: false, first_name: "Sarah" },
+		},
+	};
+}
+
+/** Directly link a chat to a user (the post-/start state), so command tests start linked. */
+async function linkChat(userId: string, chatId: number, fromId: number): Promise<void> {
+	const { error } = await adminClient
+		.from("users")
+		.update({
+			telegram_chat_id: chatId,
+			telegram_id: fromId,
+			telegram_linked_at: new Date().toISOString(),
+			telegram_opted_out: false,
+		})
+		.eq("id", userId);
+	if (error) throw new Error(error.message);
+}
+
+/** POST a webhook update with the valid secret and assert a 2XX (the common case). */
+async function postCommand(update: Record<string, unknown>): Promise<Response> {
+	return POST(createApiContext({ request: buildWebhookRequest(update, WEBHOOK_SECRET) }));
+}
+
 describe("The Telegram bot webhook links accounts and resists abuse.", () => {
 	it("A valid /start <token> links the chat to the token's user and confirms.", async () => {
 		const user = await createTestUser({ confirmed: true });
@@ -257,5 +295,94 @@ describe("The Telegram bot webhook links accounts and resists abuse.", () => {
 		const fields = await getTelegramFields(user.id);
 		expect(fields.telegram_chat_id).toBe(firstChat);
 		expect(fields.telegram_chat_id).not.toBe(secondChat);
+	});
+});
+
+describe("The Telegram bot honors /stop, /unlink, and /help on a linked chat.", () => {
+	it("/stop pauses Telegram alerts for the linked chat but keeps the link.", async () => {
+		const user = await createTestUser({ confirmed: true });
+		registerTestUserForCleanup(user.id);
+		const chatId = uniqueId();
+		const fromId = uniqueId();
+		await linkChat(user.id, chatId, fromId);
+
+		const response = await postCommand(
+			buildCommandUpdate({ updateId: uniqueId(), text: "/stop", chatId, fromId }),
+		);
+		expect(response.status).toBe(200);
+
+		const fields = await getTelegramFields(user.id);
+		expect(fields.telegram_opted_out).toBe(true);
+		// Link is preserved so the user can resume from the dashboard.
+		expect(fields.telegram_chat_id).toBe(chatId);
+	});
+
+	it("/unlink disconnects the chat and resets the opt-out flag.", async () => {
+		const user = await createTestUser({ confirmed: true });
+		registerTestUserForCleanup(user.id);
+		const chatId = uniqueId();
+		const fromId = uniqueId();
+		await linkChat(user.id, chatId, fromId);
+		// Pre-set opted_out to prove /unlink resets it for a clean re-link.
+		await adminClient.from("users").update({ telegram_opted_out: true }).eq("id", user.id);
+
+		const response = await postCommand(
+			buildCommandUpdate({ updateId: uniqueId(), text: "/unlink", chatId, fromId }),
+		);
+		expect(response.status).toBe(200);
+
+		const fields = await getTelegramFields(user.id);
+		expect(fields.telegram_chat_id).toBeNull();
+		expect(fields.telegram_id).toBeNull();
+		expect(fields.telegram_linked_at).toBeNull();
+		expect(fields.telegram_opted_out).toBe(false);
+	});
+
+	it("a command's @botusername suffix is tolerated (group-style /stop@Bot).", async () => {
+		const user = await createTestUser({ confirmed: true });
+		registerTestUserForCleanup(user.id);
+		const chatId = uniqueId();
+		const fromId = uniqueId();
+		await linkChat(user.id, chatId, fromId);
+
+		const response = await postCommand(
+			buildCommandUpdate({
+				updateId: uniqueId(),
+				text: "/stop@StockTextAlertsBot",
+				chatId,
+				fromId,
+			}),
+		);
+		expect(response.status).toBe(200);
+		expect((await getTelegramFields(user.id)).telegram_opted_out).toBe(true);
+	});
+
+	it("/help returns 200 and mutates nothing.", async () => {
+		const user = await createTestUser({ confirmed: true });
+		registerTestUserForCleanup(user.id);
+		const chatId = uniqueId();
+		const fromId = uniqueId();
+		await linkChat(user.id, chatId, fromId);
+
+		const response = await postCommand(
+			buildCommandUpdate({ updateId: uniqueId(), text: "/help", chatId, fromId }),
+		);
+		expect(response.status).toBe(200);
+
+		const fields = await getTelegramFields(user.id);
+		expect(fields.telegram_chat_id).toBe(chatId);
+		expect(fields.telegram_opted_out).toBe(false);
+	});
+
+	it("/stop from a chat linked to no account is a harmless 200 no-op.", async () => {
+		const response = await postCommand(
+			buildCommandUpdate({
+				updateId: uniqueId(),
+				text: "/stop",
+				chatId: uniqueId(),
+				fromId: uniqueId(),
+			}),
+		);
+		expect(response.status).toBe(200);
 	});
 });
