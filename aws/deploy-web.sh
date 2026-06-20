@@ -44,6 +44,11 @@ unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 # DDL wants a session connection. Same pooler host serves session mode on 5432.
 DB_URL="${DATABASE_URL_PROD/:6543\//:5432/}"
 
+# Ground the system CLIs this deploy shells out to: aws/sam are NOT npm deps (supabase + vercel are,
+# and are path-pinned below) — fail loud if absent, never a hard-coded path (rules/dependency-grounding.md).
+command -v aws >/dev/null 2>&1 || { echo "✗ aws CLI not found — brew install awscli" >&2; exit 1; }
+command -v sam >/dev/null 2>&1 || { echo "✗ sam CLI not found — brew install aws-sam-cli" >&2; exit 1; }
+
 # `--preflight`: validate BOTH deploy credentials only (the pre-push gate calls
 # this before the battery so a credential problem fails in seconds, not after 15
 # minutes). Each check exercises the SAME path the deploy later uses, so it

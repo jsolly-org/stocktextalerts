@@ -12,6 +12,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/sam-params.sh"
 
 cd "$SCRIPT_DIR"
+# Ground the SAM CLI: not an npm dep — fail loud if absent (rules/dependency-grounding.md).
+command -v sam >/dev/null 2>&1 || { echo "✗ sam CLI not found — brew install aws-sam-cli" >&2; exit 1; }
 # Prepend repo node_modules/.bin so SAM's native esbuild integration finds
 # the pinned esbuild binary (not whatever is globally installed).
 PATH="$REPO_ROOT/node_modules/.bin:$PATH" sam build

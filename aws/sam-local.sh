@@ -15,6 +15,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/sam-params.sh"
 
 cd "$SCRIPT_DIR"
+# Ground the SAM CLI: not an npm dep — fail loud if absent (rules/dependency-grounding.md).
+command -v sam >/dev/null 2>&1 || { echo "✗ sam CLI not found — brew install aws-sam-cli" >&2; exit 1; }
 PATH="$REPO_ROOT/node_modules/.bin:$PATH" sam build
 
 if [ $# -gt 0 ]; then

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Source this script to export SAM_PARAMS from ../.env.local.
 #
-# Used by deploy.sh (sam deploy) and sam-local.sh (sam local invoke) so the
-# same parameter mapping feeds both prod deploys and local container runs.
+# Used by deploy.sh and sam-local.sh so the same parameter mapping feeds both the
+# prod deploy and the local container-invoke paths, rather than duplicating the
+# env.local -> SAM parameter translation in two places.
 # Keeping this as one shell helper avoids duplicating the env.local -> SAM
 # parameter translation in multiple places.
 set -euo pipefail
