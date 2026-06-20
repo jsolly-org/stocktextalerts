@@ -5,7 +5,11 @@ import { reserveCooldownSlot } from "../../../src/lib/market-notifications/users
 import type { ExtendedAssetQuote } from "../../../src/lib/providers/price-fetcher";
 import type { SupabaseAdminClient } from "../../../src/lib/schedule/helpers";
 import { adminClient } from "../../helpers/test-env";
-import { createTestUser, generateUniquePhoneNumber } from "../../helpers/test-user";
+import {
+	createTestUser,
+	generateUniquePhoneNumber,
+	setTestUserPrefs,
+} from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 const mocks = vi.hoisted(() => ({
@@ -143,8 +147,6 @@ describe("Notification reserve RPC errors", () => {
 			.from("users")
 			.update({
 				market_asset_price_alerts_enabled: true,
-				market_asset_price_alerts_include_email: true,
-				market_asset_price_alerts_include_sms: true,
 				email_notifications_enabled: true,
 				sms_notifications_enabled: true,
 				phone_country_code: "+1",
@@ -154,6 +156,11 @@ describe("Notification reserve RPC errors", () => {
 			})
 			.eq("id", testUser.id);
 		if (updateError) throw new Error(`Failed to enable price alerts: ${updateError.message}`);
+		// Per-option market_asset_price_alerts facets live in notification_preferences.
+		await setTestUserPrefs(testUser.id, [
+			["market_asset_price_alerts", "", "email", true],
+			["market_asset_price_alerts", "", "sms", true],
+		]);
 
 		const failingSupabase = new Proxy(adminClient, {
 			get(target, prop, receiver) {

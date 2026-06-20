@@ -8,6 +8,7 @@ import { renderIntradaySparklineImg } from "../messaging/email/intraday-sparklin
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
+import { isFacetEnabled } from "../messaging/notification-prefs";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
@@ -20,11 +21,8 @@ import {
 	type SparklineWindow,
 	toSparkline,
 } from "../messaging/sparkline";
-import {
-	isTelegramChannelUsable,
-	shouldSendTelegram,
-	type TelegramPrefRow,
-} from "../messaging/telegram/eligibility";
+import { isTelegramChannelUsable, shouldSendTelegram } from "../messaging/telegram/eligibility";
+import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../messaging/telegram/price-alert";
 import type { TelegramSender } from "../messaging/telegram/sender";
 import type { EnrichedAlert } from "./enrichment";
@@ -250,7 +248,7 @@ export async function deliverPriceAlert(options: {
 	let delivered = false;
 
 	// Email delivery
-	if (user.market_asset_price_alerts_include_email) {
+	if (isFacetEnabled(user.prefs, "market_asset_price_alerts", "email")) {
 		const effectiveLogoCache = logoCache ?? createLogoCache();
 		const logoDataUri = await fetchLogoBase64(
 			alert.symbol,
@@ -287,7 +285,7 @@ export async function deliverPriceAlert(options: {
 	}
 
 	// SMS delivery
-	if (user.market_asset_price_alerts_include_sms && sendSms) {
+	if (isFacetEnabled(user.prefs, "market_asset_price_alerts", "sms") && sendSms) {
 		if (!shouldSendSms(user)) {
 			rootLogger.info("Price alert SMS skipped: user not eligible", {
 				userId: user.id,
@@ -327,23 +325,7 @@ export async function deliverPriceAlert(options: {
 	// Only query per-option prefs for users whose channel is usable (linked + not opted out),
 	// skipping the lookup for the majority who never linked Telegram.
 	if (sendTelegram && isTelegramChannelUsable(user)) {
-		let telegramPrefs: TelegramPrefRow[] = [];
-		const { data: prefRows, error: prefError } = await supabase
-			.from("notification_preferences")
-			.select("notification_type, content, enabled")
-			.eq("user_id", user.id)
-			.eq("notification_type", "market_asset_price_alerts")
-			.eq("channel", "telegram");
-		if (prefError) {
-			rootLogger.error(
-				"Failed to load Telegram price-alert preferences",
-				{ userId: user.id },
-				prefError,
-			);
-		}
-		telegramPrefs = prefRows ?? [];
-
-		if (shouldSendTelegram(user, telegramPrefs, "market_asset_price_alerts")) {
+		if (shouldSendTelegram(user, user.prefs, "market_asset_price_alerts")) {
 			const { text, entities, photo } = formatPriceAlertTelegram(
 				alert,
 				alert.intradayCandles ?? [],
@@ -367,6 +349,8 @@ export async function deliverPriceAlert(options: {
 					new Error(result.error ?? "Price alert Telegram send failed"),
 				);
 			}
+
+			await optOutIfBotBlocked(supabase, user.id, result);
 
 			const logged = await recordNotification(supabase, {
 				user_id: user.id,

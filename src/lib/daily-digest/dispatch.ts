@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 import { createSupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { createEmailSender, type EmailSender } from "../messaging/email/utils";
+import { loadPrefsByUser } from "../messaging/load-prefs";
 import type { UserRecord } from "../messaging/types";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { createSmsSenderProvider, type SmsSenderProvider } from "../schedule/sms-sender";
@@ -26,28 +27,14 @@ type DailyDigestUserRow = Pick<
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
 	| "sms_opted_out"
-	| "daily_digest_include_prices_email"
-	| "daily_digest_include_prices_sms"
-	| "daily_digest_include_top_movers_email"
-	| "daily_digest_include_top_movers_sms"
-	| "daily_digest_include_news_email"
-	| "daily_digest_include_rumors_email"
-	| "asset_events_include_calendar_email"
-	| "asset_events_include_calendar_sms"
-	| "asset_events_include_ipo_email"
-	| "asset_events_include_ipo_sms"
-	| "asset_events_include_analyst_email"
-	| "asset_events_include_analyst_sms"
-	| "asset_events_include_insider_email"
-	| "asset_events_include_insider_sms"
 	| "asset_events_next_send_at"
 	| "asset_events_last_analyst_sent_month"
-	| "market_asset_price_alerts_include_sms"
 	| "last_grok_rumors_at"
 	| "grok_window_start"
 	| "grok_sends_in_window"
 	| "telegram_chat_id"
 	| "telegram_opted_out"
+	| "prefs"
 >;
 
 const EMPTY_STATS: ScheduledNotificationTotals = {
@@ -121,23 +108,8 @@ export async function dispatchDailyDigestUser(options: {
 				email_notifications_enabled,
 				sms_notifications_enabled,
 				sms_opted_out,
-				daily_digest_include_prices_email,
-				daily_digest_include_prices_sms,
-				daily_digest_include_top_movers_email,
-				daily_digest_include_top_movers_sms,
-				daily_digest_include_news_email,
-				daily_digest_include_rumors_email,
-				asset_events_include_calendar_email,
-				asset_events_include_calendar_sms,
-				asset_events_include_ipo_email,
-				asset_events_include_ipo_sms,
-				asset_events_include_analyst_email,
-				asset_events_include_analyst_sms,
-				asset_events_include_insider_email,
-				asset_events_include_insider_sms,
 				asset_events_next_send_at,
 				asset_events_last_analyst_sent_month,
-				market_asset_price_alerts_include_sms,
 				last_grok_rumors_at,
 				grok_window_start,
 				grok_sends_in_window,
@@ -169,17 +141,17 @@ export async function dispatchDailyDigestUser(options: {
 		const getSmsSender = getSmsSenderOption ?? createSmsSenderProvider();
 		const getTelegramSender = getTelegramSenderOption ?? createTelegramSenderProvider();
 
+		// Per-option preferences (all channels) live in notification_preferences.
+		const prefsByUser = await loadPrefsByUser(supabase, [userId]);
+
 		const dailyDigestUser: UserRecord = {
-			...(user as DailyDigestUserRow),
+			...(user as Omit<DailyDigestUserRow, "prefs">),
+			prefs: prefsByUser.get(userId) ?? [],
 			// Not required for daily digest processing, but part of UserRecord.
 			// Provide safe defaults rather than bypassing type checking via `unknown`.
 			market_scheduled_asset_price_next_send_at: null,
 			market_scheduled_asset_price_enabled: false,
-			market_scheduled_asset_price_include_email: false,
-			market_scheduled_asset_price_include_sms: false,
 			market_scheduled_asset_price_times: null,
-			price_move_alerts_include_email: false,
-			price_move_alerts_include_sms: false,
 		};
 
 		return await processDailyDigestUser({

@@ -7,6 +7,7 @@ import {
 import { rootLogger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
 import { createLogoCache } from "../messaging/logo-fetcher";
+import { isFacetEnabled } from "../messaging/notification-prefs";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { fetchIntradayBars, type IntradayCandle } from "../providers/massive";
 import {
@@ -518,7 +519,7 @@ export async function processPriceAlerts(options: {
 		}
 
 		for (const user of eligibleUsers) {
-			if (user.market_asset_price_alerts_include_sms && !smsSender) {
+			if (isFacetEnabled(user.prefs, "market_asset_price_alerts", "sms") && !smsSender) {
 				try {
 					smsSender = getSmsSender().sender;
 				} catch (error) {

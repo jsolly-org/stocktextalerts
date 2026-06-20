@@ -13,6 +13,7 @@ import { deliveryResultToLogFields, recordNotification } from "../messaging/shar
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import { formatAssetEventsTelegram } from "../messaging/telegram/asset-events";
+import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { UserRecord } from "../messaging/types";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
@@ -553,6 +554,8 @@ export async function processAssetEventsTelegramDelivery(options: {
 			new Error(result.error ?? "Asset events Telegram send failed"),
 		);
 	}
+
+	await optOutIfBotBlocked(supabase, user.id, result, logger);
 
 	const logged = await recordNotification(supabase, {
 		user_id: user.id,

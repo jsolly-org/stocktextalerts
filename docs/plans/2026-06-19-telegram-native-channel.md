@@ -77,7 +77,7 @@ channel — and is **not** a clean `type×channel` grid (news/rumors are email-o
 
 ## 3. Architecture
 
-```
+```text
  price/event data ─► CanonicalAlertArtifact (single enforced input; carries LONG urls + OHLC series)
                           │
         ┌─────────────────┼──────────────────┐
@@ -105,6 +105,7 @@ channel — and is **not** a clean `type×channel` grid (news/rumors are email-o
 ## 4. Phase 0 — Foundations (no user-visible change)
 
 ### 4.1 Bot + secrets (human step-up)
+
 - You create the bot via BotFather, set name/about/commands, mint the token. Token is a **write
   credential**: Vercel env **and** Lambda CFN param only; **never** local/test; **excluded** from
   `live-provider-check`.
@@ -114,6 +115,7 @@ channel — and is **not** a clean `type×channel` grid (news/rumors are email-o
   `aws/sam-params.sh` with `:?` guards. Rotation = one runbook touching both runtimes + re-run setWebhook.
 
 ### 4.2 Dependencies + native-binary build (P0-9)
+
 - `grammy`, `@grammyjs/auto-retry`, `@grammyjs/conversations`, `@grammyjs/storage-supabase`,
   `@resvg/resvg-js`. Platform-targeted install (`--os=linux --cpu=arm64`).
 - **esbuild cannot bundle `.node`** → add resvg packages to each rendering function's
@@ -129,6 +131,7 @@ channel — and is **not** a clean `type×channel` grid (news/rumors are email-o
   External is a documented pattern), and the rigorous proof is gated on the human deploy regardless.
 
 ### 4.3 Migration — split into ordered files (P0-3, P0-5)
+
 - **File 1 (alone):** `ALTER TYPE public.delivery_method ADD VALUE IF NOT EXISTS 'telegram';` (must
   commit before any use). No CHECK/contract change — `p_channel` is the enum.
 - **File 2:**
@@ -153,6 +156,7 @@ channel — and is **not** a clean `type×channel` grid (news/rumors are email-o
   `recordNotification(delivery_method:'telegram')`); pass `check:migration-grants` + `check:db-privileges`.
 
 ### 4.4 Widen channel unions (P1-2)
+
 - Grep every `"email" | "sms"` literal union and widen to a `DeliveryMethod` derived from the generated
   enum — **load-bearing**: `schedule-state.ts:160` filters `scheduled_notifications` to email/sms and
   would silently drop telegram rows (breaking retry/next-send). Also `delivery-terminal.ts:14`,
@@ -160,6 +164,7 @@ channel — and is **not** a clean `type×channel` grid (news/rumors are email-o
   `scheduled_notifications` consumer drops unknown channels.
 
 ### 4.5 Deep-link linking token (P0-6)
+
 - `src/lib/auth/deep-link-token.ts`: payload = single base64url blob of `{userId, expiresAtMs, nonce}`,
   HMAC-signed (`node:crypto createHmac` + `timingSafeEqual`); reuse the `unsubscribe.ts:44-78` approach
   but **not** its dotted `${ms}.${sig}` format (`.` is illegal in `/start`). Assert emitted token matches
@@ -169,6 +174,7 @@ channel — and is **not** a clean `type×channel` grid (news/rumors are email-o
   → reject). **No fail-open** if the nonce row is missing.
 
 ### 4.6 Webhook endpoint (P0-7) + setWebhook (P0-11)
+
 - `src/pages/api/messaging/telegram.ts`: `requireEnv('TELEGRAM_WEBHOOK_SECRET')` at top → **500 + process
   nothing** if unset; grammY `webhookCallback({ secretToken })` (verify constant-time, else gate the
   header with `timingSafeEqual`). `update_id` dedupe before handling. Return 2XX even on user-error (so
@@ -193,10 +199,12 @@ channel — and is **not** a clean `type×channel` grid (news/rumors are email-o
   ```
 
 ### 4.7 Eligibility predicates
+
 - `shouldSendTelegram()` / `isTelegramChannelUsable()` mirroring the SMS gates, reading the normalized
   table. Re-point existing `shouldSendSms` tests at the table.
 
 ### 4.8 Release sequencing (P0-10)
+
 - The shared sender lib lives in `src/lib` (all functions import it), but `deploy-web.sh` code-deploys
   only 5 of 7. Either add the 2 missing functions to the `deploy_code` list **or** require a full
   `npm run deploy:aws` for the migration-introducing release. Stated order: **merge to main →

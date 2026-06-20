@@ -1,5 +1,9 @@
 import type { APIRoute } from "astro";
 import { jsonResponse } from "../../../lib/api/json-response";
+import {
+	buildChannelPreferenceSnapshot,
+	loadUserPreferenceRows,
+} from "../../../lib/api/notification-preferences-channels";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
@@ -35,14 +39,15 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 			return jsonResponse(404, { ok: false, message: "user_not_found" });
 		}
 
+		// Per-option channel facets live in notification_preferences (the source of
+		// truth); reconstruct the flat per-option snapshot the UI consumes.
+		const prefs = await loadUserPreferenceRows(supabase, user.id);
+
 		return jsonResponse(200, {
 			ok: true,
 			message: "ok",
 			notificationPreferences: {
 				market_scheduled_asset_price_enabled: dbUser.market_scheduled_asset_price_enabled,
-				market_scheduled_asset_price_include_email:
-					dbUser.market_scheduled_asset_price_include_email,
-				market_scheduled_asset_price_include_sms: dbUser.market_scheduled_asset_price_include_sms,
 				email_notifications_enabled: dbUser.email_notifications_enabled,
 				sms_notifications_enabled: dbUser.sms_notifications_enabled,
 				sms_opted_out: dbUser.sms_opted_out,
@@ -53,29 +58,10 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 				daily_digest_next_send_at: dbUser.daily_digest_next_send_at,
 				market_scheduled_asset_price_next_send_at: dbUser.market_scheduled_asset_price_next_send_at,
 				dismiss_timezone_mismatch_prompts: dbUser.dismiss_timezone_mismatch_prompts,
-				daily_digest_include_prices_email: dbUser.daily_digest_include_prices_email,
-				daily_digest_include_prices_sms: dbUser.daily_digest_include_prices_sms,
-				daily_digest_include_top_movers_email: dbUser.daily_digest_include_top_movers_email,
-				daily_digest_include_top_movers_sms: dbUser.daily_digest_include_top_movers_sms,
-				daily_digest_include_news_email: dbUser.daily_digest_include_news_email,
-				daily_digest_include_rumors_email: dbUser.daily_digest_include_rumors_email,
-				asset_events_include_calendar_email: dbUser.asset_events_include_calendar_email,
-				asset_events_include_calendar_sms: dbUser.asset_events_include_calendar_sms,
-				asset_events_include_ipo_email: dbUser.asset_events_include_ipo_email,
-				asset_events_include_ipo_sms: dbUser.asset_events_include_ipo_sms,
-				asset_events_include_analyst_email: dbUser.asset_events_include_analyst_email,
-				asset_events_include_analyst_sms: dbUser.asset_events_include_analyst_sms,
-				asset_events_include_insider_email: dbUser.asset_events_include_insider_email,
-				asset_events_include_insider_sms: dbUser.asset_events_include_insider_sms,
 				asset_events_next_send_at: dbUser.asset_events_next_send_at,
 				market_asset_price_alerts_enabled: dbUser.market_asset_price_alerts_enabled,
-				market_asset_price_alerts_include_email: dbUser.market_asset_price_alerts_include_email,
-				market_asset_price_alerts_include_sms: dbUser.market_asset_price_alerts_include_sms,
 				market_asset_price_alert_move_size: dbUser.market_asset_price_alert_move_size,
-				price_move_alerts_include_email: dbUser.price_move_alerts_include_email,
-				price_move_alerts_include_sms: dbUser.price_move_alerts_include_sms,
-				price_targets_include_email: dbUser.price_targets_include_email,
-				price_targets_include_sms: dbUser.price_targets_include_sms,
+				...buildChannelPreferenceSnapshot(prefs),
 			},
 		});
 	} catch (error) {

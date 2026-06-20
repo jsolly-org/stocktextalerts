@@ -1,4 +1,6 @@
 import { rootLogger } from "../logging";
+import { attachPrefsToUsers } from "../messaging/load-prefs";
+import type { PrefRow } from "../messaging/notification-prefs";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 import type { AlertMoveSize } from "./alert-profile";
 
@@ -10,19 +12,22 @@ export interface PriceAlertUser {
 	phone_verified: boolean;
 	sms_notifications_enabled: boolean;
 	sms_opted_out: boolean;
-	market_asset_price_alerts_include_email: boolean;
-	market_asset_price_alerts_include_sms: boolean;
+	email_notifications_enabled: boolean;
 	market_asset_price_alert_move_size: AlertMoveSize;
 	use_24_hour_time: boolean;
 	/** Linked Telegram chat (null when never linked); gates the Telegram delivery branch. */
 	telegram_chat_id: number | null;
 	/** True after a verified outbound 403 ("bot blocked"); suppresses Telegram delivery. */
 	telegram_opted_out: boolean;
+	/** Per-option channel preferences (single source of truth for all channels). */
+	prefs: PrefRow[];
 }
 
 /**
- * Fetch users who have price alerts enabled and at least one delivery channel
- * (email or SMS). Used by the price-alert pipeline to determine recipients.
+ * Fetch users who have price alerts enabled and at least one usable channel.
+ * The per-option `market_asset_price_alerts` facet now lives in
+ * `notification_preferences` (checked at delivery time), so the candidate set is
+ * gated by channel-level columns only; prefs are loaded in a batch.
  */
 export async function fetchPriceAlertUsers(
 	supabase: SupabaseAdminClient,
@@ -30,17 +35,16 @@ export async function fetchPriceAlertUsers(
 	const { data, error } = await (supabase
 		.from("users")
 		.select(
-			"id, email, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, market_asset_price_alerts_include_email, market_asset_price_alerts_include_sms, market_asset_price_alert_move_size, use_24_hour_time, telegram_chat_id, telegram_opted_out",
+			"id, email, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, email_notifications_enabled, market_asset_price_alert_move_size, use_24_hour_time, telegram_chat_id, telegram_opted_out",
 		)
 		.eq("market_asset_price_alerts_enabled", true)
-		// Email/SMS gate is unchanged; the third clause additively pulls in Telegram-linked
-		// users (incl. those with email/SMS off) so the delivery loop can check their
-		// per-option Telegram pref. A linked-but-not-opted-out chat is the cheap pre-filter;
-		// the actual market_asset_price_alerts Telegram pref is checked at delivery time.
+		// Candidate pre-filter on channel-level columns only: usable email channel,
+		// usable SMS channel (verified phone + opted in), or a linked Telegram chat.
+		// The per-option market_asset_price_alerts facet is checked at delivery time.
 		.or(
-			"market_asset_price_alerts_include_email.eq.true,market_asset_price_alerts_include_sms.eq.true,telegram_chat_id.not.is.null",
+			"email_notifications_enabled.eq.true,and(sms_notifications_enabled.eq.true,phone_verified.eq.true),telegram_chat_id.not.is.null",
 		) as unknown as Promise<{
-		data: PriceAlertUser[] | null;
+		data: Omit<PriceAlertUser, "prefs">[] | null;
 		error: unknown;
 	}>);
 
@@ -53,7 +57,7 @@ export async function fetchPriceAlertUsers(
 		return [];
 	}
 
-	return data ?? [];
+	return attachPrefsToUsers(supabase, data ?? []);
 }
 
 /**

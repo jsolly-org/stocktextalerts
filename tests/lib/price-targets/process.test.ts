@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { PrefChannel } from "../../../src/lib/messaging/notification-prefs";
 import type { ExtendedAssetQuote } from "../../../src/lib/providers/price-fetcher";
 
 // Mock external dependencies
@@ -58,8 +59,20 @@ function makeSupabaseMock(options: {
 		phone_verified: boolean;
 		sms_notifications_enabled: boolean;
 		sms_opted_out: boolean;
-		price_targets_include_email: boolean;
-		price_targets_include_sms: boolean;
+		telegram_chat_id: number | null;
+		telegram_opted_out: boolean;
+	}>;
+	/**
+	 * notification_preferences rows returned by attachPrefsToUsers' batch IN query.
+	 * Per-option facets are the single source of truth — defaults to the
+	 * price_targets email facet enabled so triggered targets deliver.
+	 */
+	prefs?: Array<{
+		user_id: string;
+		notification_type: string;
+		content: string;
+		channel: PrefChannel;
+		enabled: boolean;
 	}>;
 	onDelete?: () => void;
 	onUpdate?: () => void;
@@ -69,6 +82,15 @@ function makeSupabaseMock(options: {
 	const {
 		targets = [],
 		users = [],
+		prefs = [
+			{
+				user_id: "user-1",
+				notification_type: "price_targets",
+				content: "",
+				channel: "email",
+				enabled: true,
+			},
+		],
 		onDelete,
 		onUpdate,
 		claimedRows = [{ user_id: "user-1" }],
@@ -119,6 +141,13 @@ function makeSupabaseMock(options: {
 					}),
 				};
 			}
+			if (table === "notification_preferences") {
+				return {
+					select: () => ({
+						in: () => Promise.resolve({ data: prefs, error: null }),
+					}),
+				};
+			}
 			if (table === "assets") {
 				return {
 					select: () => ({
@@ -142,8 +171,8 @@ const testUser = {
 	phone_verified: true,
 	sms_notifications_enabled: true,
 	sms_opted_out: false,
-	price_targets_include_email: true,
-	price_targets_include_sms: false,
+	telegram_chat_id: null,
+	telegram_opted_out: false,
 };
 
 beforeEach(() => {
@@ -325,8 +354,8 @@ describe("Price target processing", () => {
 					phone_verified: false,
 					sms_notifications_enabled: false,
 					sms_opted_out: false,
-					price_targets_include_email: true,
-					price_targets_include_sms: false,
+					telegram_chat_id: null,
+					telegram_opted_out: false,
 				},
 			],
 			onDelete: () => {

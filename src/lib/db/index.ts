@@ -22,6 +22,38 @@ Public Types
 
 /** Full `users` table row type (public schema). */
 export type User = DbUserRow;
+
+/** The 22 per-option email/sms preference fields that used to be `users` columns
+ *  and now live in notification_preferences. The dashboard augments the `users`
+ *  row with these (reconstructed from the table) so the existing per-option Vue
+ *  controls keep reading `user.<field>`. */
+export interface DashboardUserChannelPrefs {
+	daily_digest_include_prices_email: boolean;
+	daily_digest_include_prices_sms: boolean;
+	daily_digest_include_top_movers_email: boolean;
+	daily_digest_include_top_movers_sms: boolean;
+	daily_digest_include_news_email: boolean;
+	daily_digest_include_rumors_email: boolean;
+	market_scheduled_asset_price_include_email: boolean;
+	market_scheduled_asset_price_include_sms: boolean;
+	asset_events_include_calendar_email: boolean;
+	asset_events_include_calendar_sms: boolean;
+	asset_events_include_ipo_email: boolean;
+	asset_events_include_ipo_sms: boolean;
+	asset_events_include_analyst_email: boolean;
+	asset_events_include_analyst_sms: boolean;
+	asset_events_include_insider_email: boolean;
+	asset_events_include_insider_sms: boolean;
+	market_asset_price_alerts_include_email: boolean;
+	market_asset_price_alerts_include_sms: boolean;
+	price_move_alerts_include_email: boolean;
+	price_move_alerts_include_sms: boolean;
+	price_targets_include_email: boolean;
+	price_targets_include_sms: boolean;
+}
+
+/** The `users` row augmented with per-option email/sms prefs for the dashboard UI. */
+export type DashboardUser = User & DashboardUserChannelPrefs;
 /** A user's tracked asset joined with canonical asset details. */
 export type UserAsset = Pick<DbUserAssetRow, "symbol" | "created_at"> & {
 	name: DbAssetRow["name"];
@@ -29,7 +61,11 @@ export type UserAsset = Pick<DbUserAssetRow, "symbol" | "created_at"> & {
 	icon_url: DbAssetRow["icon_url"];
 };
 
-/** Snapshot of user notification-related columns used for quick comparisons/decisions. */
+/** Snapshot of user notification settings used for quick comparisons/decisions.
+ *
+ * Channel/feature-level columns come from the `users` row; per-option channel
+ * facets (`*_include_*`) come from notification_preferences, reconstructed as a
+ * flat boolean map (see `buildChannelPreferenceSnapshot`). */
 export type NotificationPreferencesSnapshot = Pick<
 	User,
 	| "market_scheduled_asset_price_enabled"
@@ -43,29 +79,12 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "daily_digest_next_send_at"
 	| "market_scheduled_asset_price_next_send_at"
 	| "dismiss_timezone_mismatch_prompts"
-	| "daily_digest_include_prices_email"
-	| "daily_digest_include_prices_sms"
-	| "daily_digest_include_top_movers_email"
-	| "daily_digest_include_top_movers_sms"
-	| "daily_digest_include_news_email"
-	| "daily_digest_include_rumors_email"
-	| "market_scheduled_asset_price_include_email"
-	| "market_scheduled_asset_price_include_sms"
-	| "asset_events_include_calendar_email"
-	| "asset_events_include_calendar_sms"
-	| "asset_events_include_ipo_email"
-	| "asset_events_include_ipo_sms"
-	| "asset_events_include_analyst_email"
-	| "asset_events_include_analyst_sms"
-	| "asset_events_include_insider_email"
-	| "asset_events_include_insider_sms"
 	| "asset_events_next_send_at"
 	| "asset_events_last_analyst_sent_month"
 	| "market_asset_price_alerts_enabled"
-	| "market_asset_price_alerts_include_email"
-	| "market_asset_price_alerts_include_sms"
 	| "market_asset_price_alert_move_size"
->;
+> &
+	Partial<Record<string, boolean>>;
 
 /** Subset of notification preferences editable from the dashboard UI. */
 export type NotificationPreferences = Pick<

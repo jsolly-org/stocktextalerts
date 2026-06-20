@@ -1,4 +1,6 @@
 import { rootLogger } from "../../logging";
+import { attachPrefsToUsers } from "../../messaging/load-prefs";
+import type { PrefRow } from "../../messaging/notification-prefs";
 import type { SupabaseAdminClient } from "../../schedule/helpers";
 
 /** Minimal user shape for flat price alert delivery across email + SMS + Telegram. */
@@ -11,20 +13,24 @@ export interface FlatPriceAlertUser {
 	phone_verified: boolean;
 	sms_notifications_enabled: boolean;
 	sms_opted_out: boolean;
-	price_move_alerts_include_email: boolean;
-	price_move_alerts_include_sms: boolean;
 	use_24_hour_time: boolean;
 	/** Linked Telegram chat (null when never linked); gates the Telegram delivery branch. */
 	telegram_chat_id: number | null;
 	/** True after a verified outbound 403 ("bot blocked"); suppresses Telegram delivery. */
 	telegram_opted_out: boolean;
+	/** Per-option channel preferences (single source of truth for all channels). */
+	prefs: PrefRow[];
 }
 
 /**
  * Fetch users who have at least one flat-price-alert channel enabled.
- * Per-channel gates (global email unsub, verified phone, opt-out) are enforced
- * in `deliverFlatPriceAlert` so a user with both channels on can still receive
- * the email if their phone is unverified, etc.
+ * Per-channel gates (global email unsub, verified phone, opt-out) and the
+ * per-option `price_move_alerts` facet are enforced in `deliverFlatPriceAlert`.
+ *
+ * The per-option prefs now live in `notification_preferences`, which PostgREST
+ * can't filter against the `users` table in one query, so the candidate set is
+ * gated by channel-level columns only (email global enable / verified-phone SMS /
+ * Telegram linked); prefs are loaded in a batch and the delivery loop filters.
  */
 export async function fetchFlatPriceAlertUsers(
 	supabase: SupabaseAdminClient,
@@ -32,15 +38,15 @@ export async function fetchFlatPriceAlertUsers(
 	const { data, error } = await (supabase
 		.from("users")
 		.select(
-			"id, email, email_notifications_enabled, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, price_move_alerts_include_email, price_move_alerts_include_sms, use_24_hour_time, telegram_chat_id, telegram_opted_out",
+			"id, email, email_notifications_enabled, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, use_24_hour_time, telegram_chat_id, telegram_opted_out",
 		)
-		// Email/SMS gate is unchanged; the third clause additively pulls in Telegram-linked
-		// users (incl. those with email/SMS off) so the delivery loop can check their
-		// per-option Telegram pref.
+		// Candidate pre-filter on channel-level columns only: a usable email channel,
+		// a usable SMS channel (verified phone + opted in), or a linked Telegram chat.
+		// The per-option price_move_alerts facet is checked in the delivery loop.
 		.or(
-			"price_move_alerts_include_email.eq.true,price_move_alerts_include_sms.eq.true,telegram_chat_id.not.is.null",
+			"email_notifications_enabled.eq.true,and(sms_notifications_enabled.eq.true,phone_verified.eq.true),telegram_chat_id.not.is.null",
 		) as unknown as Promise<{
-		data: FlatPriceAlertUser[] | null;
+		data: Omit<FlatPriceAlertUser, "prefs">[] | null;
 		error: unknown;
 	}>);
 
@@ -53,5 +59,5 @@ export async function fetchFlatPriceAlertUsers(
 		return [];
 	}
 
-	return data ?? [];
+	return attachPrefsToUsers(supabase, data ?? []);
 }

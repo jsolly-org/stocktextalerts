@@ -8,10 +8,10 @@ import {
 import { createTelegramSenderProvider } from "../../../src/lib/schedule/telegram-sender";
 
 const digestPrefs: TelegramPrefRow[] = [
-	{ notification_type: "daily_digest", content: "prices", enabled: true },
-	{ notification_type: "daily_digest", content: "news", enabled: false },
-	{ notification_type: "daily_digest", content: "top_movers", enabled: true },
-	{ notification_type: "asset_events", content: "calendar", enabled: true },
+	{ notification_type: "daily_digest", content: "prices", channel: "telegram", enabled: true },
+	{ notification_type: "daily_digest", content: "news", channel: "telegram", enabled: false },
+	{ notification_type: "daily_digest", content: "top_movers", channel: "telegram", enabled: true },
+	{ notification_type: "asset_events", content: "calendar", channel: "telegram", enabled: true },
 ];
 
 describe("Telegram delivery eligibility", () => {

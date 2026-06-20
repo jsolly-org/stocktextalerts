@@ -13,8 +13,18 @@ vi.mock("../../src/lib/providers/price-fetcher", () => ({
 	fetchAssetPrices: vi.fn(),
 	getCurrentMarketSession: vi.fn(),
 }));
+// The telegram:get-me check hits the real Bot API (getMe/getWebhookInfo); stub the
+// read-only health check + bot construction so the suite never makes a live call.
+vi.mock("../../src/lib/messaging/telegram/health", () => ({
+	checkTelegramLive: vi.fn(),
+}));
+vi.mock("../../src/lib/messaging/telegram/sender", () => ({
+	createTelegramBot: vi.fn(() => ({})),
+	readTelegramBotToken: vi.fn(() => "test-telegram-bot-token"),
+}));
 
 import { handler } from "../../src/handlers/live-provider-check";
+import { checkTelegramLive } from "../../src/lib/messaging/telegram/health";
 import { fetchDailyCloses, fetchEarnings, fetchPrevClose } from "../../src/lib/providers/massive";
 import { fetchAssetPrices, getCurrentMarketSession } from "../../src/lib/providers/price-fetcher";
 
@@ -35,6 +45,14 @@ function stubHealthyProviders(): void {
 		failed: false,
 		data: [],
 	} as Awaited<ReturnType<typeof fetchEarnings>>);
+	vi.mocked(checkTelegramLive).mockResolvedValue({
+		ok: true,
+		botId: 12345,
+		username: "StockTextAlertsBot",
+		webhookUrl: "",
+		pendingUpdateCount: 0,
+		lastError: null,
+	});
 }
 
 describe("live-provider-check Lambda", () => {

@@ -21,6 +21,7 @@ import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
 } from "../../src/lib/schedule/helpers";
+import { makePrefRows } from "../helpers/user-record-fixture";
 
 describe("Daily digest email prices", () => {
 	const user = { id: "user-1", email: "test@example.com" };
@@ -57,35 +58,17 @@ describe("Daily digest email prices", () => {
 			sms_notifications_enabled: true,
 			sms_opted_out: false,
 			market_scheduled_asset_price_enabled: false,
-			market_scheduled_asset_price_include_email: false,
-			market_scheduled_asset_price_include_sms: false,
 			market_scheduled_asset_price_times: null,
 			daily_digest_time: scheduledMinutes,
 			daily_digest_next_send_at: null,
-			daily_digest_include_prices_email: false,
-			daily_digest_include_prices_sms: true,
-			daily_digest_include_top_movers_email: false,
-			daily_digest_include_top_movers_sms: false,
-			asset_events_include_calendar_email: false,
-			asset_events_include_calendar_sms: false,
-			asset_events_include_ipo_email: false,
-			asset_events_include_ipo_sms: false,
-			asset_events_include_analyst_email: false,
-			asset_events_include_analyst_sms: false,
-			asset_events_include_insider_email: false,
-			asset_events_include_insider_sms: false,
 			asset_events_next_send_at: null,
 			asset_events_last_analyst_sent_month: null,
-			market_asset_price_alerts_include_sms: false,
-			price_move_alerts_include_email: false,
-			price_move_alerts_include_sms: false,
-			daily_digest_include_news_email: false,
-			daily_digest_include_rumors_email: false,
 			last_grok_rumors_at: null,
 			grok_window_start: null,
 			grok_sends_in_window: 0,
 			telegram_chat_id: null,
 			telegram_opted_out: false,
+			prefs: makePrefRows([["daily_digest", "prices", "sms", true]]),
 		};
 	}
 

@@ -8,6 +8,10 @@ export type SeedUser = Omit<Partial<DbUserInsert>, "email"> & {
   email: DbUserInsert["email"];
   password?: string;
   tracked_assets?: string[];
+  // Per-option channel facets now live in notification_preferences, not on `users`.
+  // Seed JSON may still set the scheduled-market facets; emitted as table rows.
+  market_scheduled_asset_price_include_email?: boolean;
+  market_scheduled_asset_price_include_sms?: boolean;
 };
 
 /**
@@ -358,19 +362,7 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
     updateFields.push("email_notifications_enabled = EXCLUDED.email_notifications_enabled");
   }
 
-  const marketScheduledIncludeEmail = validateOptionalBoolean(
-    user.market_scheduled_asset_price_include_email,
-    "market_scheduled_asset_price_include_email",
-  );
-  if (marketScheduledIncludeEmail !== undefined) {
-    insertColumns.push("market_scheduled_asset_price_include_email");
-    insertValues.push(String(marketScheduledIncludeEmail));
-    updateFields.push(
-      "market_scheduled_asset_price_include_email = EXCLUDED.market_scheduled_asset_price_include_email",
-    );
-  }
-
-  return `
+  const usersSql = `
 INSERT INTO public.users (
   ${insertColumns.join(",\n  ")}
 ) VALUES (
@@ -378,6 +370,87 @@ INSERT INTO public.users (
 )
 ON CONFLICT (id) DO UPDATE SET
   ${updateFields.join(",\n  ")};
+`;
+
+  // Per-option channel preferences are the single source of truth in
+  // notification_preferences (no per-column flags on `users`). Seed the default row
+  // set for every user, then override the scheduled-market facets from seed JSON.
+  return usersSql + buildNotificationPreferencesSql(userId, user);
+}
+
+/** New-user default facets: prices email+sms on; everything else off. */
+const SEED_DEFAULT_PREFERENCE_ROWS: ReadonlyArray<{
+  notification_type: string;
+  content: string;
+  channel: "email" | "sms" | "telegram";
+  enabled: boolean;
+}> = [
+  { notification_type: "daily_digest", content: "prices", channel: "email", enabled: true },
+  { notification_type: "daily_digest", content: "prices", channel: "sms", enabled: true },
+  { notification_type: "daily_digest", content: "prices", channel: "telegram", enabled: false },
+  { notification_type: "daily_digest", content: "top_movers", channel: "email", enabled: false },
+  { notification_type: "daily_digest", content: "top_movers", channel: "sms", enabled: false },
+  { notification_type: "daily_digest", content: "top_movers", channel: "telegram", enabled: false },
+  { notification_type: "daily_digest", content: "news", channel: "email", enabled: false },
+  { notification_type: "daily_digest", content: "news", channel: "telegram", enabled: false },
+  { notification_type: "daily_digest", content: "rumors", channel: "email", enabled: false },
+  { notification_type: "daily_digest", content: "rumors", channel: "telegram", enabled: false },
+  { notification_type: "asset_events", content: "calendar", channel: "email", enabled: false },
+  { notification_type: "asset_events", content: "calendar", channel: "sms", enabled: false },
+  { notification_type: "asset_events", content: "calendar", channel: "telegram", enabled: false },
+  { notification_type: "asset_events", content: "ipo", channel: "email", enabled: false },
+  { notification_type: "asset_events", content: "ipo", channel: "sms", enabled: false },
+  { notification_type: "asset_events", content: "ipo", channel: "telegram", enabled: false },
+  { notification_type: "asset_events", content: "analyst", channel: "email", enabled: false },
+  { notification_type: "asset_events", content: "analyst", channel: "sms", enabled: false },
+  { notification_type: "asset_events", content: "analyst", channel: "telegram", enabled: false },
+  { notification_type: "asset_events", content: "insider", channel: "email", enabled: false },
+  { notification_type: "asset_events", content: "insider", channel: "sms", enabled: false },
+  { notification_type: "asset_events", content: "insider", channel: "telegram", enabled: false },
+  { notification_type: "market_asset_price_alerts", content: "", channel: "email", enabled: false },
+  { notification_type: "market_asset_price_alerts", content: "", channel: "sms", enabled: false },
+  { notification_type: "market_asset_price_alerts", content: "", channel: "telegram", enabled: false },
+  { notification_type: "market_scheduled_asset_price", content: "", channel: "email", enabled: false },
+  { notification_type: "market_scheduled_asset_price", content: "", channel: "sms", enabled: false },
+  { notification_type: "market_scheduled_asset_price", content: "", channel: "telegram", enabled: false },
+  { notification_type: "price_move_alerts", content: "", channel: "email", enabled: false },
+  { notification_type: "price_move_alerts", content: "", channel: "sms", enabled: false },
+  { notification_type: "price_move_alerts", content: "", channel: "telegram", enabled: false },
+  { notification_type: "price_targets", content: "", channel: "email", enabled: false },
+  { notification_type: "price_targets", content: "", channel: "sms", enabled: false },
+  { notification_type: "price_targets", content: "", channel: "telegram", enabled: false },
+];
+
+/** Build the notification_preferences seed for a user: default rows + JSON overrides. */
+function buildNotificationPreferencesSql(userId: string, user: SeedUser): string {
+  const overrides = new Map<string, boolean>();
+  const scheduledEmail = validateOptionalBoolean(
+    user.market_scheduled_asset_price_include_email,
+    "market_scheduled_asset_price_include_email",
+  );
+  if (scheduledEmail !== undefined) {
+    overrides.set("market_scheduled_asset_price||email", scheduledEmail);
+  }
+  const scheduledSms = validateOptionalBoolean(
+    user.market_scheduled_asset_price_include_sms,
+    "market_scheduled_asset_price_include_sms",
+  );
+  if (scheduledSms !== undefined) {
+    overrides.set("market_scheduled_asset_price||sms", scheduledSms);
+  }
+  // override key = `${notification_type}|${content}|${channel}`; content is "" for market types.
+
+  const rows = SEED_DEFAULT_PREFERENCE_ROWS.map((row) => {
+    const enabled =
+      overrides.get(`${row.notification_type}|${row.content}|${row.channel}`) ?? row.enabled;
+    return `('${userId}'::uuid, '${row.notification_type}', '${escapeSql(row.content)}', '${row.channel}'::public.delivery_method, ${enabled})`;
+  });
+
+  return `
+INSERT INTO public.notification_preferences (user_id, notification_type, content, channel, enabled) VALUES
+  ${rows.join(",\n  ")}
+ON CONFLICT (user_id, notification_type, content, channel) DO UPDATE SET
+  enabled = EXCLUDED.enabled;
 `;
 }
 

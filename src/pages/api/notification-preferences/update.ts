@@ -1,13 +1,21 @@
 import type { APIRoute } from "astro";
 import { jsonResponse } from "../../../lib/api/json-response";
-import { persistTelegramPreferences } from "../../../lib/api/notification-preferences-telegram";
-import { buildNotificationPreferencesUpdatePayload } from "../../../lib/api/notification-preferences-update";
+import {
+	buildChannelPreferenceSnapshot,
+	loadUserPreferenceRows,
+	persistChannelPreferences,
+} from "../../../lib/api/notification-preferences-channels";
+import {
+	ASSET_EVENTS_SCHEDULE_FIELDS,
+	buildNotificationPreferencesUpdatePayload,
+} from "../../../lib/api/notification-preferences-update";
 import { createUserService, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
+import { anyFacetEnabled } from "../../../lib/messaging/notification-prefs";
 import { isOutsideMarketHours, userLocalToEtMinute } from "../../../lib/time/format";
 import { parseScheduledTimes } from "../../../lib/time/scheduled-times";
 
@@ -61,17 +69,26 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	price_targets_include_telegram: { type: "boolean" },
 } as const satisfies FormSchema;
 
-const SMS_INCLUDE_FIELDS = [
-	"market_scheduled_asset_price_include_sms",
-	"asset_events_include_calendar_sms",
-	"asset_events_include_ipo_sms",
-	"asset_events_include_analyst_sms",
-	"asset_events_include_insider_sms",
-	"market_asset_price_alerts_include_sms",
-	"price_move_alerts_include_sms",
-	"price_targets_include_sms",
-	"daily_digest_include_top_movers_sms",
-] as const;
+/** SMS facet form fields → their (notification_type, content) row key, used to
+ *  enforce the sms_opted_out / phone-required guard against the table rows. */
+const SMS_INCLUDE_FIELD_TARGETS: Record<string, { notification_type: string; content: string }> = {
+	market_scheduled_asset_price_include_sms: {
+		notification_type: "market_scheduled_asset_price",
+		content: "",
+	},
+	asset_events_include_calendar_sms: { notification_type: "asset_events", content: "calendar" },
+	asset_events_include_ipo_sms: { notification_type: "asset_events", content: "ipo" },
+	asset_events_include_analyst_sms: { notification_type: "asset_events", content: "analyst" },
+	asset_events_include_insider_sms: { notification_type: "asset_events", content: "insider" },
+	market_asset_price_alerts_include_sms: {
+		notification_type: "market_asset_price_alerts",
+		content: "",
+	},
+	price_move_alerts_include_sms: { notification_type: "price_move_alerts", content: "" },
+	price_targets_include_sms: { notification_type: "price_targets", content: "" },
+	daily_digest_include_top_movers_sms: { notification_type: "daily_digest", content: "top_movers" },
+};
+const SMS_INCLUDE_FIELDS = Object.keys(SMS_INCLUDE_FIELD_TARGETS);
 
 /**
  * Update the authenticated user's notification-preferences.
@@ -173,6 +190,46 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		}
 	}
 
+	// Per-option channel facets live in notification_preferences. Load the user's
+	// CURRENT rows so we can compute the post-update asset-events state (for
+	// asset_events_next_send_at) and enforce the SMS opt-out guard.
+	let existingPrefs: Awaited<ReturnType<typeof loadUserPreferenceRows>>;
+	try {
+		existingPrefs = await loadUserPreferenceRows(supabase, user.id);
+	} catch (error) {
+		logger.error("Failed to load existing notification preferences", { userId: user.id }, error);
+		return jsonResponse(500, { ok: false, message: "failed_to_update_settings" });
+	}
+
+	// Resolve the post-update asset-events email/sms enabled state by merging the
+	// submitted facet fields over the existing table rows.
+	const assetEventsScheduleSubmitted = ASSET_EVENTS_SCHEDULE_FIELDS.some((field) =>
+		formData.has(field),
+	);
+	const isAssetEventsScheduleFacetEnabledAfter = (channel: "email" | "sms", content: string) => {
+		const field = `asset_events_include_${content}_${channel}` as keyof typeof parsed.data;
+		if (formData.has(field) && parsed.data[field] !== undefined) {
+			return parsed.data[field] === true;
+		}
+		return existingPrefs.some(
+			(p) =>
+				p.notification_type === "asset_events" &&
+				p.channel === channel &&
+				p.content === content &&
+				p.enabled,
+		);
+	};
+	const assetEventsEnabledAfterUpdate = (["calendar", "ipo", "analyst", "insider"] as const).some(
+		(content) =>
+			isAssetEventsScheduleFacetEnabledAfter("email", content) ||
+			isAssetEventsScheduleFacetEnabledAfter("sms", content),
+	);
+	const assetEventsEnabledBefore =
+		anyFacetEnabled(existingPrefs, "asset_events", "email") ||
+		anyFacetEnabled(existingPrefs, "asset_events", "sms");
+	const assetEventsOptionsChanged =
+		assetEventsScheduleSubmitted && assetEventsEnabledAfterUpdate !== assetEventsEnabledBefore;
+
 	let safeNotificationPreferenceUpdates: ReturnType<
 		typeof buildNotificationPreferencesUpdatePayload
 	>;
@@ -183,6 +240,8 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			rawTimesValue: rawTimesValue as string | null,
 			parsedMarketScheduledAssetPriceTimes,
 			dbUser,
+			assetEventsEnabledAfterUpdate,
+			assetEventsOptionsChanged,
 			logger,
 		});
 	} catch (error) {
@@ -208,9 +267,24 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			return jsonResponse(400, { ok: false, message: "sms_opted_out" });
 		}
 
-		const enablesAnySmsIncludeField = SMS_INCLUDE_FIELDS.some(
-			(field) => safeNotificationPreferenceUpdates[field] === true && dbUser[field] !== true,
-		);
+		// An SMS include field is being newly enabled when the form submits it as true
+		// AND it wasn't already enabled in the table.
+		const enablesAnySmsIncludeField = SMS_INCLUDE_FIELDS.some((field) => {
+			if (!formData.has(field) || parsed.data[field as keyof typeof parsed.data] !== true) {
+				return false;
+			}
+			// Parse the field name back into (notification_type, content) to check the row.
+			const target = SMS_INCLUDE_FIELD_TARGETS[field];
+			if (!target) return false;
+			const alreadyEnabled = existingPrefs.some(
+				(p) =>
+					p.notification_type === target.notification_type &&
+					p.channel === "sms" &&
+					p.content === target.content &&
+					p.enabled,
+			);
+			return !alreadyEnabled;
+		});
 		if (dbUser.sms_opted_out && enablesAnySmsIncludeField) {
 			logger.info("SMS enable rejected: user is sms_opted_out", {
 				userId: user.id,
@@ -224,7 +298,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			return jsonResponse(400, { ok: false, message: "phone_not_set" });
 		}
 
-		// A Telegram-only submission carries no `users`-column changes, so the payload
+		// A facet-only submission carries no `users`-column changes, so the payload
 		// can be empty. Skip the no-op `users` UPDATE (PostgREST returns 0 rows for an
 		// empty update, which `.single()` rejects) and reuse the freshly-fetched row.
 		const updatedUser =
@@ -236,12 +310,10 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			return jsonResponse(404, { ok: false, message: "user_not_found" });
 		}
 
-		// Telegram prefs have no legacy `users` columns — persist any submitted
-		// `*_telegram` selections to notification_preferences. The session-scoped
+		// Persist every submitted channel facet (email/sms/telegram alike) to
+		// notification_preferences — the single source of truth. The session-scoped
 		// `supabase` client (authed in getCurrentUser) satisfies the per-user RLS.
-		// v1 persists Telegram only; email/sms still read from the users columns
-		// above, so we don't mirror them into the table here (Phase-2 follow-up).
-		await persistTelegramPreferences({
+		await persistChannelPreferences({
 			supabase,
 			userId: user.id,
 			parsedData: parsed.data,
@@ -249,15 +321,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			logger,
 		});
 
+		// Rebuild the per-option snapshot from the table (post-write) for the UI.
+		const updatedPrefs = await loadUserPreferenceRows(supabase, user.id);
+
 		return jsonResponse(200, {
 			ok: true,
 			message: "settings_updated",
 			notificationPreferences: {
 				market_scheduled_asset_price_enabled: updatedUser.market_scheduled_asset_price_enabled,
-				market_scheduled_asset_price_include_email:
-					updatedUser.market_scheduled_asset_price_include_email,
-				market_scheduled_asset_price_include_sms:
-					updatedUser.market_scheduled_asset_price_include_sms,
 				email_notifications_enabled: updatedUser.email_notifications_enabled,
 				sms_notifications_enabled: updatedUser.sms_notifications_enabled,
 				sms_opted_out: updatedUser.sms_opted_out,
@@ -269,30 +340,10 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				market_scheduled_asset_price_next_send_at:
 					updatedUser.market_scheduled_asset_price_next_send_at,
 				dismiss_timezone_mismatch_prompts: updatedUser.dismiss_timezone_mismatch_prompts,
-				daily_digest_include_prices_email: updatedUser.daily_digest_include_prices_email,
-				daily_digest_include_prices_sms: updatedUser.daily_digest_include_prices_sms,
-				daily_digest_include_top_movers_email: updatedUser.daily_digest_include_top_movers_email,
-				daily_digest_include_top_movers_sms: updatedUser.daily_digest_include_top_movers_sms,
-				daily_digest_include_news_email: updatedUser.daily_digest_include_news_email,
-				daily_digest_include_rumors_email: updatedUser.daily_digest_include_rumors_email,
-				asset_events_include_calendar_email: updatedUser.asset_events_include_calendar_email,
-				asset_events_include_calendar_sms: updatedUser.asset_events_include_calendar_sms,
-				asset_events_include_ipo_email: updatedUser.asset_events_include_ipo_email,
-				asset_events_include_ipo_sms: updatedUser.asset_events_include_ipo_sms,
-				asset_events_include_analyst_email: updatedUser.asset_events_include_analyst_email,
-				asset_events_include_analyst_sms: updatedUser.asset_events_include_analyst_sms,
-				asset_events_include_insider_email: updatedUser.asset_events_include_insider_email,
-				asset_events_include_insider_sms: updatedUser.asset_events_include_insider_sms,
 				asset_events_next_send_at: updatedUser.asset_events_next_send_at,
 				market_asset_price_alerts_enabled: updatedUser.market_asset_price_alerts_enabled,
-				market_asset_price_alerts_include_email:
-					updatedUser.market_asset_price_alerts_include_email,
-				market_asset_price_alerts_include_sms: updatedUser.market_asset_price_alerts_include_sms,
 				market_asset_price_alert_move_size: updatedUser.market_asset_price_alert_move_size,
-				price_move_alerts_include_email: updatedUser.price_move_alerts_include_email,
-				price_move_alerts_include_sms: updatedUser.price_move_alerts_include_sms,
-				price_targets_include_email: updatedUser.price_targets_include_email,
-				price_targets_include_sms: updatedUser.price_targets_include_sms,
+				...buildChannelPreferenceSnapshot(updatedPrefs),
 			},
 		});
 	} catch (error) {

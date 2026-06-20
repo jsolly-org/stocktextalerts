@@ -7,6 +7,7 @@ import { renderIntradaySparklineImg } from "../../messaging/email/intraday-spark
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
 import type { EmailSender } from "../../messaging/email/utils";
 import { type createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
+import { isFacetEnabled } from "../../messaging/notification-prefs";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
@@ -19,11 +20,8 @@ import {
 	toSparkline,
 } from "../../messaging/sparkline";
 import { toSvgSparklineImg } from "../../messaging/svg-sparkline";
-import {
-	isTelegramChannelUsable,
-	shouldSendTelegram,
-	type TelegramPrefRow,
-} from "../../messaging/telegram/eligibility";
+import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/telegram/eligibility";
+import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../../messaging/telegram/price-alert";
 import type { TelegramSender } from "../../messaging/telegram/sender";
 import type { IntradayBarsResult } from "../../providers/massive";
@@ -468,7 +466,10 @@ export async function deliverFlatPriceAlert(options: {
 	let delivered = false;
 
 	// Email
-	if (user.price_move_alerts_include_email && user.email_notifications_enabled) {
+	if (
+		isFacetEnabled(user.prefs, "price_move_alerts", "email") &&
+		user.email_notifications_enabled
+	) {
 		const logoDataUri = await fetchLogoBase64(symbol, iconUrl, logoCache, iconBase64, supabase);
 		const logoHtml = logoDataUri ? renderLogoImg(logoDataUri) : undefined;
 
@@ -527,7 +528,7 @@ export async function deliverFlatPriceAlert(options: {
 	}
 
 	// SMS
-	if (user.price_move_alerts_include_sms && sendSms) {
+	if (isFacetEnabled(user.prefs, "price_move_alerts", "sms") && sendSms) {
 		if (!shouldSendSms(user)) {
 			rootLogger.info("Flat price alert SMS skipped: user not eligible", {
 				userId: user.id,
@@ -578,22 +579,7 @@ export async function deliverFlatPriceAlert(options: {
 	// symbol×user, so Telegram piggybacks. Only query per-option prefs for users whose
 	// channel is usable (linked + not opted out).
 	if (sendTelegram && isTelegramChannelUsable(user)) {
-		const { data: prefRows, error: prefError } = await supabase
-			.from("notification_preferences")
-			.select("notification_type, content, enabled")
-			.eq("user_id", user.id)
-			.eq("notification_type", "price_move_alerts")
-			.eq("channel", "telegram");
-		if (prefError) {
-			rootLogger.error(
-				"Failed to load Telegram flat-price-alert preferences",
-				{ userId: user.id, symbol },
-				prefError,
-			);
-		}
-		const telegramPrefs: TelegramPrefRow[] = prefRows ?? [];
-
-		if (shouldSendTelegram(user, telegramPrefs, "price_move_alerts")) {
+		if (shouldSendTelegram(user, user.prefs, "price_move_alerts")) {
 			const since =
 				isReTrigger && lastNotificationAt !== null
 					? formatRelativeMinutesAgo(lastNotificationAt.getTime(), nowMs)
@@ -622,6 +608,8 @@ export async function deliverFlatPriceAlert(options: {
 					new Error(result.error ?? "Flat price alert Telegram send failed"),
 				);
 			}
+
+			await optOutIfBotBlocked(supabase, user.id, result);
 
 			const logged = await recordNotification(supabase, {
 				user_id: user.id,

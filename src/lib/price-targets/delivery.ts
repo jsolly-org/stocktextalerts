@@ -7,15 +7,13 @@ import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
+import { isFacetEnabled } from "../messaging/notification-prefs";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { isSmsChannelUsable, sendUserSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SmsSender } from "../messaging/sms/twilio-utils";
-import {
-	isTelegramChannelUsable,
-	shouldSendTelegram,
-	type TelegramPrefRow,
-} from "../messaging/telegram/eligibility";
+import { isTelegramChannelUsable, shouldSendTelegram } from "../messaging/telegram/eligibility";
+import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../messaging/telegram/price-alert";
 import type { TelegramSender } from "../messaging/telegram/sender";
 import type { PriceTargetUser, TriggeredPriceTarget } from "./process";
@@ -139,7 +137,7 @@ export async function deliverPriceTargetAlert(options: {
 	let delivered = false;
 
 	// Email delivery
-	if (user.price_targets_include_email) {
+	if (isFacetEnabled(user.prefs, "price_targets", "email")) {
 		const logoDataUri = await fetchLogoBase64(
 			target.symbol,
 			target.iconUrl,
@@ -175,7 +173,7 @@ export async function deliverPriceTargetAlert(options: {
 	}
 
 	// SMS delivery
-	if (user.price_targets_include_sms) {
+	if (isFacetEnabled(user.prefs, "price_targets", "sms")) {
 		if (!sendSms) {
 			rootLogger.error(
 				"Price target SMS sender unavailable",
@@ -216,22 +214,7 @@ export async function deliverPriceTargetAlert(options: {
 	// Only query per-option prefs for users whose channel is usable (linked + not opted
 	// out). Text-only: price targets carry no intraday candles.
 	if (sendTelegram && isTelegramChannelUsable(user)) {
-		const { data: prefRows, error: prefError } = await supabase
-			.from("notification_preferences")
-			.select("notification_type, content, enabled")
-			.eq("user_id", user.id)
-			.eq("notification_type", "price_targets")
-			.eq("channel", "telegram");
-		if (prefError) {
-			rootLogger.error(
-				"Failed to load Telegram price-target preferences",
-				{ userId: user.id, symbol: target.symbol },
-				prefError,
-			);
-		}
-		const telegramPrefs: TelegramPrefRow[] = prefRows ?? [];
-
-		if (shouldSendTelegram(user, telegramPrefs, "price_targets")) {
+		if (shouldSendTelegram(user, user.prefs, "price_targets")) {
 			const enriched = buildPriceTargetEnriched(target);
 			const { text, entities, photo } = formatPriceAlertTelegram(enriched, []);
 			const result = await sendTelegram({
@@ -253,6 +236,8 @@ export async function deliverPriceTargetAlert(options: {
 					new Error(result.error ?? "Price target Telegram send failed"),
 				);
 			}
+
+			await optOutIfBotBlocked(supabase, user.id, result);
 
 			const logged = await recordNotification(supabase, {
 				user_id: user.id,

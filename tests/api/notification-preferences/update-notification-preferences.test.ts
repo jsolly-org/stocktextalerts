@@ -372,13 +372,16 @@ describe("A signed-in user toggles Telegram on their notification options.", () 
 
 		expect(response.status).toBe(200);
 
-		// Email still lands on the legacy users column.
-		const { data: updatedUser } = await adminClient
-			.from("users")
-			.select("daily_digest_include_prices_email")
-			.eq("id", testUser.id)
-			.single();
-		expect(updatedUser?.daily_digest_include_prices_email).toBe(true);
+		// Email lands on the daily-digest prices email row in notification_preferences.
+		const { data: emailPref } = await adminClient
+			.from("notification_preferences")
+			.select("enabled")
+			.eq("user_id", testUser.id)
+			.eq("notification_type", "daily_digest")
+			.eq("content", "prices")
+			.eq("channel", "email")
+			.maybeSingle();
+		expect(emailPref?.enabled).toBe(true);
 
 		// Telegram lands on notification_preferences.
 		expect(await readTelegramPref(testUser.id, "daily_digest", "prices")).toBe(true);

@@ -1,5 +1,6 @@
 import type { Database } from "../db/generated/database.types";
 import type { MarketClosureInfo } from "../time/market-calendar";
+import type { PrefRow } from "./notification-prefs";
 import type { SparklineData } from "./sparkline";
 
 /** Result of attempting to deliver a single notification (email or SMS). */
@@ -18,14 +19,16 @@ export interface ProcessingStats {
 type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
 
 type GrokRumorsPreferences = {
-	daily_digest_include_news_email: boolean;
-	daily_digest_include_rumors_email: boolean;
 	last_grok_rumors_at: string | null;
 	grok_window_start: string | null;
 	grok_sends_in_window: number;
 };
 
-/** User fields required for notification delivery, scheduling, and formatting. */
+/** User fields required for notification delivery, scheduling, and formatting.
+ *
+ * Per-option channel preferences live in `notification_preferences` (carried as
+ * `prefs`), NOT on per-column flags. Channel-level enables (`email_notifications_enabled`,
+ * etc.) stay on the users row. */
 export type UserRecord = Pick<
 	DbUserRow,
 	| "id"
@@ -41,30 +44,15 @@ export type UserRecord = Pick<
 	| "sms_opted_out"
 > & {
 	market_scheduled_asset_price_enabled: boolean;
-	market_scheduled_asset_price_include_email: boolean;
-	market_scheduled_asset_price_include_sms: boolean;
 	market_scheduled_asset_price_times: number[] | null;
 	daily_digest_time: number | null;
 	daily_digest_next_send_at: string | null;
-	daily_digest_include_prices_email: boolean;
-	daily_digest_include_prices_sms: boolean;
-	daily_digest_include_top_movers_email: boolean;
-	daily_digest_include_top_movers_sms: boolean;
-	asset_events_include_calendar_email: boolean;
-	asset_events_include_calendar_sms: boolean;
-	asset_events_include_ipo_email: boolean;
-	asset_events_include_ipo_sms: boolean;
-	asset_events_include_analyst_email: boolean;
-	asset_events_include_analyst_sms: boolean;
-	asset_events_include_insider_email: boolean;
-	asset_events_include_insider_sms: boolean;
 	asset_events_next_send_at: string | null;
 	asset_events_last_analyst_sent_month: string | null;
-	market_asset_price_alerts_include_sms: boolean;
-	price_move_alerts_include_email: boolean;
-	price_move_alerts_include_sms: boolean;
 	telegram_chat_id: number | null;
 	telegram_opted_out: boolean;
+	/** Per-option channel preferences (the single source of truth for all channels). */
+	prefs: PrefRow[];
 } & GrokRumorsPreferences;
 
 /** Minimal user shape needed to send email. */

@@ -35,9 +35,20 @@ if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 	const supabase = createSupabaseAdminClient();
 	const { data: user, error } = await supabase
 		.from("users")
-		.select("id,email,email_notifications_enabled,phone_verified,market_scheduled_asset_price_include_sms,asset_events_include_calendar_sms,asset_events_include_ipo_sms,asset_events_include_analyst_sms,asset_events_include_insider_sms,market_asset_price_alerts_include_sms,price_move_alerts_include_sms")
+		.select("id,email,email_notifications_enabled,phone_verified")
 		.eq("id", userId)
 		.maybeSingle();
+
+	// Per-option SMS facets live in notification_preferences; load this user's enabled
+	// SMS rows so we can offer (and apply) a one-click SMS opt-out alongside email.
+	const { data: smsPrefRows } = user
+		? await supabase
+				.from("notification_preferences")
+				.select("notification_type, content")
+				.eq("user_id", user.id)
+				.eq("channel", "sms")
+				.eq("enabled", true)
+		: { data: null };
 
 	if (error) {
 		logger.error(
@@ -61,40 +72,31 @@ if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 			});
 		} else {
 			const wantsSmsOptOut = Astro.url.searchParams.get("sms") === "true";
-			const canOptOutSms =
-				user.phone_verified &&
-				(user.market_scheduled_asset_price_include_sms ||
-				user.asset_events_include_calendar_sms ||
-				user.asset_events_include_ipo_sms ||
-				user.asset_events_include_analyst_sms ||
-				user.asset_events_include_insider_sms ||
-				user.market_asset_price_alerts_include_sms ||
-				user.price_move_alerts_include_sms);
-			const updates = {
-				email_notifications_enabled: false,
-				...(wantsSmsOptOut && canOptOutSms
-					? {
-							market_scheduled_asset_price_include_sms: false,
-							asset_events_include_calendar_sms: false,
-							asset_events_include_ipo_sms: false,
-							asset_events_include_analyst_sms: false,
-							asset_events_include_insider_sms: false,
-							market_asset_price_alerts_include_sms: false,
-							price_move_alerts_include_sms: false,
-						}
-					: {}),
-			};
+			const enabledSmsRows = smsPrefRows ?? [];
+			const canOptOutSms = user.phone_verified && enabledSmsRows.length > 0;
 
 			const { error: updateError } = await supabase
 				.from("users")
-				.update(updates)
+				.update({ email_notifications_enabled: false })
 				.eq("id", user.id);
 
-			if (updateError) {
+			// Turn off every enabled SMS facet row when the user asked to also opt out of SMS.
+			let smsUpdateError = updateError;
+			if (!updateError && wantsSmsOptOut && canOptOutSms) {
+				const { error: smsError } = await supabase
+					.from("notification_preferences")
+					.update({ enabled: false })
+					.eq("user_id", user.id)
+					.eq("channel", "sms")
+					.eq("enabled", true);
+				smsUpdateError = smsError;
+			}
+
+			if (smsUpdateError) {
 				logger.error(
 					"Failed to disable email notifications via unsubscribe",
 					{ userId },
-					updateError,
+					smsUpdateError,
 				);
 			} else {
 				tone = "success";

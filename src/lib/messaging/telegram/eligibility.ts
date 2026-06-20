@@ -1,15 +1,13 @@
+import { anyFacetEnabled, enabledFacets, type PrefRow } from "../notification-prefs";
+
 /** Minimal user fields needed to decide Telegram deliverability. */
 interface TelegramEligibilityUser {
 	telegram_chat_id: number | null;
 	telegram_opted_out: boolean;
 }
 
-/** A telegram preference row (subset of notification_preferences). */
-export interface TelegramPrefRow {
-	notification_type: string;
-	content: string;
-	enabled: boolean;
-}
+/** A telegram preference row (kept for back-compat with call sites). */
+export type TelegramPrefRow = PrefRow;
 
 /**
  * True when the user can receive Telegram messages at all: a chat is linked and
@@ -26,28 +24,20 @@ export function isTelegramChannelUsable(user: TelegramEligibilityUser): boolean 
  * (e.g. {"prices","top_movers"} for daily_digest). Facet-less types use "".
  */
 export function enabledTelegramFacets(
-	prefs: TelegramPrefRow[],
+	prefs: readonly PrefRow[],
 	notificationType: string,
 ): Set<string> {
-	const facets = new Set<string>();
-	for (const p of prefs) {
-		if (p.notification_type === notificationType && p.enabled) {
-			facets.add(p.content);
-		}
-	}
-	return facets;
+	return enabledFacets(prefs, notificationType, "telegram");
 }
 
 /**
  * True when the user should receive a Telegram notification of this type:
  * the channel is usable AND at least one content facet is enabled for it.
- * Mirrors the shape of `shouldSendSms`, but reads preferences from
- * notification_preferences rows rather than per-column user flags.
  */
 export function shouldSendTelegram(
 	user: TelegramEligibilityUser,
-	prefs: TelegramPrefRow[],
+	prefs: readonly PrefRow[],
 	notificationType: string,
 ): boolean {
-	return isTelegramChannelUsable(user) && enabledTelegramFacets(prefs, notificationType).size > 0;
+	return isTelegramChannelUsable(user) && anyFacetEnabled(prefs, notificationType, "telegram");
 }

@@ -3,7 +3,7 @@ import {
 	buildAssetEventsContent,
 	buildAssetEventsContentForChannels,
 } from "../../../src/lib/asset-events/content";
-import { makeUserRecord as makeUser } from "../../helpers/user-record-fixture";
+import { makePrefRows, makeUserRecord as makeUser } from "../../helpers/user-record-fixture";
 
 type CalendarEventRow = {
 	symbol: string;
@@ -203,7 +203,7 @@ describe("buildAssetEventsContent", () => {
 		});
 
 		const result = await buildAssetEventsContent({
-			user: makeUser({ asset_events_include_ipo_email: true }),
+			user: makeUser({ prefs: makePrefRows([["asset_events", "ipo", "email", true]]) }),
 			supabase: supabase as never,
 			logger: logger as never,
 			localDate: "2026-02-10",
@@ -240,8 +240,10 @@ describe("buildAssetEventsContent", () => {
 
 		const result = await buildAssetEventsContentForChannels({
 			user: makeUser({
-				asset_events_include_insider_email: true,
-				asset_events_include_insider_sms: true,
+				prefs: makePrefRows([
+					["asset_events", "insider", "email", true],
+					["asset_events", "insider", "sms", true],
+				]),
 			}),
 			supabase: supabase as never,
 			logger: logger as never,
@@ -270,8 +272,10 @@ describe("buildAssetEventsContent", () => {
 
 		const result = await buildAssetEventsContentForChannels({
 			user: makeUser({
-				asset_events_include_insider_email: true,
-				asset_events_include_insider_sms: false,
+				prefs: makePrefRows([
+					["asset_events", "insider", "email", true],
+					["asset_events", "insider", "sms", false],
+				]),
 			}),
 			supabase: supabase as never,
 			logger: logger as never,
@@ -304,7 +308,7 @@ describe("buildAssetEventsContent", () => {
 
 		const result = await buildAssetEventsContentForChannels({
 			user: makeUser({
-				asset_events_include_analyst_email: true,
+				prefs: makePrefRows([["asset_events", "analyst", "email", true]]),
 				asset_events_last_analyst_sent_month: null,
 			}),
 			supabase: supabase as never,
@@ -323,7 +327,7 @@ describe("buildAssetEventsContent", () => {
 
 		const result = await buildAssetEventsContentForChannels({
 			user: makeUser({
-				asset_events_include_analyst_email: true,
+				prefs: makePrefRows([["asset_events", "analyst", "email", true]]),
 				asset_events_last_analyst_sent_month: null,
 			}),
 			supabase: supabase as never,
@@ -355,7 +359,7 @@ describe("buildAssetEventsContent", () => {
 
 		const result = await buildAssetEventsContentForChannels({
 			user: makeUser({
-				asset_events_include_analyst_email: true,
+				prefs: makePrefRows([["asset_events", "analyst", "email", true]]),
 				asset_events_last_analyst_sent_month: null,
 			}),
 			supabase: supabase as never,
@@ -384,7 +388,7 @@ describe("buildAssetEventsContent", () => {
 		});
 
 		const result = await buildAssetEventsContentForChannels({
-			user: makeUser({ asset_events_include_insider_email: true }),
+			user: makeUser({ prefs: makePrefRows([["asset_events", "insider", "email", true]]) }),
 			supabase: supabase as never,
 			logger: logger as never,
 			localDate: "2026-02-10",

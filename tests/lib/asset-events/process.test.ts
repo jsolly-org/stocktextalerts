@@ -43,12 +43,12 @@ vi.mock("../../../src/lib/asset-events/schedule-state", () => ({
 }));
 
 import type { UserRecord } from "../../../src/lib/messaging/types";
-import { makeUserRecord } from "../../helpers/user-record-fixture";
+import { makePrefRows, makeUserRecord } from "../../helpers/user-record-fixture";
 
 function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
 	return makeUserRecord({
 		sms_opted_out: true,
-		asset_events_include_ipo_email: true,
+		prefs: makePrefRows([["asset_events", "ipo", "email", true]]),
 		asset_events_next_send_at: "2026-02-10T10:00:00.000Z",
 		...overrides,
 	});
@@ -140,8 +140,10 @@ describe("processAssetEventsUser", () => {
 			sms_opted_out: false,
 			sms_notifications_enabled: true,
 			phone_verified: true,
-			asset_events_include_insider_email: true,
-			asset_events_include_insider_sms: true,
+			prefs: makePrefRows([
+				["asset_events", "insider", "email", true],
+				["asset_events", "insider", "sms", true],
+			]),
 		});
 		const supabase = {
 			from() {

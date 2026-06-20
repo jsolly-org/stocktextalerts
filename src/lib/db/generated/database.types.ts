@@ -813,23 +813,9 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
-          asset_events_include_analyst_email: boolean
-          asset_events_include_analyst_sms: boolean
-          asset_events_include_calendar_email: boolean
-          asset_events_include_calendar_sms: boolean
-          asset_events_include_insider_email: boolean
-          asset_events_include_insider_sms: boolean
-          asset_events_include_ipo_email: boolean
-          asset_events_include_ipo_sms: boolean
           asset_events_last_analyst_sent_month: string | null
           asset_events_next_send_at: string | null
           created_at: string
-          daily_digest_include_news_email: boolean
-          daily_digest_include_prices_email: boolean
-          daily_digest_include_prices_sms: boolean
-          daily_digest_include_rumors_email: boolean
-          daily_digest_include_top_movers_email: boolean
-          daily_digest_include_top_movers_sms: boolean
           daily_digest_next_send_at: string | null
           daily_digest_time: number | null
           dismiss_timezone_mismatch_prompts: boolean
@@ -842,20 +828,12 @@ export type Database = {
           last_grok_rumors_at: string | null
           market_asset_price_alert_move_size: string
           market_asset_price_alerts_enabled: boolean
-          market_asset_price_alerts_include_email: boolean
-          market_asset_price_alerts_include_sms: boolean
           market_scheduled_asset_price_enabled: boolean
-          market_scheduled_asset_price_include_email: boolean
-          market_scheduled_asset_price_include_sms: boolean
           market_scheduled_asset_price_next_send_at: string | null
           market_scheduled_asset_price_times: number[] | null
           phone_country_code: string | null
           phone_number: string | null
           phone_verified: boolean
-          price_move_alerts_include_email: boolean
-          price_move_alerts_include_sms: boolean
-          price_targets_include_email: boolean
-          price_targets_include_sms: boolean
           sms_notifications_enabled: boolean
           sms_opted_out: boolean
           telegram_chat_id: number | null
@@ -870,23 +848,9 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
-          asset_events_include_analyst_email?: boolean
-          asset_events_include_analyst_sms?: boolean
-          asset_events_include_calendar_email?: boolean
-          asset_events_include_calendar_sms?: boolean
-          asset_events_include_insider_email?: boolean
-          asset_events_include_insider_sms?: boolean
-          asset_events_include_ipo_email?: boolean
-          asset_events_include_ipo_sms?: boolean
           asset_events_last_analyst_sent_month?: string | null
           asset_events_next_send_at?: string | null
           created_at?: string
-          daily_digest_include_news_email?: boolean
-          daily_digest_include_prices_email?: boolean
-          daily_digest_include_prices_sms?: boolean
-          daily_digest_include_rumors_email?: boolean
-          daily_digest_include_top_movers_email?: boolean
-          daily_digest_include_top_movers_sms?: boolean
           daily_digest_next_send_at?: string | null
           daily_digest_time?: number | null
           dismiss_timezone_mismatch_prompts?: boolean
@@ -899,20 +863,12 @@ export type Database = {
           last_grok_rumors_at?: string | null
           market_asset_price_alert_move_size?: string
           market_asset_price_alerts_enabled?: boolean
-          market_asset_price_alerts_include_email?: boolean
-          market_asset_price_alerts_include_sms?: boolean
           market_scheduled_asset_price_enabled?: boolean
-          market_scheduled_asset_price_include_email?: boolean
-          market_scheduled_asset_price_include_sms?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
-          price_move_alerts_include_email?: boolean
-          price_move_alerts_include_sms?: boolean
-          price_targets_include_email?: boolean
-          price_targets_include_sms?: boolean
           sms_notifications_enabled?: boolean
           sms_opted_out?: boolean
           telegram_chat_id?: number | null
@@ -927,23 +883,9 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
-          asset_events_include_analyst_email?: boolean
-          asset_events_include_analyst_sms?: boolean
-          asset_events_include_calendar_email?: boolean
-          asset_events_include_calendar_sms?: boolean
-          asset_events_include_insider_email?: boolean
-          asset_events_include_insider_sms?: boolean
-          asset_events_include_ipo_email?: boolean
-          asset_events_include_ipo_sms?: boolean
           asset_events_last_analyst_sent_month?: string | null
           asset_events_next_send_at?: string | null
           created_at?: string
-          daily_digest_include_news_email?: boolean
-          daily_digest_include_prices_email?: boolean
-          daily_digest_include_prices_sms?: boolean
-          daily_digest_include_rumors_email?: boolean
-          daily_digest_include_top_movers_email?: boolean
-          daily_digest_include_top_movers_sms?: boolean
           daily_digest_next_send_at?: string | null
           daily_digest_time?: number | null
           dismiss_timezone_mismatch_prompts?: boolean
@@ -956,20 +898,12 @@ export type Database = {
           last_grok_rumors_at?: string | null
           market_asset_price_alert_move_size?: string
           market_asset_price_alerts_enabled?: boolean
-          market_asset_price_alerts_include_email?: boolean
-          market_asset_price_alerts_include_sms?: boolean
           market_scheduled_asset_price_enabled?: boolean
-          market_scheduled_asset_price_include_email?: boolean
-          market_scheduled_asset_price_include_sms?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
-          price_move_alerts_include_email?: boolean
-          price_move_alerts_include_sms?: boolean
-          price_targets_include_email?: boolean
-          price_targets_include_sms?: boolean
           sms_notifications_enabled?: boolean
           sms_opted_out?: boolean
           telegram_chat_id?: number | null

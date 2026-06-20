@@ -10,14 +10,11 @@ import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/delay-b
 import type { EmailSender } from "../messaging/email/utils";
 import { safePrefetchLogos } from "../messaging/logo-fetcher";
 import { buildMarketClosedBannerText } from "../messaging/market-closure-banner";
+import { anyFacetEnabled, enabledFacets, isFacetEnabled } from "../messaging/notification-prefs";
 import { shouldSendSms } from "../messaging/sms";
 import type { SmsExtras } from "../messaging/sms/delivery";
 import type { SparklineMap } from "../messaging/sparkline";
-import {
-	enabledTelegramFacets,
-	isTelegramChannelUsable,
-	shouldSendTelegram,
-} from "../messaging/telegram/eligibility";
+import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { UserRecord } from "../messaging/types";
 import { buildNewsContextForGrok, fetchFinnhubExtras } from "../providers/finnhub";
 import type { GrokSectionResult } from "../providers/grok";
@@ -320,14 +317,8 @@ export async function processDailyDigestUser(options: {
 		const delayBannerHtml = stageOnly ? null : buildDelayBannerHtml(delayBannerOpts);
 
 		const hasAnyAssetEventsOption =
-			user.asset_events_include_calendar_email ||
-			user.asset_events_include_calendar_sms ||
-			user.asset_events_include_ipo_email ||
-			user.asset_events_include_ipo_sms ||
-			user.asset_events_include_analyst_email ||
-			user.asset_events_include_analyst_sms ||
-			user.asset_events_include_insider_email ||
-			user.asset_events_include_insider_sms;
+			anyFacetEnabled(user.prefs, "asset_events", "email") ||
+			anyFacetEnabled(user.prefs, "asset_events", "sms");
 
 		const userAssets = await loadUserAssets(supabase, user.id, {
 			includeLogoData: true,
@@ -337,35 +328,18 @@ export async function processDailyDigestUser(options: {
 		const emailEnabled = user.email_notifications_enabled;
 		const smsEnabled = shouldSendSms(user);
 
-		// Telegram preferences live in notification_preferences (per option×channel
-		// rows), not the legacy per-column user flags. Only query for users who can
-		// actually receive Telegram (linked + not opted out) — this skips a per-user
-		// lookup for the majority who have never linked Telegram.
-		let telegramPrefs: { notification_type: string; content: string; enabled: boolean }[] = [];
-		if (isTelegramChannelUsable(user)) {
-			const { data: telegramPrefRows, error: telegramPrefError } = await supabase
-				.from("notification_preferences")
-				.select("notification_type, content, enabled")
-				.eq("user_id", user.id)
-				.eq("notification_type", "daily_digest")
-				.eq("channel", "telegram");
-			if (telegramPrefError) {
-				logger.error(
-					"Failed to load Telegram daily-digest preferences",
-					{ action: "daily_run", userId: user.id },
-					telegramPrefError,
-				);
-			}
-			telegramPrefs = telegramPrefRows ?? [];
-		}
-		const telegramEnabled = shouldSendTelegram(user, telegramPrefs, "daily_digest");
-		const telegramFacets = enabledTelegramFacets(telegramPrefs, "daily_digest");
+		// All channel preferences (incl. Telegram) live in notification_preferences,
+		// carried on user.prefs. Telegram still gates on the usable-channel check
+		// (linked + not opted out) in addition to a per-option facet row.
+		const telegramFacets = enabledFacets(user.prefs, "daily_digest", "telegram");
+		const telegramEnabled = isTelegramChannelUsable(user) && telegramFacets.size > 0;
 		const wantsTopMoversTelegram = telegramEnabled && telegramFacets.has("top_movers");
 		const includePricesTelegram = telegramEnabled && telegramFacets.has("prices");
 
 		const needsGrok =
 			emailEnabled &&
-			(user.daily_digest_include_news_email || user.daily_digest_include_rumors_email);
+			(isFacetEnabled(user.prefs, "daily_digest", "email", "news") ||
+				isFacetEnabled(user.prefs, "daily_digest", "email", "rumors"));
 		const { grokAllowed } = resolveGrokEligibility(
 			user,
 			needsGrok,
@@ -375,8 +349,10 @@ export async function processDailyDigestUser(options: {
 			scheduledMinutes,
 		);
 
-		const wantsTopMoversEmail = user.daily_digest_include_top_movers_email && emailEnabled;
-		const wantsTopMoversSms = user.daily_digest_include_top_movers_sms && smsEnabled;
+		const wantsTopMoversEmail =
+			isFacetEnabled(user.prefs, "daily_digest", "email", "top_movers") && emailEnabled;
+		const wantsTopMoversSms =
+			isFacetEnabled(user.prefs, "daily_digest", "sms", "top_movers") && smsEnabled;
 		const wantsTopMovers = wantsTopMoversEmail || wantsTopMoversSms || wantsTopMoversTelegram;
 
 		if (!emailEnabled && !smsEnabled && !telegramEnabled) {
@@ -392,8 +368,8 @@ export async function processDailyDigestUser(options: {
 			return stats;
 		}
 
-		const includePricesEmail = user.daily_digest_include_prices_email;
-		const includePricesSms = user.daily_digest_include_prices_sms;
+		const includePricesEmail = isFacetEnabled(user.prefs, "daily_digest", "email", "prices");
+		const includePricesSms = isFacetEnabled(user.prefs, "daily_digest", "sms", "prices");
 		const needsPrices =
 			(includePricesEmail && emailEnabled) ||
 			(includePricesSms && smsEnabled) ||
@@ -544,7 +520,10 @@ export async function processDailyDigestUser(options: {
 		============= */
 		let newsContext: string | undefined;
 		const wantsNewsContext =
-			emailEnabled && grokAllowed && user.daily_digest_include_news_email && tickers.length > 0;
+			emailEnabled &&
+			grokAllowed &&
+			isFacetEnabled(user.prefs, "daily_digest", "email", "news") &&
+			tickers.length > 0;
 		if (wantsNewsContext) {
 			const finnhubNews = await fetchFinnhubExtras(tickers, {
 				includeNews: true,
@@ -560,7 +539,7 @@ export async function processDailyDigestUser(options: {
 
 		if (grokAllowed && emailEnabled) {
 			[newsResult, rumorsResult] = await Promise.all([
-				user.daily_digest_include_news_email
+				isFacetEnabled(user.prefs, "daily_digest", "email", "news")
 					? generateNewsWithGrok({
 							tickers,
 							localDateIso: scheduledDate,
@@ -568,7 +547,7 @@ export async function processDailyDigestUser(options: {
 							finnhubNewsContext: newsContext || undefined,
 						})
 					: Promise.resolve(null),
-				user.daily_digest_include_rumors_email
+				isFacetEnabled(user.prefs, "daily_digest", "email", "rumors")
 					? generateRumorsWithGrok({
 							tickers,
 							localDateIso: scheduledDate,
@@ -611,17 +590,8 @@ export async function processDailyDigestUser(options: {
 
 		if (hasAnyAssetEventsOption) {
 			const wantsAssetEventsEmail =
-				emailEnabled &&
-				(user.asset_events_include_calendar_email ||
-					user.asset_events_include_ipo_email ||
-					user.asset_events_include_analyst_email ||
-					user.asset_events_include_insider_email);
-			const wantsAssetEventsSms =
-				smsEnabled &&
-				(user.asset_events_include_calendar_sms ||
-					user.asset_events_include_ipo_sms ||
-					user.asset_events_include_analyst_sms ||
-					user.asset_events_include_insider_sms);
+				emailEnabled && anyFacetEnabled(user.prefs, "asset_events", "email");
+			const wantsAssetEventsSms = smsEnabled && anyFacetEnabled(user.prefs, "asset_events", "sms");
 
 			const assetEventChannels: Array<"email" | "sms"> = [];
 			if (wantsAssetEventsEmail) assetEventChannels.push("email");

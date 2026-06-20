@@ -17,11 +17,12 @@ import { describe, expect, it, vi } from "vitest";
 import { processDailyDigestUser } from "../../../src/lib/daily-digest/process";
 import { rootLogger } from "../../../src/lib/logging";
 import type { EmailSender } from "../../../src/lib/messaging/email/utils";
+import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { TelegramSender } from "../../../src/lib/messaging/telegram/sender";
 import type { UserRecord } from "../../../src/lib/messaging/types";
 import { adminClient } from "../../helpers/test-env";
-import { createTestUser } from "../../helpers/test-user";
+import { createTestUser, setTestUserPrefs } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 // Mock market calendar to avoid real Massive API calls with test keys.
@@ -104,15 +105,9 @@ describe("Telegram daily digest dispatch", () => {
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		// Select the daily-digest "prices" facet for the Telegram channel.
-		const { error: prefError } = await adminClient.from("notification_preferences").insert({
-			user_id: id,
-			notification_type: "daily_digest",
-			content: "prices",
-			channel: "telegram",
-			enabled: true,
-		});
-		expect(prefError).toBeNull();
+		// Select the daily-digest "prices" facet for the Telegram channel (createTestUser
+		// seeded it off by default; setTestUserPrefs upserts it on).
+		await setTestUserPrefs(id, [["daily_digest", "prices", "telegram", true]]);
 
 		// Realistic NVDA quote during a regular session.
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
@@ -127,6 +122,9 @@ describe("Telegram daily digest dispatch", () => {
 			.single();
 		expect(selectError).toBeNull();
 		expect(userRow).not.toBeNull();
+		if (!userRow) throw new Error("expected seeded user row");
+		// processDailyDigestUser reads user.prefs, so attach the freshly-seeded rows.
+		const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
 
 		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const smsSender = vi.fn<SmsSender>(async () => ({ success: true }));
@@ -136,7 +134,7 @@ describe("Telegram daily digest dispatch", () => {
 		}));
 
 		const stats = await processDailyDigestUser({
-			user: userRow as UserRecord,
+			user: userWithPrefs as unknown as UserRecord,
 			supabase: adminClient,
 			logger: rootLogger,
 			currentTime: now,

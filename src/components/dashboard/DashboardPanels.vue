@@ -73,7 +73,7 @@ import { computed, defineAsyncComponent, ref, toRefs, watch } from "vue";
 import {
 	DASHBOARD_ASSETS_FORM_ID,
 } from "../../lib/constants";
-import type { User } from "../../lib/db";
+import type { DashboardUser } from "../../lib/db";
 import type { InitialAsset } from "./assets/types";
 import WatchlistPanel from "./assets/WatchlistPanel.vue";
 import { useAutoSaveForm } from "./composables/useAutoSaveNotificationPreferences";
@@ -100,7 +100,7 @@ const AsyncMarketNotificationsPanel = defineAsyncComponent({
 	loadingComponent: PanelSkeleton,
 });
 interface Props {
-	user: User;
+	user: DashboardUser;
 	initialAssets: InitialAsset[];
 	smsPhoneNumber: string;
 	/**

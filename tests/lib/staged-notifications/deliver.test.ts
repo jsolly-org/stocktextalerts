@@ -96,10 +96,11 @@ describe("deliverStagedNotifications", () => {
 			.update({
 				daily_digest_time: options.scheduledMinutes ?? 9 * 60,
 				daily_digest_next_send_at: options.scheduledForIso,
-				daily_digest_include_prices_sms: true,
 			})
 			.eq("id", id);
 		expect(error).toBeNull();
+		// daily_digest prices sms is on by default (createTestUser seeds the catalog),
+		// and staged delivery gates on the staged row + channel eligibility, not the facet.
 		return id;
 	}
 

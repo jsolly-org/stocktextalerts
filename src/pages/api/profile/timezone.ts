@@ -1,11 +1,13 @@
 import type { APIRoute } from "astro";
 import { jsonResponse } from "../../../lib/api/json-response";
+import { loadUserPreferenceRows } from "../../../lib/api/notification-preferences-channels";
 import { computeTimezoneUpdatePayload } from "../../../lib/api/notification-preferences-update";
 import { createUserService, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
+import { anyFacetEnabled } from "../../../lib/messaging/notification-prefs";
 
 export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
@@ -56,9 +58,16 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		return jsonResponse(404, { ok: false, message: "user_not_found" });
 	}
 
+	// Asset-events facets live in notification_preferences; resolve whether any
+	// email/sms facet is on to decide if asset_events_next_send_at needs recomputing.
+	const prefs = await loadUserPreferenceRows(supabase, authUser.id);
+	const hasAnyAssetEvents =
+		anyFacetEnabled(prefs, "asset_events", "email") ||
+		anyFacetEnabled(prefs, "asset_events", "sms");
+
 	let updatePayload: ReturnType<typeof computeTimezoneUpdatePayload>;
 	try {
-		updatePayload = computeTimezoneUpdatePayload(parsed.data.timezone, dbUser);
+		updatePayload = computeTimezoneUpdatePayload(parsed.data.timezone, dbUser, hasAnyAssetEvents);
 	} catch (error) {
 		logger.error(
 			"Failed to compute timezone update payload",

@@ -8,7 +8,7 @@ import type { EmailSender } from "../../../../src/lib/messaging/email/utils";
 import type { SmsSender } from "../../../../src/lib/messaging/sms/twilio-utils";
 import type { ExtendedAssetQuote } from "../../../../src/lib/providers/price-fetcher";
 import { adminClient } from "../../../helpers/test-env";
-import { createTestUser } from "../../../helpers/test-user";
+import { createTestUser, setTestUserPrefs } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 
 /* =============
@@ -90,8 +90,6 @@ async function enableFlatAlerts(
 	const wantEmail = channels.email ?? true;
 	const wantSms = channels.sms ?? false;
 	const updates: Record<string, unknown> = {
-		price_move_alerts_include_email: wantEmail,
-		price_move_alerts_include_sms: wantSms,
 		email_notifications_enabled: wantEmail,
 	};
 	if (wantSms) {
@@ -103,6 +101,13 @@ async function enableFlatAlerts(
 	}
 	const { error } = await adminClient.from("users").update(updates).eq("id", userId);
 	if (error) throw new Error(`Failed to enable flat alerts: ${error.message}`);
+
+	// Per-option price_move_alerts facets live in notification_preferences
+	// (both default off); enable exactly the channels this test requested.
+	await setTestUserPrefs(userId, [
+		["price_move_alerts", "", "email", wantEmail],
+		["price_move_alerts", "", "sms", wantSms],
+	]);
 }
 
 async function getNotificationLogCount(userId: string): Promise<number> {
@@ -242,7 +247,8 @@ describe("processFlatPriceAlerts", () => {
 	it("User with alerts disabled receives no email even on a 10% move", async () => {
 		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
 		registerTestUserForCleanup(testUser.id);
-		// Explicitly keep both channel flags false (the default)
+		// Defaults: email/SMS off, no Telegram, and the price_move_alerts facet off —
+		// this user has no usable channel, so they are never even a candidate.
 
 		const quoteMap = new Map([["AAPL", makeQuote({ price: 204.6 })]]);
 
@@ -252,9 +258,12 @@ describe("processFlatPriceAlerts", () => {
 			isMarketOpen: true,
 		});
 
-		expect(totals.usersChecked).toBe(0);
+		// The candidate query is now channel-level (other channel-enabled users may be
+		// fetched), so assert on THIS user's outcome rather than the global count: a
+		// disabled user triggers nothing and receives no notification.
 		expect(totals.alertsTriggered).toBe(0);
 		expect(mockEmailSender).not.toHaveBeenCalled();
+		expect(await getNotificationLogCount(testUser.id)).toBe(0);
 	});
 
 	it("SPY tracked and moves +5.1% — ETF alert fires", async () => {
@@ -615,12 +624,13 @@ describe("processFlatPriceAlerts", () => {
 	it("User opted into SMS but phone unverified: SMS skipped as ineligible", async () => {
 		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
 		registerTestUserForCleanup(testUser.id);
-		// Turn on SMS intent but leave phone unverified
+		// Turn on SMS intent but leave phone unverified. The candidate set is gated on
+		// channel-level columns, so enable the email channel (with its price_move_alerts
+		// email facet off) to keep this user in the candidate query without sending email.
 		const { error } = await adminClient
 			.from("users")
 			.update({
-				price_move_alerts_include_email: false,
-				price_move_alerts_include_sms: true,
+				email_notifications_enabled: true,
 				sms_notifications_enabled: true,
 				phone_verified: false,
 				phone_country_code: "+1",
@@ -628,6 +638,11 @@ describe("processFlatPriceAlerts", () => {
 			})
 			.eq("id", testUser.id);
 		if (error) throw new Error(`setup failed: ${error.message}`);
+		// Per-option facets live in notification_preferences: email off, sms on.
+		await setTestUserPrefs(testUser.id, [
+			["price_move_alerts", "", "email", false],
+			["price_move_alerts", "", "sms", true],
+		]);
 
 		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
 

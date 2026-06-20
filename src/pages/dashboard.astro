@@ -41,35 +41,63 @@ if (!isUserApproved(dbUser)) {
 	});
 	return Astro.redirect("/auth/pending-approval");
 }
-const user = dbUser;
 const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: asset.name, type: asset.type, icon_url: asset.icon_url }));
 
-// Telegram per-option prefs live in `notification_preferences` (channel='telegram'),
-// not on the users row, so they aren't carried by `getById`. Load ALL of this user's
-// telegram rows here (session-scoped client; RLS allows reading own rows) and group
-// by notification_type so each panel can initialize its channel-multiselect Telegram
-// state. daily_digest / asset_events key by content facet; the facet-less market types
-// (content='') key by notification_type.
-const { data: telegramRows } = await supabase
+// ALL per-option channel prefs live in `notification_preferences` (single source of
+// truth), not on the users row, so they aren't carried by `getById`. Load every row
+// for this user (session-scoped client; RLS allows reading own rows). Telegram rows
+// feed the panels' telegram multiselect (grouped by type/facet); email/sms rows are
+// folded back onto the user object so the existing per-option controls keep reading
+// `user.<field>`.
+const { data: prefRows } = await supabase
 	.from("notification_preferences")
-	.select("notification_type, content, enabled")
-	.eq("user_id", authUser.id)
-	.eq("channel", "telegram");
+	.select("notification_type, content, channel, enabled")
+	.eq("user_id", authUser.id);
 
 // daily_digest + asset_events: keyed by content facet ("prices", "calendar", …).
 const dailyDigestTelegramPrefs: Record<string, boolean> = {};
 const assetEventsTelegramPrefs: Record<string, boolean> = {};
 // market types (content=''): keyed by notification_type.
 const marketTelegramPrefs: Record<string, boolean> = {};
-for (const row of telegramRows ?? []) {
-	if (row.notification_type === "daily_digest") {
-		dailyDigestTelegramPrefs[row.content] = row.enabled;
-	} else if (row.notification_type === "asset_events") {
-		assetEventsTelegramPrefs[row.content] = row.enabled;
+// email/sms per-option fields folded back onto the user (DashboardUser augment).
+const channelPrefFields: Record<string, boolean> = {};
+for (const row of prefRows ?? []) {
+	if (row.channel === "telegram") {
+		if (row.notification_type === "daily_digest") {
+			dailyDigestTelegramPrefs[row.content] = row.enabled;
+		} else if (row.notification_type === "asset_events") {
+			assetEventsTelegramPrefs[row.content] = row.enabled;
+		} else {
+			marketTelegramPrefs[row.notification_type] = row.enabled;
+		}
 	} else {
-		marketTelegramPrefs[row.notification_type] = row.enabled;
+		const field =
+			row.content === ""
+				? `${row.notification_type}_include_${row.channel}`
+				: `${row.notification_type}_include_${row.content}_${row.channel}`;
+		channelPrefFields[field] = row.enabled;
 	}
 }
+
+// Augment the users row with per-option email/sms booleans so the dashboard panels
+// keep reading `user.<field>` for those controls (defaults to false when no row).
+const EMAIL_SMS_PREF_FIELDS = [
+	"daily_digest_include_prices_email","daily_digest_include_prices_sms",
+	"daily_digest_include_top_movers_email","daily_digest_include_top_movers_sms",
+	"daily_digest_include_news_email","daily_digest_include_rumors_email",
+	"market_scheduled_asset_price_include_email","market_scheduled_asset_price_include_sms",
+	"asset_events_include_calendar_email","asset_events_include_calendar_sms",
+	"asset_events_include_ipo_email","asset_events_include_ipo_sms",
+	"asset_events_include_analyst_email","asset_events_include_analyst_sms",
+	"asset_events_include_insider_email","asset_events_include_insider_sms",
+	"market_asset_price_alerts_include_email","market_asset_price_alerts_include_sms",
+	"price_move_alerts_include_email","price_move_alerts_include_sms",
+	"price_targets_include_email","price_targets_include_sms",
+] as const;
+const channelPrefDefaults = Object.fromEntries(
+	EMAIL_SMS_PREF_FIELDS.map((f) => [f, channelPrefFields[f] ?? false]),
+);
+const user = { ...dbUser, ...channelPrefDefaults } as import("../lib/db").DashboardUser;
 
 const rawTwilioNumber = requireEnv("TWILIO_PHONE_NUMBER");
 const smsPhoneNumber = formatPhoneFromE164(rawTwilioNumber);

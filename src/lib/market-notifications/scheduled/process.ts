@@ -6,10 +6,11 @@ import { buildDelayBannerHtml, buildDelayBannerText } from "../../messaging/dela
 import type { EmailSender } from "../../messaging/email/utils";
 import { safePrefetchLogos } from "../../messaging/logo-fetcher";
 import { buildMarketClosedBannerText } from "../../messaging/market-closure-banner";
+import { anyFacetEnabled, isFacetEnabled } from "../../messaging/notification-prefs";
 import { recordNotification } from "../../messaging/shared";
 import { shouldSendSms } from "../../messaging/sms";
 import type { SparklineMap } from "../../messaging/sparkline";
-import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/telegram/eligibility";
+import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import type { UserRecord } from "../../messaging/types";
 import type { AssetPriceMap, MarketSession } from "../../providers/price-fetcher";
 import { fetchIntradaySparklines, NO_SESSION_TRADE } from "../../providers/price-fetcher";
@@ -269,8 +270,13 @@ export async function processMarketScheduledUser(options: {
 		}
 		const getSparkline = (symbol: string) => sparklines.get(symbol) ?? null;
 
-		const shouldPrepareEmail =
-			user.email_notifications_enabled && user.market_scheduled_asset_price_include_email;
+		const scheduledIncludeEmail = isFacetEnabled(
+			user.prefs,
+			"market_scheduled_asset_price",
+			"email",
+		);
+		const scheduledIncludeSms = isFacetEnabled(user.prefs, "market_scheduled_asset_price", "sms");
+		const shouldPrepareEmail = user.email_notifications_enabled && scheduledIncludeEmail;
 		const { getLogoHtml } = await safePrefetchLogos({
 			assets: userAssets,
 			shouldPrefetch: shouldPrepareEmail,
@@ -292,31 +298,11 @@ export async function processMarketScheduledUser(options: {
 
 		const shouldAttemptSms = shouldSendSms(user);
 
-		// Telegram preferences live in notification_preferences (per option×channel
-		// rows), not the legacy per-column user flags. Only query for users who can
-		// actually receive Telegram (linked + not opted out) — this skips a per-user
-		// lookup for the majority who have never linked Telegram.
-		let telegramEnabled = false;
-		if (isTelegramChannelUsable(user)) {
-			const { data: telegramPrefRows, error: telegramPrefError } = await supabase
-				.from("notification_preferences")
-				.select("notification_type, content, enabled")
-				.eq("user_id", user.id)
-				.eq("notification_type", "market_scheduled_asset_price")
-				.eq("channel", "telegram");
-			if (telegramPrefError) {
-				logger.error(
-					"Failed to load Telegram scheduled-market preferences",
-					{ action: "market_notifications_run", userId: user.id },
-					telegramPrefError,
-				);
-			}
-			telegramEnabled = shouldSendTelegram(
-				user,
-				telegramPrefRows ?? [],
-				"market_scheduled_asset_price",
-			);
-		}
+		// All channel preferences (incl. Telegram) live in notification_preferences,
+		// carried on user.prefs. Telegram gates on the usable-channel check + facet row.
+		const telegramEnabled =
+			isTelegramChannelUsable(user) &&
+			anyFacetEnabled(user.prefs, "market_scheduled_asset_price", "telegram");
 
 		const sessionFirstLine = {
 			scheduledEtMinutes: userLocalToEtMinute(scheduledMinutes, user.timezone),
@@ -324,7 +310,7 @@ export async function processMarketScheduledUser(options: {
 		};
 
 		/* ============= Process Email ============= */
-		if (user.email_notifications_enabled && user.market_scheduled_asset_price_include_email) {
+		if (user.email_notifications_enabled && scheduledIncludeEmail) {
 			attemptedDeliveryMethod = "email";
 			await processMarketScheduledEmailDelivery({
 				user,
@@ -351,7 +337,7 @@ export async function processMarketScheduledUser(options: {
 		}
 
 		/* ============= Process SMS ============= */
-		if (shouldAttemptSms && user.market_scheduled_asset_price_include_sms) {
+		if (shouldAttemptSms && scheduledIncludeSms) {
 			attemptedDeliveryMethod = "sms";
 			await processMarketScheduledSmsDelivery({
 				user,
@@ -396,9 +382,8 @@ export async function processMarketScheduledUser(options: {
 			});
 		}
 
-		const emailRequired =
-			user.email_notifications_enabled && user.market_scheduled_asset_price_include_email;
-		const smsRequired = shouldAttemptSms && user.market_scheduled_asset_price_include_sms;
+		const emailRequired = user.email_notifications_enabled && scheduledIncludeEmail;
+		const smsRequired = shouldAttemptSms && scheduledIncludeSms;
 		const telegramRequired = telegramEnabled;
 		const canAdvance = await shouldAdvanceMarketScheduledSchedule({
 			supabase,
@@ -442,8 +427,10 @@ export async function processMarketScheduledUser(options: {
 			if (deliveryAttempts === 0) {
 				const shouldAttemptSms = shouldSendSms(user);
 				const eligibleEmail =
-					user.email_notifications_enabled && user.market_scheduled_asset_price_include_email;
-				const eligibleSms = shouldAttemptSms && user.market_scheduled_asset_price_include_sms;
+					user.email_notifications_enabled &&
+					isFacetEnabled(user.prefs, "market_scheduled_asset_price", "email");
+				const eligibleSms =
+					shouldAttemptSms && isFacetEnabled(user.prefs, "market_scheduled_asset_price", "sms");
 
 				const deliveryMethod: DeliveryMethod =
 					attemptedDeliveryMethod ??

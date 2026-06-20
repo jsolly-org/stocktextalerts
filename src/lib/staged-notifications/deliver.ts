@@ -29,6 +29,7 @@ import {
 } from "../messaging/delay-banner";
 import { sendUserEmail } from "../messaging/email/index";
 import type { EmailSender } from "../messaging/email/utils";
+import { loadPrefsByUser } from "../messaging/load-prefs";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { SMS_BODY_CHAR_BUDGET } from "../messaging/sms/block-packing";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
@@ -162,7 +163,8 @@ export async function deliverStagedNotifications(options: {
 		return { stats, deliveredUserTypes };
 	}
 
-	// Batch-fetch user records
+	// Batch-fetch user records (channel-level columns; per-option facets live in
+	// notification_preferences and are attached below).
 	const userIds = [...new Set(dailyRows.map((r) => r.user_id))];
 	const { data: users, error: usersError } = await supabase
 		.from("users")
@@ -176,8 +178,6 @@ export async function deliverStagedNotifications(options: {
 			timezone,
 			use_24_hour_time,
 			market_scheduled_asset_price_enabled,
-			market_scheduled_asset_price_include_email,
-			market_scheduled_asset_price_include_sms,
 			market_scheduled_asset_price_times,
 			daily_digest_time,
 			daily_digest_next_send_at,
@@ -185,24 +185,10 @@ export async function deliverStagedNotifications(options: {
 			email_notifications_enabled,
 			sms_notifications_enabled,
 			sms_opted_out,
-			daily_digest_include_prices_email,
-			daily_digest_include_prices_sms,
-			daily_digest_include_top_movers_email,
-			daily_digest_include_top_movers_sms,
-			daily_digest_include_news_email,
-			daily_digest_include_rumors_email,
-			asset_events_include_calendar_email,
-			asset_events_include_calendar_sms,
-			asset_events_include_ipo_email,
-			asset_events_include_ipo_sms,
-			asset_events_include_analyst_email,
-			asset_events_include_analyst_sms,
-			asset_events_include_insider_email,
-			asset_events_include_insider_sms,
 			asset_events_next_send_at,
 			asset_events_last_analyst_sent_month,
-			market_asset_price_alerts_include_sms,
-			price_move_alerts_include_sms,
+			telegram_chat_id,
+			telegram_opted_out,
 			last_grok_rumors_at,
 			grok_window_start,
 			grok_sends_in_window
@@ -219,10 +205,14 @@ export async function deliverStagedNotifications(options: {
 		return { stats, deliveredUserTypes };
 	}
 
+	const prefsByUser = await loadPrefsByUser(supabase, userIds);
 	const userMap = new Map(
-		// Cast is intentionally narrow: the select above includes all fields required
-		// by the downstream delivery helpers for staged notifications.
-		(users ?? []).map((u) => [u.id, u as unknown as UserRecord]),
+		// Cast is intentionally narrow: the select above includes the channel-level
+		// fields required by the downstream delivery helpers; prefs carry per-option facets.
+		(users ?? []).map((u) => [
+			u.id,
+			{ ...u, prefs: prefsByUser.get(u.id) ?? [] } as unknown as UserRecord,
+		]),
 	);
 
 	for (const row of dailyRows) {

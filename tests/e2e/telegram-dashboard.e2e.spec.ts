@@ -5,7 +5,7 @@ import { TEST_PASSWORD } from "../helpers/constants";
 import { signIn } from "../helpers/e2e/auth";
 import { waitForAutosave } from "../helpers/e2e/dashboard";
 import { adminClient } from "../helpers/test-env";
-import { cleanupTestUser, createTestUser } from "../helpers/test-user";
+import { cleanupTestUser, createTestUser, setTestUserPrefs } from "../helpers/test-user";
 
 // Absolute screenshot targets at the worktree root, so the calling agent can
 // read them off disk after the run.
@@ -89,17 +89,9 @@ test.describe("Telegram dashboard UI", () => {
 
 		// Pre-select Telegram for the daily-digest "prices" option so the panel
 		// renders one multiselect with Telegram already chosen (server reads this
-		// row into the panel's `telegramPrefs` prop).
-		const { error: prefError } = await adminClient.from("notification_preferences").insert({
-			user_id: userId,
-			notification_type: "daily_digest",
-			content: "prices",
-			channel: "telegram",
-			enabled: true,
-		});
-		if (prefError) {
-			throw new Error(`Failed to seed prices/telegram preference: ${prefError.message}`);
-		}
+		// row into the panel's `telegramPrefs` prop). Upsert because createTestUser
+		// already seeds the (default-off) prices/telegram row.
+		await setTestUserPrefs(userId, [["daily_digest", "prices", "telegram", true]]);
 
 		await signIn(page, email, TEST_PASSWORD);
 	});
@@ -169,9 +161,10 @@ test.describe("Telegram dashboard UI", () => {
 		await expect(topMoversListbox.getByRole("option", { name: "SMS" })).toBeVisible();
 		await page.screenshot({ path: SCREENSHOT_DROPDOWN });
 
-		// --- Behavior: toggling Telegram on for Top Movers persists a DB row ---
-		// Precondition: no top_movers/telegram row yet.
-		expect(await getTelegramPreference(userId as string, "daily_digest", "top_movers")).toBeNull();
+		// --- Behavior: toggling Telegram on for Top Movers flips the DB row ---
+		// Precondition: top_movers/telegram is seeded off by default (the full
+		// preference catalog is seeded for every user).
+		expect(await getTelegramPreference(userId as string, "daily_digest", "top_movers")).toBe(false);
 
 		await waitForAutosave(page, async () => {
 			await telegramOption.click();
@@ -202,8 +195,8 @@ test.describe("Telegram dashboard UI", () => {
 		const priceMoveTelegram = priceMoveListbox.getByRole("option", { name: "Telegram" });
 		await expect(priceMoveTelegram).toBeVisible();
 
-		// Precondition: no price_move_alerts/telegram row yet.
-		expect(await getTelegramPreference(userId as string, "price_move_alerts")).toBeNull();
+		// Precondition: price_move_alerts/telegram is seeded off by default.
+		expect(await getTelegramPreference(userId as string, "price_move_alerts")).toBe(false);
 
 		await waitForAutosave(page, async () => {
 			await priceMoveTelegram.click();
@@ -224,8 +217,8 @@ test.describe("Telegram dashboard UI", () => {
 		const calendarTelegram = calendarListbox.getByRole("option", { name: "Telegram" });
 		await expect(calendarTelegram).toBeVisible();
 
-		// Precondition: no asset_events/calendar/telegram row yet.
-		expect(await getTelegramPreference(userId as string, "asset_events", "calendar")).toBeNull();
+		// Precondition: asset_events/calendar/telegram is seeded off by default.
+		expect(await getTelegramPreference(userId as string, "asset_events", "calendar")).toBe(false);
 
 		await waitForAutosave(page, async () => {
 			await calendarTelegram.click();

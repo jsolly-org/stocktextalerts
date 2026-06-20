@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import type { Logger } from "../logging";
+import { isFacetEnabled } from "../messaging/notification-prefs";
 import type { UserRecord } from "../messaging/types";
 import { formatAnalystSection, formatInsiderSection } from "../providers/finnhub";
 import { formatAssetEventsSection } from "../providers/massive";
@@ -41,21 +42,15 @@ const emptyContent = (): AssetEventsContent => ({
 });
 
 function channelWantsCalendar(user: UserRecord, channel: DeliveryChannel): boolean {
-	return channel === "email"
-		? user.asset_events_include_calendar_email
-		: user.asset_events_include_calendar_sms;
+	return isFacetEnabled(user.prefs, "asset_events", channel, "calendar");
 }
 
 function channelWantsIpos(user: UserRecord, channel: DeliveryChannel): boolean {
-	return channel === "email"
-		? user.asset_events_include_ipo_email
-		: user.asset_events_include_ipo_sms;
+	return isFacetEnabled(user.prefs, "asset_events", channel, "ipo");
 }
 
 function channelWantsInsider(user: UserRecord, channel: DeliveryChannel): boolean {
-	return channel === "email"
-		? user.asset_events_include_insider_email
-		: user.asset_events_include_insider_sms;
+	return isFacetEnabled(user.prefs, "asset_events", channel, "insider");
 }
 
 function channelWantsAnalyst(
@@ -64,9 +59,7 @@ function channelWantsAnalyst(
 	currentMonth: string,
 ): boolean {
 	return (
-		(channel === "email"
-			? user.asset_events_include_analyst_email
-			: user.asset_events_include_analyst_sms) &&
+		isFacetEnabled(user.prefs, "asset_events", channel, "analyst") &&
 		user.asset_events_last_analyst_sent_month !== currentMonth
 	);
 }

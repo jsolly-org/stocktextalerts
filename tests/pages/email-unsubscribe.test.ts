@@ -15,6 +15,20 @@ describe("A user clicks the email unsubscribe link.", () => {
 		renderers = await loadRenderers([getVueRenderer()]);
 	});
 
+	// The scheduled-price SMS facet now lives in notification_preferences
+	// (the dropped users.market_scheduled_asset_price_include_sms column).
+	async function readScheduledSmsEnabled(userId: string): Promise<boolean | null> {
+		const { data } = await adminClient
+			.from("notification_preferences")
+			.select("enabled")
+			.eq("user_id", userId)
+			.eq("notification_type", "market_scheduled_asset_price")
+			.eq("content", "")
+			.eq("channel", "sms")
+			.maybeSingle();
+		return data?.enabled ?? null;
+	}
+
 	it("Email notifications are disabled while SMS remains enabled.", async () => {
 		const user = await createTestUser({
 			email: createTestEmail("test"),
@@ -45,13 +59,13 @@ describe("A user clicks the email unsubscribe link.", () => {
 
 		const { data: updated, error } = await adminClient
 			.from("users")
-			.select("email_notifications_enabled,market_scheduled_asset_price_include_sms")
+			.select("email_notifications_enabled")
 			.eq("id", user.id)
 			.maybeSingle();
 
 		expect(error).toBeNull();
 		expect(updated?.email_notifications_enabled).toBe(false);
-		expect(updated?.market_scheduled_asset_price_include_sms).toBe(true);
+		expect(await readScheduledSmsEnabled(user.id)).toBe(true);
 	});
 
 	it("Invalid or expired unsubscribe token does not change user preferences.", async () => {
@@ -80,13 +94,13 @@ describe("A user clicks the email unsubscribe link.", () => {
 
 		const { data: updated, error } = await adminClient
 			.from("users")
-			.select("email_notifications_enabled,market_scheduled_asset_price_include_sms")
+			.select("email_notifications_enabled")
 			.eq("id", user.id)
 			.maybeSingle();
 
 		expect(error).toBeNull();
 		expect(updated?.email_notifications_enabled).toBe(true);
-		expect(updated?.market_scheduled_asset_price_include_sms).toBe(true);
+		expect(await readScheduledSmsEnabled(user.id)).toBe(true);
 	});
 
 	it("SMS opt-out is not offered when phone is not verified.", async () => {
@@ -151,12 +165,12 @@ describe("A user clicks the email unsubscribe link.", () => {
 
 		const { data: updated, error } = await adminClient
 			.from("users")
-			.select("email_notifications_enabled,market_scheduled_asset_price_include_sms")
+			.select("email_notifications_enabled")
 			.eq("id", user.id)
 			.maybeSingle();
 
 		expect(error).toBeNull();
 		expect(updated?.email_notifications_enabled).toBe(false);
-		expect(updated?.market_scheduled_asset_price_include_sms).toBe(false);
+		expect(await readScheduledSmsEnabled(user.id)).toBe(false);
 	});
 });

@@ -2,8 +2,9 @@ import { DateTime } from "luxon";
 import type { Logger } from "../logging";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/delay-banner";
 import type { EmailSender } from "../messaging/email/utils";
+import { anyFacetEnabled, enabledFacets } from "../messaging/notification-prefs";
 import { shouldSendSms } from "../messaging/sms";
-import { enabledTelegramFacets, isTelegramChannelUsable } from "../messaging/telegram/eligibility";
+import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { UserRecord } from "../messaging/types";
 import type {
 	ScheduledNotificationTotals,
@@ -131,38 +132,17 @@ export async function processAssetEventsUser(options: {
 		const delayBannerText = buildDelayBannerText(delayBannerOpts);
 		const delayBannerHtml = buildDelayBannerHtml(delayBannerOpts);
 
-		// Telegram facets live in notification_preferences (per option×channel rows),
-		// not the legacy per-column user flags. Only query for users who can actually
-		// receive Telegram (linked + not opted out) — skips a lookup for the majority
-		// who never linked Telegram.
-		let telegramFacets: AssetEventsTelegramFacets = {
-			calendar: false,
-			ipo: false,
-			insider: false,
-			analyst: false,
+		// All channel facets live in notification_preferences (carried on user.prefs).
+		// Telegram additionally gates on the usable-channel check (linked + not opted out).
+		const telegramFacetSet = isTelegramChannelUsable(user)
+			? enabledFacets(user.prefs, "asset_events", "telegram")
+			: new Set<string>();
+		const telegramFacets: AssetEventsTelegramFacets = {
+			calendar: telegramFacetSet.has("calendar"),
+			ipo: telegramFacetSet.has("ipo"),
+			insider: telegramFacetSet.has("insider"),
+			analyst: telegramFacetSet.has("analyst"),
 		};
-		if (isTelegramChannelUsable(user)) {
-			const { data: telegramPrefRows, error: telegramPrefError } = await supabase
-				.from("notification_preferences")
-				.select("notification_type, content, enabled")
-				.eq("user_id", user.id)
-				.eq("notification_type", "asset_events")
-				.eq("channel", "telegram");
-			if (telegramPrefError) {
-				logger.error(
-					"Failed to load Telegram asset-events preferences",
-					{ action: "asset_events_run", userId: user.id },
-					telegramPrefError,
-				);
-			}
-			const facets = enabledTelegramFacets(telegramPrefRows ?? [], "asset_events");
-			telegramFacets = {
-				calendar: facets.has("calendar"),
-				ipo: facets.has("ipo"),
-				insider: facets.has("insider"),
-				analyst: facets.has("analyst"),
-			};
-		}
 		const wantsTelegram =
 			telegramFacets.calendar ||
 			telegramFacets.ipo ||
@@ -170,14 +150,8 @@ export async function processAssetEventsUser(options: {
 			telegramFacets.analyst;
 
 		const hasAnyAssetEventsOption =
-			user.asset_events_include_calendar_email ||
-			user.asset_events_include_calendar_sms ||
-			user.asset_events_include_ipo_email ||
-			user.asset_events_include_ipo_sms ||
-			user.asset_events_include_analyst_email ||
-			user.asset_events_include_analyst_sms ||
-			user.asset_events_include_insider_email ||
-			user.asset_events_include_insider_sms ||
+			anyFacetEnabled(user.prefs, "asset_events", "email") ||
+			anyFacetEnabled(user.prefs, "asset_events", "sms") ||
 			wantsTelegram;
 
 		if (!hasAnyAssetEventsOption) {
@@ -215,18 +189,8 @@ export async function processAssetEventsUser(options: {
 				? passedMarketClosureInfo
 				: await getUsMarketClosureInfoForInstant(currentTime);
 
-		const wantsEmail =
-			emailEnabled &&
-			(user.asset_events_include_calendar_email ||
-				user.asset_events_include_ipo_email ||
-				user.asset_events_include_analyst_email ||
-				user.asset_events_include_insider_email);
-		const wantsSms =
-			smsEnabled &&
-			(user.asset_events_include_calendar_sms ||
-				user.asset_events_include_ipo_sms ||
-				user.asset_events_include_analyst_sms ||
-				user.asset_events_include_insider_sms);
+		const wantsEmail = emailEnabled && anyFacetEnabled(user.prefs, "asset_events", "email");
+		const wantsSms = smsEnabled && anyFacetEnabled(user.prefs, "asset_events", "sms");
 
 		let emailContent: Awaited<ReturnType<typeof buildAssetEventsContentForChannels>>["email"] =
 			null;

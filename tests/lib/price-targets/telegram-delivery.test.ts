@@ -4,9 +4,9 @@
  * Real-time path (mirrors deliverPriceAlert): a Telegram-linked user with the
  * price_targets Telegram pref enabled gets a Telegram message + a
  * notification_log row delivery_method='telegram'; the pref-off / unlinked cases
- * skip Telegram. Text-only (price targets carry no intraday candles). Uses a
- * Supabase mock that serves notification_preferences from a fixture and records
- * notification_log inserts.
+ * skip Telegram. Text-only (price targets carry no intraday candles). Per-option
+ * prefs are carried on `user.prefs` (the single source of truth); the Supabase
+ * mock only records notification_log inserts.
  */
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../src/lib/db/supabase";
@@ -17,25 +17,17 @@ import {
 	type PriceTargetDeliveryStats,
 } from "../../../src/lib/price-targets/delivery";
 import type { PriceTargetUser, TriggeredPriceTarget } from "../../../src/lib/price-targets/process";
+import { makePrefRows } from "../../helpers/user-record-fixture";
 
-type TelegramPrefRowFixture = { notification_type: string; content: string; enabled: boolean };
 type RecordedInsert = { table: string; row: Record<string, unknown> };
 
-function makeTelegramSupabaseMock(prefRows: TelegramPrefRowFixture[]): {
+function makeTelegramSupabaseMock(): {
 	client: AppSupabaseClient;
 	inserts: RecordedInsert[];
 } {
 	const inserts: RecordedInsert[] = [];
 	const client = {
 		from(table: string) {
-			if (table === "notification_preferences") {
-				const result = { data: prefRows, error: null };
-				const eqChain: Promise<typeof result> & { eq: () => typeof eqChain } = Object.assign(
-					Promise.resolve(result),
-					{ eq: () => eqChain },
-				);
-				return { select: () => eqChain };
-			}
 			return {
 				insert: async (row: Record<string, unknown>) => {
 					inserts.push({ table, row });
@@ -78,19 +70,16 @@ function makeUser(overrides: Partial<PriceTargetUser> = {}): PriceTargetUser {
 		phone_verified: true,
 		sms_notifications_enabled: false,
 		sms_opted_out: false,
-		price_targets_include_email: false,
-		price_targets_include_sms: false,
 		telegram_chat_id: null,
 		telegram_opted_out: false,
+		prefs: [],
 		...overrides,
 	};
 }
 
 describe("A Telegram-linked user receives a price-target alert via Telegram", () => {
 	it("sends a Telegram message and logs delivery_method='telegram' when the price_targets Telegram pref is enabled", async () => {
-		const { client, inserts } = makeTelegramSupabaseMock([
-			{ notification_type: "price_targets", content: "", enabled: true },
-		]);
+		const { client, inserts } = makeTelegramSupabaseMock();
 		const sendTelegram = vi.fn<TelegramSender>(async () => ({
 			success: true,
 			messageSid: "tg-target-1",
@@ -98,7 +87,10 @@ describe("A Telegram-linked user receives a price-target alert via Telegram", ()
 		const stats = makeStats();
 
 		const delivered = await deliverPriceTargetAlert({
-			user: makeUser({ telegram_chat_id: 445566 }),
+			user: makeUser({
+				telegram_chat_id: 445566,
+				prefs: makePrefRows([["price_targets", "", "telegram", true]]),
+			}),
 			target: makeTarget(),
 			supabase: client,
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
@@ -125,14 +117,15 @@ describe("A Telegram-linked user receives a price-target alert via Telegram", ()
 	});
 
 	it("skips Telegram when the user has no price_targets Telegram pref enabled", async () => {
-		const { client, inserts } = makeTelegramSupabaseMock([
-			{ notification_type: "price_targets", content: "", enabled: false },
-		]);
+		const { client, inserts } = makeTelegramSupabaseMock();
 		const sendTelegram = vi.fn<TelegramSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceTargetAlert({
-			user: makeUser({ telegram_chat_id: 445566 }),
+			user: makeUser({
+				telegram_chat_id: 445566,
+				prefs: makePrefRows([["price_targets", "", "telegram", false]]),
+			}),
 			target: makeTarget(),
 			supabase: client,
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
@@ -149,13 +142,14 @@ describe("A Telegram-linked user receives a price-target alert via Telegram", ()
 	});
 
 	it("does not send when the channel is unusable (no linked chat)", async () => {
-		const { client } = makeTelegramSupabaseMock([
-			{ notification_type: "price_targets", content: "", enabled: true },
-		]);
+		const { client } = makeTelegramSupabaseMock();
 		const sendTelegram = vi.fn<TelegramSender>(async () => ({ success: true }));
 
 		await deliverPriceTargetAlert({
-			user: makeUser({ telegram_chat_id: null }),
+			user: makeUser({
+				telegram_chat_id: null,
+				prefs: makePrefRows([["price_targets", "", "telegram", true]]),
+			}),
 			target: makeTarget(),
 			supabase: client,
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),

@@ -17,11 +17,12 @@ import { buildAssetEventsContentForChannels } from "../../../src/lib/asset-event
 import { processAssetEventsUser } from "../../../src/lib/asset-events/process";
 import { rootLogger } from "../../../src/lib/logging";
 import type { EmailSender } from "../../../src/lib/messaging/email/utils";
+import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { TelegramSender } from "../../../src/lib/messaging/telegram/sender";
 import type { UserRecord } from "../../../src/lib/messaging/types";
 import { adminClient } from "../../helpers/test-env";
-import { createTestUser } from "../../helpers/test-user";
+import { createTestUser, setTestUserPrefs } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 vi.mock("../../../src/lib/asset-events/content", async () => {
@@ -53,14 +54,9 @@ async function seedTelegramAssetEventsUser(facetEnabled: boolean) {
 		.eq("id", id);
 	expect(updateError).toBeNull();
 
-	const { error: prefError } = await adminClient.from("notification_preferences").insert({
-		user_id: id,
-		notification_type: "asset_events",
-		content: "calendar",
-		channel: "telegram",
-		enabled: facetEnabled,
-	});
-	expect(prefError).toBeNull();
+	// Per-option prefs live in notification_preferences (createTestUser seeded the
+	// asset_events Telegram facets off); set the calendar facet for this test.
+	await setTestUserPrefs(id, [["asset_events", "calendar", "telegram", facetEnabled]]);
 
 	const { data: userRow, error: selectError } = await adminClient
 		.from("users")
@@ -68,7 +64,10 @@ async function seedTelegramAssetEventsUser(facetEnabled: boolean) {
 		.eq("id", id)
 		.single();
 	expect(selectError).toBeNull();
-	return { id, telegramChatId, userRow: userRow as UserRecord, now };
+	if (!userRow) throw new Error("expected seeded user row");
+	// processAssetEventsUser reads user.prefs, so attach the freshly-seeded rows.
+	const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
+	return { id, telegramChatId, userRow: userWithPrefs as unknown as UserRecord, now };
 }
 
 describe("Telegram standalone asset-events dispatch", () => {

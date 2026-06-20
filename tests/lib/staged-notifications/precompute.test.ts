@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { processDailyDigestUser } from "../../../src/lib/daily-digest/process";
 import type { EmailSender } from "../../../src/lib/messaging/email/utils";
+import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { TelegramSender } from "../../../src/lib/messaging/telegram/sender";
 import type { UserRecord } from "../../../src/lib/messaging/types";
@@ -78,7 +79,6 @@ describe("A cron job precomputes daily digest content for upcoming users.", () =
 			.update({
 				daily_digest_time: 10 * 60,
 				daily_digest_next_send_at: scheduledForIso,
-				daily_digest_include_prices_sms: true,
 			})
 			.eq("id", id);
 		const { data: userRow, error: userError } = await adminClient
@@ -88,6 +88,10 @@ describe("A cron job precomputes daily digest content for upcoming users.", () =
 			.single();
 		expect(userError).toBeNull();
 		expect(userRow).not.toBeNull();
+		if (!userRow) throw new Error("expected seeded user row");
+		// processDailyDigestUser reads user.prefs (daily_digest prices sms is on by
+		// default from createTestUser); attach the freshly-seeded rows.
+		const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
 
 		fetchAssetPricesWithSessionStateMock.mockImplementationOnce(async (symbols: string[]) => ({
 			prices: new Map(
@@ -102,7 +106,7 @@ describe("A cron job precomputes daily digest content for upcoming users.", () =
 		fetchSparklinesMock.mockResolvedValueOnce(new Map());
 
 		await processDailyDigestUser({
-			user: userRow as UserRecord,
+			user: userWithPrefs as unknown as UserRecord,
 			supabase: adminClient,
 			logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 			currentTime,

@@ -6,6 +6,7 @@ import { deliveryResultToLogFields, recordNotification } from "../../messaging/s
 import { processSmsUpdate } from "../../messaging/sms/delivery";
 import type { SparklineData } from "../../messaging/sparkline";
 import { formatMarketScheduledTelegram } from "../../messaging/telegram/market-scheduled";
+import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import type { UserAssetRow, UserRecord } from "../../messaging/types";
 import type { AssetPriceMap, MarketSession } from "../../providers/price-fetcher";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../../schedule/helpers";
@@ -360,6 +361,8 @@ export async function processMarketScheduledTelegramDelivery(options: {
 			new Error(result.error ?? "Scheduled market Telegram send failed"),
 		);
 	}
+
+	await optOutIfBotBlocked(supabase, user.id, result, logger);
 
 	const logged = await recordNotification(supabase, {
 		user_id: user.id,

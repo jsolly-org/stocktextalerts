@@ -17,11 +17,12 @@ import { describe, expect, it, vi } from "vitest";
 import { rootLogger } from "../../../../src/lib/logging";
 import { processMarketScheduledUser } from "../../../../src/lib/market-notifications/scheduled/process";
 import type { EmailSender } from "../../../../src/lib/messaging/email/utils";
+import { attachPrefsToUsers } from "../../../../src/lib/messaging/load-prefs";
 import type { SmsSender } from "../../../../src/lib/messaging/sms/twilio-utils";
 import type { TelegramSender } from "../../../../src/lib/messaging/telegram/sender";
 import type { UserRecord } from "../../../../src/lib/messaging/types";
 import { adminClient } from "../../../helpers/test-env";
-import { createTestUser } from "../../../helpers/test-user";
+import { createTestUser, setTestUserPrefs } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 
 vi.mock("../../../../src/lib/providers/price-fetcher", async () => {
@@ -71,22 +72,15 @@ async function seedTelegramScheduledUser(prefEnabled: boolean) {
 		.update({
 			// 11:00 ET regular-hours slot, due now.
 			market_scheduled_asset_price_next_send_at: now.toISO(),
-			market_scheduled_asset_price_include_email: false,
-			market_scheduled_asset_price_include_sms: false,
 			telegram_chat_id: telegramChatId,
 			telegram_opted_out: false,
 		})
 		.eq("id", id);
 	expect(updateError).toBeNull();
 
-	const { error: prefError } = await adminClient.from("notification_preferences").insert({
-		user_id: id,
-		notification_type: "market_scheduled_asset_price",
-		content: "",
-		channel: "telegram",
-		enabled: prefEnabled,
-	});
-	expect(prefError).toBeNull();
+	// Per-option prefs live in notification_preferences. createTestUser already seeded
+	// market_scheduled email/sms off; enable (or not) the Telegram facet here.
+	await setTestUserPrefs(id, [["market_scheduled_asset_price", "", "telegram", prefEnabled]]);
 
 	const { data: userRow, error: selectError } = await adminClient
 		.from("users")
@@ -94,7 +88,10 @@ async function seedTelegramScheduledUser(prefEnabled: boolean) {
 		.eq("id", id)
 		.single();
 	expect(selectError).toBeNull();
-	return { id, telegramChatId, userRow: userRow as UserRecord, now };
+	if (!userRow) throw new Error("expected seeded user row");
+	// processMarketScheduledUser reads user.prefs, so attach the freshly-seeded rows.
+	const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
+	return { id, telegramChatId, userRow: userWithPrefs as unknown as UserRecord, now };
 }
 
 describe("Telegram scheduled market-price dispatch", () => {

@@ -5,5 +5,11 @@ excluded_rules = [
   "prefer-text-field",
   "prefer-bigint-over-int",
   "prefer-bigint-over-smallint",
+  # Migrations run inside a transaction (assume_in_transaction above), so CREATE
+  # INDEX CONCURRENTLY is impossible — this rule can never be satisfied here.
+  "require-concurrent-index-creation",
+  # Appending a new enum value (no BEFORE/AFTER) is the normal pattern; ordering
+  # is not semantically meaningful for our delivery_method enum.
+  "require-enum-value-ordering",
 ]
 

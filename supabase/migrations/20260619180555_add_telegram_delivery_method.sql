@@ -5,4 +5,7 @@
 -- is added here and first USED by the next migration
 -- (…_add_telegram_preferences_identity), which references it as a column type.
 
+set lock_timeout = '5s';
+set statement_timeout = '60s';
+
 alter type public.delivery_method add value if not exists 'telegram';

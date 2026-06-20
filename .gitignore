@@ -66,3 +66,6 @@ scripts/data/users.json
 
 
 # Materialized agent config (fetched by .dotagents/bootstrap.sh; not committed)
+
+# E2E dashboard screenshot scratch (telegram-dashboard.e2e.spec.ts)
+_ui-*.png
