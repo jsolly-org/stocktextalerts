@@ -15,6 +15,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/sam-params.sh"
 
 cd "$SCRIPT_DIR"
+# Resolve sam to the repo-pinned version (.mise.toml) — mise walks up to the repo root for it.
+# Guarded so a machine without mise degrades to the global sam (rules/tool-versions.md).
+command -v mise >/dev/null 2>&1 && eval "$(mise activate bash --shims)"
 # Ground the SAM CLI: not an npm dep — fail loud if absent (rules/dependency-grounding.md).
 command -v sam >/dev/null 2>&1 || { echo "✗ sam CLI not found — brew install aws-sam-cli" >&2; exit 1; }
 PATH="$REPO_ROOT/node_modules/.bin:$PATH" sam build

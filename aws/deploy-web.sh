@@ -19,6 +19,12 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# Ground aws/sam to the repo-pinned versions (.mise.toml) — the pre-push hook runs
+# non-interactively, so the shell profile's mise activation isn't loaded. Guarded so a machine
+# without mise degrades to the global aws/sam on $PATH (rules/tool-versions.md). The presence
+# guards below then verify the pinned tool resolved.
+command -v mise >/dev/null 2>&1 && eval "$(mise activate bash --shims)"
+
 # --- Phase 0: load + validate credentials ---
 # Allowlist-load ONLY the deploy creds from .env.local — never `set -a` the
 # whole file: the rest of it (prod service keys, Twilio, vendor keys) must not
