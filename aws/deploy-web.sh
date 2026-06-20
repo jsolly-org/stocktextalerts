@@ -125,6 +125,7 @@ supabase db push --include-all --yes --db-url "$DB_URL"
 # --- Phase 2: Lambda code update (code-only, scoped role) ---
 phase="lambda code update"
 echo "• build + deploy Lambda code  (AWS_PROFILE=$AWS_PROFILE)"
+tsx scripts/gen-release-id.ts
 (cd aws && sam build --base-dir ..)
 build="aws/.aws-sam/build"
 deploy_code() { # <build-dir> <physical-name>
