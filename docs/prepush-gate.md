@@ -19,13 +19,24 @@ npm run check:knip
 npm run check:sql
 npm run check:migration-grants   # static: migrations grant EXECUTE on new functions
 npm run check:db-privileges      # needs local Supabase up: grants match privilege-contract
+npm run build:lambdas            # esbuild the handler bundle (sam build) — offline, no creds
 npm run test
 npm run test:e2e
 ```
 
-(The production web build is not a gate step — Vercel builds `main` on its own
+(The production **web** build is not a gate step — Vercel builds `main` on its own
 infrastructure after the push lands, with `VERCEL_PROJECT_PRODUCTION_URL` set by
 the platform.)
+
+The production **Lambda** bundle, on the other hand, **is** a gate step
+(`npm run build:lambdas`, run as a fail-fast preflight). `npm run build` is
+astro/web only, so before this nothing built the handler bundle until the
+deploy's own build phase — and a bundler break surfaced only mid-deploy, *after*
+`supabase db push` had migrated prod (the 2026-06-21 resvg `.node` incident). The
+gate now esbuilds the bundle in seconds, before the battery; `aws/deploy-web.sh`
+also builds before it migrates (Phase 1, ahead of the one-way `db push`) so even a
+gate-bypassing path can't leave prod DB ahead of prod code. See
+[docs/plans/2026-06-20-deploy-build-before-migrate.md](plans/2026-06-20-deploy-build-before-migrate.md).
 
 The gate needs **local Supabase up** (`npm run db:start`) for `check:db-privileges`, `test`, and
 `test:e2e`. See [docs/incidents/2026-04-ci-race.md](incidents/2026-04-ci-race.md) for why a bare

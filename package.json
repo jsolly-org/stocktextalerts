@@ -13,6 +13,7 @@
 		"build": "node --env-file-if-exists=.env.local ./node_modules/.bin/astro build",
 		"postbuild": "node ./node_modules/.bin/tsx scripts/restore-release-stub.ts",
 		"build:preview": "ASTRO_ADAPTER=node node --env-file-if-exists=.env.local ./node_modules/.bin/astro build",
+		"build:lambdas": "bash aws/deploy-web.sh --build",
 		"deploy": "bash aws/deploy-web.sh",
 		"deploy:aws": "npm --prefix aws run deploy",
 		"preview": "ASTRO_ADAPTER=node node --env-file-if-exists=.env.local ./node_modules/.bin/astro preview --port 4323",
