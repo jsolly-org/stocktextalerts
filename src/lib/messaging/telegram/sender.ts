@@ -111,14 +111,20 @@ export function createTelegramBot(
 		withAutoRetry = true,
 	}: { timeoutSeconds?: number; useUndiciFetch?: boolean; withAutoRetry?: boolean } = {},
 ): Bot {
+	// undici rejects grammY's non-global AbortSignal ("RequestInit: Expected signal to be an
+	// instance of AbortSignal" — grammY's timeoutSeconds controller is a different class), so
+	// the undici path wraps fetch to substitute a per-request global AbortSignal.timeout —
+	// which undici accepts, and which keeps the call bounded.
+	const undiciFetch: typeof fetch = (input, init) =>
+		globalThis.fetch(input, { ...init, signal: AbortSignal.timeout(timeoutSeconds * 1000) });
 	const bot = new Bot(token, {
 		client: {
 			// `useUndiciFetch` routes through Node's global fetch (undici) instead of grammY's
 			// default node-fetch — the candidate fix for the Lambda→api.telegram.org stall
 			// (full rationale in this function's JSDoc). The send path keeps the IPv4 agent;
-			// the health check opts into undici.
+			// the health check opts into undici (via the signal-swap wrapper above).
 			...(useUndiciFetch
-				? { fetch: globalThis.fetch }
+				? { fetch: undiciFetch }
 				: { baseFetchConfig: { agent: new Agent({ keepAlive: true, family: 4 }) } }),
 			timeoutSeconds,
 		},
