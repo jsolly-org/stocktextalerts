@@ -36,6 +36,15 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# Shared fleet gate helpers (dotagents/gate/gate-lib.sh) — sourced the same way .git-hooks/pre-push
+# does, purely for gate_npm_ci below (sourcing has no side effects). gate_npm_ci resolves the repo
+# root from $PWD, which is REPO_ROOT after the cd above.
+# shellcheck source=/dev/null
+source "${DOTAGENTS_GATE_LIB:-$HOME/code/dotagents/gate/gate-lib.sh}" || {
+  echo "✗ dotagents gate-lib not found (expected ~/code/dotagents/gate/gate-lib.sh) — re-run install-local-agent-runtime.sh." >&2
+  exit 1
+}
+
 # Ground aws/sam to the repo-pinned versions (.mise.toml) — the pre-push hook runs
 # non-interactively, so the shell profile's mise activation isn't loaded. Guarded so a machine
 # without mise degrades to the global aws/sam on $PATH (rules/tool-versions.md). The presence
@@ -56,6 +65,13 @@ command -v sam >/dev/null 2>&1 || { echo "✗ sam CLI not found — brew install
 # (that would trip gate_require_clean_tree on the next push; this repo has stub-dirtying history,
 # commits ee70c6b/b6c74e5). The build's exit code still propagates so a failure aborts the caller.
 build_lambdas() {
+  # Reproducible bundle: reinstall the committed lockfile before `sam build` bundles the Lambda from
+  # gitignored node_modules. --if-stale because both callers reach here — the push path runs from a
+  # freshly worktree:init'd tree (in sync → skipped, no wasted reinstall), while the manual
+  # `npm run deploy` / `npm run build:lambdas` can run from a possibly-stale checkout (the read-only
+  # `main` mirror is never npm ci'd in the worktree-first flow → reinstall). Runs before the tsx
+  # steps so they too resolve from a fresh node_modules/.bin. Credential-free, so safe in --build.
+  gate_npm_ci --if-stale
   echo "• build Lambda bundle (sam build — esbuild)"
   tsx scripts/gen-release-id.ts
   local rc=0
