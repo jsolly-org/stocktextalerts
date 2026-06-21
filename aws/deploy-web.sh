@@ -138,7 +138,7 @@ deploy_code() { # <build-dir> <physical-name>
 # so every function must ship on every push or stale code runs against the
 # freshly migrated schema (the duplicate-SMS incident class).
 deploy_code ScheduleFunction stocktextalerts-schedule
-deploy_code AssetEventsFunction stocktextalerts-asset-events
+deploy_code AssetMaintenanceFunction stocktextalerts-asset-maintenance
 deploy_code EmailDispatchFunction stocktextalerts-email-dispatch
 deploy_code ComputeDailyStatsFunction stocktextalerts-compute-daily-stats
 deploy_code VendorBackfillFunction stocktextalerts-vendor-backfill

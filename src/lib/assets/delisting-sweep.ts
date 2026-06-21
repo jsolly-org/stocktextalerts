@@ -71,7 +71,7 @@ const EMPTY_RESULT: DelistingSweepResult = {
 const NOTIFICATION_DEDUPE_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 /**
- * Daily delisting sweep. Intended to run inside the AssetEvents Lambda
+ * Daily delisting sweep. Intended to run inside the AssetMaintenance Lambda
  * (once per day at 00:00 UTC) in its own try/catch so failures don't
  * invalidate the calendar-events fetch.
  *

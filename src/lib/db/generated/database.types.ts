@@ -244,28 +244,34 @@ export type Database = {
       }
       assets: {
         Row: {
+          composite_figi: string | null
           delisted_at: string | null
           icon_base64: string | null
           icon_url: string | null
           name: string
+          reference_updated_utc: string | null
           sector: string | null
           symbol: string
           type: string
         }
         Insert: {
+          composite_figi?: string | null
           delisted_at?: string | null
           icon_base64?: string | null
           icon_url?: string | null
           name: string
+          reference_updated_utc?: string | null
           sector?: string | null
           symbol: string
           type?: string
         }
         Update: {
+          composite_figi?: string | null
           delisted_at?: string | null
           icon_base64?: string | null
           icon_url?: string | null
           name?: string
+          reference_updated_utc?: string | null
           sector?: string | null
           symbol?: string
           type?: string

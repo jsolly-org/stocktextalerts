@@ -131,7 +131,7 @@ Resources:
             State: ENABLED
             RoleArn: !GetAtt StockTextAlertsSchedulerRole.Arn
 
-  AssetEventsFunction:
+  AssetMaintenanceFunction:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
@@ -144,15 +144,15 @@ Resources:
         Target: node24
         Sourcemap: true
         EntryPoints:
-          - asset-events.ts
+          - asset-maintenance.ts
     Properties:
-      FunctionName: stocktextalerts-asset-events
-      Handler: asset-events.handler
+      FunctionName: stocktextalerts-asset-maintenance
+      Handler: asset-maintenance.handler
       CodeUri: src/handlers
       Timeout: 300
       MemorySize: 512
       LoggingConfig:
-        LogGroup: !Ref AssetEventsLogGroup
+        LogGroup: !Ref AssetMaintenanceLogGroup
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
@@ -414,7 +414,7 @@ Resources:
                 # the role (which would otherwise reference the functions).
                 Resource:
                   - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:stocktextalerts-schedule
-                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:stocktextalerts-asset-events
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:stocktextalerts-asset-maintenance
                   - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:stocktextalerts-compute-daily-stats
                   - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:stocktextalerts-live-provider-check
                   - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:stocktextalerts-backup-user-settings
@@ -443,16 +443,16 @@ Resources:
       OKActions:
         - !Ref AlertTopicArn
 
-  AssetEventsFunctionErrorAlarm:
+  AssetMaintenanceFunctionErrorAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: stocktextalerts-asset-events-lambda-errors
-      AlarmDescription: AssetEventsFunction threw / timed out / OOMed
+      AlarmName: stocktextalerts-asset-maintenance-lambda-errors
+      AlarmDescription: AssetMaintenanceFunction threw / timed out / OOMed
       Namespace: AWS/Lambda
       MetricName: Errors
       Dimensions:
         - Name: FunctionName
-          Value: !Ref AssetEventsFunction
+          Value: !Ref AssetMaintenanceFunction
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1
@@ -551,18 +551,18 @@ Resources:
       OKActions:
         - !Ref AlertTopicArn
 
-  AssetEventsFunctionDailyMidnightFailureAlarm:
+  AssetMaintenanceFunctionDailyMidnightFailureAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: stocktextalerts-asset-events-invocation-failures
-      AlarmDescription: AssetEventsFunctionDailyMidnight failed to invoke target
+      AlarmName: stocktextalerts-asset-maintenance-invocation-failures
+      AlarmDescription: AssetMaintenanceFunctionDailyMidnight failed to invoke target
       Namespace: AWS/Scheduler
       MetricName: TargetErrorCount
       Dimensions:
         - Name: ScheduleGroup
           Value: default
         - Name: ScheduleName
-          Value: AssetEventsFunctionDailyMidnight
+          Value: AssetMaintenanceFunctionDailyMidnight
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1
@@ -655,10 +655,10 @@ Resources:
       LogGroupName: /aws/lambda/stocktextalerts-schedule
       RetentionInDays: 30
 
-  AssetEventsLogGroup:
+  AssetMaintenanceLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /aws/lambda/stocktextalerts-asset-events
+      LogGroupName: /aws/lambda/stocktextalerts-asset-maintenance
       RetentionInDays: 30
 
   EmailDispatchLogGroup:
@@ -704,10 +704,10 @@ Resources:
           MetricValue: "1"
           DefaultValue: 0
 
-  AssetEventsErrorLogFilter:
+  AssetMaintenanceErrorLogFilter:
     Type: AWS::Logs::MetricFilter
     Properties:
-      LogGroupName: !Ref AssetEventsLogGroup
+      LogGroupName: !Ref AssetMaintenanceLogGroup
       FilterPattern: '{ $.level = "error" }'
       MetricTransformations:
         - MetricNamespace: stocktextalerts
@@ -774,7 +774,7 @@ Resources:
   # subtracted from ErrorLogCount in ErrorLogAlarm so single vendor blips
   # don't page on the global error alarm; per-Lambda alarms below use
   # cadence-appropriate thresholds (sustained for the per-minute Schedule,
-  # single-occurrence for the daily AssetEvents and weekday-evening
+  # single-occurrence for the daily AssetMaintenance and weekday-evening
   # ComputeDailyStats — where one failure means a whole day of missed data).
 
   ScheduleVendorRetryFilter:
@@ -788,14 +788,14 @@ Resources:
           MetricValue: "1"
           DefaultValue: 0
 
-  AssetEventsVendorRetryFilter:
+  AssetMaintenanceVendorRetryFilter:
     Type: AWS::Logs::MetricFilter
     Properties:
-      LogGroupName: !Ref AssetEventsLogGroup
+      LogGroupName: !Ref AssetMaintenanceLogGroup
       FilterPattern: '{ $.context.category = "vendor_retry_exhausted" }'
       MetricTransformations:
         - MetricNamespace: stocktextalerts
-          MetricName: AssetEventsVendorRetryCount
+          MetricName: AssetMaintenanceVendorRetryCount
           MetricValue: "1"
           DefaultValue: 0
 
@@ -832,7 +832,7 @@ Resources:
       AlarmDescription: ERROR logged in stocktextalerts Lambda functions (excluding vendor retry exhaustion)
       Metrics:
         - Id: non_vendor_errors
-          Expression: "all_errors - sched_vr - assetev_vr - cds_vr - vb_vr"
+          Expression: "all_errors - sched_vr - assetmaint_vr - cds_vr - vb_vr"
           Label: Non-vendor-retry errors
           ReturnData: true
         - Id: all_errors
@@ -851,11 +851,11 @@ Resources:
             Period: 60
             Stat: Sum
           ReturnData: false
-        - Id: assetev_vr
+        - Id: assetmaint_vr
           MetricStat:
             Metric:
               Namespace: stocktextalerts
-              MetricName: AssetEventsVendorRetryCount
+              MetricName: AssetMaintenanceVendorRetryCount
             Period: 60
             Stat: Sum
           ReturnData: false
@@ -907,16 +907,16 @@ Resources:
       OKActions:
         - !Ref AlertTopicArn
 
-  # AssetEventsFunction runs once daily at midnight UTC. A single vendor
+  # AssetMaintenanceFunction runs once daily at midnight UTC. A single vendor
   # exhaustion = a whole day of missed earnings/dividend/split notifications.
   # 1-of-1 in 60s — page on any occurrence.
-  AssetEventsVendorRetryAlarm:
+  AssetMaintenanceVendorRetryAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: stocktextalerts-asset-events-vendor-retry
-      AlarmDescription: Vendor retry exhaustion in AssetEventsFunction (Finnhub earnings calendar)
+      AlarmName: stocktextalerts-asset-maintenance-vendor-retry
+      AlarmDescription: Vendor retry exhaustion in AssetMaintenanceFunction (Finnhub earnings calendar)
       Namespace: stocktextalerts
-      MetricName: AssetEventsVendorRetryCount
+      MetricName: AssetMaintenanceVendorRetryCount
       Statistic: Sum
       Period: 60
       EvaluationPeriods: 1
@@ -930,7 +930,7 @@ Resources:
         - !Ref AlertTopicArn
 
   # ComputeDailyStatsFunction runs once each weekday evening. Same rationale
-  # as AssetEvents — a single vendor exhaustion = a missed daily snapshot.
+  # as AssetMaintenance — a single vendor exhaustion = a missed daily snapshot.
   ComputeDailyStatsVendorRetryAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:

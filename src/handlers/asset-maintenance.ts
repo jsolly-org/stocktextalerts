@@ -4,6 +4,7 @@ import { fetchAndStoreFinnhubEnrichment } from "../lib/asset-events/enrichment-s
 import type { AssetEventProvider } from "../lib/asset-events/fetch";
 import { fetchAndStoreAssetEvents } from "../lib/asset-events/fetch";
 import { runDelistingSweep } from "../lib/assets/delisting-sweep";
+import { runUniverseReconcile } from "../lib/assets/universe-reconcile";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
 import { runWithRequestContext } from "../lib/logging/request-context";
@@ -15,7 +16,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 	return runWithRequestContext(context.awsRequestId, async () => {
 		const logger = createLogger({
 			source: "lambda",
-			function: "asset-events",
+			function: "asset-maintenance",
 			gitSha: process.env.GIT_SHA,
 		});
 		logger.info("Lambda invoke", {
@@ -47,7 +48,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			logger.error(
 				"Failed to compute week date range",
 				{
-					action: "daily_asset_events_cron",
+					action: "daily_asset_maintenance_cron",
 					thisMonday: {
 						isValid: thisMonday.isValid,
 						invalidReason: thisMonday.invalidReason,
@@ -104,7 +105,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 		const hasFailures = results.some((r) => r.failedProviders.length > 0);
 
 		logger.info("Daily asset events fetch complete", {
-			action: "daily_asset_events_cron",
+			action: "daily_asset_maintenance_cron",
 			results,
 			hasFailures,
 			finnhubEnrichment: enrichmentResult,
@@ -114,7 +115,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			const failedProviders = results.flatMap((r) => r.failedProviders);
 			logger.error(
 				"Some asset event providers failed",
-				{ action: "daily_asset_events_cron", failedProviders },
+				{ action: "daily_asset_maintenance_cron", failedProviders },
 				new Error(`Failed providers: ${failedProviders.join(", ")}`),
 			);
 
@@ -130,7 +131,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 					logger.error(
 						"Failed to enqueue asset-events vendor backfill",
 						{
-							action: "daily_asset_events_cron",
+							action: "daily_asset_maintenance_cron",
 							weekStart: result.weekStart,
 							weekEnd: result.weekEnd,
 							providers: result.failedProviders,
@@ -139,6 +140,21 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 					);
 				}
 			}
+		}
+
+		// Independent try/catch so a reconcile failure never invalidates the
+		// calendar-events job or the delisting sweep — reconcile runs again
+		// tomorrow. Ordered BEFORE the sweep so the sweep operates on a freshly
+		// reconciled universe; the sweep remains the authoritative path for
+		// tracked-symbol delisting.
+		try {
+			const reconcileResult = await runUniverseReconcile({ supabase, logger });
+			logger.info("Universe reconcile complete", {
+				action: "daily_universe_reconcile",
+				...reconcileResult,
+			});
+		} catch (error) {
+			logger.error("Universe reconcile failed", { action: "daily_universe_reconcile" }, error);
 		}
 
 		// Independent try/catch so sweep failures never invalidate the calendar-

@@ -7,7 +7,7 @@ StockTextAlerts routes CloudWatch alarms through the shared [shared-infra](https
 | Alarm | Enrichment |
 | --- | --- |
 | `stocktextalerts-error-logs` | Logs Insights across `/aws/lambda/stocktextalerts-*` (metric math; vendor-retry metrics subtracted) |
-| `stocktextalerts-*-vendor-retry` | Same namespace discovery → schedule / asset-events / compute-daily-stats log groups |
+| `stocktextalerts-*-vendor-retry` | Same namespace discovery → schedule / asset-maintenance / compute-daily-stats log groups |
 | `stocktextalerts-*-lambda-errors` | Lambda runtime **`Errors`** metric (`AWS/Lambda`, `FunctionName` dimension) — invocation threw, timed out, or OOM; not the same as vendor-retry log metrics |
 | `stocktextalerts-*-invocation-failures` | Passthrough only (`AWS/Scheduler`) — short CloudWatch reason |
 | `stocktextalerts-backup-user-settings-stale` | Passthrough — custom metric (`stocktextalerts/Backup` namespace, `BackupSuccess` heartbeat); fires when no successful user-settings backup in 6h. The alarm body ("no backup in 6h") is the whole signal — no log enrichment. |
@@ -34,7 +34,7 @@ Example follow-up query after pasting an email:
 ```bash
 aws logs start-query \
   --region us-east-1 \
-  --log-group-name "/aws/lambda/stocktextalerts-asset-events" \
+  --log-group-name "/aws/lambda/stocktextalerts-asset-maintenance" \
   --start-time <time-start-epoch> \
   --end-time <time-end-epoch> \
   --query-string 'fields @timestamp, @message, @logStream | filter @message like /<request-id>/ | sort @timestamp asc | limit 100'
