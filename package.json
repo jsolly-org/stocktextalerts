@@ -96,7 +96,7 @@
 		"@types/nodemailer": "^8.0.0",
 		"@types/pg": "^8.20.0",
 		"@types/pg-copy-streams": "^1.2.5",
-		"astro": "~6.1.10",
+		"astro": "~6.4.8",
 		"chrome-launcher": "^1.2.1",
 		"knip": "^6.2.0",
 		"lighthouse": "^13.0.3",
