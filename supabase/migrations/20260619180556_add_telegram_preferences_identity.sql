@@ -37,12 +37,19 @@ alter table public.notification_preferences owner to postgres;
 -- Per-user RLS: a user reads/writes only their own rows; service_role (the cron
 -- fan-out) bypasses RLS.
 alter table public.notification_preferences enable row level security;
+-- drop-then-create so a partial `supabase db push` retry doesn't abort on
+-- "policy already exists" — Postgres has no CREATE POLICY IF NOT EXISTS, and every
+-- other object in this file is guarded with IF NOT EXISTS.
+drop policy if exists notification_preferences_select_own on public.notification_preferences;
 create policy notification_preferences_select_own on public.notification_preferences
 	for select to authenticated using (user_id = auth.uid());
+drop policy if exists notification_preferences_insert_own on public.notification_preferences;
 create policy notification_preferences_insert_own on public.notification_preferences
 	for insert to authenticated with check (user_id = auth.uid());
+drop policy if exists notification_preferences_update_own on public.notification_preferences;
 create policy notification_preferences_update_own on public.notification_preferences
 	for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists notification_preferences_delete_own on public.notification_preferences;
 create policy notification_preferences_delete_own on public.notification_preferences
 	for delete to authenticated using (user_id = auth.uid());
 

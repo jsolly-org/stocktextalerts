@@ -35,7 +35,7 @@ export const DAILY_DIGEST_USER_SELECT = `
 type UserRecordWithoutPrefs = Omit<UserRecord, "prefs">;
 
 export const HAS_DELIVERY_CHANNEL_OR =
-	"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true";
+	"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true,telegram_chat_id.not.is.null";
 
 /**
  * Fetch users eligible for a daily digest run.

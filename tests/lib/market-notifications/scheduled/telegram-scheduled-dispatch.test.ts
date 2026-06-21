@@ -24,6 +24,7 @@ import type { UserRecord } from "../../../../src/lib/messaging/types";
 import { adminClient } from "../../../helpers/test-env";
 import { createTestUser, setTestUserPrefs } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
+import { expectConsoleError } from "../../../setup";
 
 vi.mock("../../../../src/lib/providers/price-fetcher", async () => {
 	const actual = await vi.importActual<
@@ -179,5 +180,42 @@ describe("Telegram scheduled market-price dispatch", () => {
 			.eq("user_id", id)
 			.eq("delivery_method", "telegram");
 		expect(logs).toHaveLength(0);
+	});
+
+	it("A bot-blocked (403) Telegram send opts the user out for future ticks.", async () => {
+		// The failed send is logged as an error by the delivery path — expected here.
+		expectConsoleError("Failed to send scheduled market Telegram message");
+		const { id, userRow, now } = await seedTelegramScheduledUser(true);
+
+		// The bot was blocked by the user → Telegram returns error_code 403.
+		const telegramSender = vi.fn<TelegramSender>(async () => ({
+			success: false,
+			error: "Forbidden: bot was blocked by the user",
+			errorCode: "403",
+		}));
+
+		const stats = await processMarketScheduledUser({
+			user: userRow,
+			supabase: adminClient,
+			logger: rootLogger,
+			currentTime: now,
+			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
+			getSmsSender: () => ({ sender: vi.fn<SmsSender>(async () => ({ success: true })) }),
+			getTelegramSender: () => ({ sender: telegramSender }),
+			priceMap: new Map([["NVDA", { price: 178.42, changePercent: 1.37, prevClose: 176.01 }]]),
+			marketSession: "regular",
+		});
+
+		expect(telegramSender).toHaveBeenCalledOnce();
+		expect(stats.telegramFailed).toBe(1);
+		expect(stats.telegramSent).toBe(0);
+
+		// End-to-end: the verified 403 flips telegram_opted_out so future ticks skip this user.
+		const { data: user } = await adminClient
+			.from("users")
+			.select("telegram_opted_out")
+			.eq("id", id)
+			.single();
+		expect(user?.telegram_opted_out).toBe(true);
 	});
 });
