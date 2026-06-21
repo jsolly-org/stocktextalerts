@@ -167,7 +167,6 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - **Vercel (SSR + webhooks):** `TWILIO_*`, `UNSUBSCRIBE_TOKEN_SECRET` (must match Lambda — signs email unsubscribe links), `MASSIVE_API_KEY` (asset logo proxy), `ADMIN_EMAILS`, `EMAIL_DISPATCH_URL`, and `EMAIL_DISPATCH_SECRET`. App-triggered emails are dispatched to AWS Lambda via HMAC; outbound notification email/SMS is sent by **AWS Lambda**, not Vercel — do not add Lambda-only `FINNHUB_API_KEY`, `XAI_API_KEY`, `EMAIL_FROM`, or AWS access keys to Vercel.
 - **AWS Lambda (SAM deploy from `.env.local` via `aws/sam-params.sh`):** Supabase prod keys, Twilio, `UNSUBSCRIBE_TOKEN_SECRET`, Massive, Finnhub, optional `XAI_API_KEY`. `EmailFrom` is **not** passed on the CLI — the template defaults to SSM `/stocktextalerts/email-from`. SES auth is the Lambda execution role, not static `AWS_*` keys.
 - **Local-only values:** `DATABASE_URL` and `DEFAULT_PASSWORD` are for local Supabase + seed generation and should not be added to Vercel.
-- **Account-level (local shell, not repo secrets):** `CURSOR_API_KEY` — Cursor User API Key for SDK/CLI; set in `~/.zshrc`. See [.agents/docs/cloud-agents.md](.agents/docs/cloud-agents.md#secrets-summary).
 - **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD` (full prod Postgres URL — migrations connect with it directly) and `AWS_PROFILE` (= `fleet-deploy`, the scoped assume-role profile). The local pre-push deploy (`aws/deploy-web.sh`) reads these. The web tier needs no local creds: Vercel auto-builds `main` via its git integration.
 - **Live provider keys** (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`): SAM parameters in gitignored `.env.local` (via `aws/sam-params.sh`), consumed by the runtime Lambdas and the scheduled `stocktextalerts-live-provider-check` Lambda (weekday mid-session live vendor health check). Failures fire `stocktextalerts-live-provider-check-lambda-errors` → **shared-infra** (SES email).
 
@@ -335,7 +334,6 @@ SES notification sending runs on Lambda (`EMAIL_FROM` from SSM `/stocktextalerts
 
 - **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD`, `AWS_PROFILE=fleet-deploy`. Read by the pre-push deploy (`aws/deploy-web.sh`). Web tier: Vercel git auto-deploy, no local creds.
 - **Live provider keys** (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`): SAM params (gitignored `.env.local`), used by the runtime + `stocktextalerts-live-provider-check` Lambdas.
-- **Account-level (local shell):** `CURSOR_API_KEY` — see [.agents/docs/cloud-agents.md](.agents/docs/cloud-agents.md#secrets-summary)
 
 ### 2. Deploy
 
