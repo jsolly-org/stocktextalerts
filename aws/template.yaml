@@ -81,6 +81,9 @@ Globals:
         # service-role secret they never use (least privilege).
         LOG_MASK_PII: !Ref LogMaskPii
         GIT_SHA: !Ref GitSha
+        # esbuild emits Sourcemap:true; this makes the Node runtime consume it
+        # so CloudWatch stack traces map to .ts source (sourcesContent is bundled).
+        NODE_OPTIONS: --enable-source-maps
 
 Resources:
   ScheduleFunction:
