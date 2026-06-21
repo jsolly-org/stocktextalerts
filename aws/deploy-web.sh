@@ -200,12 +200,16 @@ deploy_code() { # <build-dir> <physical-name>
 }
 # Keep this list in sync with aws/template.yaml — ALL functions share src/lib,
 # so every function must ship on every push or stale code runs against the
-# freshly migrated schema (the duplicate-SMS incident class).
+# freshly migrated schema (the duplicate-SMS incident class). The
+# `check:deploy-functions` gate (npm run check:deploy-functions) fails the push
+# if this list drifts from the template's AWS::Serverless::Function set.
 deploy_code ScheduleFunction stocktextalerts-schedule
 deploy_code AssetEventsFunction stocktextalerts-asset-events
 deploy_code EmailDispatchFunction stocktextalerts-email-dispatch
 deploy_code ComputeDailyStatsFunction stocktextalerts-compute-daily-stats
 deploy_code VendorBackfillFunction stocktextalerts-vendor-backfill
+deploy_code LiveProviderCheckFunction stocktextalerts-live-provider-check
+deploy_code BackupUserSettingsFunction stocktextalerts-backup-user-settings
 
 # --- Phase 4: Vercel web deploy (remote build) ---
 # Last, so the web tier ships against the freshly migrated DB + updated Lambdas.

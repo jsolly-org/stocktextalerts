@@ -38,6 +38,7 @@ run_step "yaml lint"              npm run check:yaml
 run_step "astro check (types)"    npm run check:ts
 run_step "knip (unused code)"     npm run check:knip
 run_step "squawk migrations"      npm run check:sql
+run_step "deploy fn coverage (template ↔ deploy-web.sh)" npm run check:deploy-functions
 run_step "migration grants (static)" npm run check:migration-grants
 run_step "db privileges (needs local Supabase up)" npm run check:db-privileges
 run_step "unit tests"             npm test
