@@ -13,9 +13,17 @@
  *
  * The result-shaping (`shapeHealthReport`) is pure and exported so a unit test can
  * exercise it with a transformer-mocked bot (no real network in the suite).
+ *
+ * `checkTelegramLive` is bounded by a hard timeout: a Telegram API call that stalls
+ * (e.g. the IPv6 black-hole that pinned this Lambda at its 300s ceiling — see
+ * `createTelegramBot`) must fail loudly and fast so the alarm carries a useful
+ * message, not burn the whole invocation in a silent hang.
  */
 import type { Bot } from "grammy";
 import type { UserFromGetMe, WebhookInfo } from "grammy/types";
+
+/** Default ceiling for the two read-only probes before the check fails loudly. */
+const DEFAULT_TIMEOUT_MS = 12_000;
 
 /** The flattened, human-readable health report assembled from the two API reads. */
 interface TelegramHealthReport {
@@ -45,8 +53,30 @@ export function shapeHealthReport(me: UserFromGetMe, webhook: WebhookInfo): Tele
 	};
 }
 
-/** Run both read-only probes against `bot` and return the shaped report. */
-export async function checkTelegramLive(bot: Bot): Promise<TelegramHealthReport> {
-	const [me, webhook] = await Promise.all([bot.api.getMe(), bot.api.getWebhookInfo()]);
-	return shapeHealthReport(me, webhook);
+/**
+ * Run both read-only probes against `bot`, bounded by `timeoutMs`, and return the
+ * shaped report. If the probes don't settle in time the returned promise rejects
+ * with a clear, attributable error — the caller maps that to a failed check so the
+ * alarm says "Telegram health check timed out", not just "Lambda timed out". grammY's
+ * own request timeout (set low in `createTelegramBot`) should abort first; this race
+ * is the backstop for the case where that abort itself wedges.
+ */
+export async function checkTelegramLive(
+	bot: Bot,
+	{ timeoutMs = DEFAULT_TIMEOUT_MS }: { timeoutMs?: number } = {},
+): Promise<TelegramHealthReport> {
+	const probes = Promise.all([bot.api.getMe(), bot.api.getWebhookInfo()]);
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const timeout = new Promise<never>((_, reject) => {
+		timer = setTimeout(
+			() => reject(new Error(`Telegram health check timed out after ${timeoutMs} ms`)),
+			timeoutMs,
+		);
+	});
+	try {
+		const [me, webhook] = await Promise.race([probes, timeout]);
+		return shapeHealthReport(me, webhook);
+	} finally {
+		clearTimeout(timer);
+	}
 }

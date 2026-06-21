@@ -46,6 +46,19 @@ function mockBot(me: UserFromGetMe, webhook: WebhookInfo): Bot {
 	return bot;
 }
 
+/**
+ * Build a bot whose API calls never settle — stands in for the IPv6 black-hole that
+ * pinned the live-provider-check Lambda at its 300s ceiling. The transformer returns
+ * a forever-pending promise without delegating to the real call path, so only
+ * `checkTelegramLive`'s own timeout can resolve the race.
+ */
+function hangingBot(): Bot {
+	const bot = createTelegramBot(FAKE_TOKEN);
+	const transformer: Transformer = () => new Promise<never>(() => {});
+	bot.api.config.use(transformer);
+	return bot;
+}
+
 describe("shapeHealthReport flattens the two read-only API reads", () => {
 	it("reports ok with username, webhook URL, backlog, and no error", () => {
 		const report = shapeHealthReport(ME, {
@@ -101,5 +114,15 @@ describe("checkTelegramLive drives the real getMe/getWebhookInfo path (transform
 			pendingUpdateCount: 1,
 			lastError: null,
 		});
+	});
+
+	it("rejects with a clear timeout error when a probe stalls instead of hanging forever", async () => {
+		const start = Date.now();
+		await expect(checkTelegramLive(hangingBot(), { timeoutMs: 40 })).rejects.toThrow(
+			/Telegram health check timed out after 40 ms/,
+		);
+		// The whole point: a stalled probe fails in tens of ms, not at the Lambda's
+		// 300s ceiling. Generous upper bound to stay non-flaky on a loaded CI box.
+		expect(Date.now() - start).toBeLessThan(5_000);
 	});
 });

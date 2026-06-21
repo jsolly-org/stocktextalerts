@@ -79,4 +79,28 @@ describe("live-provider-check Lambda", () => {
 		expectConsoleError(/Live provider checks failed/);
 		await expect(handler(event, context)).rejects.toThrow(/finnhub:earnings/);
 	});
+
+	// The regression this whole change fixes: a stalled Telegram probe must page the
+	// operator fast, not burn the 300s ceiling silently. checkTelegramLive now rejects
+	// on timeout; assert the handler turns that rejection into a thrown page.
+	it("A stalled Telegram probe fails the check and pages instead of hanging", async () => {
+		vi.mocked(checkTelegramLive).mockRejectedValue(
+			new Error("Telegram health check timed out after 12000 ms"),
+		);
+		expectConsoleError(/Live provider checks failed/);
+		await expect(handler(event, context)).rejects.toThrow(/telegram:get-me/);
+	});
+
+	it("An invalid bot token (getMe returns no bot id) fails the check and pages", async () => {
+		vi.mocked(checkTelegramLive).mockResolvedValue({
+			ok: false,
+			botId: 0,
+			username: "",
+			webhookUrl: "",
+			pendingUpdateCount: 0,
+			lastError: null,
+		});
+		expectConsoleError(/Live provider checks failed/);
+		await expect(handler(event, context)).rejects.toThrow(/telegram:get-me/);
+	});
 });

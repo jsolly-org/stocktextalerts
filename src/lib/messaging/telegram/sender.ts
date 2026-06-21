@@ -1,3 +1,4 @@
+import { Agent } from "node:https";
 import { autoRetry } from "@grammyjs/auto-retry";
 import { Bot, GrammyError, InputFile } from "grammy";
 import type { InlineKeyboardMarkup, MessageEntity } from "grammy/types";
@@ -84,9 +85,32 @@ export function readTelegramBotToken(): string {
  * pacing and do NOT wrap sends in `withDeliveryRetry` — stacking a second retry
  * loop around a 429 would ignore `retry_after` and risk a bot ban
  * (see docs/plans/2026-06-19-telegram-native-channel.md §2).
+ *
+ * Two client tweaks make this survivable in the Lambda runtime:
+ *
+ *  - **IPv4-pinned agent.** grammY ships `node-fetch` + a keep-alive `https.Agent`,
+ *    which uses Node's native HTTPS stack. `api.telegram.org` publishes AAAA records,
+ *    but a Lambda outside a VPC has IPv4-only egress, and node-fetch's path has no
+ *    Happy-Eyeballs fallback — so an IPv6 connect attempt black-holes and the request
+ *    hangs until the function's 300s ceiling (the Massive/Finnhub providers dodge this
+ *    only because they call the global `fetch`/undici, which does fall back to IPv4).
+ *    Pinning the agent to `family: 4` forces the working IPv4 endpoint. This is the
+ *    root-cause fix for the live-provider-check timeout *and* for real sends, which
+ *    share this factory and would otherwise hit the same wall once a Telegram user
+ *    subscribes.
+ *  - **Bounded request timeout.** grammY's own `timeoutSeconds` defaults to 500s —
+ *    longer than any Lambda ceiling, so a stalled call can never self-abort. Cap it
+ *    so a hung request fails loudly instead of consuming the whole invocation.
  */
-export function createTelegramBot(token: string): Bot {
-	const bot = new Bot(token);
+export function createTelegramBot(token: string, { timeoutSeconds = 25 } = {}): Bot {
+	const bot = new Bot(token, {
+		client: {
+			// Merge over grammY's default https baseFetchConfig (keeps `compress: true`),
+			// replacing only the agent so DNS resolves to IPv4 (A) records.
+			baseFetchConfig: { agent: new Agent({ keepAlive: true, family: 4 }) },
+			timeoutSeconds,
+		},
+	});
 	bot.api.config.use(autoRetry({ maxRetryAttempts: 3, maxDelaySeconds: 60 }));
 	return bot;
 }
