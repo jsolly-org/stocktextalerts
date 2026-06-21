@@ -47,9 +47,9 @@ function main() {
 	// unit tests would make `createEmailSender` return a real nodemailer
 	// transport that tries to open a TCP connection inside a fake-timer
 	// sandbox — which deadlocks because SMTP connect-timeouts are
-	// setTimeout-based. EMAIL_SMTP_PORT is left intact (default 1025; isolated
-	// worktree stacks offset it, e.g. 1028) so tests that explicitly opt into
-	// SMTP (e.g. sender-gates) reach the correct Mailpit port.
+	// setTimeout-based. EMAIL_SMTP_PORT is left intact (1025 on the shared local
+	// stack) so tests that explicitly opt into SMTP (e.g. sender-gates) reach the
+	// correct Mailpit port.
 	process.env.EMAIL_SMTP_HOST = "";
 
 	// CI sets SKIP_VENDOR_HTTP_IN_TEST for E2E/build (dummy API keys). Vitest

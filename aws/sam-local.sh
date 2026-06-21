@@ -25,7 +25,7 @@ PATH="$REPO_ROOT/node_modules/.bin:$PATH" sam build
 if [ $# -gt 0 ]; then
   FUNCTIONS=("$@")
 else
-  FUNCTIONS=(ScheduleFunction AssetEventsFunction ComputeDailyStatsFunction)
+  FUNCTIONS=(ScheduleFunction AssetMaintenanceFunction ComputeDailyStatsFunction)
 fi
 
 EVENT='{"source":"aws.scheduler"}'

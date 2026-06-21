@@ -4,26 +4,59 @@ Local Supabase runs in containers via **Podman** (not Docker Desktop). The `db:b
 
 ## Bootstrap
 
-Canonical bootstrap is `npm run db:bootstrap` — runs `db:link-worktree-data`, `db:worktree-setup`, `db:start`, `db:reset`, then `db:doctor`. Reach for this (not ad-hoc psql) whenever the local stack looks wedged: ECONNREFUSED from `@supabase/auth-js`, `invalid_credentials` on a known-good password, empty `auth.users`, etc. `supabase start` can silently skip half the seed; `db:reset` re-runs `seed.sql` through a fresh session and is reliable. See [docs/incidents/2026-04-seed-regression.md](incidents/2026-04-seed-regression.md) for the regression that motivated this.
+Canonical bootstrap is `npm run db:bootstrap` — runs `db:link-worktree-data`, `db:start`, `db:reset`, then `db:doctor`. Reach for this (not ad-hoc psql) whenever the local stack looks wedged: ECONNREFUSED from `@supabase/auth-js`, `invalid_credentials` on a known-good password, empty `auth.users`, etc. `supabase start` can silently skip half the seed; `db:reset` re-runs `seed.sql` through a fresh session and is reliable. See [docs/incidents/2026-04-seed-regression.md](incidents/2026-04-seed-regression.md) for the regression that motivated this.
 
 `npm test` auto-runs `db:doctor` via `pretest`; `npm run dev` runs it via `predev` (non-blocking — a failure prints a hint and still starts the dev server so frontend-only work isn't gated on Supabase being up). The pre-push gate calls `npm test`, so the `db:doctor` preflight runs there too.
 
 After machine reinstalls, Podman upgrades, or Supabase CLI upgrades, run `scripts/ci/verify-local-supabase.sh` once to confirm the full bootstrap still works end-to-end (wraps `db:bootstrap` + `db:doctor`).
 
-## Linked worktree isolation
+## One shared stack across worktrees
 
-Linked git worktrees (`git worktree add …`) each get an isolated local Supabase stack so `db:reset` in one worktree does not wipe another's `auth.users` / seed state.
+**All worktrees share ONE local Supabase stack** (default ports `54321`/`54322`/`54324`/`1025`,
+project_id `stocktextalerts`). There is no per-worktree stack. Isolation between worktrees' DB
+access is the **cross-worktree test lock** (`<git-common-dir>/test.lock`) — it's shared by every
+worktree because they share one `.git/`. A second worktree that starts `npm test` while another is
+running just waits for the lock (`✗ Tests are already running.` banner). See
+`docs/plans/2026-06-21-shared-local-supabase-stack.md` for why (the 7.45 GiB swapless Podman VM
+OOM-wedged once 2-3 isolated stacks ran at once).
 
-**Provision a fresh worktree with one command: `npm run worktree:init`** — it does a real `npm ci` (never symlink `node_modules` — a symlink resolves outside the worktree root and Vite's `server.fs.allow` then 403s on `@astrojs/vue/dist/client.js`, breaking island hydration) and then `db:bootstrap`.
+**Provision a fresh worktree with one command: `npm run worktree:init`** — a real `npm ci` (never
+symlink `node_modules` — a symlink resolves outside the worktree root and Vite's `server.fs.allow`
+then 403s on `@astrojs/vue/dist/client.js`, breaking island hydration), then `db:bootstrap`. The
+`.env.local` is *copied* (never symlinked) from the primary checkout by `.worktreeinclude`; since
+every worktree shares the default ports, that verbatim copy is already correct — no port-patching.
 
-On first bootstrap in a worktree, `scripts/db/worktree-supabase.ts`:
+**`db:reset` serializes via the lock.** Because it truncates and reseeds the *shared* DB, `db:reset`
+acquires the same `test.lock` (`command: "reset"`) first, so it can't yank the database out from
+under another worktree's running suite (and vice-versa). `db:start` is deliberately not locked.
 
-1. Assigns a stable `project_id` and port block derived from the branch name, written **in-place into the worktree's own `supabase/config.toml`** (via `smol-toml`) and `git update-index --skip-worktree`'d so the edit never diffs or commits. Supabase CLI ≥ 2.105 reads it with **no flag** (the old `--config supabase/.worktree/config.toml` overlay is gone — see `docs/plans/2026-06-13-worktree-supabase-cli-fix.md`). A gitignored `supabase/.worktree/meta.json` is the "provisioned" sentinel.
-2. Materializes a worktree-local `.env.local` with matching `SUPABASE_URL`, `DATABASE_URL`, and `EMAIL_SMTP_PORT`.
+**Schema drift across worktrees:** with one shared schema, a worktree on a different migration set
+sees whatever the last `db:reset` applied. `db:doctor` (and vitest's `tests/setup.ts`) compare the
+live `app_metadata.schema_version` to this branch's `EXPECTED_DB_SCHEMA_VERSION` and fail loud with
+a `npm run db:reset` hint. Switch branches → if doctor flags drift, `npm run db:reset`.
 
-**Fail-closed in unprovisioned worktrees:** `db:reset` refuses to run (and `db:doctor` errors) in a linked worktree that has no `meta.json` sentinel — otherwise reset would target the shared/main stack (port 54322) and wipe its seed. Run `npm run worktree:init` first.
+**Migrating from the old per-worktree model:** existing worktrees still carry a `skip-worktree`'d
+`config.toml` (project_id `stocktextalerts-wt-<slug>`, offset ports). Run the one-shot migration —
+**dry-run first**, then `--apply`:
 
-Main worktree behavior is unchanged. To tear down a worktree stack: `supabase stop --workdir <worktree-path>` (the `--config` flag was removed in CLI 2.105) before `git worktree remove`. Because `config.toml` is `skip-worktree`'d in the worktree, it won't pick up upstream `config.toml` changes there — re-run `npm run db:worktree-setup` after a long-lived worktree merges such a change.
+```bash
+npm run db:collapse-worktree-stacks            # show the plan (changes nothing)
+npm run db:collapse-worktree-stacks -- --apply # restore configs + tear down stocktextalerts-wt-* stacks
+```
+
+It restores each worktree's `config.toml`, removes `supabase/.worktree/`, repoints `.env.local` at
+the shared ports in place, and force-removes every Podman container/volume containing
+`stocktextalerts-wt-` (allowlist-only — the main `stocktextalerts` stack can never match). A worktree
+that *skips* the migration isn't silently broken: `db:doctor` refuses to run with project_id !=
+`stocktextalerts` and points you here.
+
+**Single-stack recovery.** The one stack being down/wedged blocks every worktree. If `supabase start`
+fails on a collation-version mismatch or `28P01 password authentication failed` (stale volume), do a
+deliberate, *named* removal of the main volume (never a loop) then re-bootstrap:
+
+```bash
+podman volume rm -f supabase_db_stocktextalerts supabase_storage_stocktextalerts && npm run db:bootstrap
+```
 
 ## Seed hardening
 

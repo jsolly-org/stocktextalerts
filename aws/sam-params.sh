@@ -19,6 +19,12 @@ fi
 # shellcheck disable=SC2163
 while IFS='=' read -r _key _value; do
   [[ -z "$_key" || "$_key" == \#* ]] && continue
+  # Skip AWS_* credential/region selectors. .env.local sets AWS_PROFILE=fleet-deploy for the
+  # code-only pre-push deploy, but this full infra deploy must run under the operator's admin
+  # session — importing fleet-deploy here silently forces sam onto the scoped agent-deploy role
+  # and it fails closed on cloudformation:CreateChangeSet. SAM still reads creds from the
+  # operator's environment/SSO.
+  [[ "$_key" == AWS_* ]] && continue
   export "$_key=$_value"
 done < "$_ENV_FILE"
 

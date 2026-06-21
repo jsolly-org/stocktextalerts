@@ -1,4 +1,3 @@
-import { Agent } from "node:https";
 import { autoRetry } from "@grammyjs/auto-retry";
 import { Bot, GrammyError, InputFile } from "grammy";
 import type { InlineKeyboardMarkup, MessageEntity } from "grammy/types";
@@ -78,57 +77,44 @@ export function readTelegramBotToken(): string {
 }
 
 /**
- * Construct a grammY Bot with the auto-retry transformer installed.
+ * Construct a grammY Bot routed through undici (Node's global fetch), with the
+ * auto-retry transformer installed for the send path.
  *
- * auto-retry owns 429/flood and transient 5xx handling: it detects `retry_after`
- * and waits exactly that long before retrying. We therefore do NOT add artificial
- * pacing and do NOT wrap sends in `withDeliveryRetry` — stacking a second retry
- * loop around a 429 would ignore `retry_after` and risk a bot ban
- * (see docs/plans/2026-06-19-telegram-native-channel.md §2).
+ * **Why undici, not grammY's default node-fetch.** grammY's bundled node-fetch stack
+ * stalls connecting to `api.telegram.org` from AWS Lambda — the request hangs to the
+ * 300s ceiling (the IPv4-agent pin did NOT fix it). undici — the same fetch the working
+ * Massive/Finnhub provider checks use — reaches it fine (verified: the live-provider-check
+ * telegram probe went from a 300s timeout to a 381ms pass). So every bot routes through a
+ * `globalThis.fetch` wrapper that:
+ *  - substitutes a per-request **global `AbortSignal.timeout`**, because grammY's own
+ *    `timeoutSeconds` AbortSignal is a non-global class undici rejects ("RequestInit:
+ *    Expected signal to be an instance of AbortSignal"); and
+ *  - sets **`duplex: "half"`** for streamed request bodies (the multipart sendPhoto chart
+ *    upload), which undici requires.
  *
- * Two client tweaks make this survivable in the Lambda runtime:
- *
- *  - **IPv4-pinned agent.** grammY ships `node-fetch` + a keep-alive `https.Agent`,
- *    which uses Node's native HTTPS stack. `api.telegram.org` publishes AAAA records,
- *    but a Lambda outside a VPC has IPv4-only egress, and node-fetch's path has no
- *    Happy-Eyeballs fallback — so an IPv6 connect attempt black-holes and the request
- *    hangs until the function's 300s ceiling (the Massive/Finnhub providers dodge this
- *    only because they call the global `fetch`/undici, which does fall back to IPv4).
- *    Pinning the agent to `family: 4` forces the IPv4 endpoint — but this did NOT
- *    resolve the Lambda→api.telegram.org stall, so the `useUndiciFetch` option below
- *    is the current candidate fix (routing through undici, which the working
- *    Massive/Finnhub checks already use). The send path keeps the IPv4 agent until
- *    undici is proven from the Lambda runtime.
- *  - **Bounded request timeout.** grammY's own `timeoutSeconds` defaults to 500s —
- *    longer than any Lambda ceiling, so a stalled call can never self-abort. Cap it
- *    so a hung request fails loudly instead of consuming the whole invocation.
+ * auto-retry owns 429/flood + transient-5xx handling for the high-volume send path (it
+ * honors `retry_after`); we do NOT stack a second retry loop (it would ignore `retry_after`
+ * and risk a bot ban — see docs/plans/2026-06-19-telegram-native-channel.md §2). The
+ * read-only health probe opts OUT (`withAutoRetry: false`) so a one-shot getMe fails fast.
  */
 export function createTelegramBot(
 	token: string,
 	{
 		timeoutSeconds = 25,
-		useUndiciFetch = false,
 		withAutoRetry = true,
-	}: { timeoutSeconds?: number; useUndiciFetch?: boolean; withAutoRetry?: boolean } = {},
+	}: { timeoutSeconds?: number; withAutoRetry?: boolean } = {},
 ): Bot {
-	// undici rejects grammY's non-global AbortSignal ("RequestInit: Expected signal to be an
-	// instance of AbortSignal" — grammY's timeoutSeconds controller is a different class), so
-	// the undici path wraps fetch to substitute a per-request global AbortSignal.timeout —
-	// which undici accepts, and which keeps the call bounded.
-	const undiciFetch: typeof fetch = (input, init) =>
-		globalThis.fetch(input, { ...init, signal: AbortSignal.timeout(timeoutSeconds * 1000) });
-	const bot = new Bot(token, {
-		client: {
-			// `useUndiciFetch` routes through Node's global fetch (undici) instead of grammY's
-			// default node-fetch — the candidate fix for the Lambda→api.telegram.org stall
-			// (full rationale in this function's JSDoc). The send path keeps the IPv4 agent;
-			// the health check opts into undici (via the signal-swap wrapper above).
-			...(useUndiciFetch
-				? { fetch: undiciFetch }
-				: { baseFetchConfig: { agent: new Agent({ keepAlive: true, family: 4 }) } }),
-			timeoutSeconds,
-		},
-	});
+	const undiciFetch: typeof fetch = (input, init) => {
+		const reqInit: RequestInit & { duplex?: "half" } = {
+			...init,
+			signal: AbortSignal.timeout(timeoutSeconds * 1000),
+		};
+		// undici requires `duplex` when a (streamed) body is present — e.g. the multipart
+		// sendPhoto upload. Harmless on bodiless GETs and string bodies.
+		if (init?.body != null) reqInit.duplex = "half";
+		return globalThis.fetch(input, reqInit);
+	};
+	const bot = new Bot(token, { client: { fetch: undiciFetch } });
 	// auto-retry owns 429/flood + transient-5xx handling for the high-volume send path.
 	// The health probe opts OUT (`withAutoRetry: false`): a one-shot getMe/getWebhookInfo
 	// must fail fast with the real transport error, not retry a network failure through

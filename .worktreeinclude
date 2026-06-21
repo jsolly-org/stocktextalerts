@@ -4,9 +4,10 @@
 # for the manual `git worktree add` path, by `npm run worktree:init` — both copy
 # (never symlink) from the primary checkout. See package.json `worktree:init`.
 #
-# Only env files belong here: a symlinked .env.local trips Vite's server.fs.allow,
-# and worktree-supabase.ts re-patches a real .env.local with the worktree's isolated
-# ports. Do NOT add node_modules / dist / caches (re-created by `npm ci`) or
-# scripts/data/users.json (symlinked by db:link-worktree-data).
+# Only env files belong here: a symlinked .env.local trips Vite's server.fs.allow, so it must be
+# copied. All worktrees share ONE Supabase stack on the default ports (54321/54322/1025), so the
+# verbatim copy from the primary checkout is already correct — no per-worktree port-patching.
+# Do NOT add node_modules / dist / caches (re-created by `npm ci`) or scripts/data/users.json
+# (symlinked by db:link-worktree-data).
 .env.local
 .env.*.local

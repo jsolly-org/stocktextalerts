@@ -109,12 +109,11 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				}
 			}),
 			await runCheck(logger, "telegram:get-me", async () => {
-				// Read-only getMe()/getWebhookInfo() via undici (useUndiciFetch) — the candidate
-				// fix for the Lambda→api.telegram.org stall (see createTelegramBot). No auto-retry:
-				// a one-shot probe must fail fast with the real cause.
+				// Read-only getMe()/getWebhookInfo() — undici reaches api.telegram.org where
+				// grammY's node-fetch stalled (see createTelegramBot). No auto-retry: a one-shot
+				// probe must fail fast with the real cause.
 				const bot = createTelegramBot(readTelegramBotToken(), {
 					timeoutSeconds: 10,
-					useUndiciFetch: true,
 					withAutoRetry: false,
 				});
 				const report = await checkTelegramLive(bot).catch((error: unknown) => {
