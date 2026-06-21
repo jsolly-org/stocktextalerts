@@ -1,4 +1,5 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
+import { HttpError } from "grammy";
 import { createLogger, type Logger } from "../lib/logging";
 import { runWithRequestContext } from "../lib/logging/request-context";
 import { checkTelegramLive } from "../lib/messaging/telegram/health";
@@ -108,13 +109,27 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				}
 			}),
 			await runCheck(logger, "telegram:get-me", async () => {
-				// Read-only: getMe() + getWebhookInfo() only — never a send. Throws if
-				// the token is invalid (getMe fails) or resolves to no bot id. The bot is
-				// IPv4-pinned with a 10s grammY request timeout (see createTelegramBot);
-				// checkTelegramLive adds its own race backstop, so a stalled Telegram call
-				// fails in seconds with a clear message rather than hanging to the 300s ceiling.
-				const bot = createTelegramBot(readTelegramBotToken(), { timeoutSeconds: 10 });
-				const report = await checkTelegramLive(bot);
+				// Read-only getMe()/getWebhookInfo() via undici (useUndiciFetch) — the candidate
+				// fix for the Lambda→api.telegram.org stall (see createTelegramBot). No auto-retry:
+				// a one-shot probe must fail fast with the real cause.
+				const bot = createTelegramBot(readTelegramBotToken(), {
+					timeoutSeconds: 10,
+					useUndiciFetch: true,
+					withAutoRetry: false,
+				});
+				const report = await checkTelegramLive(bot).catch((error: unknown) => {
+					// Surface the transport cause (undici throws a TypeError with .cause.code like
+					// ENETUNREACH). grammY's HttpError.message is generic and `sensitiveLogs` would
+					// leak the token — so unwrap .error manually. Learning WHY undici fails (if it
+					// does) is the entire point of this check.
+					if (error instanceof HttpError && error.error instanceof Error) {
+						const code = (error.error.cause as { code?: string } | undefined)?.code;
+						throw new Error(
+							`telegram transport error: ${error.error.message}${code ? ` [${code}]` : ""}`,
+						);
+					}
+					throw error;
+				});
 				if (!report.ok) {
 					throw new Error(`getMe() returned no bot id (botId=${report.botId})`);
 				}

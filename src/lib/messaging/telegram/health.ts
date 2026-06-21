@@ -15,7 +15,7 @@
  * exercise it with a transformer-mocked bot (no real network in the suite).
  *
  * `checkTelegramLive` is bounded by a hard timeout: a Telegram API call that stalls
- * (e.g. the IPv6 black-hole that pinned this Lambda at its 300s ceiling — see
+ * (the Lambda→api.telegram.org reachability problem under investigation — see
  * `createTelegramBot`) must fail loudly and fast so the alarm carries a useful
  * message, not burn the whole invocation in a silent hang.
  */

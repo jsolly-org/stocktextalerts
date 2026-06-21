@@ -94,24 +94,42 @@ export function readTelegramBotToken(): string {
  *    Happy-Eyeballs fallback — so an IPv6 connect attempt black-holes and the request
  *    hangs until the function's 300s ceiling (the Massive/Finnhub providers dodge this
  *    only because they call the global `fetch`/undici, which does fall back to IPv4).
- *    Pinning the agent to `family: 4` forces the working IPv4 endpoint. This is the
- *    root-cause fix for the live-provider-check timeout *and* for real sends, which
- *    share this factory and would otherwise hit the same wall once a Telegram user
- *    subscribes.
+ *    Pinning the agent to `family: 4` forces the IPv4 endpoint — but this did NOT
+ *    resolve the Lambda→api.telegram.org stall, so the `useUndiciFetch` option below
+ *    is the current candidate fix (routing through undici, which the working
+ *    Massive/Finnhub checks already use). The send path keeps the IPv4 agent until
+ *    undici is proven from the Lambda runtime.
  *  - **Bounded request timeout.** grammY's own `timeoutSeconds` defaults to 500s —
  *    longer than any Lambda ceiling, so a stalled call can never self-abort. Cap it
  *    so a hung request fails loudly instead of consuming the whole invocation.
  */
-export function createTelegramBot(token: string, { timeoutSeconds = 25 } = {}): Bot {
+export function createTelegramBot(
+	token: string,
+	{
+		timeoutSeconds = 25,
+		useUndiciFetch = false,
+		withAutoRetry = true,
+	}: { timeoutSeconds?: number; useUndiciFetch?: boolean; withAutoRetry?: boolean } = {},
+): Bot {
 	const bot = new Bot(token, {
 		client: {
-			// Merge over grammY's default https baseFetchConfig (keeps `compress: true`),
-			// replacing only the agent so DNS resolves to IPv4 (A) records.
-			baseFetchConfig: { agent: new Agent({ keepAlive: true, family: 4 }) },
+			// `useUndiciFetch` routes through Node's global fetch (undici) instead of grammY's
+			// default node-fetch — the candidate fix for the Lambda→api.telegram.org stall
+			// (full rationale in this function's JSDoc). The send path keeps the IPv4 agent;
+			// the health check opts into undici.
+			...(useUndiciFetch
+				? { fetch: globalThis.fetch }
+				: { baseFetchConfig: { agent: new Agent({ keepAlive: true, family: 4 }) } }),
 			timeoutSeconds,
 		},
 	});
-	bot.api.config.use(autoRetry({ maxRetryAttempts: 3, maxDelaySeconds: 60 }));
+	// auto-retry owns 429/flood + transient-5xx handling for the high-volume send path.
+	// The health probe opts OUT (`withAutoRetry: false`): a one-shot getMe/getWebhookInfo
+	// must fail fast with the real transport error, not retry a network failure through
+	// 3s/6s/12s backoff that outlives the caller's timeout race.
+	if (withAutoRetry) {
+		bot.api.config.use(autoRetry({ maxRetryAttempts: 3, maxDelaySeconds: 60 }));
+	}
 	return bot;
 }
 
