@@ -47,10 +47,14 @@ interface UniverseReconcileResult {
 	newListingsInserted: number;
 	/** Existing rows whose `name` changed in the active set. */
 	namesUpdated: number;
+	/** Upsert chunks that failed to write (partial coverage — surfaced in the summary). */
+	upsertChunksFailed: number;
 	/** Previously-flagged rows set back to `delisted_at = null` (reappeared). */
 	delistedCleared: number;
 	/** Untracked stored symbols absent from the active set, newly flagged delisted. */
 	untrackedDelistedFlagged: number;
+	/** True when step 3 skipped flagging because the active set was implausibly small. */
+	delistFlagSkippedShrunkActive: boolean;
 	/** Candidates for enrichment (new ∪ stale-reference ∪ missing-enrichment), pre-cap. */
 	enrichmentCandidates: number;
 	/** Detail calls that succeeded and wrote sector/icon. */
@@ -71,8 +75,10 @@ const EMPTY_RESULT: UniverseReconcileResult = {
 	activeTickersFetched: 0,
 	newListingsInserted: 0,
 	namesUpdated: 0,
+	upsertChunksFailed: 0,
 	delistedCleared: 0,
 	untrackedDelistedFlagged: 0,
+	delistFlagSkippedShrunkActive: false,
 	enrichmentCandidates: 0,
 	enriched: 0,
 	enrichmentFailed: 0,
@@ -294,6 +300,9 @@ export async function runUniverseReconcile(
 	// that is nonetheless present in Massive's active set — that is correct (it IS
 	// active, so the sweep's flag was stale), but it means reconcile can un-flag a
 	// tracked symbol the sweep flagged.
+	// Symbols whose upsert chunk failed — excluded from step 5 warmup, since a failed
+	// upsert may mean the row is not in `assets` and warming a phantom symbol just churns.
+	const failedUpsertSymbols = new Set<string>();
 	try {
 		const upsertRows = active.map((t) => ({
 			symbol: t.symbol,
@@ -306,6 +315,8 @@ export async function runUniverseReconcile(
 		for (const chunk of chunksOf(upsertRows, CHUNK_SIZE)) {
 			const { error } = await supabase.from("assets").upsert(chunk, { onConflict: "symbol" });
 			if (error) {
+				result.upsertChunksFailed += 1;
+				for (const row of chunk) failedUpsertSymbols.add(row.symbol);
 				logger.error(
 					"Universe reconcile upsert chunk failed",
 					{ action: "universe_reconcile", step: "upsert", chunkSize: chunk.length },
@@ -343,33 +354,54 @@ export async function runUniverseReconcile(
 			if (rows.length < TRACKED_PAGE_SIZE) break;
 		}
 
-		// Stored symbols that are absent from the active set, not already flagged, and
-		// NOT tracked. The `!trackedSymbols.has(...)` filter IS the tracked carve-out:
-		// a tracked symbol can never enter `toFlag`, so reconcile never stamps
-		// `delisted_at` on a tracked symbol. Tracked delisting stays 100% on the sweep.
-		const toFlag = storedRows
-			.filter(
-				(r) =>
-					r.delisted_at === null && !activeSymbols.has(r.symbol) && !trackedSymbols.has(r.symbol),
-			)
-			.map((r) => r.symbol);
+		// Defense-in-depth against a silently-truncated active set (a provider returning a
+		// valid-but-short response with no pagination error — fetchActiveTickers already
+		// throws on a detectable mid-pagination failure, so this guards the residual case).
+		// The active universe (~10k) should never collapse below half the currently-active
+		// stored rows; if it has, the fetch is suspect. Skip flagging rather than mass-delist
+		// live symbols — step 2's upsert still ran, only the delete-class op is held back, so
+		// a false trip merely defers cleanup one run.
+		const activeStoredCount = storedRows.reduce((n, r) => (r.delisted_at === null ? n + 1 : n), 0);
+		if (activeStoredCount > 0 && active.length < activeStoredCount * 0.5) {
+			result.delistFlagSkippedShrunkActive = true;
+			logger.error(
+				"Universe reconcile: active set implausibly small vs stored — skipping delist flag",
+				{
+					action: "universe_reconcile",
+					step: "flag_delisted",
+					activeCount: active.length,
+					activeStoredCount,
+				},
+			);
+		} else {
+			// Stored symbols absent from the active set, not already flagged, and NOT tracked.
+			// The `!trackedSymbols.has(...)` filter IS the tracked carve-out: a tracked symbol
+			// can never enter `toFlag`, so reconcile never stamps `delisted_at` on a tracked
+			// symbol. Tracked delisting stays 100% on the confirm-based sweep.
+			const toFlag = storedRows
+				.filter(
+					(r) =>
+						r.delisted_at === null && !activeSymbols.has(r.symbol) && !trackedSymbols.has(r.symbol),
+				)
+				.map((r) => r.symbol);
 
-		const nowIso = new Date().toISOString();
-		for (const chunk of chunksOf(toFlag, CHUNK_SIZE)) {
-			const { error, count } = await supabase
-				.from("assets")
-				.update({ delisted_at: nowIso }, { count: "exact" })
-				.in("symbol", chunk)
-				.is("delisted_at", null); // defensive: never re-stamp an already-flagged row
-			if (error) {
-				logger.error(
-					"Universe reconcile failed to flag untracked delistings",
-					{ action: "universe_reconcile", step: "flag_delisted", chunkSize: chunk.length },
-					error,
-				);
-				continue;
+			const nowIso = new Date().toISOString();
+			for (const chunk of chunksOf(toFlag, CHUNK_SIZE)) {
+				const { error, count } = await supabase
+					.from("assets")
+					.update({ delisted_at: nowIso }, { count: "exact" })
+					.in("symbol", chunk)
+					.is("delisted_at", null); // defensive: never re-stamp an already-flagged row
+				if (error) {
+					logger.error(
+						"Universe reconcile failed to flag untracked delistings",
+						{ action: "universe_reconcile", step: "flag_delisted", chunkSize: chunk.length },
+						error,
+					);
+					continue;
+				}
+				result.untrackedDelistedFlagged += count ?? 0;
 			}
-			result.untrackedDelistedFlagged += count ?? 0;
 		}
 	} catch (error) {
 		logger.error(
@@ -401,6 +433,9 @@ export async function runUniverseReconcile(
 	// --- Step 5: Warm newly-inserted symbols (not name-changed). ---
 	try {
 		for (const symbol of newSymbols) {
+			// A new symbol whose upsert chunk failed isn't in `assets`; warming it would
+			// enqueue backfill for a phantom symbol. Skip those.
+			if (failedUpsertSymbols.has(symbol)) continue;
 			const ok = await enqueueWarmup({ symbol, reason: "universe_reconcile_new_listing" });
 			if (ok) result.warmupEnqueued += 1;
 			else result.warmupEnqueueFailed += 1;

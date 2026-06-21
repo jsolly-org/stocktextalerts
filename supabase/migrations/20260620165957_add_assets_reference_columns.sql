@@ -17,8 +17,10 @@
 SET lock_timeout = '5s';
 SET statement_timeout = '30s';
 
-ALTER TABLE public.assets ADD COLUMN reference_updated_utc timestamptz;
-ALTER TABLE public.assets ADD COLUMN composite_figi text;
+-- IF NOT EXISTS so a retried `supabase db push` after a mid-migration failure
+-- replays cleanly (repo convention — the two ALTERs aren't a single statement).
+ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS reference_updated_utc timestamptz;
+ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS composite_figi text;
 
 -- service_role must INSERT new listings (it already has SELECT, UPDATE).
 GRANT INSERT ON TABLE public.assets TO service_role;

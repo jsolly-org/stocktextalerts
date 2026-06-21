@@ -23,6 +23,7 @@ import { deleteAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
+import { expectConsoleError } from "../../setup";
 
 /**
  * Unique test symbol prefix (max 10 chars, alphanumeric uppercase). `Z` prefix
@@ -148,8 +149,13 @@ async function allStoredAssets(): Promise<Array<{ symbol: string; name: string; 
  * on ~10k shared seed rows and poison other tests. Keeping the seed universe in the
  * active set confines the delist-flag to the symbols we deliberately exclude.
  *
- * Real names/types are preserved so step 2's upsert is a no-op on the seed rows (no
- * mass-rename). Callers should pass `enrichmentCap: 0` so seed rows aren't enriched.
+ * Real names/types are preserved so step 2's upsert is a no-op on the *name* of seed rows
+ * (no mass-rename). NOTE: step 2 still writes `reference_updated_utc` (= each ActiveTicker's
+ * `lastUpdatedUtc`) and `delisted_at = null` to EVERY seed row on each run, and `afterEach`
+ * only cleans the Z-prefixed test symbols — so this persistently mutates those two columns on
+ * the shared seed universe. No sibling test reads them on seed rows today; a future test that
+ * asserts a seed row's `reference_updated_utc`/`delisted_at` must account for this. Callers
+ * should pass `enrichmentCap: 0` so seed rows aren't enriched.
  */
 async function activeSetCoveringSeedExcept(excludedSymbols: string[]): Promise<ActiveTicker[]> {
 	const excluded = new Set(excludedSymbols);
@@ -750,5 +756,67 @@ describe("runUniverseReconcile", () => {
 		const healthy = await getAsset(okSymbol);
 		expect(healthy?.icon_url).toBe(`https://cdn.example.com/${okSymbol}.png`);
 		expect(healthy?.sector).toBe("Technology");
+	});
+
+	it("A fetch that throws (incomplete/failed active-set fetch) aborts the reconcile before any mutation — no stored symbol is flagged delisted.", async () => {
+		const symbol = `${TEST_PREFIX}NOFL`;
+		createdSymbols.push(symbol);
+		await seedAssets([{ symbol, name: "Must Not Be Flagged Co", type: "stock" }]);
+
+		// fetchActiveTickers throws on a real mid-pagination provider failure (rather than
+		// returning a truncated set). Step 1 isn't wrapped in the per-step try/catch, so the
+		// throw propagates out of runUniverseReconcile before step 2/3 can mutate anything.
+		const throwingFetch = async (): Promise<ActiveTicker[]> => {
+			throw new Error("Incomplete active-ticker fetch for type CS: provider returned no data");
+		};
+		const detail = makeFakeDetail();
+		const warmup = makeFakeWarmup();
+		await expect(
+			runUniverseReconcile({
+				supabase: adminClient,
+				logger: rootLogger,
+				getActiveTickers: throwingFetch,
+				getTickerDetail: detail.fn,
+				enqueueWarmup: warmup.fn,
+			}),
+		).rejects.toThrow(/Incomplete active-ticker fetch/);
+
+		// Nothing ran past the fetch: no detail/warmup, and the stored row is untouched.
+		expect(detail.calls).toHaveLength(0);
+		expect(warmup.enqueued).toHaveLength(0);
+		const row = await getAsset(symbol);
+		expect(row?.delisted_at).toBeNull();
+	});
+
+	it("A suspiciously small active set (silent truncation) skips the delist flag rather than mass-delisting live symbols.", async () => {
+		const live = `${TEST_PREFIX}FLRA`;
+		const untrackedGone = `${TEST_PREFIX}FLRG`;
+		createdSymbols.push(live, untrackedGone);
+		await seedAssets([
+			{ symbol: live, name: "Still Active Co", type: "stock" },
+			{ symbol: untrackedGone, name: "Untracked Absent Co", type: "stock" },
+		]);
+
+		// The floor logs at error (it's a degraded run skipping cleanup) → declare it.
+		expectConsoleError(/active set implausibly small vs stored/);
+
+		// A tiny active set (one symbol) against the ~10k-row seed universe is far below the
+		// 50%-of-active-stored floor, so step 3's flagging is skipped. `untrackedGone` is
+		// absent from this set and would normally be flagged delisted — the floor spares it.
+		const active = [makeActiveTicker({ symbol: live, name: "Still Active Co", type: "stock" })];
+		const result = await runUniverseReconcile({
+			supabase: adminClient,
+			logger: rootLogger,
+			getActiveTickers: fakeActiveTickers(active),
+			getTickerDetail: makeFakeDetail().fn,
+			enqueueWarmup: makeFakeWarmup().fn,
+			enrichmentCap: 0,
+		});
+
+		expect(result.delistFlagSkippedShrunkActive).toBe(true);
+		expect(result.untrackedDelistedFlagged).toBe(0);
+		// The absent untracked symbol is NOT flagged — the floor held back the delete-class op.
+		const gone = await getAsset(untrackedGone);
+		expect(gone?.delisted_at).toBeNull();
 	});
 });

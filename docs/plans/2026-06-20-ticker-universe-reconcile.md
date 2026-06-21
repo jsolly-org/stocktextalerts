@@ -149,12 +149,21 @@ message + `enqueueAssetEventsIngestRetry` — those name the *feature*, which is
 2026-05 incident docs and prior plans as-is** — point-in-time history, not live config.
 
 **Deploy implication (important).** Changing `FunctionName` and the logical ID is a CloudFormation
-**replacement**: the old function + log group are deleted and new ones created. So this change requires
-a **full `npm run deploy:aws` (admin creds, manual SAM deploy)** — not a code-only push — and the old
-log group's history is orphaned (retention applies separately). There is a brief delete/recreate window
-on the daily schedule; negligible at midnight UTC but real. The reconcile feature *alone* would mostly
-ride the normal push pipeline; the rename is what forces the SAM deploy, so they ship together as one
-SAM deploy. Sequence per the deploy-gotchas rule: **merge to main before the SAM deploy**.
+**replacement**: the old `stocktextalerts-asset-events` function + log group are deleted and a new
+`stocktextalerts-asset-maintenance` is created. So this change requires a **full `npm run deploy:aws`
+(admin creds, MFA step-up — agent cannot run it)**, not a code-only push. The old log group's history is
+orphaned (retention applies separately); there is a brief delete/recreate window on the daily schedule
+(negligible at midnight UTC).
+
+**Deploy ORDER is load-bearing — SAM deploy BEFORE the push, not after.** The push triggers
+`aws/deploy-web.sh`, whose Phase 2 runs the **one-way** `supabase db push` (migrates prod) and Phase 3
+runs `aws lambda update-function-code --function-name stocktextalerts-asset-maintenance`. That function
+does **not exist** until the SAM deploy creates it — so a push *before* `deploy:aws` migrates prod and
+then aborts Phase 3 under `set -euo pipefail` (`ResourceNotFoundException`), leaving prod DB ahead of
+stale code. Correct sequence: **(1)** human runs `npm run deploy:aws` from the worktree (builds from the
+working tree — no commit-on-main needed; CloudFormation creates `asset-maintenance`, deletes
+`asset-events`); **(2)** then push to `main` → `deploy-web.sh` Phase 3 finds the function and succeeds.
+The migration is additive/nullable so the brief code↔schema skew between (1) and (2) is safe.
 
 ### Steps (per daily run)
 

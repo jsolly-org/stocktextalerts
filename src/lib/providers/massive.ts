@@ -1356,8 +1356,16 @@ async function listActiveTickersForType(
 			apiType,
 		});
 
-		// `null` ⇒ test-mode short-circuit or exhausted retries. Stop this type's pagination.
-		if (data === null || typeof data !== "object") return tickers;
+		// Past fetchActiveTickers' test-mode short-circuit, a null/non-object here is a real
+		// provider failure (exhausted retries or a final 429) MID-pagination. Returning the
+		// partial set collected so far would let the reconcile flag the dropped tail as
+		// delisted — mass false-delisting of live symbols. Fail closed: throw so the whole
+		// reconcile aborts before any mutation and retries next run.
+		if (data === null || typeof data !== "object") {
+			throw new Error(
+				`Incomplete active-ticker fetch for type ${apiType}: provider returned no data mid-pagination (collected ${tickers.length})`,
+			);
+		}
 
 		const record = data as Record<string, unknown>;
 		tickers.push(...parseActiveTickerPage(record.results, normalizedType, apiType));
@@ -1394,6 +1402,11 @@ async function listActiveTickersForType(
  * seam, not this function, so the local suite never hits the network.
  */
 export async function fetchActiveTickers(): Promise<ActiveTicker[]> {
+	// Test-mode short-circuit: the reconcile is exercised via its injection seam, so this
+	// returns an empty universe rather than hitting the network. Doing it here (not relying
+	// on marketDataFetch's per-call guard) means a null from listActiveTickersForType below
+	// can only signal a real mid-pagination failure, never test mode.
+	if (shouldSkipVendorHttpInTestMode("massive")) return [];
 	const collected: ActiveTicker[] = [];
 	for (const { apiType, normalizedType } of ACTIVE_TICKER_TYPES) {
 		collected.push(...(await listActiveTickersForType(apiType, normalizedType)));
