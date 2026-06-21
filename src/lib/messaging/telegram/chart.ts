@@ -1,4 +1,4 @@
-import { Resvg } from "@resvg/resvg-js";
+import { createRequire } from "node:module";
 import { escapeHtml } from "../asset-formatting";
 
 /** A single intraday OHLC bar. `t` is ms since epoch. */
@@ -155,8 +155,29 @@ export function buildCandlestickSvg(
  * message rather than dropping the notification. Renders at {@link DEFAULTS.renderScale}×
  * the logical width for crisp display on high-DPI screens.
  */
+// resvg ships a platform-specific native `.node` binary that esbuild cannot
+// bundle, so the Lambda build marks `@resvg/resvg-js` external (aws/template.yaml)
+// and we load it lazily at first use. If it's unavailable in the runtime (e.g. a
+// Lambda deployed without a resvg layer), rendering returns null and callers fall
+// back to a text-only message — never a module-load crash. Locally and on Vercel
+// the package resolves normally, so charts render as usual.
+type ResvgCtor = typeof import("@resvg/resvg-js").Resvg;
+let cachedResvg: ResvgCtor | null | undefined;
+function loadResvg(): ResvgCtor | null {
+	if (cachedResvg === undefined) {
+		try {
+			cachedResvg = createRequire(import.meta.url)("@resvg/resvg-js").Resvg as ResvgCtor;
+		} catch {
+			cachedResvg = null;
+		}
+	}
+	return cachedResvg;
+}
+
 export function renderChartPng(svg: string): Buffer | null {
 	if (svg === "") return null;
+	const Resvg = loadResvg();
+	if (!Resvg) return null;
 	const widthMatch = svg.match(/width="(\d+)"/);
 	const targetWidth = widthMatch?.[1]
 		? Number.parseInt(widthMatch[1], 10) * DEFAULTS.renderScale

@@ -97,6 +97,11 @@ Resources:
         Sourcemap: true
         EntryPoints:
           - schedule.ts
+        # resvg ships a native .node binary esbuild can't bundle. Keep it external
+        # (chart.ts loads it lazily + degrades to text-only if absent). Restore
+        # candlestick PNGs by shipping resvg via a Lambda layer in a later deploy.
+        External:
+          - "@resvg/resvg-js"
     Properties:
       FunctionName: stocktextalerts-schedule
       Handler: schedule.handler
