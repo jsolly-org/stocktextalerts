@@ -56,7 +56,11 @@ vi.mock("../../../../src/lib/time/market-calendar", async () => {
 });
 
 async function seedTelegramScheduledUser(prefEnabled: boolean) {
-	const now = DateTime.utc();
+	// Fixed weekday mid-session instant (Mon 2026-06-15, 11:30 ET / 15:30 UTC). Used as
+	// both the due time and currentTime so the run is deterministic — `DateTime.utc()`
+	// made the test pass only during ET market hours (the scheduled-delivery guard skips
+	// times outside the 4:30 AM–7:30 PM ET window).
+	const now = DateTime.fromISO("2026-06-15T15:30:00.000Z", { zone: "utc" });
 	const { id } = await createTestUser({
 		timezone: "America/New_York",
 		emailNotificationsEnabled: false,
