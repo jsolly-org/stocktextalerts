@@ -1,17 +1,20 @@
 /**
  * scripts/db/link-worktree-data.ts — propagate gitignored local-dev files into a fresh worktree.
  *
- * Without this, a fresh `git worktree add` produces a working copy that's
- * missing `.env.local` and `scripts/data/users.json` (both gitignored).
- * `npm run dev` errors on missing `SUPABASE_URL`; `npm run db:reset`
- * silently skips auth-user seeding so login fails after the next reseed.
+ * Without this, a fresh `git worktree add` produces a working copy missing
+ * `scripts/data/users.json` (gitignored), so `npm run db:reset` silently skips
+ * auth-user seeding and login fails after the next reseed.
  *
- * For each candidate file: if the worktree doesn't already have it AND
- * the main worktree does, symlink the worktree path to the main file.
- * Symlinks (vs copies) so edits flow both ways — these files change rarely
- * and developers expect their personal seed/env to follow them around.
- * Linked worktrees: `db:worktree-setup` later replaces a symlinked `.env.local`
- * with a copied, port-patched file for isolated Supabase stacks.
+ * For the candidate file: if the worktree doesn't already have it AND the main
+ * worktree does, symlink the worktree path to the main file. A symlink (vs copy)
+ * so edits flow both ways — the seed changes rarely and developers expect their
+ * personal seed to follow them around.
+ *
+ * `.env.local` is intentionally NOT handled here — it's *copied* (never symlinked,
+ * which would trip Vite's server.fs.allow) by `.worktreeinclude` /
+ * scripts/copy-worktree-includes.sh. Since every worktree now shares ONE Supabase
+ * stack on the default ports, the verbatim copy from main is already correct — no
+ * port-patching. See docs/plans/2026-06-21-shared-local-supabase-stack.md.
  *
  * No-ops in three cases:
  *   1. Not running in a linked worktree (GIT_DIR == GIT_COMMON_DIR).
@@ -31,7 +34,7 @@ import { findMainWorktreeRoot } from "./worktree";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..", "..");
 
-const FILES_TO_LINK = [".env.local", "scripts/data/users.json"];
+const FILES_TO_LINK = ["scripts/data/users.json"];
 
 function alreadyExists(targetPath: string): boolean {
 	try {

@@ -1,10 +1,10 @@
 /**
  * Mailpit (Supabase's bundled Inbucket container) helpers for tests that
  * need to assert against a rendered email. The container's HTTP API sits at
- * the Supabase API port + 3 (default 54321 → 54324; isolated worktree stacks
- * offset every port, e.g. 54351 → 54354), so derive it from `SUPABASE_URL`
- * rather than hardcoding the default — otherwise email tests fail in any
- * worktree whose stack isn't on the default ports.
+ * the Supabase API port + 3 (default 54321 → 54324), so derive it from
+ * `SUPABASE_URL` rather than hardcoding the default. All worktrees now share
+ * one stack on the default ports, so this resolves to 54324 everywhere — but
+ * deriving it keeps the helper correct if the shared port is ever changed.
  *
  * Mailpit is the only approved destination for test email delivery —
  * tests never hit real SES. See `docs/testing.md`. Routing

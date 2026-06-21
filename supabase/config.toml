@@ -10,7 +10,10 @@ schema_paths = []
 [db.seed]
 sql_paths = ["./seed.sql"]
 
+# Studio (the local web UI) is not needed by Vitest or `astro dev` — disabling it drops a
+# container from the shared stack. Inspect the DB with psql / Supabase MCP instead.
 [studio]
+enabled = false
 openai_api_key = "env(OPENAI_API_KEY)"
 
 [auth]
@@ -45,6 +48,16 @@ port = 54324
 # Mailpit (http://localhost:54324) instead of real SES. See
 # src/lib/messaging/email/utils.ts.
 smtp_port = 1025
+
+# Realtime + Edge Runtime are unused by this app (zero `.channel()`/`.subscribe()` call sites,
+# no `supabase/functions/` dir). Disabling their containers slims the single shared stack — the
+# whole reason worktrees share one stack is the 7.45 GiB swapless Podman VM's memory ceiling. The
+# `realtime` Postgres schema still exists in the base image, so migrations/seed are unaffected.
+[realtime]
+enabled = false
+
+[edge_runtime]
+enabled = false
 
 # Vector/Logflare analytics disabled for Podman compatibility. The Vector
 # log shipper tries to read logs from the Docker socket inside its

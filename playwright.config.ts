@@ -23,10 +23,9 @@ export default defineConfig({
 			ADMIN_EMAILS: "admin-e2e@example.com,workflow-admin-e2e@example.com",
 			EMAIL_FROM: "StockTextAlerts <notifications@example.com>",
 			EMAIL_SMTP_HOST: "localhost",
-			// Mailpit's SMTP port follows the running stack: 1025 for the default
-			// stack, an offset (e.g. 1028) for an isolated worktree stack. Inherit it
-			// from .env.local (loaded by the test:e2e runner) rather than hardcoding
-			// 1025 — otherwise email-sending E2E specs ECONNREFUSED in every worktree.
+			// Mailpit's SMTP port on the shared local stack (default 1025). Inherit it
+			// from .env.local (loaded by the test:e2e runner) rather than hardcoding so
+			// it stays correct if the shared port is ever changed.
 			EMAIL_SMTP_PORT: process.env.EMAIL_SMTP_PORT ?? "1025",
 			SITE_URL: "http://localhost:4322",
 		},
