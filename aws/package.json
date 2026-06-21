@@ -6,7 +6,7 @@
 		"deploy": "bash deploy.sh",
 		"local:all": "bash sam-local.sh",
 		"local:schedule": "bash sam-local.sh ScheduleFunction",
-		"local:asset-events": "bash sam-local.sh AssetEventsFunction",
+		"local:asset-maintenance": "bash sam-local.sh AssetMaintenanceFunction",
 		"local:daily-stats": "bash sam-local.sh ComputeDailyStatsFunction"
 	},
 	"devDependencies": {

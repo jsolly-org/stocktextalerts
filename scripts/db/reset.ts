@@ -1,9 +1,11 @@
 /**
- * scripts/db/reset.ts — db:reset against the worktree's own supabase/config.toml.
+ * scripts/db/reset.ts — destructive reseed of the shared local Supabase stack.
  *
- * Per-worktree isolation lives in the worktree's config.toml (written + skip-worktree'd by
- * worktree-supabase.ts), which the Supabase CLI reads directly — no `--config` flag (removed in
- * CLI 2.105). See docs/plans/2026-06-13-worktree-supabase-cli-fix.md.
+ * All worktrees share ONE local stack (default ports, project_id "stocktextalerts"); isolation
+ * between worktrees' DB access is the cross-worktree test lock (<git-common-dir>/test.lock),
+ * not a per-worktree stack. Because this truncates and reseeds the shared DB, it acquires that
+ * same lock first — so a reset can't yank the database out from under another worktree's running
+ * vitest/playwright suite (and vice-versa). See docs/plans/2026-06-21-shared-local-supabase-stack.md.
  */
 
 import { spawnSync } from "node:child_process";
@@ -11,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { isLinkedWorktree, unsafeResetMessage, worktreeSupabaseProvisioned } from "./worktree";
+import { acquireTestLock, formatContentionMessage, TestLockHeldError } from "../../tests/lock";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..", "..");
@@ -28,11 +30,16 @@ function run(command: string, args: string[]): number {
 }
 
 function main(): void {
-	// Fail closed: never let `db:reset` in an unprovisioned linked worktree wipe the shared stack.
-	const refusal = unsafeResetMessage(isLinkedWorktree(), worktreeSupabaseProvisioned());
-	if (refusal !== null) {
-		process.stderr.write(`${refusal}\n`);
-		process.exit(1);
+	// Serialize against any running test suite on the shared stack. The lock auto-releases via the
+	// exit/SIGINT/SIGTERM handlers lock.ts registers on acquire, so every process.exit below frees it.
+	try {
+		acquireTestLock("reset");
+	} catch (err) {
+		if (err instanceof TestLockHeldError) {
+			process.stderr.write(formatContentionMessage(err));
+			process.exit(1);
+		}
+		throw err;
 	}
 
 	const status = run(supabaseExecutable, ["status"]);

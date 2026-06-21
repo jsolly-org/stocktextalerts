@@ -2,7 +2,10 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-export type TestLockCommand = "vitest" | "playwright";
+// "reset" is held by `db:reset` (scripts/db/reset.ts) so a destructive reseed of the
+// shared local stack can't run while another worktree's vitest/playwright suite is reading it.
+// The lock is keyed on `git rev-parse --git-common-dir`, so it's shared across all worktrees.
+export type TestLockCommand = "vitest" | "playwright" | "reset";
 
 export interface TestLockPayload {
 	pid: number;

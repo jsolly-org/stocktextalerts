@@ -220,7 +220,7 @@ deploy_code() { # <build-dir> <physical-name>
 # `check:deploy-functions` gate (npm run check:deploy-functions) fails the push
 # if this list drifts from the template's AWS::Serverless::Function set.
 deploy_code ScheduleFunction stocktextalerts-schedule
-deploy_code AssetEventsFunction stocktextalerts-asset-events
+deploy_code AssetMaintenanceFunction stocktextalerts-asset-maintenance
 deploy_code EmailDispatchFunction stocktextalerts-email-dispatch
 deploy_code ComputeDailyStatsFunction stocktextalerts-compute-daily-stats
 deploy_code VendorBackfillFunction stocktextalerts-vendor-backfill

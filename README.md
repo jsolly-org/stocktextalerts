@@ -362,11 +362,11 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 4. Sends daily digest notifications (News/Rumors) at the user’s chosen daily time
 5. Sends via email and/or SMS based on settings and logs attempts to the `notification_log` table
 
-**`AssetEventsFunction`** (daily at 00:00 UTC) — pre-populates the `asset_events` table with earnings, dividends, splits, and IPOs.
+**`AssetMaintenanceFunction`** (daily at 00:00 UTC) — pre-populates the `asset_events` table with earnings, dividends, splits, and IPOs; runs Finnhub analyst/insider enrichment, the asset-universe reconcile, and the delisting sweep.
 
 **`ComputeDailyStatsFunction`** (weekdays at 22:00 UTC) — computes and upserts per-symbol daily stats used by asset price alerts (ADV-20 and ATR-14) for tracked assets.
 
-**Local testing:** `cd aws && npm run local:test-all` builds and invokes all three functions locally via `sam local invoke` (requires Podman or Docker — SAM CLI uses `DOCKER_HOST`). To test a single function: `npm run local:schedule`, `npm run local:asset-events`, or `npm run local:daily-stats`. Run `npm run local:gen-env` first to generate `env.json` from `.env.local` with per-function env var scoping.
+**Local testing:** `cd aws && npm run local:test-all` builds and invokes all three functions locally via `sam local invoke` (requires Podman or Docker — SAM CLI uses `DOCKER_HOST`). To test a single function: `npm run local:schedule`, `npm run local:asset-maintenance`, or `npm run local:daily-stats`. Run `npm run local:gen-env` first to generate `env.json` from `.env.local` with per-function env var scoping.
 
 **Deploying:** push to `main` — the pre-push hook runs `npm run deploy` (`aws/deploy-web.sh`): Supabase migrations → Lambda code via `update-function-code` (code-only, under the scoped `fleet-deploy` role). The web tier ships separately: Vercel's git integration auto-builds `main` once the push lands. **A full SAM deploy (`npm run deploy:aws`) is still required whenever `aws/template.yaml` or `aws/deploy.sh` changes** (infrastructure/config) — that stays a manual admin step, not part of the hook.
 

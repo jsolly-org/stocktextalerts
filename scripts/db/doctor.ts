@@ -33,18 +33,19 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "pg";
 
+import { EXPECTED_DB_SCHEMA_VERSION } from "../../tests/helpers/constants";
 import { rootLogger } from "../../src/lib/logging";
 import { isLocalHost } from "./is-local-host";
-import {
-	isLinkedWorktree,
-	symlinkedNodeModulesMessage,
-	unprovisionedWorktreeMessage,
-	worktreeSupabaseProvisioned,
-} from "./worktree";
+import { symlinkedNodeModulesMessage } from "./worktree";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..", "..");
 const USERS_FILE = path.join(projectRoot, "scripts", "data", "users.json");
+const CONFIG_FILE = path.join(projectRoot, "supabase", "config.toml");
+
+/** The single shared local stack's project_id. A worktree whose config.toml says anything else
+ * is still carrying a stale per-worktree isolated stack and must run the one-shot collapse. */
+const SHARED_PROJECT_ID = "stocktextalerts";
 
 type SeedUserLite = { email?: unknown };
 
@@ -58,6 +59,32 @@ const HINT = [
   "   (equivalent to: npm run db:start && npm run db:reset && npm run db:doctor)",
   "",
 ].join("\n");
+
+/**
+ * Refusal message when this worktree's supabase/config.toml still points at a per-worktree
+ * isolated stack (project_id != "stocktextalerts"), else null. A skip-worktree'd config hides
+ * the diff from `git status`, so this is the only place the staleness surfaces.
+ */
+function staleIsolatedStackMessage(): string | null {
+	let projectId: string | null = null;
+	try {
+		const toml = fs.readFileSync(CONFIG_FILE, "utf8");
+		// Accept either quote style — single-quoted is valid TOML and must not bypass this guard.
+		projectId = toml.match(/^\s*project_id\s*=\s*["']([^"']+)["']/m)?.[1] ?? null;
+	} catch {
+		// No config.toml (or unreadable) — let the downstream SUPABASE_URL/health checks report it.
+		return null;
+	}
+	if (projectId === null || projectId === SHARED_PROJECT_ID) return null;
+	return [
+		"",
+		`✋ This worktree's supabase/config.toml has project_id "${projectId}", not "${SHARED_PROJECT_ID}".`,
+		"   It is still carrying a stale per-worktree isolated Supabase stack (offset ports).",
+		"   All worktrees now share ONE stack. Collapse this worktree onto it:",
+		"     npm run db:collapse-worktree-stacks",
+		"",
+	].join("\n");
+}
 
 /** Short read-timeout guard; doctor must be fast even when the stack is wedged. */
 async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
@@ -178,18 +205,63 @@ async function checkSeedUsersExist(
 	}
 }
 
+/**
+ * Asserts the shared stack's applied schema matches THIS branch's EXPECTED_DB_SCHEMA_VERSION.
+ *
+ * With one stack shared across worktrees, a worktree on a different migration set sees whatever
+ * the last `db:reset` applied. tests/setup.ts already enforces this for `npm test`, but doctor
+ * runs ~2s earlier (pretest) and also covers `predev` and the playwright dev-server boot — so a
+ * drifted schema fails here with an actionable hint instead of as a confusing mid-suite error.
+ */
+async function checkSchemaVersion(
+	databaseUrl: string,
+): Promise<{ ok: true } | { ok: false; actual: string | null }> {
+	const client = new Client({
+		connectionString: databaseUrl,
+		statement_timeout: DB_STATEMENT_TIMEOUT_MS,
+		connectionTimeoutMillis: DB_STATEMENT_TIMEOUT_MS,
+	});
+	// connect() inside the try so a connect failure still hits the finally and never leaks the
+	// client. A missing app_metadata (42P01, schema not applied) and any other error both resolve
+	// to "not ok" → the caller prints the actionable `npm run db:reset` hint.
+	try {
+		await client.connect();
+		const { rows } = await client.query<{ value: string }>(
+			"select value from public.app_metadata where key = 'schema_version'",
+		);
+		const actual = rows[0]?.value ?? null;
+		return actual === EXPECTED_DB_SCHEMA_VERSION ? { ok: true } : { ok: false, actual };
+	} catch {
+		return { ok: false, actual: null };
+	} finally {
+		await client.end().catch(() => {});
+	}
+}
+
 async function main(): Promise<void> {
 	// Worktree provisioning preflight — fail early with an actionable hint rather than letting a
-	// symlinked node_modules or an unprovisioned worktree surface as a Vite 403 / confusing seed error.
+	// symlinked node_modules surface as a confusing Vite 403.
 	const nodeModules = path.join(projectRoot, "node_modules");
 	const nodeModulesIsSymlink =
 		fs.existsSync(nodeModules) && fs.lstatSync(nodeModules).isSymbolicLink();
-	const provisioningError =
-		symlinkedNodeModulesMessage(nodeModulesIsSymlink) ??
-		unprovisionedWorktreeMessage(isLinkedWorktree(), worktreeSupabaseProvisioned());
+	const provisioningError = symlinkedNodeModulesMessage(nodeModulesIsSymlink);
 	if (provisioningError !== null) {
 		rootLogger.error("db:doctor — worktree not provisioned", { action: "db_doctor" });
 		process.stderr.write(`${provisioningError}\n`);
+		process.exitCode = 1;
+		return;
+	}
+
+	// Self-enforcing migration guard. skip-worktree HIDES a stale config.toml diff, so a worktree
+	// that never ran the collapse still carries project_id "stocktextalerts-wt-<slug>" + offset
+	// ports and would silently spin its OWN isolated stack (the exact memory drain we removed).
+	// Catch it loudly instead of letting it quietly reintroduce the problem.
+	const staleStack = staleIsolatedStackMessage();
+	if (staleStack !== null) {
+		rootLogger.error("db:doctor — worktree still on a stale isolated stack", {
+			action: "db_doctor",
+		});
+		process.stderr.write(`${staleStack}\n`);
 		process.exitCode = 1;
 		return;
 	}
@@ -289,9 +361,33 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	rootLogger.info("db:doctor — ok (auth reachable; seed users present)", {
+	// 3. Schema freshness — the #1 new failure mode of a shared stack: a worktree on a different
+	// migration set than the one last reset. Fail loud with a `db:reset` hint.
+	const schema = await checkSchemaVersion(databaseUrl);
+	if (!schema.ok) {
+		rootLogger.error("db:doctor — schema version drift on the shared stack", {
+			action: "db_doctor",
+			expected: EXPECTED_DB_SCHEMA_VERSION,
+			actual: schema.actual,
+		});
+		process.stderr.write(
+			[
+				"",
+				"✋ Shared local Supabase schema is out of date for this branch.",
+				`   shared stack: ${schema.actual ?? "MISSING"}`,
+				`   this branch expects: ${EXPECTED_DB_SCHEMA_VERSION}`,
+				"   Re-apply this branch's migrations:  npm run db:reset",
+				"",
+			].join("\n"),
+		);
+		process.exitCode = 1;
+		return;
+	}
+
+	rootLogger.info("db:doctor — ok (auth reachable; seed users present; schema current)", {
 		action: "db_doctor",
 		seedEmailsChecked: seedEmails.length,
+		schemaVersion: EXPECTED_DB_SCHEMA_VERSION,
 	});
 }
 

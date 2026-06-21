@@ -5,6 +5,7 @@ import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
 import { finnhubFetch } from "./finnhub";
 import type { MarketSession } from "./price-fetcher";
+import { sicCodeToSector } from "./sector-mapping";
 import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "./vendor-fault-tolerance";
 import {
 	VENDOR_FETCH_MAX_RETRIES as DEFAULT_MAX_RETRIES,
@@ -1217,6 +1218,267 @@ export async function fetchTickerReferences(
 	const workerCount = Math.min(concurrency, symbols.length);
 	await Promise.all(Array.from({ length: workerCount }, () => worker()));
 	return results;
+}
+
+/* =============
+Active-universe list + ticker detail (universe reconcile)
+============= */
+
+const MASSIVE_ALLOWED_HOST = "api.massive.com";
+const MASSIVE_TICKERS_PATH_PREFIX = "/v3/reference/tickers";
+
+/**
+ * Massive ticker types we surface, mapped to our normalized types. The list
+ * endpoint is queried per `apiType`, so the normalized type is known from the
+ * loop rather than parsed from each row. (Module-private; `scripts/db/fetch-us-assets.ts`
+ * keeps its own copy pending a DRY pass — see the plan's out-of-scope.)
+ */
+const ACTIVE_TICKER_TYPES: ReadonlyArray<{
+	apiType: string;
+	normalizedType: "stock" | "etf";
+}> = [
+	{ apiType: "CS", normalizedType: "stock" },
+	{ apiType: "ADRC", normalizedType: "stock" },
+	{ apiType: "OS", normalizedType: "stock" },
+	{ apiType: "ETF", normalizedType: "etf" },
+	{ apiType: "ETN", normalizedType: "etf" },
+	{ apiType: "ETV", normalizedType: "etf" },
+	{ apiType: "ETS", normalizedType: "etf" },
+];
+
+/** One active-universe row from Massive's list endpoint. Only fields the reconcile reads. */
+export interface ActiveTicker {
+	/** rec.ticker, trimmed + UPPERCASED. */
+	symbol: string;
+	/** rec.name, trimmed. */
+	name: string;
+	/** Normalized from the apiType loop (CS/ADRC/OS → stock; ETF/ETN/ETV/ETS → etf). */
+	type: "stock" | "etf";
+	/** rec.last_updated_utc — ISO ts, always present per the verified contract; "" defensively. */
+	lastUpdatedUtc: string;
+	/** rec.composite_figi — present on most rows; captured opportunistically. */
+	compositeFigi: string | null;
+}
+
+/**
+ * Validate that a pagination `next_url` is safe to follow (same host + path prefix).
+ * Prevents secret exfiltration if `next_url` is ever untrusted (compromised upstream).
+ * @throws Error if the URL is invalid or points outside api.massive.com's tickers endpoint.
+ */
+function validateNextUrl(nextUrl: string): URL {
+	let parsed: URL;
+	try {
+		parsed = new URL(nextUrl);
+	} catch {
+		throw new Error(`Invalid next_url: not a valid URL (${nextUrl})`);
+	}
+	if (parsed.protocol !== "https:") {
+		throw new Error(`Invalid next_url: must use https (got ${parsed.protocol})`);
+	}
+	if (parsed.host !== MASSIVE_ALLOWED_HOST) {
+		throw new Error(`Invalid next_url: host must be ${MASSIVE_ALLOWED_HOST} (got ${parsed.host})`);
+	}
+	if (
+		parsed.pathname !== MASSIVE_TICKERS_PATH_PREFIX &&
+		!parsed.pathname.startsWith(`${MASSIVE_TICKERS_PATH_PREFIX}/`)
+	) {
+		throw new Error(
+			`Invalid next_url: path must start with ${MASSIVE_TICKERS_PATH_PREFIX} (got ${parsed.pathname})`,
+		);
+	}
+	return parsed;
+}
+
+/** Parse one list-endpoint page's `results[]` into `ActiveTicker`s for a known normalized type. */
+function parseActiveTickerPage(
+	results: unknown,
+	normalizedType: "stock" | "etf",
+	apiType: string,
+): ActiveTicker[] {
+	if (!Array.isArray(results)) {
+		throw new Error(`Unexpected ticker list payload for type ${apiType}: missing results[]`);
+	}
+	const tickers: ActiveTicker[] = [];
+	for (const item of results) {
+		if (typeof item !== "object" || item === null) continue;
+		const rec = item as Record<string, unknown>;
+		const symbol = typeof rec.ticker === "string" ? rec.ticker.trim().toUpperCase() : "";
+		const name = typeof rec.name === "string" ? rec.name.trim() : "";
+
+		// Skip dotted symbols (e.g. BRK.A) and empty names — same filter as the seed script.
+		if (!symbol || symbol.includes(".") || !name) continue;
+
+		const lastUpdatedUtc = typeof rec.last_updated_utc === "string" ? rec.last_updated_utc : "";
+		const compositeFigi =
+			typeof rec.composite_figi === "string" && rec.composite_figi.trim() !== ""
+				? rec.composite_figi
+				: null;
+
+		tickers.push({ symbol, name, type: normalizedType, lastUpdatedUtc, compositeFigi });
+	}
+	return tickers;
+}
+
+/** Reconstruct `marketDataFetch` params (apiKey-free) from a validated `next_url`. */
+function paramsFromNextUrl(nextPageUrl: URL): Record<string, string> {
+	const params: Record<string, string> = {};
+	for (const [key, value] of nextPageUrl.searchParams) {
+		if (key === "apiKey") continue;
+		params[key] = value;
+	}
+	return params;
+}
+
+/**
+ * Paginate the Massive active-tickers list endpoint for a single `apiType`.
+ *
+ * Reuses `marketDataFetch` (429/Retry-After/timeout/logging) per page. The first
+ * page is a fresh request; subsequent pages reconstruct params from the validated
+ * `next_url` and re-invoke `marketDataFetch` against the same endpoint path.
+ *
+ * Returns `[]` in test mode (`marketDataFetch` short-circuits and yields `null`).
+ */
+async function listActiveTickersForType(
+	apiType: string,
+	normalizedType: "stock" | "etf",
+): Promise<ActiveTicker[]> {
+	const tickers: ActiveTicker[] = [];
+	const seenPageUrls = new Set<string>();
+	let params: Record<string, string> = {
+		market: "stocks",
+		active: "true",
+		limit: "1000",
+		type: apiType,
+	};
+
+	while (true) {
+		const data = await marketDataFetch(MASSIVE_TICKERS_PATH_PREFIX, params, "active-tickers", {
+			apiType,
+		});
+
+		// Past fetchActiveTickers' test-mode short-circuit, a null/non-object here is a real
+		// provider failure (exhausted retries or a final 429) MID-pagination. Returning the
+		// partial set collected so far would let the reconcile flag the dropped tail as
+		// delisted — mass false-delisting of live symbols. Fail closed: throw so the whole
+		// reconcile aborts before any mutation and retries next run.
+		if (data === null || typeof data !== "object") {
+			throw new Error(
+				`Incomplete active-ticker fetch for type ${apiType}: provider returned no data mid-pagination (collected ${tickers.length})`,
+			);
+		}
+
+		const record = data as Record<string, unknown>;
+		tickers.push(...parseActiveTickerPage(record.results, normalizedType, apiType));
+
+		const nextUrl = record.next_url;
+		if (nextUrl != null && typeof nextUrl !== "string") {
+			throw new Error(`Unexpected ticker list payload for type ${apiType}: invalid next_url`);
+		}
+		if (typeof nextUrl !== "string" || nextUrl.length === 0) return tickers;
+
+		const nextPageUrl = validateNextUrl(nextUrl);
+		const canonicalPageUrl = (() => {
+			const u = new URL(nextPageUrl.toString());
+			u.searchParams.delete("apiKey");
+			return u.toString();
+		})();
+		if (seenPageUrls.has(canonicalPageUrl)) {
+			throw new Error(`Repeated ticker pagination URL for type ${apiType}`);
+		}
+		seenPageUrls.add(canonicalPageUrl);
+
+		params = paramsFromNextUrl(nextPageUrl);
+	}
+}
+
+/**
+ * Fetch the complete, de-duplicated active US stock/ETF universe from Massive's
+ * list endpoint (the display-eligible subset already filtered: known types,
+ * no dotted symbols, non-empty names).
+ *
+ * Queries each `apiType` in `ACTIVE_TICKER_TYPES` order; on duplicate symbols the
+ * first occurrence wins (so a symbol listed as both CS and ETF keeps `stock`).
+ * Returns `[]` in test mode — the reconcile module is exercised via its injection
+ * seam, not this function, so the local suite never hits the network.
+ */
+export async function fetchActiveTickers(): Promise<ActiveTicker[]> {
+	// Test-mode short-circuit: the reconcile is exercised via its injection seam, so this
+	// returns an empty universe rather than hitting the network. Doing it here (not relying
+	// on marketDataFetch's per-call guard) means a null from listActiveTickersForType below
+	// can only signal a real mid-pagination failure, never test mode.
+	if (shouldSkipVendorHttpInTestMode("massive")) return [];
+	const collected: ActiveTicker[] = [];
+	for (const { apiType, normalizedType } of ACTIVE_TICKER_TYPES) {
+		collected.push(...(await listActiveTickersForType(apiType, normalizedType)));
+	}
+
+	// Dedupe by symbol, first occurrence wins. Duplicates are expected and benign.
+	const seen = new Set<string>();
+	const unique: ActiveTicker[] = [];
+	for (const t of collected) {
+		if (seen.has(t.symbol)) continue;
+		seen.add(t.symbol);
+		unique.push(t);
+	}
+
+	const duplicateCount = collected.length - unique.length;
+	if (duplicateCount > 0) {
+		rootLogger.info("Massive active-tickers dedupe", {
+			action: "fetch_active_tickers",
+			collected: collected.length,
+			unique: unique.length,
+			duplicates: duplicateCount,
+		});
+	}
+
+	return unique;
+}
+
+/**
+ * Fetch enrichment detail for a single ticker: `branding.icon_url` and
+ * `sic_code → sector`. Reuses `marketDataFetch` (retries/429/timeout).
+ *
+ * Returns `{ ok: false, ... }` on a provider failure (so callers skip the
+ * symbol without nulling existing data) and `{ ok: true, ... }` otherwise,
+ * with `iconUrl`/`sector` null when Massive omits them.
+ */
+export async function fetchTickerDetail(
+	symbol: string,
+): Promise<{ ok: boolean; iconUrl: string | null; sector: string | null }> {
+	const data = await marketDataFetch(
+		`${MASSIVE_TICKERS_PATH_PREFIX}/${encodeURIComponent(symbol)}`,
+		{},
+		"ticker-details",
+		{ symbol },
+	);
+
+	if (typeof data !== "object" || data === null) {
+		return { ok: false, iconUrl: null, sector: null };
+	}
+
+	const results = (data as Record<string, unknown>).results;
+	if (typeof results !== "object" || results === null) {
+		return { ok: false, iconUrl: null, sector: null };
+	}
+
+	const rec = results as Record<string, unknown>;
+	const sicCode = rec.sic_code;
+	const branding = rec.branding;
+
+	let iconUrl: string | null = null;
+	if (typeof branding === "object" && branding !== null) {
+		const url = (branding as Record<string, unknown>).icon_url;
+		if (typeof url === "string" && url.trim() !== "") {
+			iconUrl = url;
+		}
+	}
+
+	let sector: string | null = null;
+	if (typeof sicCode === "string" || typeof sicCode === "number") {
+		sector = sicCodeToSector(String(sicCode));
+	}
+
+	return { ok: true, iconUrl, sector };
 }
 
 /* =============
