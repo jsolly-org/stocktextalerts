@@ -17,6 +17,7 @@ npm run check:ts
 npm run check:md
 npm run check:knip
 npm run check:sql
+npm run check:deploy-functions   # static: deploy-web.sh deploy_code list == template's function set
 npm run check:migration-grants   # static: migrations grant EXECUTE on new functions
 npm run check:db-privileges      # needs local Supabase up: grants match privilege-contract
 npm run test
