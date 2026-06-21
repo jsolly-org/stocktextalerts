@@ -1,8 +1,11 @@
 import { fetchUsersWithRetry } from "../db/user-query";
 import type { Logger } from "../logging";
+import { attachPrefsToUsers } from "../messaging/load-prefs";
+import { anyFacetEnabled, isFacetEnabled } from "../messaging/notification-prefs";
 import type { UserRecord } from "../messaging/types";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 
+/** Channel-level user columns (per-option facets live in notification_preferences). */
 const ASSET_EVENTS_USER_SELECT = `
 	id,
 	email,
@@ -12,8 +15,6 @@ const ASSET_EVENTS_USER_SELECT = `
 	timezone,
 	use_24_hour_time,
 	market_scheduled_asset_price_enabled,
-	market_scheduled_asset_price_include_email,
-	market_scheduled_asset_price_include_sms,
 	market_scheduled_asset_price_times,
 	daily_digest_time,
 	daily_digest_next_send_at,
@@ -21,35 +22,31 @@ const ASSET_EVENTS_USER_SELECT = `
 	email_notifications_enabled,
 	sms_notifications_enabled,
 	sms_opted_out,
-	daily_digest_include_news_email,
-	daily_digest_include_rumors_email,
-	asset_events_include_calendar_email,
-	asset_events_include_calendar_sms,
-	asset_events_include_ipo_email,
-	asset_events_include_ipo_sms,
-	asset_events_include_analyst_email,
-	asset_events_include_analyst_sms,
-	asset_events_include_insider_email,
-	asset_events_include_insider_sms,
 	asset_events_next_send_at,
 	asset_events_last_analyst_sent_month,
-	market_asset_price_alerts_include_sms,
+	telegram_chat_id,
+	telegram_opted_out,
 	last_grok_rumors_at,
 	grok_window_start,
 	grok_sends_in_window
 `;
 
-const ASSET_EVENTS_ENABLED_OR =
-	"asset_events_include_calendar_email.eq.true,asset_events_include_calendar_sms.eq.true,asset_events_include_ipo_email.eq.true,asset_events_include_ipo_sms.eq.true,asset_events_include_analyst_email.eq.true,asset_events_include_analyst_sms.eq.true,asset_events_include_insider_email.eq.true,asset_events_include_insider_sms.eq.true";
-
+// Per-option asset_events facets now live in notification_preferences, which
+// PostgREST can't join in one query against `users`. The candidate set is gated
+// by channel-level columns only (a usable email channel, a usable SMS channel, or
+// a linked Telegram chat); the asset_events-enabled-and-not-handled-by-daily check
+// runs in code after prefs are attached.
 const HAS_DELIVERY_CHANNEL_OR =
-	"email_notifications_enabled.eq.true,market_scheduled_asset_price_include_sms.eq.true,asset_events_include_calendar_sms.eq.true,asset_events_include_ipo_sms.eq.true,asset_events_include_analyst_sms.eq.true,asset_events_include_insider_sms.eq.true,market_asset_price_alerts_include_sms.eq.true";
+	"email_notifications_enabled.eq.true,and(sms_notifications_enabled.eq.true,phone_verified.eq.true),telegram_chat_id.not.is.null";
+
+type UserRecordWithoutPrefs = Omit<UserRecord, "prefs">;
 
 /**
  * Fetch users eligible for a standalone asset events run.
  *
- * Only picks up users who have asset events enabled but are NOT handled by
- * the daily pipeline (i.e., they don't have daily_digest_time set with daily features enabled).
+ * Only picks up users who have asset events enabled (any facet on an enabled
+ * channel) but are NOT handled by the daily pipeline (i.e., they don't have
+ * daily_digest_time set with a daily Grok feature — news/rumors — enabled).
  */
 export async function fetchAssetEventsUsers(options: {
 	supabase: SupabaseAdminClient;
@@ -65,7 +62,6 @@ export async function fetchAssetEventsUsers(options: {
 			let query = options.supabase
 				.from("users")
 				.select(ASSET_EVENTS_USER_SELECT)
-				.or(ASSET_EVENTS_ENABLED_OR)
 				.or(HAS_DELIVERY_CHANNEL_OR);
 
 			if (!options.forceSend) {
@@ -77,14 +73,21 @@ export async function fetchAssetEventsUsers(options: {
 			const { data, error } = await query;
 			if (error) return { data: null, error };
 
-			const users = (data ?? []) as UserRecord[];
-			const filtered = users.filter(
-				(user) =>
-					!(
-						user.daily_digest_time != null &&
-						(user.daily_digest_include_news_email || user.daily_digest_include_rumors_email)
-					),
+			const users = await attachPrefsToUsers(
+				options.supabase,
+				(data ?? []) as unknown as UserRecordWithoutPrefs[],
 			);
+			const filtered = (users as UserRecord[]).filter((user) => {
+				const wantsAssetEvents =
+					anyFacetEnabled(user.prefs, "asset_events", "email") ||
+					anyFacetEnabled(user.prefs, "asset_events", "sms") ||
+					anyFacetEnabled(user.prefs, "asset_events", "telegram");
+				const handledByDaily =
+					user.daily_digest_time != null &&
+					(isFacetEnabled(user.prefs, "daily_digest", "email", "news") ||
+						isFacetEnabled(user.prefs, "daily_digest", "email", "rumors"));
+				return wantsAssetEvents && !handledByDaily;
+			});
 			return { data: filtered, error: null };
 		},
 	});

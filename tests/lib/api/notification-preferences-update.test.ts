@@ -17,20 +17,8 @@ function makeUser(overrides: Partial<User> = {}): User {
 		email_notifications_enabled: true,
 		sms_notifications_enabled: false,
 		sms_opted_out: false,
-		asset_events_include_calendar_email: true,
-		asset_events_include_calendar_sms: false,
-		asset_events_include_ipo_email: false,
-		asset_events_include_ipo_sms: false,
-		asset_events_include_analyst_email: false,
-		asset_events_include_analyst_sms: false,
-		asset_events_include_insider_email: false,
-		asset_events_include_insider_sms: false,
 		market_scheduled_asset_price_enabled: true,
-		market_scheduled_asset_price_include_email: true,
-		market_scheduled_asset_price_include_sms: false,
 		market_asset_price_alerts_enabled: false,
-		market_asset_price_alerts_include_email: false,
-		market_asset_price_alerts_include_sms: false,
 		...overrides,
 	} as unknown as User;
 }
@@ -39,7 +27,9 @@ describe("Notification preference update payloads stay aligned with user schedul
 	it("Recomputes next-send timestamps when timezone changes.", () => {
 		const user = makeUser();
 
-		const payload = computeTimezoneUpdatePayload("America/Chicago", user);
+		// hasAnyAssetEvents = true: the user has an asset-events facet enabled in
+		// notification_preferences (the caller resolves this from the table).
+		const payload = computeTimezoneUpdatePayload("America/Chicago", user, true);
 
 		expect(payload.timezone).toBe("America/Chicago");
 		// Market-scheduled times are ET-canonical post-extended-hours migration
@@ -53,7 +43,7 @@ describe("Notification preference update payloads stay aligned with user schedul
 	it("Leaves derived send times untouched when timezone is unchanged.", () => {
 		const user = makeUser({ timezone: "America/Chicago" });
 
-		const payload = computeTimezoneUpdatePayload("America/Chicago", user);
+		const payload = computeTimezoneUpdatePayload("America/Chicago", user, false);
 
 		expect(payload).toEqual({ timezone: "America/Chicago" });
 	});
@@ -70,6 +60,8 @@ describe("Notification preference update payloads stay aligned with user schedul
 			formData,
 			rawTimesValue: "",
 			dbUser: user,
+			assetEventsEnabledAfterUpdate: false,
+			assetEventsOptionsChanged: false,
 		});
 
 		expect(payload.market_scheduled_asset_price_times).toBeNull();
@@ -91,32 +83,16 @@ describe("Notification preference update payloads stay aligned with user schedul
 			formData,
 			rawTimesValue: null,
 			dbUser: user,
+			assetEventsEnabledAfterUpdate: false,
+			assetEventsOptionsChanged: false,
 		});
 
 		expect(payload.email_notifications_enabled).toBe(true);
 		expect(payload.sms_notifications_enabled).toBeUndefined();
 	});
 
-	it("Includes daily_digest_include_top_movers_sms in the update payload when the field is submitted.", () => {
+	it("Schedules asset_events_next_send_at when an asset-events facet becomes enabled.", () => {
 		const user = makeUser();
-		const formData = new FormData();
-		formData.set("daily_digest_include_top_movers_sms", "on");
-
-		const payload = buildNotificationPreferencesUpdatePayload({
-			parsedData: { daily_digest_include_top_movers_sms: true },
-			formData,
-			rawTimesValue: null,
-			dbUser: user,
-		});
-
-		expect(payload.daily_digest_include_top_movers_sms).toBe(true);
-	});
-
-	it("Enabling a single asset-events option triggers next_send_at.", () => {
-		const user = makeUser({
-			asset_events_include_calendar_email: false,
-			asset_events_include_insider_sms: false,
-		});
 		const formData = new FormData();
 		formData.set("asset_events_include_insider_sms", "on");
 
@@ -125,15 +101,15 @@ describe("Notification preference update payloads stay aligned with user schedul
 			formData,
 			rawTimesValue: null,
 			dbUser: user,
+			assetEventsEnabledAfterUpdate: true,
+			assetEventsOptionsChanged: true,
 		});
 
 		expect(payload.asset_events_next_send_at).toBeTruthy();
 	});
 
-	it("Disabling the only active asset-events option nullifies next_send_at.", () => {
-		const user = makeUser({
-			asset_events_include_calendar_email: true,
-		});
+	it("Nullifies asset_events_next_send_at when the last facet is disabled.", () => {
+		const user = makeUser();
 		const formData = new FormData();
 		formData.set("asset_events_include_calendar_email", "on");
 
@@ -142,27 +118,25 @@ describe("Notification preference update payloads stay aligned with user schedul
 			formData,
 			rawTimesValue: null,
 			dbUser: user,
+			assetEventsEnabledAfterUpdate: false,
+			assetEventsOptionsChanged: true,
 		});
 
 		expect(payload.asset_events_next_send_at).toBeNull();
 	});
 
-	it("Timezone change recomputes asset_events_next_send_at when an option is enabled.", () => {
-		const user = makeUser({
-			asset_events_include_insider_sms: true,
-		});
+	it("Timezone change recomputes asset_events_next_send_at when a facet is enabled.", () => {
+		const user = makeUser();
 
-		const payload = computeTimezoneUpdatePayload("America/Chicago", user);
+		const payload = computeTimezoneUpdatePayload("America/Chicago", user, true);
 
 		expect(payload.asset_events_next_send_at).toBeTruthy();
 	});
 
-	it("Timezone change skips asset_events when no options are enabled.", () => {
-		const user = makeUser({
-			asset_events_include_calendar_email: false,
-		});
+	it("Timezone change skips asset_events when no facet is enabled.", () => {
+		const user = makeUser();
 
-		const payload = computeTimezoneUpdatePayload("America/Chicago", user);
+		const payload = computeTimezoneUpdatePayload("America/Chicago", user, false);
 
 		expect(payload.asset_events_next_send_at).toBeUndefined();
 	});
@@ -179,6 +153,8 @@ describe("Notification preference update payloads stay aligned with user schedul
 			formData,
 			rawTimesValue: '["11:00","09:30"]',
 			dbUser: user,
+			assetEventsEnabledAfterUpdate: false,
+			assetEventsOptionsChanged: false,
 		});
 
 		expect(payload.market_scheduled_asset_price_times).toEqual([570, 660]);

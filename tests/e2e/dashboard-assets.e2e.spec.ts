@@ -199,23 +199,40 @@ test.describe("dashboard and assets", () => {
 			);
 			await expect(marketNotificationsForm).toBeVisible({ timeout: 15_000 });
 			await marketNotificationsForm.scrollIntoViewIfNeeded();
-			const scheduledEmailCheckbox = marketNotificationsForm.getByRole("checkbox", {
-				name: "Enable email for scheduled price notifications",
-			});
-			if (!(await scheduledEmailCheckbox.isChecked())) {
-				await scheduledEmailCheckbox.click();
+			// Enable Email for scheduled price notifications via the channel multiselect
+			// (the per-option checkbox is now a channel dropdown). Selecting Email also
+			// enables the scheduled-price section so a delivery time can be added.
+			const scheduledTrigger = session.page.locator(
+				"#market_scheduled_asset_price-channel-trigger",
+			);
+			await expect(scheduledTrigger).toBeVisible({ timeout: 15_000 });
+			await scheduledTrigger.scrollIntoViewIfNeeded();
+			if (!((await scheduledTrigger.textContent()) ?? "").includes("Email")) {
+				await scheduledTrigger.click();
+				const scheduledListbox = session.page.locator(
+					"#market_scheduled_asset_price-channel-listbox",
+				);
+				await expect(scheduledListbox).toBeVisible();
+				await waitForAutosave(session.page, async () => {
+					await scheduledListbox.getByRole("option", { name: "Email" }).click();
+				});
+				// Close the (multi-select) listbox so it doesn't overlay the time controls.
+				await scheduledTrigger.click();
 				await expect
 					.poll(
 						async () => {
 							const { data, error } = await adminClient
-								.from("users")
-								.select("market_scheduled_asset_price_include_email")
-								.eq("id", user.id)
-								.single();
+								.from("notification_preferences")
+								.select("enabled")
+								.eq("user_id", user.id)
+								.eq("notification_type", "market_scheduled_asset_price")
+								.eq("content", "")
+								.eq("channel", "email")
+								.maybeSingle();
 							if (error) {
 								throw new Error(`Failed to read scheduled email preference: ${error.message}`);
 							}
-							return data.market_scheduled_asset_price_include_email;
+							return data?.enabled ?? false;
 						},
 						{ timeout: 30_000 },
 					)
@@ -252,17 +269,26 @@ test.describe("dashboard and assets", () => {
 					async () => {
 						const { data, error } = await adminClient
 							.from("users")
-							.select(
-								"email_notifications_enabled,market_scheduled_asset_price_include_email,market_scheduled_asset_price_times",
-							)
+							.select("email_notifications_enabled,market_scheduled_asset_price_times")
 							.eq("id", user.id)
 							.single();
 						if (error) {
 							throw new Error(`Failed to verify email notification preferences: ${error.message}`);
 						}
+						const { data: pref, error: prefError } = await adminClient
+							.from("notification_preferences")
+							.select("enabled")
+							.eq("user_id", user.id)
+							.eq("notification_type", "market_scheduled_asset_price")
+							.eq("content", "")
+							.eq("channel", "email")
+							.maybeSingle();
+						if (prefError) {
+							throw new Error(`Failed to verify scheduled email preference: ${prefError.message}`);
+						}
 						return (
 							data.email_notifications_enabled === true &&
-							data.market_scheduled_asset_price_include_email === true &&
+							pref?.enabled === true &&
 							Array.isArray(data.market_scheduled_asset_price_times) &&
 							data.market_scheduled_asset_price_times.length > 0
 						);
@@ -273,7 +299,10 @@ test.describe("dashboard and assets", () => {
 
 			await session.page.reload();
 			await expect(emailSwitch).toHaveAttribute("aria-checked", "true");
-			await expect(scheduledEmailCheckbox).toBeChecked();
+			// The scheduled-price Email selection persists across reload (multiselect summary).
+			await expect(
+				session.page.locator("#market_scheduled_asset_price-channel-trigger"),
+			).toContainText("Email");
 		} finally {
 			await session.cleanup();
 		}

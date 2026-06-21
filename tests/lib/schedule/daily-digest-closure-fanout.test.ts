@@ -59,6 +59,8 @@ vi.mock("../../../src/lib/market-notifications/scheduled/process", () => ({
 		emailsFailed: 0,
 		smsSent: 0,
 		smsFailed: 0,
+		telegramSent: 0,
+		telegramFailed: 0,
 	}),
 }));
 
@@ -75,6 +77,8 @@ vi.mock("../../../src/lib/staged-notifications/deliver", () => ({
 			emailsFailed: 0,
 			smsSent: 0,
 			smsFailed: 0,
+			telegramSent: 0,
+			telegramFailed: 0,
 		},
 		deliveredUserTypes: new Set<string>(),
 	}),
@@ -190,6 +194,8 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 			emailsFailed: 0,
 			smsSent: 0,
 			smsFailed: 0,
+			telegramSent: 0,
+			telegramFailed: 0,
 		});
 
 		const totals = await runScheduledNotifications({

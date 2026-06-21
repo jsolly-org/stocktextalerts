@@ -15,7 +15,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkVerification, sendVerification } from "../../../src/lib/auth/sms-verification";
 import { createEmailSender } from "../../../src/lib/messaging/email/utils";
 import { createSmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
+import {
+	createTelegramBot,
+	createTelegramSender,
+} from "../../../src/lib/messaging/telegram/sender";
 import { clearMailpit, waitForMailpitMessageTo } from "../../helpers/mailpit";
+
+// A syntactically-valid but fake bot token. grammY's Bot constructor stores the
+// token without any network call, so this never reaches Telegram — and the
+// non-prod gate means createTelegramSender never touches bot.api regardless.
+const STUB_TELEGRAM_TOKEN = "123456:AA-fake-token-for-sender-gate-tests-only";
 
 // Fake Twilio credentials used in the SMS gate tests below. These are
 // Twilio's magic test credentials (ACxxxxxxxx... / test auth token) — they
@@ -91,6 +100,34 @@ describe("sender gates — no real SES/Twilio in tests", () => {
 			// if a regression renames it, assertions in dependent tests will
 			// fail loudly.
 			expect(result).toMatchObject({ success: true, messageSid: "mock" });
+		});
+	});
+
+	describe("createTelegramSender", () => {
+		it("outbound Telegram never reaches the Bot API in test mode — mock sender intercepts", async () => {
+			// If the gate regressed, the mock branch would be skipped and the real
+			// send path would call bot.api against api.telegram.org with a fake
+			// token — failing loudly instead of returning the deterministic mock.
+			const bot = createTelegramBot(STUB_TELEGRAM_TOKEN);
+			const send = createTelegramSender(bot);
+			const result = await send({
+				chatId: 5550001,
+				text: "AAPL up 5.3% to $195.86",
+			});
+			expect(result).toMatchObject({ success: true, messageSid: "mock" });
+		});
+
+		it("honors TELEGRAM_TEST_BEHAVIOR=fail without touching the network", async () => {
+			vi.stubEnv("TELEGRAM_TEST_BEHAVIOR", "fail");
+			vi.stubEnv("TELEGRAM_TEST_ERROR", "Simulated Telegram failure");
+			vi.stubEnv("TELEGRAM_TEST_ERROR_CODE", "403");
+			const send = createTelegramSender(createTelegramBot(STUB_TELEGRAM_TOKEN));
+			const result = await send({ chatId: 5550001, text: "AAPL update" });
+			expect(result).toMatchObject({
+				success: false,
+				error: "Simulated Telegram failure",
+				errorCode: "403",
+			});
 		});
 	});
 

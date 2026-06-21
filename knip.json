@@ -16,6 +16,7 @@
 		"vercel"
 	],
 	"ignoreBinaries": [
+		"mise",
 		"printf",
 		"uvx"
 	]

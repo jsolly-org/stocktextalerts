@@ -57,6 +57,18 @@ if (
 	vi.stubEnv("UNSUBSCRIBE_TOKEN_SECRET", "test-unsubscribe-secret");
 }
 
+// Telegram linking-token + webhook secrets. These live only in the Lambda/Vercel
+// runtime in production; tests stub deterministic values so the deep-link token
+// HMAC and the webhook secret check run without real credentials. Forced
+// unconditionally (like the data-provider keys above): a real value in a synced
+// `.env.local` must NOT leak into the suite — the webhook tests send the stub
+// secret as the header, so a real TELEGRAM_WEBHOOK_SECRET would 401 every request,
+// and real credentials must never reach the test path (cf. the 2026-04-11 incident).
+vi.stubEnv("TELEGRAM_LINK_TOKEN_SECRET", "test-telegram-link-token-secret");
+vi.stubEnv("TELEGRAM_WEBHOOK_SECRET", "test-telegram-webhook-secret");
+vi.stubEnv("TELEGRAM_BOT_USERNAME", "StockTextAlertsTestBot");
+vi.stubEnv("TELEGRAM_BOT_TOKEN", "123456:test-telegram-bot-token");
+
 function getDatabaseUrl(): string {
 	const databaseUrl = process.env.DATABASE_URL;
 	if (!databaseUrl) {

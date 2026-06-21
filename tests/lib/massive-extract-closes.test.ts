@@ -96,6 +96,7 @@ describe("extractClosesAndTimestampsFromBars", () => {
 			timestamps: [t1, t2],
 			startTimestamp: t1,
 			endTimestamp: t2,
+			candles: null,
 		});
 	});
 
@@ -108,6 +109,7 @@ describe("extractClosesAndTimestampsFromBars", () => {
 			timestamps: null,
 			startTimestamp: null,
 			endTimestamp: null,
+			candles: null,
 		});
 	});
 
@@ -126,6 +128,7 @@ describe("extractClosesAndTimestampsFromBars", () => {
 			timestamps: [t1, null, t3],
 			startTimestamp: t1,
 			endTimestamp: t3,
+			candles: null,
 		});
 	});
 
@@ -144,6 +147,7 @@ describe("extractClosesAndTimestampsFromBars", () => {
 			timestamps: [t1, t2, null],
 			startTimestamp: t1,
 			endTimestamp: 3000, // t2 + 1 * (t2-t1) = 2000 + 1000
+			candles: null,
 		});
 	});
 });

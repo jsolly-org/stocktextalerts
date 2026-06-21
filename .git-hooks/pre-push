@@ -20,17 +20,25 @@ source "${DOTAGENTS_GATE_LIB:-$HOME/code/dotagents/gate/gate-lib.sh}" || {
 
 gate_begin "stocktextalerts" deploys   # parse push; gitleaks; md-lint; doc-only fast path; banner; ERR trap
 gate_require_clean_tree                # refuse dirty tree / pushed-SHA≠HEAD / non-fast-forward (deploys from the tree)
+gate_require_node                      # enforce the pinned Node (.nvmrc), not whatever's on PATH
 
 # Cheap preflights — fail in seconds, not after the 15-minute battery.
+run_step "dep grounding"                     gate_check_dep_grounding .git-hooks/pre-push scripts/*.sh aws/*.sh
 run_step "deploy creds preflight"            bash aws/deploy-web.sh --preflight
+# Build the Lambda bundle (esbuild via sam) as a fail-fast preflight. `npm run build` is astro/web
+# only — nothing here ever built the handler bundle until the deploy's Phase 1, so an esbuild break
+# (the 2026-06-21 resvg .node incident) surfaced only mid-deploy. Catch it in seconds, before the
+# battery and before the deploy migrates prod. Offline + credential-free; restores the release-id stub.
+run_step "lambda bundle build — catches an esbuild break before prod is touched" bash aws/deploy-web.sh --build
 run_step "db doctor (needs local Supabase up — npm run db:start)" npm run db:doctor
 
 # --- Quality gate (the old run-ci battery — see docs/prepush-gate.md) ---
-run_step "biome ci"               npx biome ci . --error-on-warnings
+run_step "biome ci"               npx --no-install biome ci . --error-on-warnings
 run_step "yaml lint"              npm run check:yaml
 run_step "astro check (types)"    npm run check:ts
 run_step "knip (unused code)"     npm run check:knip
 run_step "squawk migrations"      npm run check:sql
+run_step "deploy fn coverage (template ↔ deploy-web.sh)" npm run check:deploy-functions
 run_step "migration grants (static)" npm run check:migration-grants
 run_step "db privileges (needs local Supabase up)" npm run check:db-privileges
 run_step "unit tests"             npm test

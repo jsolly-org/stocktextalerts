@@ -10,6 +10,7 @@ export async function shouldAdvanceMarketScheduledSchedule(options: {
 	scheduledMinutes: number;
 	emailRequired: boolean;
 	smsRequired: boolean;
+	telegramRequired?: boolean;
 }): Promise<boolean> {
 	return shouldAdvanceScheduledNotificationSchedule({
 		...options,

@@ -28,32 +28,22 @@ const mockSupabaseUser = {
 	email_notifications_enabled: true,
 	sms_notifications_enabled: false,
 	sms_opted_out: false,
-	daily_digest_include_prices_email: true,
-	daily_digest_include_prices_sms: false,
-	daily_digest_include_top_movers_email: false,
-	daily_digest_include_top_movers_sms: false,
-	daily_digest_include_news_email: true,
-	daily_digest_include_rumors_email: false,
-	asset_events_include_calendar_email: true,
-	asset_events_include_calendar_sms: false,
-	asset_events_include_ipo_email: false,
-	asset_events_include_ipo_sms: false,
-	asset_events_include_analyst_email: false,
-	asset_events_include_analyst_sms: false,
-	asset_events_include_insider_email: false,
-	asset_events_include_insider_sms: false,
 	asset_events_next_send_at: null,
 	asset_events_last_analyst_sent_month: null,
-	market_asset_price_alerts_include_sms: false,
 	last_grok_rumors_at: null,
 	grok_window_start: null,
 	grok_sends_in_window: 0,
 };
 
 const mockMaybeSingle = vi.fn();
-const mockEq = vi.fn(() => ({ maybeSingle: mockMaybeSingle }));
-const mockSelect = vi.fn(() => ({ eq: mockEq }));
-const mockFrom = vi.fn(() => ({ select: mockSelect }));
+// loadPrefsByUser reads notification_preferences via from(...).select(...).in(...);
+// dispatch attaches the rows to the user and hands off to (mocked) processDailyDigestUser.
+const mockPrefsIn = vi.fn(async () => ({ data: [], error: null }));
+const mockFrom = vi.fn((table: string) =>
+	table === "notification_preferences"
+		? { select: () => ({ in: mockPrefsIn }) }
+		: { select: () => ({ eq: () => ({ maybeSingle: mockMaybeSingle }) }) },
+);
 
 vi.mock("../../../src/lib/db/supabase", () => ({
 	createSupabaseAdminClient: () => ({ from: mockFrom }),
@@ -130,6 +120,8 @@ describe("Daily digest dispatch (direct function call)", () => {
 			emailsFailed: 0,
 			smsSent: 0,
 			smsFailed: 0,
+			telegramSent: 0,
+			telegramFailed: 0,
 		});
 		expect(processDailyDigestUserMock).not.toHaveBeenCalled();
 	});
@@ -155,6 +147,8 @@ describe("Daily digest dispatch (direct function call)", () => {
 			emailsFailed: 0,
 			smsSent: 0,
 			smsFailed: 0,
+			telegramSent: 0,
+			telegramFailed: 0,
 		});
 	});
 
@@ -180,6 +174,8 @@ describe("Daily digest dispatch (direct function call)", () => {
 			emailsFailed: 0,
 			smsSent: 0,
 			smsFailed: 0,
+			telegramSent: 0,
+			telegramFailed: 0,
 		});
 	});
 });

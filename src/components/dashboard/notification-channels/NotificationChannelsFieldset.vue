@@ -66,6 +66,10 @@
 					:sms-opted-out="props.smsOptedOut"
 				/>
 			</div>
+
+			<div class="py-4">
+				<ConnectTelegramCard />
+			</div>
 		</fieldset>
 
 		<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pt-2">
@@ -121,6 +125,7 @@ import { DASHBOARD_SECTION_HASHES, DASHBOARD_SECTION_IDS } from "../../../lib/co
 import StatusMessage from "../../StatusMessage.vue";
 import ToggleSwitch from "../../ToggleSwitch.vue";
 import TimePicker from "../shared/TimePicker.vue";
+import ConnectTelegramCard from "./ConnectTelegramCard.vue";
 import SmsVerificationSection from "./SmsVerificationSection.vue";
 
 interface Props {

@@ -5,7 +5,7 @@ import { POST as POSTTimezone } from "../../../src/pages/api/profile/timezone";
 import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
 import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
-import { createTestUser } from "../../helpers/test-user";
+import { createTestUser, setTestUserPrefs } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("A signed-in user dismisses the timezone mismatch banner.", () => {
@@ -97,10 +97,11 @@ describe("A signed-in user updates their timezone.", () => {
 			.from("users")
 			.update({
 				daily_digest_time: 540,
-				daily_digest_include_news_email: true,
 			})
 			.eq("id", testUser.id);
 		expect(dailyDigestError).toBeNull();
+		// Per-option facet now lives in notification_preferences (default off).
+		await setTestUserPrefs(testUser.id, [["daily_digest", "news", "email", true]]);
 
 		const { data: beforeUpdate } = await adminClient
 			.from("users")

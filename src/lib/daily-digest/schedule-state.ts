@@ -1,6 +1,7 @@
 import { DateTime, type DateTime as DateTimeType } from "luxon";
 import type { Logger } from "../logging";
 import { shouldSendSms } from "../messaging/sms/index";
+import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { UserRecord } from "../messaging/types";
 import { computeDeliveryRetryDelayMs } from "../providers/vendor-fault-tolerance";
 import {
@@ -17,7 +18,7 @@ async function getChannelStatus(options: {
 	userId: string;
 	scheduledDate: string;
 	scheduledMinutes: number;
-	channel: "email" | "sms";
+	channel: "email" | "sms" | "telegram";
 }): Promise<{ status: ChannelStatus; attemptCount: number }> {
 	const { data, error } = await options.supabase
 		.from("scheduled_notifications")
@@ -55,8 +56,17 @@ export async function shouldAdvanceDailyDigestSchedule(options: {
 	scheduledMinutes: number;
 	emailRequired: boolean;
 	smsRequired: boolean;
+	telegramRequired?: boolean;
 }): Promise<boolean> {
-	const { supabase, user, scheduledDate, scheduledMinutes, emailRequired, smsRequired } = options;
+	const {
+		supabase,
+		user,
+		scheduledDate,
+		scheduledMinutes,
+		emailRequired,
+		smsRequired,
+		telegramRequired,
+	} = options;
 
 	if (emailRequired) {
 		const email = await getChannelStatus({
@@ -80,6 +90,19 @@ export async function shouldAdvanceDailyDigestSchedule(options: {
 			channel: "sms",
 		});
 		if (!channelIsTerminal(sms.status, sms.attemptCount)) {
+			return false;
+		}
+	}
+
+	if (telegramRequired && isTelegramChannelUsable(user)) {
+		const telegram = await getChannelStatus({
+			supabase,
+			userId: user.id,
+			scheduledDate,
+			scheduledMinutes,
+			channel: "telegram",
+		});
+		if (!channelIsTerminal(telegram.status, telegram.attemptCount)) {
 			return false;
 		}
 	}

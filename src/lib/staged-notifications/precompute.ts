@@ -47,6 +47,8 @@ export async function precomputeDailyDigest(options: {
 		emailsFailed: 0,
 		smsSent: 0,
 		smsFailed: 0,
+		telegramSent: 0,
+		telegramFailed: 0,
 	};
 
 	const afterTimeIso = toIsoOrThrow(currentTime, "Failed to format afterTime");

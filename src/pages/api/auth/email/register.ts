@@ -6,6 +6,7 @@ import { getSiteUrl } from "../../../../lib/db/env";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
 import { createLogger, type Logger } from "../../../../lib/logging";
+import { buildDefaultPreferenceRows } from "../../../../lib/messaging/notification-prefs";
 import { resolveTimezone } from "../../../../lib/time/cache";
 
 async function cleanupOrphanedAuthUser(
@@ -113,6 +114,24 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 				"Failed to create user profile",
 				{ userId: data.user.id, email: trimmedEmail },
 				profileError,
+			);
+			await cleanupOrphanedAuthUser(adminSupabase, data.user.id, logger);
+			return redirect("/auth/register?error=profile_creation_failed");
+		}
+
+		// Seed default notification_preferences rows (all channels). These replace the
+		// old per-column DEFAULTs on `users` (prices email+sms = on; everything else off).
+		// Without this, a new user would have zero preference rows once the columns are gone.
+		const { error: prefsError } = await adminSupabase
+			.from("notification_preferences")
+			.upsert(buildDefaultPreferenceRows(data.user.id), {
+				onConflict: "user_id,notification_type,content,channel",
+			});
+		if (prefsError) {
+			logger.error(
+				"Failed to seed default notification preferences",
+				{ userId: data.user.id },
+				prefsError,
 			);
 			await cleanupOrphanedAuthUser(adminSupabase, data.user.id, logger);
 			return redirect("/auth/register?error=profile_creation_failed");

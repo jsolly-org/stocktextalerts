@@ -11,10 +11,12 @@ import { describe, expect, it, vi } from "vitest";
 import { processDailyDigestUser } from "../../../src/lib/daily-digest/process";
 import { rootLogger } from "../../../src/lib/logging";
 import type { EmailSender } from "../../../src/lib/messaging/email/utils";
+import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
+import type { TelegramSender } from "../../../src/lib/messaging/telegram/sender";
 import type { UserRecord } from "../../../src/lib/messaging/types";
 import { adminClient } from "../../helpers/test-env";
-import { createTestUser } from "../../helpers/test-user";
+import { createTestUser, setTestUserPrefs } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 import { errorSpy, expectConsoleError } from "../../setup";
 
@@ -109,16 +111,6 @@ describe("Daily digest process scenarios", () => {
 			.from("users")
 			.update({
 				daily_digest_time: nineAmLocalMinutes,
-				daily_digest_include_news_email: false,
-				daily_digest_include_rumors_email: false,
-				asset_events_include_calendar_email: false,
-				asset_events_include_calendar_sms: false,
-				asset_events_include_ipo_email: false,
-				asset_events_include_ipo_sms: false,
-				asset_events_include_analyst_email: false,
-				asset_events_include_analyst_sms: false,
-				asset_events_include_insider_email: false,
-				asset_events_include_insider_sms: false,
 				daily_digest_next_send_at: nowIso,
 			})
 			.eq("id", id);
@@ -131,6 +123,8 @@ describe("Daily digest process scenarios", () => {
 			.single();
 		expect(selectError).toBeNull();
 		expect(userRow).not.toBeNull();
+		if (!userRow) throw new Error("expected seeded user row");
+		const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
 
 		const { data: before } = await adminClient
 			.from("users")
@@ -140,13 +134,16 @@ describe("Daily digest process scenarios", () => {
 		const nextSendAtBefore = before?.daily_digest_next_send_at;
 
 		const stats = await processDailyDigestUser({
-			user: userRow as UserRecord,
+			user: userWithPrefs as unknown as UserRecord,
 			supabase: adminClient,
 			logger: rootLogger,
 			currentTime: now,
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
 			getSmsSender: () => ({
 				sender: vi.fn<SmsSender>(async () => ({ success: true })),
+			}),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
 			}),
 		});
 
@@ -185,20 +182,11 @@ describe("Daily digest process scenarios", () => {
 			.from("users")
 			.update({
 				daily_digest_time: nineAmLocalMinutes,
-				daily_digest_include_news_email: false,
-				daily_digest_include_rumors_email: true,
-				asset_events_include_calendar_email: false,
-				asset_events_include_calendar_sms: false,
-				asset_events_include_ipo_email: false,
-				asset_events_include_ipo_sms: false,
-				asset_events_include_analyst_email: false,
-				asset_events_include_analyst_sms: false,
-				asset_events_include_insider_email: false,
-				asset_events_include_insider_sms: false,
 				daily_digest_next_send_at: nowIso,
 			})
 			.eq("id", id);
 		expect(updateError).toBeNull();
+		await setTestUserPrefs(id, [["daily_digest", "rumors", "email", true]]);
 
 		const { data: userRow, error: selectError } = await adminClient
 			.from("users")
@@ -207,6 +195,8 @@ describe("Daily digest process scenarios", () => {
 			.single();
 		expect(selectError).toBeNull();
 		expect(userRow).not.toBeNull();
+		if (!userRow) throw new Error("expected seeded user row");
+		const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
 
 		// Realistic AAPL quote during a regular session.
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
@@ -217,13 +207,16 @@ describe("Daily digest process scenarios", () => {
 		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const smsSender = vi.fn<SmsSender>(async () => ({ success: true }));
 		const stats = await processDailyDigestUser({
-			user: userRow as UserRecord,
+			user: userWithPrefs as unknown as UserRecord,
 			supabase: adminClient,
 			logger: rootLogger,
 			currentTime: now,
 			sendEmail,
 			getSmsSender: () => ({
 				sender: smsSender,
+			}),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
 			}),
 		});
 
@@ -282,18 +275,6 @@ describe("Daily digest process scenarios", () => {
 			.from("users")
 			.update({
 				daily_digest_time: sixThirtyPmLocalMinutes,
-				daily_digest_include_prices_email: true,
-				daily_digest_include_prices_sms: true,
-				daily_digest_include_news_email: false,
-				daily_digest_include_rumors_email: false,
-				asset_events_include_calendar_email: false,
-				asset_events_include_calendar_sms: false,
-				asset_events_include_ipo_email: false,
-				asset_events_include_ipo_sms: false,
-				asset_events_include_analyst_email: false,
-				asset_events_include_analyst_sms: false,
-				asset_events_include_insider_email: false,
-				asset_events_include_insider_sms: false,
 				daily_digest_next_send_at: saturdayInstant.toISO(),
 			})
 			.eq("id", id);
@@ -301,16 +282,21 @@ describe("Daily digest process scenarios", () => {
 
 		const { data: userRow } = await adminClient.from("users").select("*").eq("id", id).single();
 		expect(userRow).not.toBeNull();
+		if (!userRow) throw new Error("expected seeded user row");
+		const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
 
 		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const smsSender = vi.fn<SmsSender>(async () => ({ success: true }));
 		const stats = await processDailyDigestUser({
-			user: userRow as UserRecord,
+			user: userWithPrefs as unknown as UserRecord,
 			supabase: adminClient,
 			logger: rootLogger,
 			currentTime: saturdayInstant,
 			sendEmail,
 			getSmsSender: () => ({ sender: smsSender }),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
+			}),
 		});
 
 		expect(stats.skipped).toBe(0);
@@ -345,11 +331,10 @@ describe("Daily digest process scenarios", () => {
 			.from("users")
 			.update({
 				daily_digest_time: 9 * 60,
-				daily_digest_include_prices_sms: true,
-				daily_digest_include_news_email: true,
 				daily_digest_next_send_at: nowIso,
 			})
 			.eq("id", id);
+		await setTestUserPrefs(id, [["daily_digest", "news", "email", true]]);
 
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
 			prices: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 }]]),
@@ -358,15 +343,20 @@ describe("Daily digest process scenarios", () => {
 
 		const { data: userRow } = await adminClient.from("users").select("*").eq("id", id).single();
 		expect(userRow).not.toBeNull();
+		if (!userRow) throw new Error("expected seeded user row");
+		const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
 
 		await processDailyDigestUser({
-			user: userRow as UserRecord,
+			user: userWithPrefs as unknown as UserRecord,
 			supabase: adminClient,
 			logger: rootLogger,
 			currentTime: now,
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
 			getSmsSender: () => ({
 				sender: vi.fn<SmsSender>(async () => ({ success: true })),
+			}),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
 			}),
 		});
 
@@ -393,12 +383,11 @@ describe("Daily digest process scenarios", () => {
 			.from("users")
 			.update({
 				daily_digest_time: 9 * 60,
-				daily_digest_include_prices_email: true,
-				daily_digest_include_news_email: true,
 				daily_digest_next_send_at: nowIso,
 				grok_sends_in_window: 0,
 			})
 			.eq("id", id);
+		await setTestUserPrefs(id, [["daily_digest", "news", "email", true]]);
 
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
 			prices: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 }]]),
@@ -407,15 +396,20 @@ describe("Daily digest process scenarios", () => {
 
 		const { data: userRow } = await adminClient.from("users").select("*").eq("id", id).single();
 		expect(userRow).not.toBeNull();
+		if (!userRow) throw new Error("expected seeded user row");
+		const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
 
 		await processDailyDigestUser({
-			user: userRow as UserRecord,
+			user: userWithPrefs as unknown as UserRecord,
 			supabase: adminClient,
 			logger: rootLogger,
 			currentTime: now,
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
 			getSmsSender: () => ({
 				sender: vi.fn<SmsSender>(async () => ({ success: true })),
+			}),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
 			}),
 		});
 
@@ -445,7 +439,6 @@ describe("Daily digest process scenarios", () => {
 			.from("users")
 			.update({
 				daily_digest_time: 9 * 60,
-				daily_digest_include_prices_sms: true,
 				daily_digest_next_send_at: nowIso,
 			})
 			.eq("id", id);
@@ -457,6 +450,8 @@ describe("Daily digest process scenarios", () => {
 
 		const { data: userRow } = await adminClient.from("users").select("*").eq("id", id).single();
 		expect(userRow).not.toBeNull();
+		if (!userRow) throw new Error("expected seeded user row");
+		const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
 
 		const { data: before } = await adminClient
 			.from("users")
@@ -465,7 +460,7 @@ describe("Daily digest process scenarios", () => {
 			.single();
 
 		await processDailyDigestUser({
-			user: userRow as UserRecord,
+			user: userWithPrefs as unknown as UserRecord,
 			supabase: adminClient,
 			logger: rootLogger,
 			currentTime: now,
@@ -475,6 +470,9 @@ describe("Daily digest process scenarios", () => {
 					success: false,
 					error: "simulated SMS failure",
 				})),
+			}),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
 			}),
 		});
 
@@ -506,13 +504,12 @@ describe("Daily digest process scenarios", () => {
 			.from("users")
 			.update({
 				daily_digest_time: 9 * 60,
-				daily_digest_include_prices_email: true,
-				daily_digest_include_news_email: true,
 				daily_digest_next_send_at: nowIso,
 				grok_sends_in_window: 999,
 				grok_window_start: nowIso,
 			})
 			.eq("id", id);
+		await setTestUserPrefs(id, [["daily_digest", "news", "email", true]]);
 
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
 			prices: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 }]]),
@@ -521,15 +518,20 @@ describe("Daily digest process scenarios", () => {
 
 		const { data: userRow } = await adminClient.from("users").select("*").eq("id", id).single();
 		expect(userRow).not.toBeNull();
+		if (!userRow) throw new Error("expected seeded user row");
+		const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
 
 		await processDailyDigestUser({
-			user: userRow as UserRecord,
+			user: userWithPrefs as unknown as UserRecord,
 			supabase: adminClient,
 			logger: rootLogger,
 			currentTime: now,
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
 			getSmsSender: () => ({
 				sender: vi.fn<SmsSender>(async () => ({ success: true })),
+			}),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
 			}),
 		});
 

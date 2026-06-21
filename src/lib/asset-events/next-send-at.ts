@@ -1,5 +1,6 @@
 import type { DateTime } from "luxon";
 import type { Logger } from "../logging";
+import { anyFacetEnabled } from "../messaging/notification-prefs";
 import type { UserRecord } from "../messaging/types";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 import { updateUserNextSendAtSingleTime } from "../time/update-user-next-send-at";
@@ -19,15 +20,11 @@ export async function updateUserAssetEventsNextSendAt(options: {
 	logger: Logger;
 	currentTime: DateTime;
 }): Promise<void> {
+	const prefs = options.user.prefs;
 	const hasAssetEventsOption =
-		options.user.asset_events_include_calendar_email ||
-		options.user.asset_events_include_calendar_sms ||
-		options.user.asset_events_include_ipo_email ||
-		options.user.asset_events_include_ipo_sms ||
-		options.user.asset_events_include_analyst_email ||
-		options.user.asset_events_include_analyst_sms ||
-		options.user.asset_events_include_insider_email ||
-		options.user.asset_events_include_insider_sms;
+		anyFacetEnabled(prefs, "asset_events", "email") ||
+		anyFacetEnabled(prefs, "asset_events", "sms") ||
+		anyFacetEnabled(prefs, "asset_events", "telegram");
 
 	return updateUserNextSendAtSingleTime({
 		...options,

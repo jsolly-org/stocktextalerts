@@ -7,6 +7,7 @@ import { renderIntradaySparklineImg } from "../../messaging/email/intraday-spark
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
 import type { EmailSender } from "../../messaging/email/utils";
 import { type createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
+import { isFacetEnabled } from "../../messaging/notification-prefs";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
@@ -19,8 +20,13 @@ import {
 	toSparkline,
 } from "../../messaging/sparkline";
 import { toSvgSparklineImg } from "../../messaging/svg-sparkline";
+import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/telegram/eligibility";
+import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
+import { formatPriceAlertTelegram } from "../../messaging/telegram/price-alert";
+import type { TelegramSender } from "../../messaging/telegram/sender";
 import type { IntradayBarsResult } from "../../providers/massive";
 import type { ExtendedAssetQuote } from "../../providers/price-fetcher";
+import type { EnrichedAlert } from "../enrichment";
 import type { FlatPriceAlertUser } from "./users";
 
 /** Per-run delivery counters. */
@@ -29,7 +35,40 @@ export interface FlatPriceAlertDeliveryStats {
 	emailsFailed: number;
 	smsSent: number;
 	smsFailed: number;
+	telegramSent: number;
+	telegramFailed: number;
 	logFailures: number;
+}
+
+/**
+ * Build a minimal `EnrichedAlert` from flat-price-alert data so the shared
+ * `formatPriceAlertTelegram` renderer (bold ticker + price line + optional
+ * candlestick chart) can be reused. Flat alerts carry no Grok/anomaly context,
+ * so `signalContext`/`grokResult` are empty.
+ */
+function buildFlatAlertEnriched(options: {
+	symbol: string;
+	quote: ExtendedAssetQuote;
+	triggerPercent: number;
+	since: string;
+	intraday: IntradayBarsResult | null;
+}): EnrichedAlert {
+	const { symbol, quote, triggerPercent, since, intraday } = options;
+	const direction = triggerPercent >= 0 ? "up" : "down";
+	const absPct = Math.abs(triggerPercent).toFixed(1);
+	return {
+		symbol,
+		priceContext: `${symbol} is ${direction} ${absPct}% ${since} ($${quote.price.toFixed(2)})`,
+		signalContext: "",
+		grokContext: "",
+		grokResult: null,
+		intradayCloses: intraday?.closes ?? null,
+		intradayTimestamps: intraday?.timestamps ?? null,
+		intradayEndTimestamp: intraday?.endTimestamp ?? null,
+		intradayCandles: intraday?.candles ?? null,
+		prevClose: quote.prevClose,
+		isPositiveMove: triggerPercent >= 0,
+	};
 }
 
 /** Unicode-block sparkline cap for SMS. UCS-2 segments fit 70 chars; keep the
@@ -396,6 +435,8 @@ export async function deliverFlatPriceAlert(options: {
 	supabase: AppSupabaseClient;
 	sendEmail: EmailSender;
 	sendSms: SmsSender | null;
+	/** Telegram sender, threaded the same way as `sendSms` (lazy provider in process.ts). */
+	sendTelegram?: TelegramSender | null;
 	logoCache: ReturnType<typeof createLogoCache>;
 	stats: FlatPriceAlertDeliveryStats;
 }): Promise<boolean> {
@@ -417,6 +458,7 @@ export async function deliverFlatPriceAlert(options: {
 		supabase,
 		sendEmail,
 		sendSms,
+		sendTelegram,
 		logoCache,
 		stats,
 	} = options;
@@ -424,7 +466,10 @@ export async function deliverFlatPriceAlert(options: {
 	let delivered = false;
 
 	// Email
-	if (user.price_move_alerts_include_email && user.email_notifications_enabled) {
+	if (
+		isFacetEnabled(user.prefs, "price_move_alerts", "email") &&
+		user.email_notifications_enabled
+	) {
 		const logoDataUri = await fetchLogoBase64(symbol, iconUrl, logoCache, iconBase64, supabase);
 		const logoHtml = logoDataUri ? renderLogoImg(logoDataUri) : undefined;
 
@@ -483,7 +528,7 @@ export async function deliverFlatPriceAlert(options: {
 	}
 
 	// SMS
-	if (user.price_move_alerts_include_sms && sendSms) {
+	if (isFacetEnabled(user.prefs, "price_move_alerts", "sms") && sendSms) {
 		if (!shouldSendSms(user)) {
 			rootLogger.info("Flat price alert SMS skipped: user not eligible", {
 				userId: user.id,
@@ -523,6 +568,55 @@ export async function deliverFlatPriceAlert(options: {
 				delivery_method: "sms",
 				message_delivered: result.success,
 				message: smsBody,
+				...deliveryResultToLogFields(result),
+			});
+			if (!logged) stats.logFailures++;
+		}
+	}
+
+	// Telegram delivery (additive; never alters the email/SMS paths above). Real-time
+	// alert — no claim RPC; the per-symbol flat-alert reservation already deduped this
+	// symbol×user, so Telegram piggybacks. Only query per-option prefs for users whose
+	// channel is usable (linked + not opted out).
+	if (sendTelegram && isTelegramChannelUsable(user)) {
+		if (shouldSendTelegram(user, user.prefs, "price_move_alerts")) {
+			const since =
+				isReTrigger && lastNotificationAt !== null
+					? formatRelativeMinutesAgo(lastNotificationAt.getTime(), nowMs)
+					: "today";
+			const enriched = buildFlatAlertEnriched({ symbol, quote, triggerPercent, since, intraday });
+			const { text, entities, photo } = formatPriceAlertTelegram(
+				enriched,
+				enriched.intradayCandles ?? [],
+			);
+			const result = await sendTelegram({
+				// telegram_chat_id is non-null here: isTelegramChannelUsable requires it.
+				chatId: user.telegram_chat_id as number,
+				text,
+				entities,
+				...(photo ? { photo } : {}),
+			});
+
+			if (result.success) {
+				stats.telegramSent++;
+				delivered = true;
+			} else {
+				stats.telegramFailed++;
+				rootLogger.error(
+					"Failed to send flat price alert Telegram message",
+					{ userId: user.id, symbol, triggerPercent, errorCode: result.errorCode ?? null },
+					new Error(result.error ?? "Flat price alert Telegram send failed"),
+				);
+			}
+
+			await optOutIfBotBlocked(supabase, user.id, result);
+
+			const logged = await recordNotification(supabase, {
+				user_id: user.id,
+				type: "flat_price_alert",
+				delivery_method: "telegram",
+				message_delivered: result.success,
+				message: text,
 				...deliveryResultToLogFields(result),
 			});
 			if (!logged) stats.logFailures++;

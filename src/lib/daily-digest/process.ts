@@ -9,9 +9,12 @@ import { createErrorForLogging } from "../logging/errors";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/delay-banner";
 import type { EmailSender } from "../messaging/email/utils";
 import { safePrefetchLogos } from "../messaging/logo-fetcher";
+import { buildMarketClosedBannerText } from "../messaging/market-closure-banner";
+import { anyFacetEnabled, enabledFacets, isFacetEnabled } from "../messaging/notification-prefs";
 import { shouldSendSms } from "../messaging/sms";
 import type { SmsExtras } from "../messaging/sms/delivery";
 import type { SparklineMap } from "../messaging/sparkline";
+import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { UserRecord } from "../messaging/types";
 import { buildNewsContextForGrok, fetchFinnhubExtras } from "../providers/finnhub";
 import type { GrokSectionResult } from "../providers/grok";
@@ -29,6 +32,7 @@ import { withOptionalVendorBudget } from "../providers/vendor-fault-tolerance";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
+import type { TelegramSenderProvider } from "../schedule/telegram-sender";
 import { upsertStagedNotification } from "../staged-notifications/db";
 import type { StagedDailyData } from "../staged-notifications/types";
 import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
@@ -38,6 +42,7 @@ import {
 	formatDailyDigestSmsMessageBodies,
 	processDailyDigestEmailDelivery,
 	processDailyDigestSmsDelivery,
+	processDailyDigestTelegramDelivery,
 } from "./delivery";
 import { updateUserDailyDigestNextSendAt } from "./next-send-at";
 import {
@@ -260,6 +265,7 @@ export async function processDailyDigestUser(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
+	getTelegramSender: TelegramSenderProvider;
 	/** When true, stage content for later delivery instead of sending now. */
 	stageOnly?: boolean;
 	/** Pre-fetched market open status (avoids per-user API calls in fan-out). */
@@ -274,6 +280,8 @@ export async function processDailyDigestUser(options: {
 		emailsFailed: 0,
 		smsSent: 0,
 		smsFailed: 0,
+		telegramSent: 0,
+		telegramFailed: 0,
 	};
 	const {
 		user,
@@ -282,6 +290,7 @@ export async function processDailyDigestUser(options: {
 		currentTime,
 		sendEmail,
 		getSmsSender,
+		getTelegramSender,
 		stageOnly,
 		marketOpen: marketOpenParam,
 		marketClosureInfo: marketClosureInfoParam,
@@ -308,14 +317,8 @@ export async function processDailyDigestUser(options: {
 		const delayBannerHtml = stageOnly ? null : buildDelayBannerHtml(delayBannerOpts);
 
 		const hasAnyAssetEventsOption =
-			user.asset_events_include_calendar_email ||
-			user.asset_events_include_calendar_sms ||
-			user.asset_events_include_ipo_email ||
-			user.asset_events_include_ipo_sms ||
-			user.asset_events_include_analyst_email ||
-			user.asset_events_include_analyst_sms ||
-			user.asset_events_include_insider_email ||
-			user.asset_events_include_insider_sms;
+			anyFacetEnabled(user.prefs, "asset_events", "email") ||
+			anyFacetEnabled(user.prefs, "asset_events", "sms");
 
 		const userAssets = await loadUserAssets(supabase, user.id, {
 			includeLogoData: true,
@@ -325,9 +328,18 @@ export async function processDailyDigestUser(options: {
 		const emailEnabled = user.email_notifications_enabled;
 		const smsEnabled = shouldSendSms(user);
 
+		// All channel preferences (incl. Telegram) live in notification_preferences,
+		// carried on user.prefs. Telegram still gates on the usable-channel check
+		// (linked + not opted out) in addition to a per-option facet row.
+		const telegramFacets = enabledFacets(user.prefs, "daily_digest", "telegram");
+		const telegramEnabled = isTelegramChannelUsable(user) && telegramFacets.size > 0;
+		const wantsTopMoversTelegram = telegramEnabled && telegramFacets.has("top_movers");
+		const includePricesTelegram = telegramEnabled && telegramFacets.has("prices");
+
 		const needsGrok =
 			emailEnabled &&
-			(user.daily_digest_include_news_email || user.daily_digest_include_rumors_email);
+			(isFacetEnabled(user.prefs, "daily_digest", "email", "news") ||
+				isFacetEnabled(user.prefs, "daily_digest", "email", "rumors"));
 		const { grokAllowed } = resolveGrokEligibility(
 			user,
 			needsGrok,
@@ -337,11 +349,13 @@ export async function processDailyDigestUser(options: {
 			scheduledMinutes,
 		);
 
-		const wantsTopMoversEmail = user.daily_digest_include_top_movers_email && emailEnabled;
-		const wantsTopMoversSms = user.daily_digest_include_top_movers_sms && smsEnabled;
-		const wantsTopMovers = wantsTopMoversEmail || wantsTopMoversSms;
+		const wantsTopMoversEmail =
+			isFacetEnabled(user.prefs, "daily_digest", "email", "top_movers") && emailEnabled;
+		const wantsTopMoversSms =
+			isFacetEnabled(user.prefs, "daily_digest", "sms", "top_movers") && smsEnabled;
+		const wantsTopMovers = wantsTopMoversEmail || wantsTopMoversSms || wantsTopMoversTelegram;
 
-		if (!emailEnabled && !smsEnabled) {
+		if (!emailEnabled && !smsEnabled && !telegramEnabled) {
 			stats.skipped++;
 			if (!stageOnly) {
 				await updateUserDailyDigestNextSendAt({
@@ -354,9 +368,12 @@ export async function processDailyDigestUser(options: {
 			return stats;
 		}
 
-		const includePricesEmail = user.daily_digest_include_prices_email;
-		const includePricesSms = user.daily_digest_include_prices_sms;
-		const needsPrices = (includePricesEmail && emailEnabled) || (includePricesSms && smsEnabled);
+		const includePricesEmail = isFacetEnabled(user.prefs, "daily_digest", "email", "prices");
+		const includePricesSms = isFacetEnabled(user.prefs, "daily_digest", "sms", "prices");
+		const needsPrices =
+			(includePricesEmail && emailEnabled) ||
+			(includePricesSms && smsEnabled) ||
+			includePricesTelegram;
 
 		// Resolve the market session once for this user so the price fetch
 		// below and the marketOpen derivation later share a single
@@ -503,7 +520,10 @@ export async function processDailyDigestUser(options: {
 		============= */
 		let newsContext: string | undefined;
 		const wantsNewsContext =
-			emailEnabled && grokAllowed && user.daily_digest_include_news_email && tickers.length > 0;
+			emailEnabled &&
+			grokAllowed &&
+			isFacetEnabled(user.prefs, "daily_digest", "email", "news") &&
+			tickers.length > 0;
 		if (wantsNewsContext) {
 			const finnhubNews = await fetchFinnhubExtras(tickers, {
 				includeNews: true,
@@ -519,7 +539,7 @@ export async function processDailyDigestUser(options: {
 
 		if (grokAllowed && emailEnabled) {
 			[newsResult, rumorsResult] = await Promise.all([
-				user.daily_digest_include_news_email
+				isFacetEnabled(user.prefs, "daily_digest", "email", "news")
 					? generateNewsWithGrok({
 							tickers,
 							localDateIso: scheduledDate,
@@ -527,7 +547,7 @@ export async function processDailyDigestUser(options: {
 							finnhubNewsContext: newsContext || undefined,
 						})
 					: Promise.resolve(null),
-				user.daily_digest_include_rumors_email
+				isFacetEnabled(user.prefs, "daily_digest", "email", "rumors")
 					? generateRumorsWithGrok({
 							tickers,
 							localDateIso: scheduledDate,
@@ -570,17 +590,8 @@ export async function processDailyDigestUser(options: {
 
 		if (hasAnyAssetEventsOption) {
 			const wantsAssetEventsEmail =
-				emailEnabled &&
-				(user.asset_events_include_calendar_email ||
-					user.asset_events_include_ipo_email ||
-					user.asset_events_include_analyst_email ||
-					user.asset_events_include_insider_email);
-			const wantsAssetEventsSms =
-				smsEnabled &&
-				(user.asset_events_include_calendar_sms ||
-					user.asset_events_include_ipo_sms ||
-					user.asset_events_include_analyst_sms ||
-					user.asset_events_include_insider_sms);
+				emailEnabled && anyFacetEnabled(user.prefs, "asset_events", "email");
+			const wantsAssetEventsSms = smsEnabled && anyFacetEnabled(user.prefs, "asset_events", "sms");
 
 			const assetEventChannels: Array<"email" | "sms"> = [];
 			if (wantsAssetEventsEmail) assetEventChannels.push("email");
@@ -620,10 +631,26 @@ export async function processDailyDigestUser(options: {
 		const emailExtras = emailEnabled ? buildExtras("email") : null;
 		const smsExtras = smsEnabled ? buildExtras("sms") : null;
 
+		// Telegram extras: v1 carries prices (+ top movers when that facet is on
+		// for Telegram). Grok news/rumors are intentionally omitted on Telegram —
+		// see the dispatch wiring note. Reuses the rich (email-style) topMovers
+		// section already fetched above.
+		const telegramExtras: SmsExtras | null = telegramEnabled
+			? {
+					news: null,
+					rumors: null,
+					analyst: null,
+					insider: null,
+					topMovers: wantsTopMoversTelegram ? topMoversSection : null,
+				}
+			: null;
+
 		const emailPriceAssets = includePricesEmail ? userAssets : [];
 		const emailPriceMap = includePricesEmail ? assetPrices : new Map();
 		const smsPriceAssets = includePricesSms ? userAssets : [];
 		const smsPriceMap = includePricesSms ? assetPrices : new Map();
+		const telegramPriceAssets = includePricesTelegram ? userAssets : [];
+		const telegramPriceMap = includePricesTelegram ? assetPrices : new Map();
 		const hasEmailContent = !!(
 			(includePricesEmail && userAssets.length > 0 && emailEnabled) ||
 			emailExtras?.news ||
@@ -636,8 +663,12 @@ export async function processDailyDigestUser(options: {
 			(smsEnabled && smsExtras?.topMovers) ||
 			smsAssetEvents?.hasAnyContent
 		);
+		const hasTelegramContent = !!(
+			(includePricesTelegram && userAssets.length > 0) ||
+			telegramExtras?.topMovers
+		);
 
-		if (!hasEmailContent && !hasSmsContent) {
+		if (!hasEmailContent && !hasSmsContent && !hasTelegramContent) {
 			logger.info("Skipping daily digest: no content available", {
 				action: "daily_run",
 				reason: "no_content",
@@ -785,6 +816,28 @@ export async function processDailyDigestUser(options: {
 			});
 		}
 
+		if (hasTelegramContent && telegramExtras) {
+			const dateLabel = dueAtLocal.isValid
+				? dueAtLocal.toFormat("ccc, LLL d")
+				: (scheduledDate ?? "");
+			const telegramMarketBanner =
+				marketOpen === false ? buildMarketClosedBannerText(marketClosureInfo) : null;
+			await processDailyDigestTelegramDelivery({
+				user,
+				supabase,
+				logger,
+				scheduledDate,
+				scheduledMinutes,
+				userAssets: telegramPriceAssets,
+				assetPrices: telegramPriceMap,
+				extras: telegramExtras,
+				dateLabel,
+				marketClosedBanner: telegramMarketBanner,
+				getTelegramSender,
+				stats,
+			});
+		}
+
 		await updateGrokSendCounter(user, supabase, grokAllowed, stats, currentTime, logger);
 
 		/* =============
@@ -792,6 +845,7 @@ export async function processDailyDigestUser(options: {
 		============= */
 		const emailRequired = hasEmailContent && emailEnabled;
 		const smsRequired = hasSmsContent && smsEnabled;
+		const telegramRequired = hasTelegramContent && telegramEnabled;
 		const canAdvance = await shouldAdvanceDailyDigestSchedule({
 			supabase,
 			user,
@@ -799,6 +853,7 @@ export async function processDailyDigestUser(options: {
 			scheduledMinutes,
 			emailRequired,
 			smsRequired,
+			telegramRequired,
 		});
 
 		if (canAdvance) {
@@ -825,6 +880,7 @@ export async function processDailyDigestUser(options: {
 				scheduledMinutes,
 				emailRequired,
 				smsRequired,
+				telegramRequired,
 			});
 		}
 

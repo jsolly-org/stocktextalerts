@@ -8,6 +8,7 @@ import {
 	type PriceTargetDeliveryStats,
 } from "../../../src/lib/price-targets/delivery";
 import type { PriceTargetUser, TriggeredPriceTarget } from "../../../src/lib/price-targets/process";
+import { makePrefRows } from "../../helpers/user-record-fixture";
 
 function makeSupabaseMock(): AppSupabaseClient {
 	return {
@@ -23,6 +24,8 @@ function makeStats(): PriceTargetDeliveryStats {
 		emailsFailed: 0,
 		smsSent: 0,
 		smsFailed: 0,
+		telegramSent: 0,
+		telegramFailed: 0,
 		logFailures: 0,
 	};
 }
@@ -46,8 +49,12 @@ function makeUser(overrides: Partial<PriceTargetUser> = {}): PriceTargetUser {
 		phone_verified: true,
 		sms_notifications_enabled: true,
 		sms_opted_out: false,
-		price_targets_include_email: true,
-		price_targets_include_sms: true,
+		telegram_chat_id: null,
+		telegram_opted_out: false,
+		prefs: makePrefRows([
+			["price_targets", "", "email", true],
+			["price_targets", "", "sms", true],
+		]),
 		...overrides,
 	};
 }
@@ -68,7 +75,12 @@ describe("Price target alert delivery", () => {
 		const stats = makeStats();
 
 		await deliverPriceTargetAlert({
-			user: makeUser({ price_targets_include_sms: false }),
+			user: makeUser({
+				prefs: makePrefRows([
+					["price_targets", "", "email", true],
+					["price_targets", "", "sms", false],
+				]),
+			}),
 			target: makeTarget(),
 			supabase: makeSupabaseMock(),
 			sendEmail,
@@ -151,7 +163,12 @@ describe("Price target alert delivery", () => {
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 		await deliverPriceTargetAlert({
-			user: makeUser({ price_targets_include_sms: true }),
+			user: makeUser({
+				prefs: makePrefRows([
+					["price_targets", "", "email", true],
+					["price_targets", "", "sms", true],
+				]),
+			}),
 			target: makeTarget(),
 			supabase: makeSupabaseMock(),
 			sendEmail,
@@ -170,7 +187,12 @@ describe("Price target alert delivery", () => {
 		const stats = makeStats();
 
 		await deliverPriceTargetAlert({
-			user: makeUser({ price_targets_include_sms: false }),
+			user: makeUser({
+				prefs: makePrefRows([
+					["price_targets", "", "email", true],
+					["price_targets", "", "sms", false],
+				]),
+			}),
 			target: makeTarget({
 				direction: "below",
 				targetPrice: 150,

@@ -1,6 +1,9 @@
 import { rootLogger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
+import { attachPrefsToUsers } from "../messaging/load-prefs";
 import { createLogoCache } from "../messaging/logo-fetcher";
+import { isFacetEnabled, type PrefRow } from "../messaging/notification-prefs";
+import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import {
 	type ExtendedQuoteMap,
 	fetchExtendedQuotes,
@@ -9,6 +12,7 @@ import {
 } from "../providers/price-fetcher";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 import { createSmsSenderProvider } from "../schedule/sms-sender";
+import { createTelegramSenderProvider } from "../schedule/telegram-sender";
 import { deliverPriceTargetAlert, type PriceTargetDeliveryStats } from "./delivery";
 
 export interface PriceTargetUser {
@@ -19,8 +23,12 @@ export interface PriceTargetUser {
 	phone_verified: boolean;
 	sms_notifications_enabled: boolean;
 	sms_opted_out: boolean;
-	price_targets_include_email: boolean;
-	price_targets_include_sms: boolean;
+	/** Linked Telegram chat (null when never linked); gates the Telegram delivery branch. */
+	telegram_chat_id: number | null;
+	/** True after a verified outbound 403 ("bot blocked"); suppresses Telegram delivery. */
+	telegram_opted_out: boolean;
+	/** Per-option channel preferences (single source of truth for all channels). */
+	prefs: PrefRow[];
 }
 
 export interface TriggeredPriceTarget {
@@ -66,6 +74,8 @@ export async function processPriceTargets(options: {
 		emailsFailed: 0,
 		smsSent: 0,
 		smsFailed: 0,
+		telegramSent: 0,
+		telegramFailed: 0,
 		logFailures: 0,
 	};
 
@@ -102,10 +112,10 @@ export async function processPriceTargets(options: {
 	const { data: userData, error: usersError } = await (supabase
 		.from("users")
 		.select(
-			"id, email, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, price_targets_include_email, price_targets_include_sms",
+			"id, email, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, telegram_chat_id, telegram_opted_out",
 		)
 		.in("id", userIds) as unknown as Promise<{
-		data: PriceTargetUser[] | null;
+		data: Omit<PriceTargetUser, "prefs">[] | null;
 		error: unknown;
 	}>);
 
@@ -118,8 +128,10 @@ export async function processPriceTargets(options: {
 		return totals;
 	}
 
+	// Per-option price_targets facet lives in notification_preferences; batch-load it.
+	const usersWithPrefs = await attachPrefsToUsers(supabase, userData);
 	const userMap = new Map<string, PriceTargetUser>();
-	for (const u of userData) {
+	for (const u of usersWithPrefs) {
 		userMap.set(u.id, u);
 	}
 
@@ -150,9 +162,10 @@ export async function processPriceTargets(options: {
 	// Fetch icon URLs for triggered symbols (for email logos)
 	const iconUrlMap = new Map<string, string | null>();
 	const iconBase64Map = new Map<string, string | null>();
-	const hasAnyEmailTargets = activeTargets.some(
-		(t) => userMap.get(t.user_id)?.price_targets_include_email,
-	);
+	const hasAnyEmailTargets = activeTargets.some((t) => {
+		const u = userMap.get(t.user_id);
+		return u ? isFacetEnabled(u.prefs, "price_targets", "email") : false;
+	});
 	if (hasAnyEmailTargets) {
 		const { data: iconRows, error: iconRowsError } = await supabase
 			.from("assets")
@@ -179,6 +192,8 @@ export async function processPriceTargets(options: {
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 	let smsSender: ReturnType<typeof getSmsSender>["sender"] | null = null;
+	const getTelegramSender = createTelegramSenderProvider();
+	let telegramSender: ReturnType<typeof getTelegramSender>["sender"] | null = null;
 	const logoCache = createLogoCache();
 
 	for (const target of activeTargets) {
@@ -223,8 +238,13 @@ export async function processPriceTargets(options: {
 		}
 
 		const hasEnabledChannel =
-			user.price_targets_include_email ||
-			(user.price_targets_include_sms && user.sms_notifications_enabled && !user.sms_opted_out);
+			isFacetEnabled(user.prefs, "price_targets", "email") ||
+			(isFacetEnabled(user.prefs, "price_targets", "sms") &&
+				user.sms_notifications_enabled &&
+				!user.sms_opted_out) ||
+			// Telegram-linked users may receive the alert even with email/SMS off; the
+			// per-option Telegram pref is checked in deliverPriceTargetAlert.
+			isTelegramChannelUsable(user);
 
 		if (!hasEnabledChannel) {
 			const { error: deleteError } = await supabase
@@ -285,12 +305,26 @@ export async function processPriceTargets(options: {
 		totals.targetsTriggered++;
 
 		// Initialize SMS sender lazily
-		if (user.price_targets_include_sms && !smsSender) {
+		if (isFacetEnabled(user.prefs, "price_targets", "sms") && !smsSender) {
 			try {
 				smsSender = getSmsSender().sender;
 			} catch (error) {
 				rootLogger.error(
 					"Failed to initialize SMS sender for price targets",
+					{ action: "price_targets" },
+					error,
+				);
+			}
+		}
+
+		// Initialize Telegram sender lazily for any user with a usable channel; the
+		// per-option pref is checked inside deliverPriceTargetAlert.
+		if (isTelegramChannelUsable(user) && !telegramSender) {
+			try {
+				telegramSender = getTelegramSender().sender;
+			} catch (error) {
+				rootLogger.error(
+					"Failed to initialize Telegram sender for price targets",
 					{ action: "price_targets" },
 					error,
 				);
@@ -305,6 +339,7 @@ export async function processPriceTargets(options: {
 				supabase,
 				sendEmail,
 				sendSms: smsSender,
+				sendTelegram: telegramSender,
 				stats: totals,
 				logoCache,
 			});

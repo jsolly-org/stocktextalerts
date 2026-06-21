@@ -10,6 +10,7 @@ export async function shouldAdvanceAssetEventsSchedule(options: {
 	scheduledMinutes: number;
 	emailRequired: boolean;
 	smsRequired: boolean;
+	telegramRequired?: boolean;
 }): Promise<boolean> {
 	return shouldAdvanceScheduledNotificationSchedule({
 		...options,

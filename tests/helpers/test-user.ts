@@ -1,12 +1,43 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
 import type { TablesInsert } from "../../src/lib/db/generated/database.types";
+import {
+	buildDefaultPreferenceRows,
+	type PrefChannel,
+} from "../../src/lib/messaging/notification-prefs";
 import { userLocalToEtMinute } from "../../src/lib/time/format";
 import { calculateNextSendAtFromTimes } from "../../src/lib/time/scheduled-times";
 import { getAssetData } from "./asset-data";
 import { upsertAssets } from "./asset-db";
 import { PRESERVED_TEST_EMAIL, TEST_RUN_ID } from "./constants";
 import { adminClient } from "./test-env";
+
+/**
+ * Upsert notification_preferences rows for a test user.
+ *
+ * Per-option channel preferences are the single source of truth — tests that used
+ * to set `users.*_include_*` columns set table rows instead. Each spec is
+ * `[notification_type, content, channel, enabled]` (content "" for market types).
+ */
+export async function setTestUserPrefs(
+	userId: string,
+	specs: ReadonlyArray<[string, string, PrefChannel, boolean]>,
+): Promise<void> {
+	if (specs.length === 0) return;
+	const rows = specs.map(([notification_type, content, channel, enabled]) => ({
+		user_id: userId,
+		notification_type,
+		content,
+		channel,
+		enabled,
+	}));
+	const { error } = await adminClient
+		.from("notification_preferences")
+		.upsert(rows, { onConflict: "user_id,notification_type,content,channel" });
+	if (error) {
+		throw new Error(`setTestUserPrefs failed: ${error.message}`);
+	}
+}
 
 export function generateUniquePhoneNumber(): string {
 	const suffix = randomInt(1_000_000, 9_999_999);
@@ -213,10 +244,6 @@ export async function createTestUser(options: CreateTestUserOptions = {}): Promi
 			sms_opted_out: options.smsOptedOut ?? false,
 			market_scheduled_asset_price_times: finalMarketScheduledPriceTimes,
 			market_scheduled_asset_price_next_send_at: nextSendAtIso,
-			market_scheduled_asset_price_include_email:
-				options.marketScheduledAssetPriceIncludeEmail ?? options.emailNotificationsEnabled ?? false,
-			market_scheduled_asset_price_include_sms:
-				options.marketScheduledAssetPriceIncludeSms ?? smsNotificationsEnabled,
 		};
 
 		const { error: profileError } = await adminClient
@@ -225,6 +252,27 @@ export async function createTestUser(options: CreateTestUserOptions = {}): Promi
 
 		if (profileError) {
 			throw new Error(`Profile setup failed: ${profileError.message}`);
+		}
+
+		// Per-option channel preferences live in notification_preferences. Seed the
+		// default rows (prices email+sms on; everything else off), then apply the
+		// scheduled-market overrides the test requested.
+		const defaultRows = buildDefaultPreferenceRows(userId);
+		const scheduledIncludeEmail =
+			options.marketScheduledAssetPriceIncludeEmail ?? options.emailNotificationsEnabled ?? false;
+		const scheduledIncludeSms =
+			options.marketScheduledAssetPriceIncludeSms ?? smsNotificationsEnabled;
+		for (const row of defaultRows) {
+			if (row.notification_type === "market_scheduled_asset_price" && row.content === "") {
+				if (row.channel === "email") row.enabled = scheduledIncludeEmail;
+				if (row.channel === "sms") row.enabled = scheduledIncludeSms;
+			}
+		}
+		const { error: prefsError } = await adminClient
+			.from("notification_preferences")
+			.upsert(defaultRows, { onConflict: "user_id,notification_type,content,channel" });
+		if (prefsError) {
+			throw new Error(`Notification preferences setup failed: ${prefsError.message}`);
 		}
 
 		// Add Tracked Assets if provided

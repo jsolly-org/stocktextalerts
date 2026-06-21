@@ -7,8 +7,27 @@ import {
 	createTestUser,
 	generateUniquePhoneNumber,
 	getTestUserPhone,
+	setTestUserPrefs,
 } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
+
+/** Read a single per-option preference's enabled state from notification_preferences. */
+async function readPref(
+	userId: string,
+	notificationType: string,
+	content: string,
+	channel: string,
+): Promise<boolean | null> {
+	const { data } = await adminClient
+		.from("notification_preferences")
+		.select("enabled")
+		.eq("user_id", userId)
+		.eq("notification_type", notificationType)
+		.eq("content", content)
+		.eq("channel", channel)
+		.maybeSingle();
+	return data?.enabled ?? null;
+}
 
 const { validateRequestMock } = vi.hoisted(() => ({
 	validateRequestMock: vi.fn(),
@@ -37,20 +56,16 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		registerTestUserForCleanup(testUser.id);
 
 		const from = await getTestUserPhone(testUser.id);
-		const { error: seedSmsFieldsError } = await adminClient
-			.from("users")
-			.update({
-				market_scheduled_asset_price_include_sms: true,
-				asset_events_include_calendar_sms: true,
-				asset_events_include_ipo_sms: true,
-				asset_events_include_analyst_sms: true,
-				asset_events_include_insider_sms: true,
-				market_asset_price_alerts_include_sms: true,
-			})
-			.eq("id", testUser.id);
-		if (seedSmsFieldsError) {
-			throw new Error(seedSmsFieldsError.message);
-		}
+		// Per-option SMS prefs live in notification_preferences. Enable the facets
+		// whose preservation through STOP this test verifies.
+		await setTestUserPrefs(testUser.id, [
+			["market_scheduled_asset_price", "", "sms", true],
+			["asset_events", "calendar", "sms", true],
+			["asset_events", "ipo", "sms", true],
+			["asset_events", "analyst", "sms", true],
+			["asset_events", "insider", "sms", true],
+			["market_asset_price_alerts", "", "sms", true],
+		]);
 
 		const response = await POST(
 			createApiContext({
@@ -68,9 +83,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		const { data: updated } = await adminClient
 			.from("users")
-			.select(
-				"sms_opted_out,sms_notifications_enabled,market_scheduled_asset_price_include_sms,asset_events_include_calendar_sms,asset_events_include_ipo_sms,asset_events_include_analyst_sms,asset_events_include_insider_sms,market_asset_price_alerts_include_sms",
-			)
+			.select("sms_opted_out,sms_notifications_enabled")
 			.eq("id", testUser.id)
 			.single();
 		expect(updated).not.toBeNull();
@@ -78,12 +91,12 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		expect(updated.sms_opted_out).toBe(true);
 		expect(updated.sms_notifications_enabled).toBe(false);
 		// Individual preferences are preserved (not zeroed out)
-		expect(updated.market_scheduled_asset_price_include_sms).toBe(true);
-		expect(updated.asset_events_include_calendar_sms).toBe(true);
-		expect(updated.asset_events_include_ipo_sms).toBe(true);
-		expect(updated.asset_events_include_analyst_sms).toBe(true);
-		expect(updated.asset_events_include_insider_sms).toBe(true);
-		expect(updated.market_asset_price_alerts_include_sms).toBe(true);
+		expect(await readPref(testUser.id, "market_scheduled_asset_price", "", "sms")).toBe(true);
+		expect(await readPref(testUser.id, "asset_events", "calendar", "sms")).toBe(true);
+		expect(await readPref(testUser.id, "asset_events", "ipo", "sms")).toBe(true);
+		expect(await readPref(testUser.id, "asset_events", "analyst", "sms")).toBe(true);
+		expect(await readPref(testUser.id, "asset_events", "insider", "sms")).toBe(true);
+		expect(await readPref(testUser.id, "market_asset_price_alerts", "", "sms")).toBe(true);
 	});
 
 	it("When a user texts STOP ALL, they are unsubscribed from both channels but individual SMS preferences are preserved.", async () => {
@@ -99,11 +112,8 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		const from = await getTestUserPhone(testUser.id);
 
-		const { error: seedError } = await adminClient
-			.from("users")
-			.update({ market_scheduled_asset_price_include_sms: true })
-			.eq("id", testUser.id);
-		if (seedError) throw new Error(seedError.message);
+		// createTestUser seeds market_scheduled_asset_price sms = smsNotificationsEnabled (true here),
+		// so the facet is already enabled by default — no extra seeding needed.
 
 		const response = await POST(
 			createApiContext({
@@ -121,9 +131,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		const { data: updated } = await adminClient
 			.from("users")
-			.select(
-				"email_notifications_enabled,sms_opted_out,sms_notifications_enabled,market_scheduled_asset_price_include_sms",
-			)
+			.select("email_notifications_enabled,sms_opted_out,sms_notifications_enabled")
 			.eq("id", testUser.id)
 			.single();
 		expect(updated).not.toBeNull();
@@ -132,7 +140,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		expect(updated.sms_opted_out).toBe(true);
 		expect(updated.sms_notifications_enabled).toBe(false);
 		// Individual preference preserved
-		expect(updated.market_scheduled_asset_price_include_sms).toBe(true);
+		expect(await readPref(testUser.id, "market_scheduled_asset_price", "", "sms")).toBe(true);
 	});
 
 	it("When a user texts STOP EMAIL, only email notifications are disabled.", async () => {
@@ -164,14 +172,14 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		const { data: updated } = await adminClient
 			.from("users")
-			.select("email_notifications_enabled,sms_opted_out,market_scheduled_asset_price_include_sms")
+			.select("email_notifications_enabled,sms_opted_out")
 			.eq("id", testUser.id)
 			.single();
 		expect(updated).not.toBeNull();
 		if (!updated) throw new Error("expected user row");
 		expect(updated.email_notifications_enabled).toBe(false);
 		expect(updated.sms_opted_out).toBe(false);
-		expect(updated.market_scheduled_asset_price_include_sms).toBe(true);
+		expect(await readPref(testUser.id, "market_scheduled_asset_price", "", "sms")).toBe(true);
 	});
 
 	it("When a user texts START, sms_opted_out is cleared and sms_notifications_enabled is turned on.", async () => {
@@ -189,11 +197,8 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		const from = await getTestUserPhone(testUser.id);
 
-		const { error: seedError } = await adminClient
-			.from("users")
-			.update({ market_scheduled_asset_price_include_sms: true })
-			.eq("id", testUser.id);
-		if (seedError) throw new Error(seedError.message);
+		// Non-default for this user (sms off), so enable the facet explicitly.
+		await setTestUserPrefs(testUser.id, [["market_scheduled_asset_price", "", "sms", true]]);
 
 		const response = await POST(
 			createApiContext({
@@ -211,7 +216,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		const { data: updated } = await adminClient
 			.from("users")
-			.select("sms_opted_out,sms_notifications_enabled,market_scheduled_asset_price_include_sms")
+			.select("sms_opted_out,sms_notifications_enabled")
 			.eq("id", testUser.id)
 			.single();
 		expect(updated).not.toBeNull();
@@ -219,7 +224,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		expect(updated.sms_opted_out).toBe(false);
 		expect(updated.sms_notifications_enabled).toBe(true);
 		// Individual field stays unchanged (seeded true, stays true)
-		expect(updated.market_scheduled_asset_price_include_sms).toBe(true);
+		expect(await readPref(testUser.id, "market_scheduled_asset_price", "", "sms")).toBe(true);
 	});
 
 	it("STOP then START round-trip preserves individual SMS preferences.", async () => {
@@ -235,19 +240,15 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		const from = await getTestUserPhone(testUser.id);
 
-		// Seed individual SMS preferences
-		const { error: seedError } = await adminClient
-			.from("users")
-			.update({
-				market_scheduled_asset_price_include_sms: true,
-				asset_events_include_calendar_sms: true,
-				asset_events_include_ipo_sms: false,
-				asset_events_include_analyst_sms: true,
-				asset_events_include_insider_sms: false,
-				market_asset_price_alerts_include_sms: true,
-			})
-			.eq("id", testUser.id);
-		if (seedError) throw new Error(seedError.message);
+		// Seed individual SMS preferences. createTestUser already defaults
+		// market_scheduled_asset_price sms = true (smsNotificationsEnabled) and every
+		// asset_events / market_asset_price_alerts sms facet = false, so only the
+		// non-default trues need explicit seeding here.
+		await setTestUserPrefs(testUser.id, [
+			["asset_events", "calendar", "sms", true],
+			["asset_events", "analyst", "sms", true],
+			["market_asset_price_alerts", "", "sms", true],
+		]);
 
 		// STOP
 		const stopResponse = await POST(
@@ -275,9 +276,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		const { data: updated } = await adminClient
 			.from("users")
-			.select(
-				"sms_opted_out,sms_notifications_enabled,market_scheduled_asset_price_include_sms,asset_events_include_calendar_sms,asset_events_include_ipo_sms,asset_events_include_analyst_sms,asset_events_include_insider_sms,market_asset_price_alerts_include_sms",
-			)
+			.select("sms_opted_out,sms_notifications_enabled")
 			.eq("id", testUser.id)
 			.single();
 		expect(updated).not.toBeNull();
@@ -288,12 +287,12 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		expect(updated.sms_notifications_enabled).toBe(true);
 
 		// Individual preferences fully preserved through the round trip
-		expect(updated.market_scheduled_asset_price_include_sms).toBe(true);
-		expect(updated.asset_events_include_calendar_sms).toBe(true);
-		expect(updated.asset_events_include_ipo_sms).toBe(false);
-		expect(updated.asset_events_include_analyst_sms).toBe(true);
-		expect(updated.asset_events_include_insider_sms).toBe(false);
-		expect(updated.market_asset_price_alerts_include_sms).toBe(true);
+		expect(await readPref(testUser.id, "market_scheduled_asset_price", "", "sms")).toBe(true);
+		expect(await readPref(testUser.id, "asset_events", "calendar", "sms")).toBe(true);
+		expect(await readPref(testUser.id, "asset_events", "ipo", "sms")).toBe(false);
+		expect(await readPref(testUser.id, "asset_events", "analyst", "sms")).toBe(true);
+		expect(await readPref(testUser.id, "asset_events", "insider", "sms")).toBe(false);
+		expect(await readPref(testUser.id, "market_asset_price_alerts", "", "sms")).toBe(true);
 
 		validateRequestMock.mockReset();
 	});

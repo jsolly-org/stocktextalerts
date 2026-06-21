@@ -39,6 +39,7 @@
 				:emailEnabled="emailEnabled"
 				:phoneVerified="phoneVerified"
 				:hasTrackedAssets="hasTrackedAssets"
+				:telegramPrefs="dailyDigestTelegramPrefs"
 			/>
 		</template>
 
@@ -49,6 +50,7 @@
 				:phoneVerified="phoneVerified"
 				:hasTrackedAssets="hasTrackedAssets"
 				:trackedAssets="currentAssets"
+				:telegramPrefs="marketTelegramPrefs"
 			/>
 		</template>
 
@@ -58,6 +60,7 @@
 				:emailEnabled="emailEnabled"
 				:phoneVerified="phoneVerified"
 				:hasTrackedAssets="hasTrackedAssets"
+				:telegramPrefs="assetEventsTelegramPrefs"
 			/>
 		</template>
 
@@ -70,7 +73,7 @@ import { computed, defineAsyncComponent, ref, toRefs, watch } from "vue";
 import {
 	DASHBOARD_ASSETS_FORM_ID,
 } from "../../lib/constants";
-import type { User } from "../../lib/db";
+import type { DashboardUser } from "../../lib/db";
 import type { InitialAsset } from "./assets/types";
 import WatchlistPanel from "./assets/WatchlistPanel.vue";
 import { useAutoSaveForm } from "./composables/useAutoSaveNotificationPreferences";
@@ -97,15 +100,29 @@ const AsyncMarketNotificationsPanel = defineAsyncComponent({
 	loadingComponent: PanelSkeleton,
 });
 interface Props {
-	user: User;
+	user: DashboardUser;
 	initialAssets: InitialAsset[];
 	smsPhoneNumber: string;
+	/**
+	 * The user's current Telegram selections, loaded server-side from
+	 * `notification_preferences` (channel='telegram') since these prefs aren't on the
+	 * users row. Each panel gets its relevant subset to initialize its channel
+	 * multiselect:
+	 * - daily_digest / asset_events: keyed by content facet ("prices", "calendar", …).
+	 * - market types: keyed by notification_type (content='').
+	 */
+	dailyDigestTelegramPrefs: Record<string, boolean>;
+	assetEventsTelegramPrefs: Record<string, boolean>;
+	marketTelegramPrefs: Record<string, boolean>;
 }
 
 const props = defineProps<Props>();
 
 const {
+	assetEventsTelegramPrefs,
+	dailyDigestTelegramPrefs,
 	initialAssets,
+	marketTelegramPrefs,
 	smsPhoneNumber,
 	user: userProp,
 } = toRefs(props);

@@ -30,6 +30,7 @@ vi.mock("../../../src/lib/asset-events/delivery", async () => {
 		...actual,
 		processAssetEventsEmailDelivery: vi.fn(),
 		processAssetEventsSmsDelivery: vi.fn(),
+		processAssetEventsTelegramDelivery: vi.fn(),
 	};
 });
 
@@ -42,12 +43,12 @@ vi.mock("../../../src/lib/asset-events/schedule-state", () => ({
 }));
 
 import type { UserRecord } from "../../../src/lib/messaging/types";
-import { makeUserRecord } from "../../helpers/user-record-fixture";
+import { makePrefRows, makeUserRecord } from "../../helpers/user-record-fixture";
 
 function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
 	return makeUserRecord({
 		sms_opted_out: true,
-		asset_events_include_ipo_email: true,
+		prefs: makePrefRows([["asset_events", "ipo", "email", true]]),
 		asset_events_next_send_at: "2026-02-10T10:00:00.000Z",
 		...overrides,
 	});
@@ -73,6 +74,7 @@ describe("processAssetEventsUser", () => {
 				hasAnyContent: true,
 			},
 			sms: null,
+			telegram: null,
 			analystFetchAttempted: false,
 			shouldUpdateAnalystMonth: false,
 		});
@@ -104,6 +106,7 @@ describe("processAssetEventsUser", () => {
 			marketClosureInfo: null,
 			sendEmail: vi.fn(async () => ({ success: true })) as never,
 			getSmsSender: vi.fn(() => ({ sender: "+15555550123" })) as never,
+			getTelegramSender: vi.fn(() => ({ sender: vi.fn() })) as never,
 		});
 
 		expect(stats.skipped).toBe(0);
@@ -126,6 +129,7 @@ describe("processAssetEventsUser", () => {
 				analystSection: null,
 				hasAnyContent: true,
 			},
+			telegram: null,
 			analystFetchAttempted: false,
 			shouldUpdateAnalystMonth: false,
 		});
@@ -136,8 +140,10 @@ describe("processAssetEventsUser", () => {
 			sms_opted_out: false,
 			sms_notifications_enabled: true,
 			phone_verified: true,
-			asset_events_include_insider_email: true,
-			asset_events_include_insider_sms: true,
+			prefs: makePrefRows([
+				["asset_events", "insider", "email", true],
+				["asset_events", "insider", "sms", true],
+			]),
 		});
 		const supabase = {
 			from() {
@@ -162,6 +168,7 @@ describe("processAssetEventsUser", () => {
 			marketClosureInfo: null,
 			sendEmail: vi.fn(async () => ({ success: true })) as never,
 			getSmsSender: vi.fn(() => ({ sender: "+15555550123" })) as never,
+			getTelegramSender: vi.fn(() => ({ sender: vi.fn() })) as never,
 		});
 
 		expect(vi.mocked(processAssetEventsEmailDelivery)).toHaveBeenCalledOnce();

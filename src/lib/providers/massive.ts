@@ -444,6 +444,8 @@ export interface IntradayBarsResult {
 	startTimestamp: number | null;
 	/** Last bar timestamp (ms since epoch), or null if bars lack timestamps. When trailing bars lack timestamps, extrapolated from the average interval so the time axis aligns with the last plotted point. */
 	endTimestamp: number | null;
+	/** Per-bar OHLC candles (only bars with finite o/h/l/c/t), for candlestick rendering. Null when no bar carried full OHLC+t. Independent of `closes`/`timestamps`, which stay intact for the sparkline path. */
+	candles: IntradayCandle[] | null;
 }
 
 /**
@@ -506,13 +508,67 @@ export function extractClosesAndTimestampsFromBars(payload: unknown): IntradayBa
 		}
 	}
 
-	// Expose per-bar timestamps when we have any valid t; use null for bars lacking t
+	// Expose per-bar timestamps when we have any valid t; use null for bars lacking t.
+	// Candles are parsed from the same payload (additive) so the candlestick chart has
+	// real o/h/l/c; the closes/timestamps sparkline path above is unchanged.
 	return {
 		closes,
 		timestamps: startTimestamp !== null ? timestamps : null,
 		startTimestamp,
 		endTimestamp,
+		candles: extractIntradayOHLCV(payload),
 	};
+}
+
+/** A single intraday OHLC bar (mirrors the chart module's `Candle`; `t` is ms since epoch). */
+export interface IntradayCandle {
+	o: number;
+	h: number;
+	l: number;
+	c: number;
+	t: number;
+}
+
+/**
+ * Extract per-bar intraday OHLC candles from a Massive bars API response.
+ *
+ * Mirrors {@link extractOHLCVFromBars} but keeps the per-bar timestamp `t` (ms) and
+ * drops volume — the candlestick chart needs o/h/l/c/t, not v. Distinct from
+ * {@link extractClosesAndTimestampsFromBars}, which discards o/h/l. A bar is kept only
+ * when o/h/l/c/t are all finite numbers, so the chart never receives partial candles.
+ * Returns `null` for non-object payloads, missing results, or no valid bars.
+ */
+export function extractIntradayOHLCV(payload: unknown): IntradayCandle[] | null {
+	if (typeof payload !== "object" || payload === null) return null;
+
+	const results = (payload as Record<string, unknown>).results;
+	if (!Array.isArray(results)) return null;
+
+	const candles: IntradayCandle[] = [];
+	for (const bar of results) {
+		if (typeof bar !== "object" || bar === null) continue;
+		const rec = bar as Record<string, unknown>;
+		const o = rec.o;
+		const h = rec.h;
+		const l = rec.l;
+		const c = rec.c;
+		const t = rec.t;
+		if (
+			typeof o === "number" &&
+			Number.isFinite(o) &&
+			typeof h === "number" &&
+			Number.isFinite(h) &&
+			typeof l === "number" &&
+			Number.isFinite(l) &&
+			typeof c === "number" &&
+			Number.isFinite(c) &&
+			typeof t === "number" &&
+			Number.isFinite(t)
+		) {
+			candles.push({ o, h, l, c, t });
+		}
+	}
+	return candles.length > 0 ? candles : null;
 }
 
 /**

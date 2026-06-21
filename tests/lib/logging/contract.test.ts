@@ -19,6 +19,7 @@ describe("logging contract", () => {
 			expect(parsed.level).toBe("error");
 			expect(parsed.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 			expect(parsed.message).toBe("boom");
+			expect(parsed.release).toBe("dev"); // stub value — gen-release-id.ts overwrites at build time
 			expect(parsed.error).toMatchObject({ name: "Error", message: "kaboom" });
 			expect(JSON.stringify(parsed)).not.toContain("+12793212870");
 		} finally {

@@ -12,10 +12,13 @@ import {
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
+import { formatAssetEventsTelegram } from "../messaging/telegram/asset-events";
+import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { UserRecord } from "../messaging/types";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
+import type { TelegramSenderProvider } from "../schedule/telegram-sender";
 import type { MarketClosureInfo } from "../time/market-calendar";
 
 /* =============
@@ -429,6 +432,156 @@ export async function processAssetEventsSmsDelivery(options: {
 		scheduledDate,
 		scheduledMinutes,
 		channel: "sms",
+		status: result.success ? "sent" : "failed",
+		error: result.success ? undefined : result.error,
+		logger,
+	});
+}
+
+/* =============
+Delivery: Telegram
+============= */
+
+/**
+ * Deliver a standalone asset-events digest via Telegram and record the attempt.
+ *
+ * Mirrors `processAssetEventsSmsDelivery`: claims the `telegram` channel of the
+ * asset-events slot (retries/advances independently of email/SMS) and renders the
+ * Telegram-native digest (parse-mode entities, no chart). The caller filters the
+ * sections to only the user's Telegram-enabled facets before this is invoked.
+ */
+export async function processAssetEventsTelegramDelivery(options: {
+	user: UserRecord;
+	supabase: SupabaseAdminClient;
+	logger: Logger;
+	scheduledDate: string;
+	scheduledMinutes: number;
+	earningsSection: string | null;
+	dividendsSection: string | null;
+	splitsSection: string | null;
+	iposSection: string | null;
+	analystSection: string | null;
+	insiderSection: string | null;
+	marketClosureInfo?: MarketClosureInfo | null;
+	getTelegramSender: TelegramSenderProvider;
+	stats: ScheduledNotificationTotals;
+}): Promise<void> {
+	const {
+		user,
+		supabase,
+		logger,
+		scheduledDate,
+		scheduledMinutes,
+		earningsSection,
+		dividendsSection,
+		splitsSection,
+		iposSection,
+		analystSection,
+		insiderSection,
+		getTelegramSender,
+		stats,
+	} = options;
+
+	if (user.telegram_chat_id == null) {
+		return;
+	}
+
+	const claim = await claimNotification({
+		supabase,
+		userId: user.id,
+		notificationType: "asset_events",
+		scheduledDate,
+		scheduledMinutes,
+		channel: "telegram",
+		logger,
+	});
+	if (claim.status === "claim_error") {
+		stats.telegramFailed++;
+		return;
+	}
+	if (claim.status === "retries_exhausted" || claim.status === "not_ready") {
+		stats.skipped++;
+		return;
+	}
+
+	let telegramSenderResult: ReturnType<TelegramSenderProvider>;
+	try {
+		telegramSenderResult = getTelegramSender();
+	} catch (error) {
+		stats.telegramFailed++;
+		const errorMessage = extractErrorMessage(error);
+		logger.error(
+			"Failed to resolve Telegram sender for asset events",
+			{ userId: user.id, scheduledDate, scheduledMinutes },
+			createErrorForLogging(error),
+		);
+		await updateScheduledNotificationRow({
+			supabase,
+			userId: user.id,
+			notificationType: "asset_events",
+			scheduledDate,
+			scheduledMinutes,
+			channel: "telegram",
+			status: "failed",
+			error: errorMessage,
+			logger,
+		});
+		return;
+	}
+
+	const formatted = formatAssetEventsTelegram({
+		earningsSection,
+		dividendsSection,
+		splitsSection,
+		iposSection,
+		analystSection,
+		insiderSection,
+		marketClosureInfo: options.marketClosureInfo,
+	});
+
+	const result = await telegramSenderResult.sender({
+		chatId: user.telegram_chat_id,
+		text: formatted.text,
+		entities: formatted.entities,
+		// Routine scheduled events digest — deliver silently.
+		disableNotification: true,
+	});
+
+	if (!result.success) {
+		logger.error(
+			"Failed to send asset-events Telegram message",
+			{ userId: user.id, scheduledDate, scheduledMinutes, errorCode: result.errorCode ?? null },
+			new Error(result.error ?? "Asset events Telegram send failed"),
+		);
+	}
+
+	await optOutIfBotBlocked(supabase, user.id, result, logger);
+
+	const logged = await recordNotification(supabase, {
+		user_id: user.id,
+		type: "asset_events",
+		delivery_method: "telegram",
+		message_delivered: result.success,
+		message: formatted.text,
+		...deliveryResultToLogFields(result),
+	});
+	if (!logged) {
+		stats.logFailures++;
+	}
+
+	if (result.success) {
+		stats.telegramSent++;
+	} else {
+		stats.telegramFailed++;
+	}
+
+	await updateScheduledNotificationRow({
+		supabase,
+		userId: user.id,
+		notificationType: "asset_events",
+		scheduledDate,
+		scheduledMinutes,
+		channel: "telegram",
 		status: result.success ? "sent" : "failed",
 		error: result.success ? undefined : result.error,
 		logger,

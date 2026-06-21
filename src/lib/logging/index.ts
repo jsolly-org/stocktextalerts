@@ -1,3 +1,5 @@
+import { RELEASE_ID } from "./release-id";
+
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 type LogContext = Record<string, unknown> & {
@@ -8,6 +10,7 @@ type LogEntry = {
 	timestamp: string;
 	level: LogLevel;
 	message: string;
+	release: string;
 	context?: Record<string, unknown>;
 	requestId?: string;
 	error?: {
@@ -188,6 +191,7 @@ function buildEntry(
 		timestamp: new Date().toISOString(),
 		level,
 		message,
+		release: RELEASE_ID,
 	};
 
 	const ambientRequestId = resolveAmbientRequestId?.();

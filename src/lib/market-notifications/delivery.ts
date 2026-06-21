@@ -8,6 +8,7 @@ import { renderIntradaySparklineImg } from "../messaging/email/intraday-sparklin
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
+import { isFacetEnabled } from "../messaging/notification-prefs";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
@@ -20,6 +21,10 @@ import {
 	type SparklineWindow,
 	toSparkline,
 } from "../messaging/sparkline";
+import { isTelegramChannelUsable, shouldSendTelegram } from "../messaging/telegram/eligibility";
+import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
+import { formatPriceAlertTelegram } from "../messaging/telegram/price-alert";
+import type { TelegramSender } from "../messaging/telegram/sender";
 import type { EnrichedAlert } from "./enrichment";
 import type { PriceAlertUser } from "./users";
 
@@ -61,12 +66,14 @@ function formatPriceContextWithSparkline(
 		: priceContext;
 }
 
-/** Per-run delivery counters for price alerts (email/SMS success/fail and log failures). */
+/** Per-run delivery counters for price alerts (email/SMS/Telegram success/fail and log failures). */
 export interface PriceAlertDeliveryStats {
 	emailsSent: number;
 	emailsFailed: number;
 	smsSent: number;
 	smsFailed: number;
+	telegramSent: number;
+	telegramFailed: number;
 	logFailures: number;
 }
 
@@ -232,14 +239,16 @@ export async function deliverPriceAlert(options: {
 	supabase: AppSupabaseClient;
 	sendEmail: EmailSender;
 	sendSms: SmsSender | null;
+	/** Telegram sender, threaded the same way as `sendSms` (lazy provider in process.ts). */
+	sendTelegram?: TelegramSender | null;
 	stats: PriceAlertDeliveryStats;
 	logoCache?: ReturnType<typeof createLogoCache>;
 }): Promise<boolean> {
-	const { user, alert, supabase, sendEmail, sendSms, stats, logoCache } = options;
+	const { user, alert, supabase, sendEmail, sendSms, sendTelegram, stats, logoCache } = options;
 	let delivered = false;
 
 	// Email delivery
-	if (user.market_asset_price_alerts_include_email) {
+	if (isFacetEnabled(user.prefs, "market_asset_price_alerts", "email")) {
 		const effectiveLogoCache = logoCache ?? createLogoCache();
 		const logoDataUri = await fetchLogoBase64(
 			alert.symbol,
@@ -276,7 +285,7 @@ export async function deliverPriceAlert(options: {
 	}
 
 	// SMS delivery
-	if (user.market_asset_price_alerts_include_sms && sendSms) {
+	if (isFacetEnabled(user.prefs, "market_asset_price_alerts", "sms") && sendSms) {
 		if (!shouldSendSms(user)) {
 			rootLogger.info("Price alert SMS skipped: user not eligible", {
 				userId: user.id,
@@ -304,6 +313,51 @@ export async function deliverPriceAlert(options: {
 				delivery_method: "sms",
 				message_delivered: result.success,
 				message: smsBody,
+				...deliveryResultToLogFields(result),
+			});
+			if (!logged) stats.logFailures++;
+		}
+	}
+
+	// Telegram delivery (additive; never alters the email/SMS paths above). This is the
+	// real-time anomaly alert — no claim RPC; the alert-level cooldown that gated email/SMS
+	// already deduped this symbol×user, so Telegram piggybacks with no extra idempotency.
+	// Only query per-option prefs for users whose channel is usable (linked + not opted out),
+	// skipping the lookup for the majority who never linked Telegram.
+	if (sendTelegram && isTelegramChannelUsable(user)) {
+		if (shouldSendTelegram(user, user.prefs, "market_asset_price_alerts")) {
+			const { text, entities, photo } = formatPriceAlertTelegram(
+				alert,
+				alert.intradayCandles ?? [],
+			);
+			const result = await sendTelegram({
+				// telegram_chat_id is non-null here: isTelegramChannelUsable requires it.
+				chatId: user.telegram_chat_id as number,
+				text,
+				entities,
+				...(photo ? { photo } : {}),
+			});
+
+			if (result.success) {
+				stats.telegramSent++;
+				delivered = true;
+			} else {
+				stats.telegramFailed++;
+				rootLogger.error(
+					"Failed to send price alert Telegram message",
+					{ userId: user.id, symbol: alert.symbol, errorCode: result.errorCode ?? null },
+					new Error(result.error ?? "Price alert Telegram send failed"),
+				);
+			}
+
+			await optOutIfBotBlocked(supabase, user.id, result);
+
+			const logged = await recordNotification(supabase, {
+				user_id: user.id,
+				type: "price_alert",
+				delivery_method: "telegram",
+				message_delivered: result.success,
+				message: text,
 				...deliveryResultToLogFields(result),
 			});
 			if (!logged) stats.logFailures++;

@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import type { Logger } from "../logging";
+import { isFacetEnabled } from "../messaging/notification-prefs";
 import type { UserRecord } from "../messaging/types";
 import { formatAnalystSection, formatInsiderSection } from "../providers/finnhub";
 import { formatAssetEventsSection } from "../providers/massive";
@@ -7,6 +8,19 @@ import type { SupabaseAdminClient } from "../schedule/helpers";
 import { loadStoredFinnhubExtras } from "./enrichment-store";
 
 type DeliveryChannel = "email" | "sms";
+
+/**
+ * Telegram facet selection for asset events, sourced from notification_preferences
+ * (NOT the per-column email/sms flags). When present, the content builder renders a
+ * `telegram` AssetEventsContent using the rich email-style section formatting, gated
+ * by these facets. Additive: email/SMS rendering is unchanged.
+ */
+export type AssetEventsTelegramFacets = {
+	calendar: boolean;
+	ipo: boolean;
+	insider: boolean;
+	analyst: boolean;
+};
 
 export type AssetEventsContent = {
 	eventsSection: {
@@ -28,21 +42,15 @@ const emptyContent = (): AssetEventsContent => ({
 });
 
 function channelWantsCalendar(user: UserRecord, channel: DeliveryChannel): boolean {
-	return channel === "email"
-		? user.asset_events_include_calendar_email
-		: user.asset_events_include_calendar_sms;
+	return isFacetEnabled(user.prefs, "asset_events", channel, "calendar");
 }
 
 function channelWantsIpos(user: UserRecord, channel: DeliveryChannel): boolean {
-	return channel === "email"
-		? user.asset_events_include_ipo_email
-		: user.asset_events_include_ipo_sms;
+	return isFacetEnabled(user.prefs, "asset_events", channel, "ipo");
 }
 
 function channelWantsInsider(user: UserRecord, channel: DeliveryChannel): boolean {
-	return channel === "email"
-		? user.asset_events_include_insider_email
-		: user.asset_events_include_insider_sms;
+	return isFacetEnabled(user.prefs, "asset_events", channel, "insider");
 }
 
 function channelWantsAnalyst(
@@ -51,9 +59,7 @@ function channelWantsAnalyst(
 	currentMonth: string,
 ): boolean {
 	return (
-		(channel === "email"
-			? user.asset_events_include_analyst_email
-			: user.asset_events_include_analyst_sms) &&
+		isFacetEnabled(user.prefs, "asset_events", channel, "analyst") &&
 		user.asset_events_last_analyst_sent_month !== currentMonth
 	);
 }
@@ -129,21 +135,34 @@ export async function buildAssetEventsContentForChannels(options: {
 	localDate: string;
 	tickers: readonly string[];
 	channels: readonly DeliveryChannel[];
+	/** When set, also render a Telegram content block gated by these facets. */
+	telegramFacets?: AssetEventsTelegramFacets;
 }): Promise<{
 	email: AssetEventsContent | null;
 	sms: AssetEventsContent | null;
+	telegram: AssetEventsContent | null;
 	analystFetchAttempted: boolean;
 	shouldUpdateAnalystMonth: boolean;
 }> {
-	const { user, supabase, logger, localDate, tickers, channels } = options;
+	const { user, supabase, logger, localDate, tickers, channels, telegramFacets } = options;
 	const noChannels = {
 		email: null,
 		sms: null,
+		telegram: null,
 		analystFetchAttempted: false,
 		shouldUpdateAnalystMonth: false,
 	};
 
-	if (channels.length === 0) {
+	// The Telegram facet selection independently requires content even when the
+	// user has email/SMS off (a Telegram-only asset-events user).
+	const telegramWantsCalendar = Boolean(telegramFacets?.calendar);
+	const telegramWantsIpos = Boolean(telegramFacets?.ipo);
+	const telegramWantsInsider = Boolean(telegramFacets?.insider);
+	const telegramWantsAnalyst = Boolean(telegramFacets?.analyst);
+	const hasTelegramRequest =
+		telegramWantsCalendar || telegramWantsIpos || telegramWantsInsider || telegramWantsAnalyst;
+
+	if (channels.length === 0 && !hasTelegramRequest) {
 		return noChannels;
 	}
 
@@ -168,10 +187,17 @@ export async function buildAssetEventsContentForChannels(options: {
 	}
 
 	const currentMonth = localDt.toFormat("yyyy-MM");
-	const includeCalendar = channels.some((ch) => channelWantsCalendar(user, ch));
-	const includeIpos = channels.some((ch) => channelWantsIpos(user, ch));
-	const includeInsiderUnion = channels.some((ch) => channelWantsInsider(user, ch));
-	const includeAnalystUnion = channels.some((ch) => channelWantsAnalyst(user, ch, currentMonth));
+	// Analyst is published monthly on the 1st — for every channel (incl. Telegram)
+	// it's gated on not having already sent this month.
+	const telegramAnalystDue =
+		telegramWantsAnalyst && user.asset_events_last_analyst_sent_month !== currentMonth;
+	const includeCalendar =
+		channels.some((ch) => channelWantsCalendar(user, ch)) || telegramWantsCalendar;
+	const includeIpos = channels.some((ch) => channelWantsIpos(user, ch)) || telegramWantsIpos;
+	const includeInsiderUnion =
+		channels.some((ch) => channelWantsInsider(user, ch)) || telegramWantsInsider;
+	const includeAnalystUnion =
+		channels.some((ch) => channelWantsAnalyst(user, ch, currentMonth)) || telegramAnalystDue;
 
 	const calendarPromise =
 		includeCalendar && tickers.length > 0
@@ -282,9 +308,33 @@ export async function buildAssetEventsContentForChannels(options: {
 		});
 	}
 
+	// Telegram uses the rich (email-style) section rendering, gated by the
+	// notification_preferences facet selection rather than the per-column flags.
+	let telegram: AssetEventsContent | null = null;
+	if (hasTelegramRequest) {
+		const telegramEvents = eventsWithDaysUntil.filter((event) =>
+			event.event_type === "ipo" ? telegramWantsIpos : telegramWantsCalendar,
+		);
+		const eventsSection =
+			telegramEvents.length > 0 ? formatAssetEventsSection(telegramEvents, "email") : null;
+		const insiderSection = telegramWantsInsider
+			? formatInsiderSection(finnhubData.insider, "email")
+			: null;
+		const analystSection = telegramAnalystDue
+			? formatAnalystSection(finnhubData.analyst, "email")
+			: null;
+		telegram = {
+			eventsSection,
+			insiderSection,
+			analystSection,
+			hasAnyContent: eventsSection !== null || insiderSection !== null || analystSection !== null,
+		};
+	}
+
 	return {
 		email,
 		sms,
+		telegram,
 		analystFetchAttempted,
 		shouldUpdateAnalystMonth,
 	};

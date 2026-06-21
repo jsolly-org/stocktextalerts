@@ -3,20 +3,12 @@ import type { User, UserUpdateInput } from "../db";
 import { userLocalToEtMinute } from "../time/format";
 import { calculateNextSendAt } from "../time/scheduled-times";
 
-/** User columns that enable an asset-events notification option (used for next-send-at and timezone updates). */
-export const ASSET_EVENTS_OPTION_FIELDS = [
-	"asset_events_include_calendar_email",
-	"asset_events_include_calendar_sms",
-	"asset_events_include_ipo_email",
-	"asset_events_include_ipo_sms",
-	"asset_events_include_analyst_email",
-	"asset_events_include_analyst_sms",
-	"asset_events_include_insider_email",
-	"asset_events_include_insider_sms",
-] as const;
-
 /**
  * Compute `asset_events_next_send_at` when asset events preferences, daily delivery time, or timezone changes.
+ *
+ * Asset-events per-option preferences now live in `notification_preferences`, so
+ * the caller resolves the post-update asset-events-enabled state and passes it in
+ * (`hasAnyAssetEventsOption`) along with whether it changed (`assetEventsOptionsChanged`).
  *
  * Mutates `updates` in-place so callers can compose a single `users` table update payload.
  */
@@ -28,13 +20,8 @@ export function computeAssetEventsNextSendAt(
 	timezoneChanged: boolean,
 	dailyTimeChanged: boolean,
 	assetEventsOptionsChanged: boolean,
+	hasAnyAssetEventsOption: boolean,
 ): void {
-	const hasAnyAssetEventsOption = ASSET_EVENTS_OPTION_FIELDS.some(
-		(field) =>
-			(updates[field as keyof UserUpdateInput] as boolean | undefined) ??
-			(dbUser[field as keyof typeof dbUser] as boolean),
-	);
-
 	const needsRepair =
 		hasAnyAssetEventsOption &&
 		dbUser.asset_events_next_send_at === null &&

@@ -1,3 +1,4 @@
+import type { IntradayCandle } from "../providers/massive";
 import type { ExtendedAssetQuote } from "../providers/price-fetcher";
 import { generatePriceAlertSummary, type PriceAlertGrokResult } from "./grok-summary";
 
@@ -16,6 +17,8 @@ export interface EnrichedAlert {
 	intradayTimestamps: (number | null)[] | null;
 	/** Last bar timestamp (ms) for sparkline axis; null when bars lack timestamps. */
 	intradayEndTimestamp: number | null;
+	/** Per-bar intraday OHLC candles for the Telegram candlestick chart; null when bars lacked full OHLC+t. */
+	intradayCandles: IntradayCandle[] | null;
 	/** Yesterday's close, prepended to the chart so its first-to-last delta
 	 *  equals the prev-close-anchored headline %. Null when Massive didn't
 	 *  return a prevDay bar (delisted / fresh listing). */
@@ -46,6 +49,7 @@ export async function enrichAlert(options: {
 	intradayCloses: number[] | null;
 	intradayTimestamps: (number | null)[] | null;
 	intradayEndTimestamp: number | null;
+	intradayCandles: IntradayCandle[] | null;
 	iconUrl?: string | null;
 	iconBase64?: string | null;
 	benchmarkDirection?: "up" | "down" | null;
@@ -58,6 +62,7 @@ export async function enrichAlert(options: {
 		intradayCloses,
 		intradayTimestamps,
 		intradayEndTimestamp,
+		intradayCandles,
 		iconUrl,
 		iconBase64,
 		benchmarkDirection,
@@ -80,6 +85,7 @@ export async function enrichAlert(options: {
 		intradayCloses,
 		intradayTimestamps,
 		intradayEndTimestamp,
+		intradayCandles,
 		prevClose: quote.prevClose,
 		isPositiveMove: quote.changePercent >= 0,
 		iconUrl,

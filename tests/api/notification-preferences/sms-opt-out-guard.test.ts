@@ -7,6 +7,24 @@ import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env"
 import { createTestUser, generateUniquePhoneNumber } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
+/** Read a single per-option preference's enabled state from notification_preferences. */
+async function readPref(
+	userId: string,
+	notificationType: string,
+	content: string,
+	channel: string,
+): Promise<boolean | null> {
+	const { data } = await adminClient
+		.from("notification_preferences")
+		.select("enabled")
+		.eq("user_id", userId)
+		.eq("notification_type", notificationType)
+		.eq("content", content)
+		.eq("channel", channel)
+		.maybeSingle();
+	return data?.enabled ?? null;
+}
+
 describe("A signed-in opted-out user attempts to re-enable SMS options.", () => {
 	it("When sms_opted_out is true, SMS include flags cannot be enabled.", async () => {
 		const testUser = await createTestUser({
@@ -39,14 +57,7 @@ describe("A signed-in opted-out user attempts to re-enable SMS options.", () => 
 		expect(payload.ok).toBe(false);
 		expect(payload.message).toBe("sms_opted_out");
 
-		const { data: updatedUser } = await adminClient
-			.from("users")
-			.select("market_asset_price_alerts_include_sms")
-			.eq("id", testUser.id)
-			.single();
-		expect(updatedUser).not.toBeNull();
-		if (!updatedUser) throw new Error("expected user row");
-		expect(updatedUser.market_asset_price_alerts_include_sms).toBe(false);
+		expect(await readPref(testUser.id, "market_asset_price_alerts", "", "sms")).toBe(false);
 	});
 
 	it("When sms_opted_out is true, submitting already-enabled SMS include flags still allows unrelated saves.", async () => {
@@ -83,14 +94,7 @@ describe("A signed-in opted-out user attempts to re-enable SMS options.", () => 
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("settings_updated");
 
-		const { data: updatedUser } = await adminClient
-			.from("users")
-			.select("market_scheduled_asset_price_include_sms,daily_digest_include_news_email")
-			.eq("id", testUser.id)
-			.single();
-		expect(updatedUser).not.toBeNull();
-		if (!updatedUser) throw new Error("expected user row");
-		expect(updatedUser.market_scheduled_asset_price_include_sms).toBe(true);
-		expect(updatedUser.daily_digest_include_news_email).toBe(true);
+		expect(await readPref(testUser.id, "market_scheduled_asset_price", "", "sms")).toBe(true);
+		expect(await readPref(testUser.id, "daily_digest", "news", "email")).toBe(true);
 	});
 });

@@ -1,27 +1,25 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
+import { anySmsFacetEnabledExceptPriceTargets, type PrefRow } from "../notification-prefs";
 import type { DeliveryResult, SmsUser, UserRecord } from "../types";
 import { finalizeSmsBodyForUcs2Segments } from "./segment-utils";
 import type { SmsSender } from "./twilio-utils";
 
-type SmsEligibilityUser = Pick<
+/** Channel-level SMS usability (opted in, verified phone, not opted out). Does
+ *  NOT read per-option facets, so it doesn't require `prefs`. */
+type SmsChannelUser = Pick<
 	UserRecord,
 	| "sms_opted_out"
 	| "sms_notifications_enabled"
 	| "phone_verified"
 	| "phone_country_code"
 	| "phone_number"
-> & {
-	daily_digest_include_prices_sms?: boolean;
-	daily_digest_include_top_movers_sms?: boolean;
-	market_scheduled_asset_price_include_sms?: boolean;
-	asset_events_include_calendar_sms?: boolean;
-	asset_events_include_ipo_sms?: boolean;
-	asset_events_include_analyst_sms?: boolean;
-	asset_events_include_insider_sms?: boolean;
-	market_asset_price_alerts_include_sms?: boolean;
-	price_move_alerts_include_sms?: boolean;
-	price_targets_include_sms?: boolean;
+>;
+
+/** Adds the per-option facet rows needed by `shouldSendSms`. */
+type SmsEligibilityUser = SmsChannelUser & {
+	/** Per-option preference rows (the single source of truth for SMS facets). */
+	prefs: readonly PrefRow[];
 };
 
 // Caller must verify opt-in/verification (e.g. shouldSendSms) before calling.
@@ -89,25 +87,15 @@ export function shouldSendSms(user: SmsEligibilityUser): boolean {
 
 	const hasVerifiedPhone =
 		user.phone_verified && Boolean(user.phone_country_code) && Boolean(user.phone_number);
-	// Exclude price_targets_include_sms so that enabling only price-target SMS does not
+	// Exclude price_targets SMS so that enabling only price-target SMS does not
 	// make users eligible for unrelated flows (e.g. daily digest) that gate on shouldSendSms.
-	const hasAnySmsFeatureEnabled = [
-		user.daily_digest_include_prices_sms,
-		user.daily_digest_include_top_movers_sms,
-		user.market_scheduled_asset_price_include_sms,
-		user.asset_events_include_calendar_sms,
-		user.asset_events_include_ipo_sms,
-		user.asset_events_include_analyst_sms,
-		user.asset_events_include_insider_sms,
-		user.market_asset_price_alerts_include_sms,
-		user.price_move_alerts_include_sms,
-	].some((value) => value === true);
+	const hasAnySmsFeatureEnabled = anySmsFacetEnabledExceptPriceTargets(user.prefs);
 
 	return hasVerifiedPhone && hasAnySmsFeatureEnabled;
 }
 
 /** True if SMS channel is usable (not opted out, enabled, verified phone). Use for flows that have their own feature-specific opt-in (e.g. price targets). */
-export function isSmsChannelUsable(user: SmsEligibilityUser): boolean {
+export function isSmsChannelUsable(user: SmsChannelUser): boolean {
 	if (user.sms_opted_out) return false;
 	if (!user.sms_notifications_enabled) return false;
 	return user.phone_verified && Boolean(user.phone_country_code) && Boolean(user.phone_number);

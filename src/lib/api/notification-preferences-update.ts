@@ -1,8 +1,5 @@
 import { DateTime } from "luxon";
-import {
-	ASSET_EVENTS_OPTION_FIELDS,
-	computeAssetEventsNextSendAt,
-} from "../asset-events/scheduling-helpers";
+import { computeAssetEventsNextSendAt } from "../asset-events/scheduling-helpers";
 import { omitUndefined, type User, type UserUpdateInput } from "../db";
 import type { Logger } from "../logging";
 import { userLocalToEtMinute } from "../time/format";
@@ -13,6 +10,11 @@ import {
 	serializeTimes,
 } from "../time/scheduled-times";
 
+/** Parsed form fields the update endpoint consumes. Per-option channel fields
+ *  (`*_email`/`*_sms`/`*_telegram`) are persisted to notification_preferences by
+ *  `persistChannelPreferences`; the KEPT fields below are written to `users`. The
+ *  asset_events `*_email`/`*_sms` fields are read here only to recompute
+ *  `asset_events_next_send_at`. */
 interface ParsedNotificationPreferencesForm {
 	market_scheduled_asset_price_enabled?: boolean;
 	timezone?: string;
@@ -20,14 +22,10 @@ interface ParsedNotificationPreferencesForm {
 	sms_notifications_enabled?: boolean;
 	market_scheduled_asset_price_times?: string[];
 	daily_digest_time?: number;
-	daily_digest_include_prices_email?: boolean;
-	daily_digest_include_prices_sms?: boolean;
-	daily_digest_include_top_movers_email?: boolean;
-	daily_digest_include_top_movers_sms?: boolean;
-	daily_digest_include_news_email?: boolean;
-	daily_digest_include_rumors_email?: boolean;
-	market_scheduled_asset_price_include_email?: boolean;
-	market_scheduled_asset_price_include_sms?: boolean;
+	market_asset_price_alerts_enabled?: boolean;
+	market_asset_price_alert_move_size?: "significant" | "extreme";
+	// asset_events per-option fields (used only for next-send-at scheduling here;
+	// persisted to the table by persistChannelPreferences).
 	asset_events_include_calendar_email?: boolean;
 	asset_events_include_calendar_sms?: boolean;
 	asset_events_include_ipo_email?: boolean;
@@ -36,15 +34,19 @@ interface ParsedNotificationPreferencesForm {
 	asset_events_include_analyst_sms?: boolean;
 	asset_events_include_insider_email?: boolean;
 	asset_events_include_insider_sms?: boolean;
-	market_asset_price_alerts_enabled?: boolean;
-	market_asset_price_alerts_include_email?: boolean;
-	market_asset_price_alerts_include_sms?: boolean;
-	market_asset_price_alert_move_size?: "significant" | "extreme";
-	price_move_alerts_include_email?: boolean;
-	price_move_alerts_include_sms?: boolean;
-	price_targets_include_email?: boolean;
-	price_targets_include_sms?: boolean;
 }
+
+/** asset_events form fields that gate `asset_events_next_send_at` scheduling. */
+export const ASSET_EVENTS_SCHEDULE_FIELDS = [
+	"asset_events_include_calendar_email",
+	"asset_events_include_calendar_sms",
+	"asset_events_include_ipo_email",
+	"asset_events_include_ipo_sms",
+	"asset_events_include_analyst_email",
+	"asset_events_include_analyst_sms",
+	"asset_events_include_insider_email",
+	"asset_events_include_insider_sms",
+] as const satisfies ReadonlyArray<keyof ParsedNotificationPreferencesForm>;
 
 /**
  * Compute `market_scheduled_asset_price_next_send_at` for scheduled update notifications when timezone or schedule changes.
@@ -117,6 +119,12 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	rawTimesValue: string | null;
 	parsedMarketScheduledAssetPriceTimes?: number[] | null;
 	dbUser: User;
+	/** Whether the user has ANY asset-events email/sms facet enabled AFTER this
+	 *  update (merged: existing table rows + submitted overrides), resolved by the
+	 *  caller. Drives `asset_events_next_send_at`. */
+	assetEventsEnabledAfterUpdate: boolean;
+	/** Whether any asset-events email/sms facet's value changed in this submission. */
+	assetEventsOptionsChanged: boolean;
 	logger?: Logger;
 }): UserUpdateInput {
 	const {
@@ -125,6 +133,8 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		rawTimesValue,
 		parsedMarketScheduledAssetPriceTimes,
 		dbUser,
+		assetEventsEnabledAfterUpdate,
+		assetEventsOptionsChanged,
 		logger,
 	} = options;
 
@@ -173,35 +183,14 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 
 	/* =============
 	Only persist booleans the form actually submitted (unchecked controls are often omitted).
-	Build imperatively to avoid a union-type explosion from too many spread expressions.
+	Per-option channel facets live in notification_preferences (written separately by
+	persistChannelPreferences); only KEPT channel/feature-level booleans go to `users`.
 	============= */
 	const boolFields = [
 		"market_scheduled_asset_price_enabled",
-		"market_scheduled_asset_price_include_email",
-		"market_scheduled_asset_price_include_sms",
-		"daily_digest_include_prices_email",
-		"daily_digest_include_prices_sms",
-		"daily_digest_include_top_movers_email",
-		"daily_digest_include_top_movers_sms",
-		"daily_digest_include_news_email",
-		"daily_digest_include_rumors_email",
-		"asset_events_include_calendar_email",
-		"asset_events_include_calendar_sms",
-		"asset_events_include_ipo_email",
-		"asset_events_include_ipo_sms",
-		"asset_events_include_analyst_email",
-		"asset_events_include_analyst_sms",
-		"asset_events_include_insider_email",
-		"asset_events_include_insider_sms",
 		"email_notifications_enabled",
 		"sms_notifications_enabled",
 		"market_asset_price_alerts_enabled",
-		"market_asset_price_alerts_include_email",
-		"market_asset_price_alerts_include_sms",
-		"price_move_alerts_include_email",
-		"price_move_alerts_include_sms",
-		"price_targets_include_email",
-		"price_targets_include_sms",
 	] as const satisfies ReadonlyArray<keyof ParsedNotificationPreferencesForm>;
 
 	const boolUpdates: Record<string, boolean> = {};
@@ -250,12 +239,6 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 			? safeNotificationPreferenceUpdates.daily_digest_time
 			: dbUser.daily_digest_time;
 
-	const assetEventsOptionsChanged = ASSET_EVENTS_OPTION_FIELDS.some(
-		(field) =>
-			safeNotificationPreferenceUpdates[field as keyof typeof safeNotificationPreferenceUpdates] !==
-			undefined,
-	);
-
 	computeScheduledNextSendAt(
 		safeNotificationPreferenceUpdates,
 		dbUser,
@@ -280,6 +263,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		timezoneChanged,
 		dailyTimeChanged,
 		assetEventsOptionsChanged,
+		assetEventsEnabledAfterUpdate,
 	);
 
 	return safeNotificationPreferenceUpdates;
@@ -301,6 +285,9 @@ interface TimezoneUpdatePayload {
 export function computeTimezoneUpdatePayload(
 	newTimezone: string,
 	dbUser: User,
+	/** Whether the user has any asset-events email/sms facet enabled (from
+	 *  notification_preferences), used to decide whether to recompute its schedule. */
+	hasAnyAssetEvents: boolean,
 ): TimezoneUpdatePayload {
 	const payload: TimezoneUpdatePayload = {
 		timezone: newTimezone,
@@ -322,9 +309,6 @@ export function computeTimezoneUpdatePayload(
 		payload.daily_digest_next_send_at = nextDailyUtc?.toISO() ?? null;
 	}
 
-	const hasAnyAssetEvents = ASSET_EVENTS_OPTION_FIELDS.some(
-		(field) => dbUser[field as keyof typeof dbUser],
-	);
 	if (hasAnyAssetEvents) {
 		const baseLocal = dbUser.daily_digest_time ?? 540;
 		const etMinutes = userLocalToEtMinute(baseLocal, newTimezone);

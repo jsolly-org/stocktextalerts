@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Source this script to export SAM_PARAMS from ../.env.local.
 #
-# Used by deploy.sh (sam deploy) and sam-local.sh (sam local invoke) so the
-# same parameter mapping feeds both prod deploys and local container runs.
+# Used by deploy.sh and sam-local.sh so the same parameter mapping feeds both the
+# prod deploy and the local container-invoke paths, rather than duplicating the
+# env.local -> SAM parameter translation in two places.
 # Keeping this as one shell helper avoids duplicating the env.local -> SAM
 # parameter translation in multiple places.
 set -euo pipefail
@@ -33,6 +34,7 @@ done < "$_ENV_FILE"
 : "${EMAIL_DISPATCH_SECRET:?EMAIL_DISPATCH_SECRET not set in .env.local}"
 : "${ADMIN_EMAILS:?ADMIN_EMAILS not set in .env.local}"
 : "${PRODUCTION_SITE_URL:?PRODUCTION_SITE_URL not set in .env.local}"
+: "${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN not set in .env.local}"
 
 _GIT_SHA="$(git -C "$_PARAMS_DIR/.." rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
@@ -48,6 +50,7 @@ SAM_PARAMS=(
   "TwilioApiKeySid=$TWILIO_API_KEY_SID"
   "TwilioApiKeySecret=$TWILIO_API_KEY_SECRET"
   "TwilioPhoneNumber=$TWILIO_PHONE_NUMBER"
+  "TelegramBotToken=$TELEGRAM_BOT_TOKEN"
   "UnsubscribeTokenSecret=$UNSUBSCRIBE_TOKEN_SECRET"
   "EmailDispatchSecret=$EMAIL_DISPATCH_SECRET"
   "AdminEmails=$ADMIN_EMAILS"

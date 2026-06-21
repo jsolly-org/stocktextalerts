@@ -442,6 +442,44 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          channel: Database["public"]["Enums"]["delivery_method"]
+          content: string
+          created_at: string
+          enabled: boolean
+          notification_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel: Database["public"]["Enums"]["delivery_method"]
+          content?: string
+          created_at?: string
+          enabled?: boolean
+          notification_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["delivery_method"]
+          content?: string
+          created_at?: string
+          enabled?: boolean
+          notification_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       price_move_alert_state: {
         Row: {
           first_of_day_reservation: boolean
@@ -676,6 +714,53 @@ export type Database = {
           },
         ]
       }
+      telegram_link_tokens: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          nonce: string
+          user_id: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          nonce: string
+          user_id: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          nonce?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_link_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      telegram_updates: {
+        Row: {
+          received_at: string
+          update_id: number
+        }
+        Insert: {
+          received_at?: string
+          update_id: number
+        }
+        Update: {
+          received_at?: string
+          update_id?: number
+        }
+        Relationships: []
+      }
       timezones: {
         Row: {
           active: boolean
@@ -734,23 +819,9 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
-          asset_events_include_analyst_email: boolean
-          asset_events_include_analyst_sms: boolean
-          asset_events_include_calendar_email: boolean
-          asset_events_include_calendar_sms: boolean
-          asset_events_include_insider_email: boolean
-          asset_events_include_insider_sms: boolean
-          asset_events_include_ipo_email: boolean
-          asset_events_include_ipo_sms: boolean
           asset_events_last_analyst_sent_month: string | null
           asset_events_next_send_at: string | null
           created_at: string
-          daily_digest_include_news_email: boolean
-          daily_digest_include_prices_email: boolean
-          daily_digest_include_prices_sms: boolean
-          daily_digest_include_rumors_email: boolean
-          daily_digest_include_top_movers_email: boolean
-          daily_digest_include_top_movers_sms: boolean
           daily_digest_next_send_at: string | null
           daily_digest_time: number | null
           dismiss_timezone_mismatch_prompts: boolean
@@ -763,22 +834,18 @@ export type Database = {
           last_grok_rumors_at: string | null
           market_asset_price_alert_move_size: string
           market_asset_price_alerts_enabled: boolean
-          market_asset_price_alerts_include_email: boolean
-          market_asset_price_alerts_include_sms: boolean
           market_scheduled_asset_price_enabled: boolean
-          market_scheduled_asset_price_include_email: boolean
-          market_scheduled_asset_price_include_sms: boolean
           market_scheduled_asset_price_next_send_at: string | null
           market_scheduled_asset_price_times: number[] | null
           phone_country_code: string | null
           phone_number: string | null
           phone_verified: boolean
-          price_move_alerts_include_email: boolean
-          price_move_alerts_include_sms: boolean
-          price_targets_include_email: boolean
-          price_targets_include_sms: boolean
           sms_notifications_enabled: boolean
           sms_opted_out: boolean
+          telegram_chat_id: number | null
+          telegram_id: number | null
+          telegram_linked_at: string | null
+          telegram_opted_out: boolean
           timezone: string
           updated_at: string
           use_24_hour_time: boolean
@@ -787,23 +854,9 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
-          asset_events_include_analyst_email?: boolean
-          asset_events_include_analyst_sms?: boolean
-          asset_events_include_calendar_email?: boolean
-          asset_events_include_calendar_sms?: boolean
-          asset_events_include_insider_email?: boolean
-          asset_events_include_insider_sms?: boolean
-          asset_events_include_ipo_email?: boolean
-          asset_events_include_ipo_sms?: boolean
           asset_events_last_analyst_sent_month?: string | null
           asset_events_next_send_at?: string | null
           created_at?: string
-          daily_digest_include_news_email?: boolean
-          daily_digest_include_prices_email?: boolean
-          daily_digest_include_prices_sms?: boolean
-          daily_digest_include_rumors_email?: boolean
-          daily_digest_include_top_movers_email?: boolean
-          daily_digest_include_top_movers_sms?: boolean
           daily_digest_next_send_at?: string | null
           daily_digest_time?: number | null
           dismiss_timezone_mismatch_prompts?: boolean
@@ -816,22 +869,18 @@ export type Database = {
           last_grok_rumors_at?: string | null
           market_asset_price_alert_move_size?: string
           market_asset_price_alerts_enabled?: boolean
-          market_asset_price_alerts_include_email?: boolean
-          market_asset_price_alerts_include_sms?: boolean
           market_scheduled_asset_price_enabled?: boolean
-          market_scheduled_asset_price_include_email?: boolean
-          market_scheduled_asset_price_include_sms?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
-          price_move_alerts_include_email?: boolean
-          price_move_alerts_include_sms?: boolean
-          price_targets_include_email?: boolean
-          price_targets_include_sms?: boolean
           sms_notifications_enabled?: boolean
           sms_opted_out?: boolean
+          telegram_chat_id?: number | null
+          telegram_id?: number | null
+          telegram_linked_at?: string | null
+          telegram_opted_out?: boolean
           timezone?: string
           updated_at?: string
           use_24_hour_time?: boolean
@@ -840,23 +889,9 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
-          asset_events_include_analyst_email?: boolean
-          asset_events_include_analyst_sms?: boolean
-          asset_events_include_calendar_email?: boolean
-          asset_events_include_calendar_sms?: boolean
-          asset_events_include_insider_email?: boolean
-          asset_events_include_insider_sms?: boolean
-          asset_events_include_ipo_email?: boolean
-          asset_events_include_ipo_sms?: boolean
           asset_events_last_analyst_sent_month?: string | null
           asset_events_next_send_at?: string | null
           created_at?: string
-          daily_digest_include_news_email?: boolean
-          daily_digest_include_prices_email?: boolean
-          daily_digest_include_prices_sms?: boolean
-          daily_digest_include_rumors_email?: boolean
-          daily_digest_include_top_movers_email?: boolean
-          daily_digest_include_top_movers_sms?: boolean
           daily_digest_next_send_at?: string | null
           daily_digest_time?: number | null
           dismiss_timezone_mismatch_prompts?: boolean
@@ -869,22 +904,18 @@ export type Database = {
           last_grok_rumors_at?: string | null
           market_asset_price_alert_move_size?: string
           market_asset_price_alerts_enabled?: boolean
-          market_asset_price_alerts_include_email?: boolean
-          market_asset_price_alerts_include_sms?: boolean
           market_scheduled_asset_price_enabled?: boolean
-          market_scheduled_asset_price_include_email?: boolean
-          market_scheduled_asset_price_include_sms?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
-          price_move_alerts_include_email?: boolean
-          price_move_alerts_include_sms?: boolean
-          price_targets_include_email?: boolean
-          price_targets_include_sms?: boolean
           sms_notifications_enabled?: boolean
           sms_opted_out?: boolean
+          telegram_chat_id?: number | null
+          telegram_id?: number | null
+          telegram_linked_at?: string | null
+          telegram_opted_out?: boolean
           timezone?: string
           updated_at?: string
           use_24_hour_time?: boolean
@@ -1027,7 +1058,7 @@ export type Database = {
     }
     Enums: {
       asset_event_type: "earnings" | "dividend" | "split"
-      delivery_method: "email" | "sms"
+      delivery_method: "email" | "sms" | "telegram"
       scheduled_notification_status: "sending" | "sent" | "failed"
       scheduled_notification_type: "market" | "daily" | "asset_events"
     }
@@ -1158,7 +1189,7 @@ export const Constants = {
   public: {
     Enums: {
       asset_event_type: ["earnings", "dividend", "split"],
-      delivery_method: ["email", "sms"],
+      delivery_method: ["email", "sms", "telegram"],
       scheduled_notification_status: ["sending", "sent", "failed"],
       scheduled_notification_type: ["market", "daily", "asset_events"],
     },

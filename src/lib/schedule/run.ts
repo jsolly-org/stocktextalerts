@@ -71,6 +71,7 @@ import {
 } from "./helpers";
 import { resolveMarketSessionWithFallback } from "./market-session";
 import { createSmsSenderProvider } from "./sms-sender";
+import { createTelegramSenderProvider } from "./telegram-sender";
 
 /** Daily fan-out batch size for dispatching digest processing. */
 const DAILY_DISPATCH_BATCH_SIZE = (() => {
@@ -93,6 +94,8 @@ const EMPTY_TOTALS: ScheduledNotificationTotals = {
 	emailsFailed: 0,
 	smsSent: 0,
 	smsFailed: 0,
+	telegramSent: 0,
+	telegramFailed: 0,
 };
 
 /** Combine two scheduled notification totals into one aggregate. */
@@ -107,6 +110,8 @@ function mergeTotals(
 		emailsFailed: a.emailsFailed + b.emailsFailed,
 		smsSent: a.smsSent + b.smsSent,
 		smsFailed: a.smsFailed + b.smsFailed,
+		telegramSent: a.telegramSent + b.telegramSent,
+		telegramFailed: a.telegramFailed + b.telegramFailed,
 	};
 }
 
@@ -153,12 +158,21 @@ async function runPass(options: {
 	logger: Logger;
 	sendEmail: ReturnType<typeof createEmailSender>;
 	getSmsSender: ReturnType<typeof createSmsSenderProvider>;
+	getTelegramSender: ReturnType<typeof createTelegramSenderProvider>;
 	marketSession: MarketSession;
 	schedulerQuoteCache: SchedulerQuoteCache;
 	/** When true, run asset events processing (only in the first pass). */
 	includeAssetEvents: boolean;
 }): Promise<ScheduledNotificationTotals> {
-	const { supabase, logger, sendEmail, getSmsSender, marketSession, schedulerQuoteCache } = options;
+	const {
+		supabase,
+		logger,
+		sendEmail,
+		getSmsSender,
+		getTelegramSender,
+		marketSession,
+		schedulerQuoteCache,
+	} = options;
 
 	// Use actual UTC time — NOT rounded to end-of-minute like the old single-pass approach.
 	// Users set times at minute granularity so next_send_at is always at :00 seconds.
@@ -332,6 +346,7 @@ async function runPass(options: {
 					currentTime,
 					sendEmail,
 					getSmsSender,
+					getTelegramSender,
 					priceMap,
 					noSessionTrade: marketNoSessionTrade,
 					marketSession,
@@ -355,6 +370,7 @@ async function runPass(options: {
 					currentTime,
 					sendEmail,
 					getSmsSender,
+					getTelegramSender,
 					userAssetsMap,
 					marketClosureInfo,
 				}),
@@ -376,6 +392,7 @@ async function runPass(options: {
 						supabase,
 						sendEmail,
 						getSmsSender,
+						getTelegramSender,
 					}),
 				),
 			);
@@ -396,6 +413,8 @@ async function runPass(options: {
 						emailsFailed: 0,
 						smsSent: 0,
 						smsFailed: 0,
+						telegramSent: 0,
+						telegramFailed: 0,
 					});
 				}
 			}
@@ -611,6 +630,7 @@ export async function runScheduledNotifications(options: {
 
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
+	const getTelegramSender = createTelegramSenderProvider();
 	const schedulerQuoteCache = createSchedulerQuoteCache(priceAlertQuoteMap);
 
 	/* ============= Two-pass execution ============= */
@@ -622,6 +642,7 @@ export async function runScheduledNotifications(options: {
 		logger,
 		sendEmail,
 		getSmsSender,
+		getTelegramSender,
 		marketSession: schedulerMarketSession,
 		schedulerQuoteCache,
 		includeAssetEvents: true,
@@ -642,6 +663,7 @@ export async function runScheduledNotifications(options: {
 		logger,
 		sendEmail,
 		getSmsSender,
+		getTelegramSender,
 		marketSession: schedulerMarketSession,
 		schedulerQuoteCache,
 		includeAssetEvents: false,
