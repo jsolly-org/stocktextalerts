@@ -366,7 +366,7 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 
 **Local testing:** `cd aws && npm run local:test-all` builds and invokes all three functions locally via `sam local invoke` (requires Podman or Docker — SAM CLI uses `DOCKER_HOST`). To test a single function: `npm run local:schedule`, `npm run local:asset-maintenance`, or `npm run local:daily-stats`. Run `npm run local:gen-env` first to generate `env.json` from `.env.local` with per-function env var scoping.
 
-**Deploying:** push to `main` — the pre-push hook runs `npm run deploy` (`aws/deploy-web.sh`): Supabase migrations → Lambda code via `update-function-code` (code-only, under the scoped `fleet-deploy` role). The web tier ships separately: Vercel's git integration auto-builds `main` once the push lands. **A full SAM deploy (`npm run deploy:aws`) is still required whenever `aws/template.yaml` or `aws/deploy.sh` changes** (infrastructure/config) — that stays a manual admin step, not part of the hook.
+**Deploying:** push to `main` — the pre-push hook runs `npm run deploy:code` (`aws/deploy-web.sh`): Supabase migrations → Lambda code via `update-function-code` (code-only, under the scoped `fleet-deploy` role). The web tier ships separately: Vercel's git integration auto-builds `main` once the push lands. **A full SAM deploy (`npm run deploy:infra`) is still required whenever `aws/template.yaml` or `aws/deploy.sh` changes** (infrastructure/config) — that stays a manual admin step, not part of the hook.
 
 ## Project Structure
 

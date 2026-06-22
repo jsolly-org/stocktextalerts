@@ -192,7 +192,7 @@ function main(): void {
 	}
 	if (problems.length > 0) {
 		console.error(`\n✗ ${problems.length} function(s) with deploy drift: ${problems.join(", ")}`);
-		console.error("  Redeploy from a credentialed laptop: git push origin HEAD:main, or npm run deploy.");
+		console.error("  Redeploy from a credentialed laptop: git push origin HEAD:main, or npm run deploy:code.");
 		process.exit(1);
 	}
 	console.log("\n✓ all tagged functions current (or behind only on tooling/docs).");

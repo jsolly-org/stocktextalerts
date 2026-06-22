@@ -9,7 +9,7 @@
  * `deploy_code <LogicalId> <physical-name>` over a hand-maintained list. ALL
  * functions share src/lib, so if the list omits a function, that function keeps
  * running stale code against the freshly migrated schema until the next full
- * `npm run deploy:aws` — the duplicate-SMS incident class. This actually bit on
+ * `npm run deploy:infra` — the duplicate-SMS incident class. This actually bit on
  * 2026-06-21 (the Telegram ship): live-provider-check and backup-user-settings
  * were defined in the template but missing from the deploy list, so they only
  * picked up new code via the manual SAM deploy. The "keep this list in sync"

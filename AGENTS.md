@@ -109,7 +109,7 @@ See `docs/local-supabase.md` for `db:bootstrap`, seed hardening, and Podman setu
 
 ## AWS / SAM Deploy
 
-Lambda **code** ships automatically on push to `main` (the pre-push deploy runs `update-function-code` under the scoped `fleet-deploy` role). A **full SAM deploy** is still required when changing `aws/template.yaml` or `aws/deploy.sh` (infra/config): run `npm run deploy:aws` manually with admin creds. Copy `aws/samconfig.toml.example` → gitignored `aws/samconfig.toml`; use `AWS_PROFILE` locally. Never commit personal/admin AWS profile names in tracked files (the shared fleet convention `fleet-deploy` is the documented exception).
+Lambda **code** ships automatically on push to `main` (the pre-push deploy runs `update-function-code` under the scoped `fleet-deploy` role). A **full SAM deploy** is still required when changing `aws/template.yaml` or `aws/deploy.sh` (infra/config): run `npm run deploy:infra` manually with admin creds. Copy `aws/samconfig.toml.example` → gitignored `aws/samconfig.toml`; use `AWS_PROFILE` locally. Never commit personal/admin AWS profile names in tracked files (the shared fleet convention `fleet-deploy` is the documented exception).
 
 ### Post-deploy live verification (no local live-test tier)
 

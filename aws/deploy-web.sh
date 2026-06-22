@@ -17,9 +17,9 @@
 # worktree.
 #
 # Runs from the pre-push hook (.git-hooks/pre-push) on push to main, and is also wired as
-# `npm run deploy` for manual use. NO CloudFormation/SAM infra changes happen here —
+# `npm run deploy:code` for manual use. NO CloudFormation/SAM infra changes happen here —
 # `aws lambda update-function-code` is code-only. Infra/template changes stay a manual
-# `npm run deploy:aws` (full SAM, admin creds).
+# `npm run deploy:infra` (full SAM, admin creds).
 #
 # Modes:
 #   (no arg)     full production deploy (Phases 1–4).
@@ -68,7 +68,7 @@ build_lambdas() {
   # Reproducible bundle: reinstall the committed lockfile before `sam build` bundles the Lambda from
   # gitignored node_modules. --if-stale because both callers reach here — the push path runs from a
   # freshly worktree:init'd tree (in sync → skipped, no wasted reinstall), while the manual
-  # `npm run deploy` / `npm run build:lambdas` can run from a possibly-stale checkout (the read-only
+  # `npm run deploy:code` / `npm run build:lambdas` can run from a possibly-stale checkout (the read-only
   # `main` mirror is never npm ci'd in the worktree-first flow → reinstall). Runs before the tsx
   # steps so they too resolve from a fresh node_modules/.bin. Credential-free, so safe in --build.
   gate_npm_ci --if-stale
@@ -154,7 +154,7 @@ fi
 
 echo "▶ stocktextalerts production deploy"
 phase="init"
-trap 'echo "✗ deploy failed during: $phase — completed phases remain LIVE (no rollback). Fix and re-run: npm run deploy" >&2' ERR
+trap 'echo "✗ deploy failed during: $phase — completed phases remain LIVE (no rollback). Fix and re-run: npm run deploy:code" >&2' ERR
 
 # --- Phase 1: build the Lambda bundle FIRST (offline, reversible) ---
 # Ahead of the one-way Supabase migration so a build failure leaves prod untouched (see header).

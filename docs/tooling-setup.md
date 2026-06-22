@@ -46,7 +46,7 @@ approved by migration and users changed directly in Supabase Table Editor are no
 emailed.
 
 The email dispatch secret is shared between SAM (`EMAIL_DISPATCH_SECRET` in `.env.local`
-for `npm run deploy:aws`) and Vercel (`EMAIL_DISPATCH_SECRET` plus
+for `npm run deploy:infra`) and Vercel (`EMAIL_DISPATCH_SECRET` plus
 `EMAIL_DISPATCH_URL`). Generate it with `openssl rand -hex 32`.
 
 ### Prod dev-login account

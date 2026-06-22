@@ -18,7 +18,7 @@ Design: `docs/specs/2026-06-13-user-settings-backup-design.md`.
    `postgresql://backup_readonly.<ref>:<pw>@aws-1-us-east-2.pooler.supabase.com:5432/postgres`
 3. Store it once in SSM SecureString:
    `aws ssm put-parameter --name /stocktextalerts/backup/connection-string --type SecureString --value '<conn>'`
-4. Deploy infra (adds the Lambda, schedule, alarms, lifecycle rule): `npm run deploy:aws`.
+4. Deploy infra (adds the Lambda, schedule, alarms, lifecycle rule): `npm run deploy:infra`.
 
 ## Restore (rehearse quarterly)
 

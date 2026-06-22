@@ -2,7 +2,7 @@
 # Deploy the SAM stack using values from ../.env.local. Run via:
 #   cd aws && ./deploy.sh
 # or from repo root:
-#   npm run deploy:aws
+#   npm run deploy:infra
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

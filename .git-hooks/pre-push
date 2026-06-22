@@ -8,7 +8,7 @@
 # declares only stocktextalerts' full CI battery and the production deploy. The
 # gate needs local Supabase up (db-privileges + test + test:e2e) — start it with
 # `npm run db:start`. Deploy is code-only (Supabase → Vercel → Lambda code);
-# infra/template changes stay a manual `npm run deploy:aws` (full SAM, admin).
+# infra/template changes stay a manual `npm run deploy:infra` (full SAM, admin).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$ROOT"
@@ -52,10 +52,10 @@ if gate_diff_matches '^aws/(template\.yaml|deploy\.sh)$'; then
   infra_changed=1
 fi
 echo "• production deploy"
-trap 'echo "✗ deploy failed — production may be PARTIALLY updated (see phase above); push aborted. Fix and re-run: npm run deploy" >&2' ERR
+trap 'echo "✗ deploy failed — production may be PARTIALLY updated (see phase above); push aborted. Fix and re-run: npm run deploy:code" >&2' ERR
 bash aws/deploy-web.sh
 echo "✓ pre-push gate + deploy complete"
 if [ -n "$infra_changed" ]; then
   echo "⚠ aws/template.yaml or aws/deploy.sh changed — Lambda INFRA is NOT auto-deployed by this hook."
-  echo "  Apply infra manually with admin creds:  npm run deploy:aws   (full SAM)"
+  echo "  Apply infra manually with admin creds:  npm run deploy:infra   (full SAM)"
 fi

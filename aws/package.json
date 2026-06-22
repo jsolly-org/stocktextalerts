@@ -3,7 +3,7 @@
 	"private": true,
 	"scripts": {
 		"typecheck": "tsc --noEmit",
-		"deploy": "bash deploy.sh",
+		"deploy:infra": "bash deploy.sh",
 		"local:all": "bash sam-local.sh",
 		"local:schedule": "bash sam-local.sh ScheduleFunction",
 		"local:asset-maintenance": "bash sam-local.sh AssetMaintenanceFunction",
