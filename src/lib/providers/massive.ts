@@ -271,6 +271,24 @@ async function fetchFinnhubEarnings(
 Fetchers
 ============= */
 
+// Short-TTL memo of the market-wide earnings calendar, keyed by date range.
+// The calendar is symbol-independent, but new-symbol warmup (vendor-backfill)
+// fetches the SAME week's full calendar once per symbol — processed serially in
+// one SQS batch, a bulk add fans these into N identical Finnhub calls and
+// exhausts the rate limit (the 2026-06-22 429 burst: 649 calls for a handful of
+// week-ranges). Memoizing successful fetches collapses a burst to one call per
+// week-range; a 5-min TTL keeps the weekly asset-maintenance run fresh.
+const EARNINGS_CACHE_TTL_MS = 5 * 60_000;
+const earningsCalendarCache = new Map<
+	string,
+	{ result: ProviderResult<EarningsEvent>; expiresAt: number }
+>();
+
+/** Test-only: clear the earnings-calendar memo so module state doesn't leak across tests. */
+export function resetEarningsCacheForTests(): void {
+	earningsCalendarCache.clear();
+}
+
 /**
  * Fetch all earnings events for a date range (market-wide).
  */
@@ -278,8 +296,24 @@ export async function fetchEarnings(
 	from: string,
 	to: string,
 ): Promise<ProviderResult<EarningsEvent>> {
+	const cacheKey = `${from}|${to}`;
+	const cached = earningsCalendarCache.get(cacheKey);
+	if (cached && cached.expiresAt > Date.now()) {
+		return cached.result;
+	}
+
 	// Use Finnhub as the canonical earnings feed to avoid partner entitlement issues on Massive.
-	return fetchFinnhubEarnings(from, to);
+	const result = await fetchFinnhubEarnings(from, to);
+
+	// Cache successes only — a 429/transient failure must not become sticky and
+	// block the retry that the next warmup (or the maintenance run) will attempt.
+	if (!result.failed) {
+		earningsCalendarCache.set(cacheKey, {
+			result,
+			expiresAt: Date.now() + EARNINGS_CACHE_TTL_MS,
+		});
+	}
+	return result;
 }
 
 /**

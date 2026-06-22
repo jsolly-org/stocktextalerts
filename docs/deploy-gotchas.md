@@ -31,6 +31,19 @@ Set the actual value once via `aws ssm put-parameter`. CloudFormation resolves i
 
 See [docs/incidents/2026-05-email-from-mangling.md](incidents/2026-05-email-from-mangling.md) for the outage that motivated this.
 
+## Destructive migrations must be expand-contract (split across two deploys)
+
+`aws/deploy-web.sh` runs **Phase 2 (Supabase `db push`) before Phase 3 (Lambda `update-function-code`)**. The migration is one-way; the code update is not atomic with it. So if a destructive migration (DROP/RENAME a column) and the code that stops reading that column ship in the **same commit**, there is a window — from Phase 2 completing until Phase 3 finishes — where prod's schema is migrated but the still-running Lambda holds the old code. Any Phase-3 abort (a bundle build break, an AWS hiccup, an expired SSO token) strands prod in that state, and the every-minute `schedule` cron fails on the missing column until a redeploy.
+
+This bit on 2026-06-21: migration `20260619233608_drop_per_option_include_columns` applied, then the deploy aborted on a `@resvg/resvg-js` bundle build break before the schedule Lambda's code updated → ~18 min of `column ... does not exist` and failed scheduled-notification passes (recovered by temporarily re-adding the column, fixing the build, and redeploying). Building the bundle Phase-1-first closed the *build-break* trigger, but not the general "Phase 3 fails after Phase 2" class.
+
+**Rule:** never drop or rename a column in the same commit that removes the code reading it. Expand-contract across two deploys:
+
+1. **Expand** — ship code that tolerates *both* the old and new schema (read from the new shape, ignore the old column). Deploy.
+2. **Contract** — in a *later* commit, drop/rename the column. Deploy.
+
+Now a Phase-3 failure on either deploy is harmless: the running code already doesn't depend on the column being present-or-absent. `npm run check:deploy-drift` audits the inverse failure (a deploy that didn't fire, leaving live Lambdas behind `origin/main`).
+
 ## Explicit CloudWatch `AlarmName` may replace alarms on deploy
 
 SAM updates that add `AlarmName` to previously auto-named alarms can replace the underlying CloudWatch alarm resource. You may get a one-off state transition email during deploy. See [docs/shared-infra.md](shared-infra.md).
