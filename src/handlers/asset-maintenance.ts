@@ -17,7 +17,6 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 		const logger = createLogger({
 			source: "lambda",
 			function: "asset-maintenance",
-			gitSha: process.env.GIT_SHA,
 		});
 		logger.info("Lambda invoke", {
 			action: "lambda_invoke",

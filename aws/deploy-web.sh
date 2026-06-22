@@ -207,12 +207,23 @@ supabase db push --include-all --yes --db-url "$DB_URL"
 phase="lambda code update"
 echo "• deploy Lambda code  (AWS_PROFILE=$AWS_PROFILE)"
 build="aws/.aws-sam/build"
+# The git commit this deploy built from — stamped on each function as the Deploy-Commit tag (with
+# AWS's CodeSha256 as Deploy-Sha256) for CodeSha256-based drift detection (scripts/check-deploy-drift.ts).
+# Full SHA so the detector resolves it unambiguously against origin/main.
+COMMIT="$(git rev-parse HEAD)"
 deploy_code() { # <build-dir> <physical-name>
   (cd "$build/$1" && zip -qr "../$1.zip" .)
-  aws lambda update-function-code \
-    --function-name "$2" --zip-file "fileb://$build/$1.zip" >/dev/null
+  # Capture the CodeSha256 (base64 SHA256 of the exact zip AWS stored) + the function ARN that
+  # update-function-code returns — previously discarded to /dev/null — then stamp deploy provenance.
+  # out="$(…)" (not process substitution) keeps set -e fail-fast on the upload itself.
+  local out _sha _arn
+  out="$(aws lambda update-function-code \
+    --function-name "$2" --zip-file "fileb://$build/$1.zip" \
+    --query '[CodeSha256, FunctionArn]' --output text)"
   aws lambda wait function-updated-v2 --function-name "$2"
-  echo "  ✓ $2"
+  read -r _sha _arn <<<"$out"
+  gate_lambda_tag_provenance "$_arn" "$_sha" "$COMMIT"
+  echo "  ✓ $2  (tagged ${_sha})"
 }
 # Keep this list in sync with aws/template.yaml — ALL functions share src/lib,
 # so every function must ship on every push or stale code runs against the

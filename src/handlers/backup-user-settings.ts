@@ -11,7 +11,6 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 		const logger = createLogger({
 			source: "lambda",
 			function: "backup-user-settings",
-			gitSha: process.env.GIT_SHA,
 		});
 		logger.info("Lambda invoke", {
 			action: "lambda_invoke",

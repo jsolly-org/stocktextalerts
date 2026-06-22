@@ -9,7 +9,6 @@ export async function handler(event: SQSEvent, context: Context): Promise<SQSBat
 		const logger = createLogger({
 			source: "lambda",
 			function: "vendor-backfill",
-			gitSha: process.env.GIT_SHA,
 		});
 		logger.info("Vendor backfill batch invoke", {
 			action: "vendor_backfill_invoke",

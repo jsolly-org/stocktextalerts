@@ -11,39 +11,38 @@
  *      stale code → an outage.
  *   2. origin/main advanced via a merge that never triggered the push-time deploy
  *      at all — the change sat undeployed with no signal.
- * Neither is catchable by the pre-push gate (the gate runs *during* a push; the
- * failure is a push whose deploy didn't run). This is the standing detector for it.
  *
- * WHICH SIGNAL = the deployed code version. There are TWO provenance fields and
- * they DIVERGE — getting this wrong makes the audit lie:
- *   - `release` (RELEASE_ID, src/lib/logging/release-id.ts) is baked into the
- *     bundle at BUILD time, so it updates on every `update-function-code` (the
- *     push-time, code-only deploy). THIS is the running code version.
- *   - the `GIT_SHA` env var is set only by a full SAM deploy (aws/sam-params.sh);
- *     `aws lambda update-function-code` does NOT touch env vars. So GIT_SHA goes
- *     stale the moment any code-only deploy lands — it tracks the last *infra*
- *     deploy, not the code. Reading it (an earlier version of this script did)
- *     reports false drift on a perfectly-current fleet.
- * So we read the most recent `release` from each function's CloudWatch logs.
+ * WHICH SIGNAL = AWS's own artifact fingerprint, not a self-asserted string. Each
+ * code-only deploy (aws/deploy-web.sh) tags the function with:
+ *   - Deploy-Sha256  = the CodeSha256 `update-function-code` returned (base64 SHA256
+ *     of the exact zip AWS stored — server-computed, unspoofable).
+ *   - Deploy-Commit  = the git commit the deploy built from.
+ * This audit reads both tags AND the function's LIVE CodeSha256 in a single,
+ * already-granted `aws lambda get-function` call (NOT `list-tags`, which needs an
+ * un-granted lambda:ListTags), and checks two things:
+ *   - INTEGRITY: live CodeSha256 == Deploy-Sha256 tag. A mismatch means the running
+ *     bytes differ from what the pipeline recorded — an out-of-band edit (console
+ *     hot-patch / raw update-function-code off-pipeline).
+ *   - IDENTITY: Deploy-Commit resolves in git history and is origin/main (or a clean
+ *     ancestor) — else the deployed code is behind / diverged.
+ * The old `GIT_SHA` env field + CloudWatch-log scraping are gone: GIT_SHA went stale
+ * on every code-only deploy (env vars untouched by update-function-code), and reading
+ * a tag needs no recent invocation (closes the idle-cron blind spot, within an
+ * authenticated session).
  *
  * Fails CLOSED:
- *   - aws CLI absent, fetch fails, or list returns zero functions → exit 1 (a
- *     green "found nothing" is the worst outcome for a drift check).
- *   - any function whose live `release` is unknown to git history (diverged /
- *     force-push), or behind origin/main with src/ changes → exit 1.
+ *   - aws CLI absent, fetch fails, or list returns zero functions → exit 1.
+ *   - integrity mismatch, or a Deploy-Commit unknown to git / behind origin/main
+ *     with src/ changes → exit 1.
  * Reported but NOT failed: tooling/docs-only drift (no src/ in the gap), and
- * functions with no recent logs to read a release from (unverifiable, not stale).
+ * functions with no Deploy-Sha256 tag yet (untagged — pre-rollout / never deployed).
  *
- * Read-only: lambda:ListFunctions + logs:FilterLogEvents + local git. No mutation.
+ * Read-only: lambda:ListFunctions + lambda:GetFunction + local git. No mutation.
  * Usage: npm run check:deploy-drift   (manual; needs AWS read creds)
  */
 import { execFileSync } from "node:child_process";
 
 const FUNCTION_PREFIX = "stocktextalerts-";
-// Windows to look back for a `release` log line, widening for infrequently-invoked
-// (cron) functions before giving up and calling a function unverifiable.
-const LOG_LOOKBACK_SECONDS = [6 * 3600, 72 * 3600];
-const RELEASE_RE = /"release":"([0-9a-fA-F]+|dev)"/;
 
 function sh(cmd: string, args: string[]): string {
 	return execFileSync(cmd, args, { encoding: "utf8" }).trim();
@@ -58,38 +57,32 @@ function gitOk(args: string[]): boolean {
 	}
 }
 
-/** Most recent {release, timestamp} from a function's logs, or null if none. */
-function latestRelease(fnName: string): { rel: string; ts: number } | null {
-	for (const lookback of LOG_LOOKBACK_SECONDS) {
-		const startMs = (Date.now() - lookback * 1000).toString();
-		let raw: string;
-		try {
-			raw = sh("aws", [
-				"logs",
-				"filter-log-events",
-				"--log-group-name",
-				`/aws/lambda/${fnName}`,
-				"--start-time",
-				startMs,
-				"--filter-pattern",
-				'"release"',
-				"--query",
-				"events[].{t:timestamp, m:message}",
-				"--output",
-				"json",
-			]);
-		} catch {
-			return null; // no log group / no read access
-		}
-		const events = JSON.parse(raw) as { t: number; m: string }[];
-		let best: { t: number; rel: string } | null = null;
-		for (const e of events) {
-			const rel = e.m.match(RELEASE_RE)?.[1];
-			if (rel && (!best || e.t > best.t)) best = { t: e.t, rel };
-		}
-		if (best) return { rel: best.rel, ts: best.t };
+/** Live CodeSha256 + Deploy-* tags for a function, or null if unreadable. */
+function liveProvenance(
+	fnName: string,
+): { live: string | null; deploySha: string | null; commit: string | null } | null {
+	let raw: string;
+	try {
+		raw = sh("aws", [
+			"lambda",
+			"get-function",
+			"--function-name",
+			fnName,
+			"--query",
+			"{live: Configuration.CodeSha256, tags: Tags}",
+			"--output",
+			"json",
+		]);
+	} catch {
+		return null; // no function / no read access
 	}
-	return null;
+	const parsed = JSON.parse(raw) as { live: string | null; tags: Record<string, string> | null };
+	const tags = parsed.tags ?? {};
+	return {
+		live: parsed.live,
+		deploySha: tags["Deploy-Sha256"] ?? null,
+		commit: tags["Deploy-Commit"] ?? null,
+	};
 }
 
 function main(): void {
@@ -101,9 +94,8 @@ function main(): void {
 		process.exit(1);
 	}
 
-	// Compare against the *fetched* remote tip — fail loud if the fetch fails, or the
-	// audit would silently validate against a stale local origin/main and report a
-	// genuinely-behind fleet as current (the exact false-green this detector prevents).
+	// Compare against the *fetched* remote tip — fail loud if the fetch fails, or the audit would
+	// silently validate against a stale local origin/main and report a behind fleet as current.
 	if (!gitOk(["fetch", "origin", "main", "--quiet"])) {
 		console.error(
 			"✗ git fetch origin main failed — refusing to audit against an unverified (possibly stale) origin/main.",
@@ -113,21 +105,15 @@ function main(): void {
 	const target = sh("git", ["rev-parse", "origin/main"]);
 	const targetShort = target.slice(0, 8);
 
-	// LastModified = when code was last deployed (update-function-code bumps it). We
-	// compare it against the latest log timestamp to tell "running stale code" from
-	// "freshly deployed, not yet re-invoked" (a cron function whose last log predates
-	// the deploy) — the latter is NOT drift, just log-lag.
 	const raw = sh("aws", [
 		"lambda",
 		"list-functions",
 		"--query",
-		`Functions[?starts_with(FunctionName, '${FUNCTION_PREFIX}')].{name:FunctionName, modified:LastModified}`,
+		`Functions[?starts_with(FunctionName, '${FUNCTION_PREFIX}')].FunctionName`,
 		"--output",
 		"json",
 	]);
-	const fns = (JSON.parse(raw) as { name: string; modified: string }[]).sort((a, b) =>
-		a.name.localeCompare(b.name),
-	);
+	const fns = (JSON.parse(raw) as string[]).sort((a, b) => a.localeCompare(b));
 
 	if (fns.length === 0) {
 		console.error(
@@ -139,73 +125,77 @@ function main(): void {
 	console.log(`Deploy-drift audit — target origin/main = ${targetShort}\n`);
 
 	const problems: string[] = [];
-	const pending: string[] = [];
+	const untagged: string[] = [];
 	const unverifiable: string[] = [];
-	for (const { name, modified } of fns) {
-		const deployedAt = Date.parse(modified);
-		const latest = latestRelease(name);
-		if (!latest || latest.rel === "dev") {
-			console.log(`  ? ${name}: no recent 'release' log line — cannot verify deployed version`);
+	for (const name of fns) {
+		const p = liveProvenance(name);
+		if (!p) {
+			console.log(`  ? ${name}: get-function failed — cannot verify (no read access?)`);
 			unverifiable.push(name);
 			continue;
 		}
-		const { rel: release, ts: logTs } = latest;
-		// Code redeployed AFTER the function last ran → the log release is the OLD
-		// code; the deployed code is presumed current and confirms on next invocation.
-		if (Number.isFinite(deployedAt) && logTs < deployedAt) {
-			console.log(`  ⟳ ${name}: redeployed after last run — current pending next invocation (last ran ${release})`);
-			pending.push(name);
+		if (!p.live) {
+			console.log(`  ? ${name}: get-function returned no CodeSha256 — cannot verify`);
+			unverifiable.push(name);
 			continue;
 		}
-		// Resolve the 12-char RELEASE_ID to a real commit. Unknown = diverged / force-push.
-		if (!gitOk(["rev-parse", "--verify", "--quiet", `${release}^{commit}`])) {
-			console.log(`  ✗ ${name}: release ${release} unknown to git history (diverged / force-push)`);
+		// Bootstrap: a function deployed before this rollout (or never deployed) has no tag yet.
+		// Reported, not failed — check-deploy-functions owns "a function that SHOULD exist is missing".
+		if (!p.deploySha || !p.commit) {
+			console.log(`  ? ${name}: no Deploy-* tag yet — untagged (pre-rollout or never deployed)`);
+			untagged.push(name);
+			continue;
+		}
+		// INTEGRITY: the bytes AWS is running must equal what the pipeline recorded at deploy.
+		if (p.live !== p.deploySha) {
+			console.log(
+				`  ✗ ${name}: live CodeSha256 ≠ Deploy-Sha256 tag — out-of-band code change (console edit / off-pipeline update-function-code)`,
+			);
 			problems.push(name);
 			continue;
 		}
-		const releaseFull = sh("git", ["rev-parse", `${release}^{commit}`]);
-		if (releaseFull === target) {
-			console.log(`  ✓ ${name}: ${release} (current)`);
-			continue;
-		}
-		if (!gitOk(["merge-base", "--is-ancestor", release, target])) {
-			console.log(`  ✗ ${name}: release ${release} is NOT an ancestor of origin/main (diverged)`);
+		const commitShort = p.commit.slice(0, 8);
+		// IDENTITY: resolve the recorded commit. Unknown = diverged / force-push.
+		if (!gitOk(["rev-parse", "--verify", "--quiet", `${p.commit}^{commit}`])) {
+			console.log(`  ✗ ${name}: Deploy-Commit ${commitShort} unknown to git history (diverged / force-push)`);
 			problems.push(name);
 			continue;
 		}
-		// Behind AND has run on this code since the deploy: genuine drift. Does the gap touch src/?
-		const srcChanges = sh("git", ["diff", "--name-only", `${release}..${target}`, "--", "src/"]);
+		const commitFull = sh("git", ["rev-parse", `${p.commit}^{commit}`]);
+		if (commitFull === target) {
+			console.log(`  ✓ ${name}: ${commitShort} (current)`);
+			continue;
+		}
+		if (!gitOk(["merge-base", "--is-ancestor", p.commit, target])) {
+			console.log(`  ✗ ${name}: Deploy-Commit ${commitShort} is NOT an ancestor of origin/main (diverged)`);
+			problems.push(name);
+			continue;
+		}
+		// Behind origin/main: genuine drift only if the gap touches runtime code (src/).
+		const srcChanges = sh("git", ["diff", "--name-only", `${p.commit}..${target}`, "--", "src/"]);
 		if (srcChanges) {
 			const files = srcChanges.split("\n").filter(Boolean);
-			console.log(
-				`  ✗ ${name}: ${release} → ${targetShort} STALE — ${files.length} runtime file(s) undeployed:`,
-			);
+			console.log(`  ✗ ${name}: ${commitShort} → ${targetShort} STALE — ${files.length} runtime file(s) undeployed:`);
 			for (const f of files.slice(0, 10)) console.log(`        ${f}`);
 			if (files.length > 10) console.log(`        … and ${files.length - 10} more`);
 			problems.push(name);
 		} else {
-			console.log(
-				`  ~ ${name}: ${release} → ${targetShort} behind, but no src/ changes (tooling/docs only)`,
-			);
+			console.log(`  ~ ${name}: ${commitShort} → ${targetShort} behind, but no src/ changes (tooling/docs only)`);
 		}
 	}
 
-	if (pending.length > 0) {
-		console.log(`\n⟳ ${pending.length} freshly deployed, awaiting next invocation: ${pending.join(", ")}`);
+	if (untagged.length > 0) {
+		console.log(`\n? ${untagged.length} function(s) untagged (no Deploy-* tag yet): ${untagged.join(", ")}`);
 	}
 	if (unverifiable.length > 0) {
-		console.log(
-			`\n? ${unverifiable.length} function(s) unverifiable (no recent logs): ${unverifiable.join(", ")}`,
-		);
+		console.log(`\n? ${unverifiable.length} function(s) unverifiable (get-function failed): ${unverifiable.join(", ")}`);
 	}
 	if (problems.length > 0) {
-		console.error(
-			`\n✗ ${problems.length} function(s) running stale runtime code: ${problems.join(", ")}`,
-		);
+		console.error(`\n✗ ${problems.length} function(s) with deploy drift: ${problems.join(", ")}`);
 		console.error("  Redeploy from a credentialed laptop: git push origin HEAD:main, or npm run deploy.");
 		process.exit(1);
 	}
-	console.log("\n✓ all verifiable functions current (or behind only on tooling/docs).");
+	console.log("\n✓ all tagged functions current (or behind only on tooling/docs).");
 }
 
 main();

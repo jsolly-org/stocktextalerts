@@ -42,8 +42,6 @@ done < "$_ENV_FILE"
 : "${PRODUCTION_SITE_URL:?PRODUCTION_SITE_URL not set in .env.local}"
 : "${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN not set in .env.local}"
 
-_GIT_SHA="$(git -C "$_PARAMS_DIR/.." rev-parse --short HEAD 2>/dev/null || echo unknown)"
-
 SAM_PARAMS=(
   "AlertTopicArn=/shared-infra/alert-topic-arn"
   "SupabaseUrl=$SUPABASE_URL_PROD"
@@ -61,6 +59,5 @@ SAM_PARAMS=(
   "EmailDispatchSecret=$EMAIL_DISPATCH_SECRET"
   "AdminEmails=$ADMIN_EMAILS"
   "LogMaskPii=${LOG_MASK_PII:-true}"
-  "GitSha=$_GIT_SHA"
 )
 export SAM_PARAMS

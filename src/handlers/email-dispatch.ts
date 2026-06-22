@@ -99,7 +99,6 @@ export async function handler(
 		const logger = createLogger({
 			source: "lambda",
 			function: "email-dispatch",
-			gitSha: process.env.GIT_SHA,
 		});
 
 		if (event.requestContext.http.method !== "POST") {
