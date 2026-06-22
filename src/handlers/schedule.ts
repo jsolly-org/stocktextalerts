@@ -1,12 +1,12 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
-import { runWithRequestContext } from "../lib/logging/request-context";
 import { getAndResetOptionalVendorSkipCount } from "../lib/providers/vendor-fault-tolerance";
+import { runLambda } from "../lib/run-lambda";
 import { runScheduledNotifications } from "../lib/schedule/run";
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
-	return runWithRequestContext(context.awsRequestId, async () => {
+	return runLambda(context, async () => {
 		const logger = createLogger({
 			source: "lambda",
 			function: "schedule",

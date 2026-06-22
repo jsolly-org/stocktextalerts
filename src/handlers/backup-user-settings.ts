@@ -4,10 +4,10 @@ import { emitHeartbeat, getConnectionString, putBackup } from "../lib/backup/sto
 import { requireEnv } from "../lib/db/env";
 import { createLogger } from "../lib/logging";
 import { createErrorForLogging } from "../lib/logging/errors";
-import { runWithRequestContext } from "../lib/logging/request-context";
+import { runLambda } from "../lib/run-lambda";
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
-	return runWithRequestContext(context.awsRequestId, async () => {
+	return runLambda(context, async () => {
 		const logger = createLogger({
 			source: "lambda",
 			function: "backup-user-settings",

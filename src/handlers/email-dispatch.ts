@@ -7,7 +7,6 @@ import { parseAdminEmails } from "../lib/auth/approval-admin";
 import { readEnv, requireEnv } from "../lib/db/env";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
-import { runWithRequestContext } from "../lib/logging/request-context";
 import { verifyEmailDispatchSignature } from "../lib/messaging/email/dispatch-auth";
 import {
 	EMAIL_DISPATCH_SIGNATURE_HEADER,
@@ -20,6 +19,7 @@ import {
 	releaseEmailDispatchKey,
 } from "../lib/messaging/email/dispatch-idempotency";
 import { createEmailSender } from "../lib/messaging/email/utils";
+import { runLambda } from "../lib/run-lambda";
 
 function jsonResponse(
 	statusCode: number,
@@ -95,7 +95,7 @@ export async function handler(
 	event: APIGatewayProxyEventV2,
 	context: Context,
 ): Promise<APIGatewayProxyStructuredResultV2> {
-	return runWithRequestContext(context.awsRequestId, async () => {
+	return runLambda(context, async () => {
 		const logger = createLogger({
 			source: "lambda",
 			function: "email-dispatch",

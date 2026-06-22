@@ -28,35 +28,18 @@ while IFS='=' read -r _key _value; do
   export "$_key=$_value"
 done < "$_ENV_FILE"
 
-: "${SUPABASE_URL_PROD:?SUPABASE_URL_PROD not set in .env.local}"
-: "${SUPABASE_SECRET_KEY_PROD:?SUPABASE_SECRET_KEY_PROD not set in .env.local}"
-: "${MASSIVE_API_KEY:?MASSIVE_API_KEY not set in .env.local}"
-: "${FINNHUB_API_KEY:?FINNHUB_API_KEY not set in .env.local}"
-: "${TWILIO_ACCOUNT_SID:?TWILIO_ACCOUNT_SID not set in .env.local}"
-: "${TWILIO_API_KEY_SID:?TWILIO_API_KEY_SID not set in .env.local}"
-: "${TWILIO_API_KEY_SECRET:?TWILIO_API_KEY_SECRET not set in .env.local}"
-: "${TWILIO_PHONE_NUMBER:?TWILIO_PHONE_NUMBER not set in .env.local}"
-: "${UNSUBSCRIBE_TOKEN_SECRET:?UNSUBSCRIBE_TOKEN_SECRET not set in .env.local}"
-: "${EMAIL_DISPATCH_SECRET:?EMAIL_DISPATCH_SECRET not set in .env.local}"
+# Secrets are NO LONGER passed as SAM params — each Lambda fetches them at runtime
+# from SSM SecureString (see aws/template.yaml + src/lib/secrets.ts). The
+# SecureStrings (/stocktextalerts/<kebab-name>) are provisioned out of band:
+#   aws ssm put-parameter --type SecureString --key-id alias/aws/ssm --overwrite \
+#     --region us-east-1 --name /stocktextalerts/<kebab> --value <secret>
+# Only the non-secret template params remain here.
 : "${ADMIN_EMAILS:?ADMIN_EMAILS not set in .env.local}"
 : "${PRODUCTION_SITE_URL:?PRODUCTION_SITE_URL not set in .env.local}"
-: "${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN not set in .env.local}"
 
 SAM_PARAMS=(
   "AlertTopicArn=/shared-infra/alert-topic-arn"
-  "SupabaseUrl=$SUPABASE_URL_PROD"
-  "SupabaseSecretKey=$SUPABASE_SECRET_KEY_PROD"
   "SiteUrl=$PRODUCTION_SITE_URL"
-  "MassiveApiKey=$MASSIVE_API_KEY"
-  "FinnhubApiKey=$FINNHUB_API_KEY"
-  "XaiApiKey=${XAI_API_KEY:-}"
-  "TwilioAccountSid=$TWILIO_ACCOUNT_SID"
-  "TwilioApiKeySid=$TWILIO_API_KEY_SID"
-  "TwilioApiKeySecret=$TWILIO_API_KEY_SECRET"
-  "TwilioPhoneNumber=$TWILIO_PHONE_NUMBER"
-  "TelegramBotToken=$TELEGRAM_BOT_TOKEN"
-  "UnsubscribeTokenSecret=$UNSUBSCRIBE_TOKEN_SECRET"
-  "EmailDispatchSecret=$EMAIL_DISPATCH_SECRET"
   "AdminEmails=$ADMIN_EMAILS"
   "LogMaskPii=${LOG_MASK_PII:-true}"
 )

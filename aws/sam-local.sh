@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Build the Lambda bundles and invoke each handler locally with
-# `sam local invoke`. Passes ../.env.local values through as SAM parameter
-# overrides so the same env plumbing is used as in prod deploys.
+# `sam local invoke`. Passes the non-secret ../.env.local values through as SAM
+# parameter overrides so the same env plumbing is used as in prod deploys.
+# Secrets are NO LONGER passed this way — each handler fetches them at runtime
+# from SSM SecureString (see src/lib/secrets.ts), so a local invoke needs AWS
+# creds that can ssm:GetParameter on /stocktextalerts/* (or the relevant
+# <NAME> env vars exported into the container).
 #
 # Usage:
 #   ./sam-local.sh                       # invoke all three functions

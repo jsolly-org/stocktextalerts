@@ -1,11 +1,11 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { HttpError } from "grammy";
 import { createLogger, type Logger } from "../lib/logging";
-import { runWithRequestContext } from "../lib/logging/request-context";
 import { checkTelegramLive } from "../lib/messaging/telegram/health";
 import { createTelegramBot, readTelegramBotToken } from "../lib/messaging/telegram/sender";
 import { fetchDailyCloses, fetchEarnings, fetchPrevClose } from "../lib/providers/massive";
 import { fetchAssetPrices, getCurrentMarketSession } from "../lib/providers/price-fetcher";
+import { runLambda } from "../lib/run-lambda";
 
 /**
  * Scheduled live data-provider health check (Massive + Finnhub + Telegram).
@@ -19,8 +19,9 @@ import { fetchAssetPrices, getCurrentMarketSession } from "../lib/providers/pric
  * an agent invoking this Lambda can never trigger a real message. The thrown error
  * surfaces on the `AWS/Lambda Errors` metric, which `LiveProviderCheckFunctionErrorAlarm`
  * routes to the shared-infra SNS topic (same enriched-email path as every other
- * function alarm). Provider keys + the bot token come from the function's env (SAM
- * params), exactly like the other scheduled Lambdas.
+ * function alarm). Provider keys + the bot token are fetched at runtime from SSM
+ * SecureString (via loadSecretsIntoEnv → src/lib/secrets.ts), like the other
+ * scheduled Lambdas, and exist only in this Lambda's runtime.
  */
 
 interface CheckResult {
@@ -70,7 +71,7 @@ async function runCheck(
 }
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
-	return runWithRequestContext(context.awsRequestId, async () => {
+	return runLambda(context, async () => {
 		const logger = createLogger({
 			source: "lambda",
 			function: "live-provider-check",

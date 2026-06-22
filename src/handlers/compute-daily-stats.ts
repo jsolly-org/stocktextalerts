@@ -1,7 +1,6 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
-import { runWithRequestContext } from "../lib/logging/request-context";
 import { computeADV, computeATR } from "../lib/market-notifications/daily-stats";
 import { upsertDailyStatsInChunks } from "../lib/market-notifications/daily-stats-upsert";
 import {
@@ -10,6 +9,7 @@ import {
 	storeDailyCloseRows,
 } from "../lib/market-notifications/price-history-cache";
 import { fetchDailyOHLCV } from "../lib/providers/massive";
+import { runLambda } from "../lib/run-lambda";
 import { enqueueDailyCloseBackfill } from "../lib/vendor-backfill/queue";
 
 /** Batch size for Massive API calls to stay under ~100 req/s. */
@@ -22,7 +22,7 @@ const BATCH_DELAY_MS = 600;
 const LOOKBACK_DAYS = 35;
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
-	return runWithRequestContext(context.awsRequestId, async () => {
+	return runLambda(context, async () => {
 		const logger = createLogger({
 			source: "lambda",
 			function: "compute-daily-stats",

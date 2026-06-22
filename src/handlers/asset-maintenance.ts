@@ -7,13 +7,13 @@ import { runDelistingSweep } from "../lib/assets/delisting-sweep";
 import { runUniverseReconcile } from "../lib/assets/universe-reconcile";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
-import { runWithRequestContext } from "../lib/logging/request-context";
 import { createEmailSender } from "../lib/messaging/email/utils";
+import { runLambda } from "../lib/run-lambda";
 import { createSmsSenderProvider } from "../lib/schedule/sms-sender";
 import { enqueueAssetEventsIngestRetry } from "../lib/vendor-backfill/queue";
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
-	return runWithRequestContext(context.awsRequestId, async () => {
+	return runLambda(context, async () => {
 		const logger = createLogger({
 			source: "lambda",
 			function: "asset-maintenance",

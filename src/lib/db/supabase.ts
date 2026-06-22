@@ -2,8 +2,12 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { requireEnv } from "./env";
 import type { Database } from "./generated/database.types";
 
-const supabaseUrl = requireEnv("SUPABASE_URL");
-const supabaseSecretKey = requireEnv("SUPABASE_SECRET_KEY");
+// SUPABASE_URL / SUPABASE_SECRET_KEY are read lazily (inside the factories
+// below), NOT at module load. In the Lambda runtime these come from SSM via
+// `loadSecretsIntoEnv`, which runs inside the handler body — after this module
+// has already been imported. A module-level read would fire before the secret
+// is in `process.env` and throw. Point-of-use reads also match this codebase's
+// env convention (see env.ts).
 
 const SUPABASE_CLIENT_OPTIONS = {
 	auth: {
@@ -20,7 +24,7 @@ const SUPABASE_CLIENT_OPTIONS = {
 export type AppSupabaseClient = SupabaseClient<Database>;
 
 function createTypedClient(key: string): AppSupabaseClient {
-	return createClient<Database>(supabaseUrl, key, SUPABASE_CLIENT_OPTIONS);
+	return createClient<Database>(requireEnv("SUPABASE_URL"), key, SUPABASE_CLIENT_OPTIONS);
 }
 
 /**
@@ -38,5 +42,5 @@ export function createSupabaseServerClient(): AppSupabaseClient {
  * Only use this in server environments; never ship the secret key to the browser.
  */
 export function createSupabaseAdminClient(): AppSupabaseClient {
-	return createTypedClient(supabaseSecretKey);
+	return createTypedClient(requireEnv("SUPABASE_SECRET_KEY"));
 }

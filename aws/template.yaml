@@ -3,52 +3,23 @@ Transform: AWS::Serverless-2016-10-31
 Description: StockTextAlerts cron Lambda functions
 
 Parameters:
-  SupabaseUrl:
-    Type: String
-    NoEcho: true
-  SupabaseSecretKey:
-    Type: String
-    NoEcho: true
+  # Secrets are NO LONGER passed as SAM params / plaintext Lambda env vars.
+  # `lambda:GetFunctionConfiguration` returns env vars in the clear regardless of
+  # NoEcho, so each function reads its secrets at runtime from SSM SecureString
+  # params instead: a `<NAME>_SSM_PARAM` env var names the param, src/lib/secrets.ts
+  # fetches+decrypts it, and an `ssm:GetParameter` grant scopes access. The
+  # SecureStrings live at /stocktextalerts/<kebab-name> (e.g.
+  # /stocktextalerts/massive-api-key) and are provisioned out of band by a human.
+  # See shared-infra docs/specs/2026-06-22-secret-runtime-fetch-design.md.
   SiteUrl:
     Type: String
-  MassiveApiKey:
-    Type: String
-    NoEcho: true
-  FinnhubApiKey:
-    Type: String
-    NoEcho: true
-  XaiApiKey:
-    Type: String
-    NoEcho: true
   EmailFrom:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /stocktextalerts/email-from
     Description: "SSM key whose value is the SES From: header (display name + address)"
-  EmailDispatchSecret:
-    Type: String
-    NoEcho: true
   AdminEmails:
     Type: String
     Description: Comma-separated admin email allowlist used by the approval UI and email dispatch Lambda
-  TwilioAccountSid:
-    Type: String
-    NoEcho: true
-  TwilioApiKeySid:
-    Type: String
-    NoEcho: true
-  TwilioApiKeySecret:
-    Type: String
-    NoEcho: true
-  TwilioPhoneNumber:
-    Type: String
-    NoEcho: true
-  UnsubscribeTokenSecret:
-    Type: String
-    NoEcho: true
-  TelegramBotToken:
-    Type: String
-    NoEcho: true
-    Description: Telegram bot token — outbound sends from the schedule cron (digest + price alerts)
   # Default "false" for local dev (sam local invoke); deploy.sh overrides to "true" for production
   LogMaskPii:
     Type: String
@@ -116,21 +87,27 @@ Resources:
                 - ses:SendEmail
                 - ses:SendRawEmail
               Resource: !Sub "arn:aws:ses:us-east-1:${AWS::AccountId}:identity/stocktextalerts.com"
+            # Read this app's runtime secrets (SSM SecureString). One namespace
+            # wildcard rather than 11 per-secret ARNs — same-app boundary. No
+            # kms:Decrypt grant needed for the AWS-managed alias/aws/ssm key.
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/stocktextalerts/*"
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
-          MASSIVE_API_KEY: !Ref MassiveApiKey
-          FINNHUB_API_KEY: !Ref FinnhubApiKey
-          XAI_API_KEY: !Ref XaiApiKey
-          TELEGRAM_BOT_TOKEN: !Ref TelegramBotToken
-          SUPABASE_URL: !Ref SupabaseUrl
-          SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
           EMAIL_FROM: !Ref EmailFrom
-          TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
-          TWILIO_API_KEY_SID: !Ref TwilioApiKeySid
-          TWILIO_API_KEY_SECRET: !Ref TwilioApiKeySecret
-          TWILIO_PHONE_NUMBER: !Ref TwilioPhoneNumber
-          UNSUBSCRIBE_TOKEN_SECRET: !Ref UnsubscribeTokenSecret
+          MASSIVE_API_KEY_SSM_PARAM: /stocktextalerts/massive-api-key
+          FINNHUB_API_KEY_SSM_PARAM: /stocktextalerts/finnhub-api-key
+          XAI_API_KEY_SSM_PARAM: /stocktextalerts/xai-api-key
+          TELEGRAM_BOT_TOKEN_SSM_PARAM: /stocktextalerts/telegram-bot-token
+          SUPABASE_URL_SSM_PARAM: /stocktextalerts/supabase-url
+          SUPABASE_SECRET_KEY_SSM_PARAM: /stocktextalerts/supabase-secret-key
+          TWILIO_ACCOUNT_SID_SSM_PARAM: /stocktextalerts/twilio-account-sid
+          TWILIO_API_KEY_SID_SSM_PARAM: /stocktextalerts/twilio-api-key-sid
+          TWILIO_API_KEY_SECRET_SSM_PARAM: /stocktextalerts/twilio-api-key-secret
+          TWILIO_PHONE_NUMBER_SSM_PARAM: /stocktextalerts/twilio-phone-number
+          UNSUBSCRIBE_TOKEN_SECRET_SSM_PARAM: /stocktextalerts/unsubscribe-token-secret
       Events:
         EveryMinute:
           Type: ScheduleV2
@@ -164,17 +141,17 @@ Resources:
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
-          MASSIVE_API_KEY: !Ref MassiveApiKey
-          FINNHUB_API_KEY: !Ref FinnhubApiKey
           EMAIL_FROM: !Ref EmailFrom
-          UNSUBSCRIBE_TOKEN_SECRET: !Ref UnsubscribeTokenSecret
-          SUPABASE_URL: !Ref SupabaseUrl
-          SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
-          TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
-          TWILIO_API_KEY_SID: !Ref TwilioApiKeySid
-          TWILIO_API_KEY_SECRET: !Ref TwilioApiKeySecret
-          TWILIO_PHONE_NUMBER: !Ref TwilioPhoneNumber
           VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
+          MASSIVE_API_KEY_SSM_PARAM: /stocktextalerts/massive-api-key
+          FINNHUB_API_KEY_SSM_PARAM: /stocktextalerts/finnhub-api-key
+          UNSUBSCRIBE_TOKEN_SECRET_SSM_PARAM: /stocktextalerts/unsubscribe-token-secret
+          SUPABASE_URL_SSM_PARAM: /stocktextalerts/supabase-url
+          SUPABASE_SECRET_KEY_SSM_PARAM: /stocktextalerts/supabase-secret-key
+          TWILIO_ACCOUNT_SID_SSM_PARAM: /stocktextalerts/twilio-account-sid
+          TWILIO_API_KEY_SID_SSM_PARAM: /stocktextalerts/twilio-api-key-sid
+          TWILIO_API_KEY_SECRET_SSM_PARAM: /stocktextalerts/twilio-api-key-secret
+          TWILIO_PHONE_NUMBER_SSM_PARAM: /stocktextalerts/twilio-phone-number
       Policies:
         - Version: "2012-10-17"
           Statement:
@@ -187,6 +164,9 @@ Resources:
               Action:
                 - sqs:SendMessage
               Resource: !GetAtt VendorBackfillQueue.Arn
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/stocktextalerts/*"
       Events:
         DailyMidnight:
           Type: ScheduleV2
@@ -225,14 +205,17 @@ Resources:
                 - ses:SendEmail
                 - ses:SendRawEmail
               Resource: !Sub "arn:aws:ses:us-east-1:${AWS::AccountId}:identity/stocktextalerts.com"
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/stocktextalerts/*"
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
           EMAIL_FROM: !Ref EmailFrom
-          EMAIL_DISPATCH_SECRET: !Ref EmailDispatchSecret
           ADMIN_EMAILS: !Ref AdminEmails
-          SUPABASE_URL: !Ref SupabaseUrl
-          SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
+          EMAIL_DISPATCH_SECRET_SSM_PARAM: /stocktextalerts/email-dispatch-secret
+          SUPABASE_URL_SSM_PARAM: /stocktextalerts/supabase-url
+          SUPABASE_SECRET_KEY_SSM_PARAM: /stocktextalerts/supabase-secret-key
 
   EmailDispatchFunctionUrl:
     Type: AWS::Lambda::Url
@@ -286,12 +269,15 @@ Resources:
               Action:
                 - sqs:SendMessage
               Resource: !GetAtt VendorBackfillQueue.Arn
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/stocktextalerts/*"
       Environment:
         Variables:
-          MASSIVE_API_KEY: !Ref MassiveApiKey
           VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
-          SUPABASE_URL: !Ref SupabaseUrl
-          SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
+          MASSIVE_API_KEY_SSM_PARAM: /stocktextalerts/massive-api-key
+          SUPABASE_URL_SSM_PARAM: /stocktextalerts/supabase-url
+          SUPABASE_SECRET_KEY_SSM_PARAM: /stocktextalerts/supabase-secret-key
       Events:
         WeekdayEvening:
           Type: ScheduleV2
@@ -343,13 +329,16 @@ Resources:
               Action:
                 - sqs:ChangeMessageVisibility
               Resource: !GetAtt VendorBackfillQueue.Arn
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/stocktextalerts/*"
       Environment:
         Variables:
-          MASSIVE_API_KEY: !Ref MassiveApiKey
-          FINNHUB_API_KEY: !Ref FinnhubApiKey
           VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
-          SUPABASE_URL: !Ref SupabaseUrl
-          SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
+          MASSIVE_API_KEY_SSM_PARAM: /stocktextalerts/massive-api-key
+          FINNHUB_API_KEY_SSM_PARAM: /stocktextalerts/finnhub-api-key
+          SUPABASE_URL_SSM_PARAM: /stocktextalerts/supabase-url
+          SUPABASE_SECRET_KEY_SSM_PARAM: /stocktextalerts/supabase-secret-key
       Events:
         VendorBackfillQueueEvent:
           Type: SQS
@@ -378,12 +367,18 @@ Resources:
       MemorySize: 256
       LoggingConfig:
         LogGroup: !Ref LiveProviderCheckLogGroup
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/stocktextalerts/*"
       Environment:
         Variables:
-          MASSIVE_API_KEY: !Ref MassiveApiKey
-          FINNHUB_API_KEY: !Ref FinnhubApiKey
+          MASSIVE_API_KEY_SSM_PARAM: /stocktextalerts/massive-api-key
+          FINNHUB_API_KEY_SSM_PARAM: /stocktextalerts/finnhub-api-key
           # Read-only Telegram token check (getMe/getWebhookInfo) — never a send.
-          TELEGRAM_BOT_TOKEN: !Ref TelegramBotToken
+          TELEGRAM_BOT_TOKEN_SSM_PARAM: /stocktextalerts/telegram-bot-token
       Events:
         WeekdayMidSession:
           Type: ScheduleV2
