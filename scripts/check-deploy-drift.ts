@@ -34,6 +34,8 @@
  *   - aws CLI absent, fetch fails, or list returns zero functions → exit 1.
  *   - integrity mismatch, or a Deploy-Commit unknown to git / behind origin/main
  *     with src/ changes → exit 1.
+ *   - a function that list-functions returned but get-function can't read
+ *     (no read access / no CodeSha256) → exit 1 (untagged stays report-only).
  * Reported but NOT failed: tooling/docs-only drift (no src/ in the gap), and
  * functions with no Deploy-Sha256 tag yet (untagged — pre-rollout / never deployed).
  *
@@ -188,11 +190,15 @@ function main(): void {
 		console.log(`\n? ${untagged.length} function(s) untagged (no Deploy-* tag yet): ${untagged.join(", ")}`);
 	}
 	if (unverifiable.length > 0) {
-		console.log(`\n? ${unverifiable.length} function(s) unverifiable (get-function failed): ${unverifiable.join(", ")}`);
+		console.error(
+			`\n✗ ${unverifiable.length} function(s) unverifiable (in list-functions but get-function failed): ${unverifiable.join(", ")}`,
+		);
 	}
 	if (problems.length > 0) {
 		console.error(`\n✗ ${problems.length} function(s) with deploy drift: ${problems.join(", ")}`);
 		console.error("  Redeploy from a credentialed laptop: git push origin HEAD:main, or npm run deploy:code.");
+	}
+	if (problems.length > 0 || unverifiable.length > 0) {
 		process.exit(1);
 	}
 	console.log("\n✓ all tagged functions current (or behind only on tooling/docs).");
