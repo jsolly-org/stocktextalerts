@@ -261,7 +261,13 @@ export async function runUniverseReconcile(
 		// A genuinely empty universe is impossible, so an empty result means the
 		// provider failed. Returning here is the load-bearing safety gate: it
 		// prevents steps 2–3 from flagging the entire stored universe delisted.
-		logger.warn(
+		// Log at error, not warn: this is a fully-dark provider (strictly worse
+		// than the short-but-nonempty fetch that step 3 already logs at error),
+		// the run aborts with no work done, and an empty-but-200 on the bulk-list
+		// endpoint need not trip any other Massive consumer's alarm — so this is
+		// the only signal a silently-darkened universe job produces. Must reach
+		// ErrorLogAlarm.
+		logger.error(
 			"Universe reconcile got an empty active set — treating as provider failure and aborting",
 			{ action: "universe_reconcile", step: "fetch" },
 		);

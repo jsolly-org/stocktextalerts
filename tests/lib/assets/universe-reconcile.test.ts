@@ -675,6 +675,9 @@ describe("runUniverseReconcile", () => {
 		// The stored row must NOT have been flagged — this is the catastrophic-failure guard.
 		const row = await getAsset(symbol);
 		expect(row?.delisted_at).toBeNull();
+		// A fully-dark provider must be pageable: this aborts the run with no work
+		// done, so it logs at error (ErrorLogAlarm), not warn.
+		expectConsoleError(/empty active set/);
 	});
 
 	it("An enrichment provider miss (ok:false) leaves the row's existing sector + icon intact and counts as a failure, not an overwrite.", async () => {
