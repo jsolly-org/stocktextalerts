@@ -798,11 +798,11 @@ describe("runUniverseReconcile", () => {
 		]);
 
 		// The floor logs at error (it's a degraded run skipping cleanup) → declare it.
-		expectConsoleError(/active set implausibly small vs stored/);
+		expectConsoleError(/active set implausibly small/);
 
-		// A tiny active set (one symbol) against the ~10k-row seed universe is far below the
-		// 50%-of-active-stored floor, so step 3's flagging is skipped. `untrackedGone` is
-		// absent from this set and would normally be flagged delisted — the floor spares it.
+		// A tiny active set (one symbol) is far below the absolute MIN_PLAUSIBLE_ACTIVE_UNIVERSE
+		// floor, so step 3's flagging is skipped. `untrackedGone` is absent from this set and
+		// would normally be flagged delisted — the floor spares it.
 		const active = [makeActiveTicker({ symbol: live, name: "Still Active Co", type: "stock" })];
 		const result = await runUniverseReconcile({
 			supabase: adminClient,

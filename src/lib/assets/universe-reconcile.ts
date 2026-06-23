@@ -9,6 +9,27 @@ const DEFAULT_ENRICHMENT_CAP = 500;
 const DEFAULT_ENRICHMENT_CONCURRENCY = 20;
 /** Upsert/flag chunk size — keeps `.in()` filter URLs under practical length limits. */
 const CHUNK_SIZE = 500;
+/**
+ * Absolute floor on the fetched active-set size below which step 3 skips delist-flagging as a
+ * suspected silent truncation. The real US stock+ETF active universe is ~11k; a truncated fetch
+ * degrades to one or a few 1000-row pages. Deliberately an ABSOLUTE floor, NOT a fraction of the
+ * stored active count — that count is inflated by the very backlog this job exists to drain (the
+ * table was seeded with ~28k mostly-historical rows), so a stored-relative floor trips on every
+ * bootstrap run and deadlocks the drain. ~5k is far below the true universe yet far above any
+ * single-page truncation, so it flags a bad fetch without blocking the legitimate backlog drain.
+ */
+const MIN_PLAUSIBLE_ACTIVE_UNIVERSE = 5000;
+
+/**
+ * True when the fetched active set is below the plausibility floor — a suspected silent truncation,
+ * on which step 3 skips delist-flagging. Exported so the floor boundary AND comparison direction can
+ * be unit-tested directly: the shared-seed integration DB cannot host an active set between the floor
+ * and stored-active without mass-flagging seed rows, so this predicate is the only place the actual
+ * regression (a stored-relative floor would deadlock the backlog drain) is pinnable.
+ */
+export function activeSetTooSmallToFlag(activeCount: number): boolean {
+	return activeCount < MIN_PLAUSIBLE_ACTIVE_UNIVERSE;
+}
 
 /** Detail-fetch result returned by the Massive enrichment seam. */
 type TickerDetail = { ok: boolean; iconUrl: string | null; sector: string | null };
@@ -357,22 +378,18 @@ export async function runUniverseReconcile(
 		// Defense-in-depth against a silently-truncated active set (a provider returning a
 		// valid-but-short response with no pagination error — fetchActiveTickers already
 		// throws on a detectable mid-pagination failure, so this guards the residual case).
-		// The active universe (~10k) should never collapse below half the currently-active
-		// stored rows; if it has, the fetch is suspect. Skip flagging rather than mass-delist
-		// live symbols — step 2's upsert still ran, only the delete-class op is held back, so
-		// a false trip merely defers cleanup one run.
-		const activeStoredCount = storedRows.reduce((n, r) => (r.delisted_at === null ? n + 1 : n), 0);
-		if (activeStoredCount > 0 && active.length < activeStoredCount * 0.5) {
+		// The floor is absolute, not a fraction of stored-active — see MIN_PLAUSIBLE_ACTIVE_UNIVERSE
+		// for why a stored-relative floor would deadlock the drain. Skip flagging rather than
+		// mass-delist live symbols: step 2's upsert still ran, only the delete-class op is held
+		// back, so a false trip merely defers cleanup one run.
+		if (activeSetTooSmallToFlag(active.length)) {
 			result.delistFlagSkippedShrunkActive = true;
-			logger.error(
-				"Universe reconcile: active set implausibly small vs stored — skipping delist flag",
-				{
-					action: "universe_reconcile",
-					step: "flag_delisted",
-					activeCount: active.length,
-					activeStoredCount,
-				},
-			);
+			logger.error("Universe reconcile: active set implausibly small — skipping delist flag", {
+				action: "universe_reconcile",
+				step: "flag_delisted",
+				activeCount: active.length,
+				floor: MIN_PLAUSIBLE_ACTIVE_UNIVERSE,
+			});
 		} else {
 			// Stored symbols absent from the active set, not already flagged, and NOT tracked.
 			// The `!trackedSymbols.has(...)` filter IS the tracked carve-out: a tracked symbol
