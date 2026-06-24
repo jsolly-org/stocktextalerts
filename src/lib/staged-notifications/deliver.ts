@@ -34,6 +34,8 @@ import { deliveryResultToLogFields, recordNotification } from "../messaging/shar
 import { SMS_BODY_CHAR_BUDGET } from "../messaging/sms/block-packing";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padDailyDigestSmsSegmentBoundaries } from "../messaging/sms/segment-utils";
+import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
+import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { DeliveryResult, UserRecord } from "../messaging/types";
 import { computeDeliveryRetryDelayMs } from "../providers/vendor-fault-tolerance";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
@@ -43,6 +45,7 @@ import {
 	updateScheduledNotificationRow,
 } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
+import type { TelegramSenderProvider } from "../schedule/telegram-sender";
 import { toIsoOrThrow } from "../time/format";
 import {
 	deleteStagedNotification,
@@ -108,11 +111,12 @@ export async function deliverStagedNotifications(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
+	getTelegramSender: TelegramSenderProvider;
 }): Promise<{
 	stats: ScheduledNotificationTotals;
 	deliveredUserTypes: Set<string>;
 }> {
-	const { supabase, logger, currentTime, sendEmail, getSmsSender } = options;
+	const { supabase, logger, currentTime, sendEmail, getSmsSender, getTelegramSender } = options;
 
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
@@ -245,6 +249,7 @@ export async function deliverStagedNotifications(options: {
 				currentTime,
 				sendEmail,
 				getSmsSender,
+				getTelegramSender,
 				deliveredUserTypes,
 				stats,
 			});
@@ -265,6 +270,7 @@ export async function deliverStagedNotifications(options: {
 					stagedDataKeys: stagedKeys,
 					hasEmail: Boolean(staged?.email),
 					hasSms: Boolean(staged?.sms),
+					hasTelegram: Boolean(staged?.telegram),
 					smsPartCount,
 					emailHtmlLength: staged?.email?.html?.length ?? 0,
 					emailSubjectLength: staged?.email?.subject?.length ?? 0,
@@ -319,6 +325,7 @@ async function deliverStagedDaily(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
+	getTelegramSender: TelegramSenderProvider;
 	deliveredUserTypes: Set<string>;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
@@ -331,6 +338,7 @@ async function deliverStagedDaily(options: {
 		currentTime,
 		sendEmail,
 		getSmsSender,
+		getTelegramSender,
 		deliveredUserTypes,
 		stats,
 	} = options;
@@ -338,6 +346,7 @@ async function deliverStagedDaily(options: {
 	const deliveredKey = `${row.user_id}:daily`;
 	let localEmailDelivered = false;
 	let localSmsDelivered = false;
+	let localTelegramDelivered = false;
 
 	// Detect delay for staged content delivered after scheduled time
 	const dailyScheduledFor = DateTime.fromISO(row.scheduled_for, {
@@ -577,13 +586,113 @@ async function deliverStagedDaily(options: {
 		}
 	}
 
+	// Telegram delivery
+	if (stagedData.telegram && isTelegramChannelUsable(user) && user.telegram_chat_id != null) {
+		const claim = await claimNotification({
+			supabase,
+			userId: user.id,
+			notificationType: "daily",
+			scheduledDate,
+			scheduledMinutes,
+			channel: "telegram",
+			logger,
+		});
+
+		if (claim.status === "claimed") {
+			try {
+				const { sender } = getTelegramSender();
+				const result = await sender({
+					chatId: user.telegram_chat_id,
+					text: stagedData.telegram.text,
+					entities: stagedData.telegram.entities,
+					// Routine scheduled digest — deliver silently like the live path.
+					disableNotification: true,
+				});
+
+				if (!result.success) {
+					logger.error(
+						"Failed to send staged Daily Digest Telegram message",
+						{
+							userId: user.id,
+							scheduledDate,
+							scheduledMinutes,
+							errorCode: result.errorCode ?? null,
+						},
+						new Error(result.error ?? "Staged Daily Digest Telegram send failed"),
+					);
+				}
+
+				await optOutIfBotBlocked(supabase, user.id, result, logger);
+
+				// Mark as delivered immediately after a successful send so fallback doesn't
+				// reprocess if later bookkeeping fails.
+				if (result.success) {
+					localTelegramDelivered = true;
+					deliveredUserTypes.add(deliveredKey);
+				}
+
+				const logged = await recordNotification(supabase, {
+					user_id: user.id,
+					type: "daily",
+					delivery_method: "telegram",
+					message_delivered: result.success,
+					message: stagedData.telegram.text,
+					...deliveryResultToLogFields(result),
+				});
+				if (!logged) stats.logFailures++;
+
+				if (result.success) {
+					stats.telegramSent++;
+				} else {
+					stats.telegramFailed++;
+				}
+
+				await updateScheduledNotificationRow({
+					supabase,
+					userId: user.id,
+					notificationType: "daily",
+					scheduledDate,
+					scheduledMinutes,
+					channel: "telegram",
+					status: result.success ? "sent" : "failed",
+					error: result.success ? undefined : result.error,
+					logger,
+				});
+			} catch (error) {
+				stats.telegramFailed++;
+				logger.error(
+					"Failed to resolve Telegram sender for staged daily delivery",
+					{ userId: user.id, scheduledDate, scheduledMinutes },
+					error,
+				);
+				await updateScheduledNotificationRow({
+					supabase,
+					userId: user.id,
+					notificationType: "daily",
+					scheduledDate,
+					scheduledMinutes,
+					channel: "telegram",
+					status: "failed",
+					error: error instanceof Error ? error.message : String(error),
+					logger,
+				});
+			}
+		} else if (claim.status === "claim_error") {
+			stats.telegramFailed++;
+		} else if (claim.status === "retries_exhausted") {
+			stats.skipped++;
+		} else {
+			stats.skipped++;
+		}
+	}
+
 	// Post-delivery: Grok counter update.
 	// This replicates the updateGrokSendCounter logic from daily-digest/process.ts
 	// inline rather than importing it, because that function is tightly coupled to
 	// the ScheduledNotificationTotals stats object and would create a circular
 	// dependency. The logic is straightforward: reset the rolling window if expired,
 	// otherwise increment the counter.
-	const localDelivered = localEmailDelivered || localSmsDelivered;
+	const localDelivered = localEmailDelivered || localSmsDelivered || localTelegramDelivered;
 	if (stagedData.grokAllowed && localDelivered) {
 		const GROK_WINDOW_HOURS = 24;
 		const now = currentTime.toISO();
@@ -617,6 +726,10 @@ async function deliverStagedDaily(options: {
 
 	const emailRequired = stagedData.email !== null;
 	const smsRequired = stagedData.sms !== null;
+	// Loose `!= null`: rows staged before the `telegram` field existed deserialize with
+	// `telegram: undefined`. Strict `!== null` would make those legacy rows "require"
+	// Telegram while the delivery block (falsy guard above) skips it — wedging canAdvance.
+	const telegramRequired = stagedData.telegram != null;
 	const canAdvance = await shouldAdvanceDailyDigestSchedule({
 		supabase,
 		user,
@@ -624,6 +737,7 @@ async function deliverStagedDaily(options: {
 		scheduledMinutes,
 		emailRequired,
 		smsRequired,
+		telegramRequired,
 	});
 
 	if (canAdvance) {

@@ -180,4 +180,75 @@ describe("Telegram daily digest dispatch", () => {
 			.maybeSingle();
 		expect(scheduled?.status).toBe("sent");
 	});
+
+	it("Precompute stages the Telegram digest content so the deliver phase can send it.", async () => {
+		// Regression guard: the precompute/stage path historically persisted only
+		// email + sms, silently dropping Telegram from every staged daily digest.
+		const now = DateTime.utc();
+		const nowIso = now.toISO();
+		expect(nowIso).toBeTruthy();
+
+		const { id } = await createTestUser({
+			timezone: "America/New_York",
+			emailNotificationsEnabled: false,
+			smsNotificationsEnabled: false,
+			trackedAssets: ["NVDA"],
+			confirmed: true,
+		});
+		registerTestUserForCleanup(id);
+
+		const telegramChatId = 778899124;
+		const { error: updateError } = await adminClient
+			.from("users")
+			.update({
+				daily_digest_time: 9 * 60,
+				daily_digest_next_send_at: nowIso,
+				telegram_chat_id: telegramChatId,
+				telegram_opted_out: false,
+			})
+			.eq("id", id);
+		expect(updateError).toBeNull();
+
+		await setTestUserPrefs(id, [["daily_digest", "prices", "telegram", true]]);
+
+		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
+			prices: new Map([["NVDA", { price: 178.42, changePercent: 1.37, prevClose: 176.01 }]]),
+			noSessionTrade: new Set<string>(),
+		});
+
+		const { data: userRow } = await adminClient.from("users").select("*").eq("id", id).single();
+		if (!userRow) throw new Error("expected seeded user row");
+		const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
+
+		const telegramSender = vi.fn<TelegramSender>(async () => ({ success: true }));
+
+		// stageOnly = precompute: render + persist content, send nothing.
+		await processDailyDigestUser({
+			user: userWithPrefs as unknown as UserRecord,
+			supabase: adminClient,
+			logger: rootLogger,
+			currentTime: now,
+			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
+			getSmsSender: () => ({ sender: vi.fn<SmsSender>(async () => ({ success: true })) }),
+			getTelegramSender: () => ({ sender: telegramSender }),
+			stageOnly: true,
+		});
+
+		// Nothing is sent during precompute.
+		expect(telegramSender).not.toHaveBeenCalled();
+
+		// The staged row carries fully-rendered Telegram content (text + entities).
+		const { data: stagedRow } = await adminClient
+			.from("staged_notifications")
+			.select("staged_data")
+			.eq("user_id", id)
+			.eq("notification_type", "daily")
+			.single();
+		const staged = stagedRow?.staged_data as {
+			telegram: { text: string; entities: unknown[] } | null;
+		} | null;
+		expect(staged?.telegram).not.toBeNull();
+		expect(staged?.telegram?.text).toContain("NVDA");
+		expect(Array.isArray(staged?.telegram?.entities)).toBe(true);
+	});
 });

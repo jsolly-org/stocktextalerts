@@ -14,6 +14,7 @@ import { anyFacetEnabled, enabledFacets, isFacetEnabled } from "../messaging/not
 import { shouldSendSms } from "../messaging/sms";
 import type { SmsExtras } from "../messaging/sms/delivery";
 import type { SparklineMap } from "../messaging/sparkline";
+import { formatDailyDigestTelegram } from "../messaging/telegram/digest";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { UserRecord } from "../messaging/types";
 import { buildNewsContextForGrok, fetchFinnhubExtras } from "../providers/finnhub";
@@ -668,6 +669,15 @@ export async function processDailyDigestUser(options: {
 			telegramExtras?.topMovers
 		);
 
+		// Shared Telegram render inputs for both the stage-only render and the live
+		// delivery below — defined once so the date format and closed-market banner gate
+		// can't drift between the two paths.
+		const telegramDateLabel = dueAtLocal.isValid
+			? dueAtLocal.toFormat("ccc, LLL d")
+			: (scheduledDate ?? "");
+		const telegramMarketBanner =
+			marketOpen === false ? buildMarketClosedBannerText(marketClosureInfo) : null;
+
 		if (!hasEmailContent && !hasSmsContent && !hasTelegramContent) {
 			logger.info("Skipping daily digest: no content available", {
 				action: "daily_run",
@@ -745,6 +755,22 @@ export async function processDailyDigestUser(options: {
 						}
 					: null;
 
+			// Telegram is rendered to its final text + parse-mode entities here so the
+			// deliver phase can send it verbatim (mirrors email/SMS staging above).
+			const telegramFormatted =
+				hasTelegramContent && telegramExtras
+					? formatDailyDigestTelegram({
+							userAssets: telegramPriceAssets,
+							assetPrices: telegramPriceMap,
+							extras: telegramExtras,
+							dateLabel: telegramDateLabel,
+							marketClosedBanner: telegramMarketBanner,
+						})
+					: null;
+			const telegramContent = telegramFormatted
+				? { text: telegramFormatted.text, entities: [...telegramFormatted.entities] }
+				: null;
+
 			const shouldUpdateAnalyst = shouldUpdateAnalystMonth;
 
 			const stagedData: StagedDailyData = {
@@ -753,6 +779,7 @@ export async function processDailyDigestUser(options: {
 				scheduledMinutes,
 				email: emailContent,
 				sms: smsContent,
+				telegram: telegramContent,
 				grokAllowed,
 				hasAnyAssetEventsOption,
 				shouldUpdateAnalyst,
@@ -817,11 +844,6 @@ export async function processDailyDigestUser(options: {
 		}
 
 		if (hasTelegramContent && telegramExtras) {
-			const dateLabel = dueAtLocal.isValid
-				? dueAtLocal.toFormat("ccc, LLL d")
-				: (scheduledDate ?? "");
-			const telegramMarketBanner =
-				marketOpen === false ? buildMarketClosedBannerText(marketClosureInfo) : null;
 			await processDailyDigestTelegramDelivery({
 				user,
 				supabase,
@@ -831,7 +853,7 @@ export async function processDailyDigestUser(options: {
 				userAssets: telegramPriceAssets,
 				assetPrices: telegramPriceMap,
 				extras: telegramExtras,
-				dateLabel,
+				dateLabel: telegramDateLabel,
 				marketClosedBanner: telegramMarketBanner,
 				getTelegramSender,
 				stats,

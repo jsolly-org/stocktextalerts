@@ -190,11 +190,17 @@ async function runPass(options: {
 			currentTime,
 			sendEmail,
 			getSmsSender,
+			getTelegramSender,
 		});
 		stagedStats = staged.stats;
 		deliveredUserTypes = staged.deliveredUserTypes;
 
-		if (stagedStats.emailsSent > 0 || stagedStats.smsSent > 0 || stagedStats.skipped > 0) {
+		if (
+			stagedStats.emailsSent > 0 ||
+			stagedStats.smsSent > 0 ||
+			stagedStats.telegramSent > 0 ||
+			stagedStats.skipped > 0
+		) {
 			logger.info("Staged notifications delivered", {
 				action: "staged_deliver",
 				...stagedStats,

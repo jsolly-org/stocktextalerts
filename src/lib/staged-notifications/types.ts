@@ -5,6 +5,8 @@
  * the `staged_notifications` table. No merging or formatting happens at delivery time.
  */
 
+import type { MessageEntity } from "grammy/types";
+
 export interface StagedEmailContent {
 	subject: string;
 	text: string;
@@ -16,12 +18,19 @@ export type StagedSmsContent =
 	// Short-lived persisted JSON compatibility for rows staged before multipart SMS shipped.
 	| { message: string };
 
+/** Fully-rendered Telegram message: plain text plus out-of-band parse-mode entities. */
+export interface StagedTelegramContent {
+	text: string;
+	entities: MessageEntity[];
+}
+
 export interface StagedDailyData {
 	type: "daily";
 	scheduledDate: string;
 	scheduledMinutes: number;
 	email: StagedEmailContent | null;
 	sms: StagedSmsContent | null;
+	telegram: StagedTelegramContent | null;
 
 	// Post-delivery metadata: these fields capture decisions made during
 	// the pre-compute phase so the delivery phase can perform cleanup
