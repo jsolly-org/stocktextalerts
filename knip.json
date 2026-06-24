@@ -13,6 +13,7 @@
 	"ignoreDependencies": [
 		"lint-staged",
 		"squawk-cli",
+		"supabase",
 		"vercel"
 	],
 	"ignoreBinaries": [

@@ -71,7 +71,16 @@ podman volume rm -f supabase_db_stocktextalerts supabase_storage_stocktextalerts
 
 Docker Desktop is **not** used here — see [docs/incidents/2026-04-docker-uninstall.md](incidents/2026-04-docker-uninstall.md).
 
-**One-time shell setup** — add to `~/.zshrc`:
+Start the engine once per boot:
+
+```zsh
+podman machine start          # first time: `podman machine init` then `podman machine start`
+```
+
+That's the only required step — the `db:*` scripts wire the Supabase CLI to it automatically (see
+**Container engine wiring** below). The optional one-time `~/.zshrc` block below puts the `podman`
+binary on `PATH` and exports `DOCKER_HOST` for **bare** `supabase` / `sam local invoke` calls you run
+outside the npm scripts:
 
 ```zsh
 export PATH="/opt/podman/bin:$PATH"
@@ -80,7 +89,31 @@ export DOCKER_HOST="unix://$(/opt/podman/bin/podman machine inspect podman-machi
 
 The `DOCKER_HOST` value resolves at shell-startup time to the current Podman machine's socket — it's `/var/folders/.../T/podman/podman-machine-default-api.sock` and changes if the machine is recreated.
 
-**Podman VM needs ≥ 6144 MB of memory** if you run Vitest inside a container. See [docs/incidents/2026-04-podman-oom.md](incidents/2026-04-podman-oom.md) for VM sizing notes.
+**Podman VM needs ≥ 6144 MB of memory** if you run Vitest inside a container. See [docs/incidents/2026-04-podman-oom.md](incidents/2026-04-podman-oom.md) for VM sizing notes. On Apple Silicon (applehv) the VM's CPU/memory can't be changed via `podman machine set` — recreate with `podman machine init` to resize.
+
+### Container engine wiring
+
+The Supabase CLI talks to the container engine through Go's Docker SDK, which reads `DOCKER_HOST`
+(falling back to `/var/run/docker.sock`). That fallback is a trap on Podman: the machine's API socket
+lives at an ephemeral `$TMPDIR` path that changes on every reboot/recreation, and the
+`/var/run/docker.sock` docker-compat symlink isn't created automatically — when it does exist it can
+point at a dead Docker Desktop path (the 2026-06-24 `db:bootstrap` failure: a stale symlink survived
+the Docker uninstall while the Podman machine was healthy at its own socket).
+
+So [`scripts/db/container-engine.ts`](../scripts/db/container-engine.ts) derives `DOCKER_HOST` at
+runtime from `podman machine inspect` and sets it on `process.env` before any CLI call. `db:start`,
+`db:reset`, `db:stop`, and `db:gen-types` (the last two via the
+[`scripts/db/supabase.ts`](../scripts/db/supabase.ts) wrapper) all route through it, so local
+Supabase boots on a fresh machine with **no manual env surgery**. An explicitly-set `DOCKER_HOST`
+(e.g. the `~/.zshrc` export) is respected untouched. If no engine is reachable it fails loud with an
+actionable hint pointing at `podman machine start`, instead of the misleading "Cannot connect to the
+Docker daemon … install Docker Desktop" error the CLI emits by default.
+
+`DOCKER_HOST` is the one Docker-named contract we keep — the Supabase CLI and `sam local invoke`
+require that exact env var. Everywhere we control the vocabulary the code speaks in vendor-neutral
+"container engine" terms; we shell out to `podman machine inspect` directly rather than indirecting
+through `containers.conf`/`CONTAINER_HOST` because the fleet is Podman-only and the Supabase CLI
+doesn't read the vendor-neutral chain anyway.
 
 ## Function & table privilege parity
 
@@ -142,10 +175,10 @@ connection (`tests/helpers/asset-db.ts` pattern), not `adminClient`.
 
 - **Vector / Logflare analytics is disabled** in `supabase/config.toml` (`[analytics] enabled = false`). Supabase's `vector` container tries to read Docker logs from `/var/run/docker.sock` inside its own container, which Podman's Docker-compat shim doesn't plumb the same way — `supabase start` hangs on *"vector container is not ready: starting"* otherwise. We don't use the local analytics UI so this is a net win, not a workaround.
 - **`supabase stop` may emit** `failed to prune volumes: "all" is an invalid volume filter`. It's a warning from Podman's Docker-compat shim not recognizing Docker's `all=true` volume filter; safe to ignore.
-- **`podman` on PATH**: the `/opt/podman/bin` install location isn't in the default shell PATH. Add the export above or the `supabase` CLI won't find the podman binary for its auxiliary commands.
+- **`podman` on PATH**: the `/opt/podman/bin` install location isn't in the default shell PATH. The `db:*` scripts resolve it themselves (`resolvePodmanBinary()` in `scripts/db/container-engine.ts` prefers `/opt/podman/bin/podman`), but bare `podman` / `supabase` calls in your shell need the `PATH` export above.
 
 ## Local container runtime
 
-The live vendor-API health check runs as the `stocktextalerts-live-provider-check` Lambda (no local DB needed — it calls the provider APIs directly). Locally, the Supabase stack runs under Docker or Podman.
+The live vendor-API health check runs as the `stocktextalerts-live-provider-check` Lambda (no local DB needed — it calls the provider APIs directly). Locally, the Supabase stack runs on Podman (the fleet's container engine — Docker Desktop is not used).
 
-**SAM CLI (`sam local invoke`)** honors `DOCKER_HOST`, so `cd aws && npm run local:all` works under Podman with the same setup.
+**SAM CLI (`sam local invoke`)** honors `DOCKER_HOST`, so `cd aws && npm run local:all` works under Podman with the same setup — set the `DOCKER_HOST` export above, since the SAM path doesn't go through the `db:*` scripts' auto-derivation.

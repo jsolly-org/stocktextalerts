@@ -33,6 +33,8 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+import { resolvePodmanBinary } from "./container-engine";
+
 const SHARED_PROJECT_ID = "stocktextalerts";
 const WT_MARKER = "stocktextalerts-wt-"; // the allowlist discriminator — main stack lacks "-wt-"
 const SHARED_PORTS = { api: 54321, db: 54322, smtp: 1025 } as const;
@@ -47,14 +49,8 @@ function git(cwd: string, args: string[]): string {
 	return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 }
 
-/** Resolve the podman binary (the /opt install isn't on the default PATH). */
-function resolvePodman(): string {
-	const candidate = "/opt/podman/bin/podman";
-	return fs.existsSync(candidate) ? candidate : "podman";
-}
-
 function podman(args: string[]): string {
-	return execFileSync(resolvePodman(), args, { encoding: "utf8" }).trim();
+	return execFileSync(resolvePodmanBinary(), args, { encoding: "utf8" }).trim();
 }
 
 type Worktree = { path: string; isMain: boolean };

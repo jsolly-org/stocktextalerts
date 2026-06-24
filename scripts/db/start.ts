@@ -9,16 +9,15 @@
  */
 
 import { spawnSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { rootLogger } from "../../src/lib/logging";
+import { ensureContainerEngineEnv, resolveSupabaseCli } from "./container-engine";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..", "..");
-const localSupabaseCli = path.join(projectRoot, "node_modules", ".bin", "supabase");
-const supabaseExecutable = fs.existsSync(localSupabaseCli) ? localSupabaseCli : "supabase";
+const supabaseExecutable = resolveSupabaseCli();
 
 type CommandResult = {
 	status: number;
@@ -54,6 +53,10 @@ export function isStaleSupabaseState(output: string): boolean {
 }
 
 function main(): void {
+	// Derive DOCKER_HOST from the running Podman machine before any CLI call so a fresh machine
+	// boots with no manual shell export. Throws loud + actionable if no engine is reachable.
+	ensureContainerEngineEnv();
+
 	const firstStart = runSupabase(["start"]);
 	if (firstStart.status === 0) return;
 

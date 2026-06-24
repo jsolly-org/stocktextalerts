@@ -9,16 +9,15 @@
  */
 
 import { spawnSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { acquireTestLock, formatContentionMessage, TestLockHeldError } from "../../tests/lock";
+import { ensureContainerEngineEnv, resolveSupabaseCli } from "./container-engine";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..", "..");
-const localSupabaseCli = path.join(projectRoot, "node_modules", ".bin", "supabase");
-const supabaseExecutable = fs.existsSync(localSupabaseCli) ? localSupabaseCli : "supabase";
+const supabaseExecutable = resolveSupabaseCli();
 
 function run(command: string, args: string[]): number {
 	const result = spawnSync(command, args, {
@@ -41,6 +40,11 @@ function main(): void {
 		}
 		throw err;
 	}
+
+	// Wire DOCKER_HOST to the Podman machine socket before any CLI call. Setting it on process.env
+	// here means every child spawn below (supabase status / db reset, and the npm-run children that
+	// shell out to supabase) inherits it. Throws loud + actionable if no engine is reachable.
+	ensureContainerEngineEnv();
 
 	const status = run(supabaseExecutable, ["status"]);
 	if (status !== 0) {
