@@ -28,6 +28,19 @@ command -v aws >/dev/null 2>&1 || { echo "✗ aws CLI not found — brew install
 # Prepend repo node_modules/.bin so SAM's native esbuild integration finds
 # the pinned esbuild binary (not whatever is globally installed).
 PATH="$REPO_ROOT/node_modules/.bin:$PATH" sam build
+
+# Deploy-after-landing: a full SAM deploy ships Lambda code, so deploy ONLY what has landed on
+# origin/main — never the local tree before the ref lands (the same invariant the code-only
+# deploy:code path enforces; rules/agent-cloud-access.md, docs/plans/2026-06-24-deploy-after-landing.md).
+# gate-lib is sourced here and reused for the provenance tagging after the deploy. Runs after the
+# reversible npm ci + sam build, before the irreversible sam deploy.
+# shellcheck source=/dev/null
+source "${DOTAGENTS_GATE_LIB:-$HOME/code/dotagents/gate/gate-lib.sh}" || {
+  echo "✗ dotagents gate-lib not found (expected ~/code/dotagents/gate/gate-lib.sh) — re-run install-local-agent-runtime.sh." >&2
+  exit 1
+}
+gate_require_landed main
+
 sam deploy --parameter-overrides "${SAM_PARAMS[@]}"
 
 # Re-stamp Deploy-Sha256/Deploy-Commit on every function. A full SAM deploy rebuilds the bundle
@@ -36,12 +49,8 @@ sam deploy --parameter-overrides "${SAM_PARAMS[@]}"
 # false-fires its INTEGRITY check on this legitimate, on-pipeline deploy. Same two tags the
 # code-only deploy writes; reads each function's post-deploy CodeSha256 from list-functions (no
 # hardcoded function list to drift from the template). Fail-closed: set -e + gate_lambda_tag_provenance
-# abort if tagging can't complete (a stale tag would make the audit lie).
-# shellcheck source=/dev/null
-source "${DOTAGENTS_GATE_LIB:-$HOME/code/dotagents/gate/gate-lib.sh}" || {
-  echo "✗ dotagents gate-lib not found (expected ~/code/dotagents/gate/gate-lib.sh) — re-run install-local-agent-runtime.sh." >&2
-  exit 1
-}
+# abort if tagging can't complete (a stale tag would make the audit lie). gate-lib is already
+# sourced above (before the landing guard).
 _commit="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 _fns="$(aws lambda list-functions \
   --query "Functions[?starts_with(FunctionName, 'stocktextalerts-')].[FunctionName, CodeSha256, FunctionArn]" \
