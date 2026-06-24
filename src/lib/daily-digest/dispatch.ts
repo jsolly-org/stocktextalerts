@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 import { createSupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { createEmailSender, type EmailSender } from "../messaging/email/utils";
+import type { LogoCache } from "../messaging/logo-fetcher";
 import type { UserRecord } from "../messaging/types";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { createSmsSenderProvider, type SmsSenderProvider } from "../schedule/sms-sender";
@@ -45,6 +46,8 @@ export async function dispatchDailyDigestUser(options: {
 	getSmsSender?: SmsSenderProvider;
 	/** Shared Telegram provider from the cron run (reuses bot/sender cache). */
 	getTelegramSender?: TelegramSenderProvider;
+	/** Shared per-pass logo cache so a symbol's logo is resolved once per pass, not per user. */
+	logoCache?: LogoCache;
 }): Promise<ScheduledNotificationTotals> {
 	const {
 		userId,
@@ -101,6 +104,7 @@ export async function dispatchDailyDigestUser(options: {
 			stageOnly: precompute === true,
 			marketOpen,
 			marketClosureInfo,
+			logoCache: options.logoCache,
 		});
 	} catch (error) {
 		rootLogger.error(

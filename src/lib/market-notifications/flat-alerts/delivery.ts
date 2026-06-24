@@ -1,11 +1,12 @@
 import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
-import { escapeHtml, getChangeColor } from "../../messaging/asset-formatting";
+import { escapeHtml, formatUsdPrice, getChangeColor } from "../../messaging/asset-formatting";
 import { sendUserEmail } from "../../messaging/email/index";
 import { renderIntradaySparklineImg } from "../../messaging/email/intraday-sparkline";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
 import type { EmailSender } from "../../messaging/email/utils";
+import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../../messaging/footer";
 import { type createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
@@ -58,7 +59,7 @@ function buildFlatAlertEnriched(options: {
 	const absPct = Math.abs(triggerPercent).toFixed(1);
 	return {
 		symbol,
-		priceContext: `${symbol} is ${direction} ${absPct}% ${since} ($${quote.price.toFixed(2)})`,
+		priceContext: `${symbol} is ${direction} ${absPct}% ${since} (${formatUsdPrice(quote.price)})`,
 		signalContext: "",
 		grokContext: "",
 		grokResult: null,
@@ -249,7 +250,7 @@ function formatFlatPriceAlertSms(options: {
 
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 
-	const headline = `${symbol} ${arrow} ${absPct}% ${since} — $${currentPrice.toFixed(2)}`;
+	const headline = `${symbol} ${arrow} ${absPct}% ${since} — ${formatUsdPrice(currentPrice)}`;
 	const priceLines = rows.map(
 		(row) =>
 			`${row.label}: ${formatDollarChange(row.dollarChange)} (${formatPercentChange(row.percentChange)})`,
@@ -264,7 +265,8 @@ function formatFlatPriceAlertSms(options: {
 		...(sparklineLine ? [sparklineLine] : []),
 		priceLines.join("\n"),
 		`Manage your notifications: ${dashboardUrl}`,
-		"Reply STOP to opt out.",
+		SMS_OPT_OUT,
+		NOT_FINANCIAL_ADVICE,
 	];
 
 	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
@@ -283,7 +285,7 @@ function buildSubject(options: {
 	// the price-alert headline (enrichment.ts buildPriceContext).
 	const absPct = Math.abs(triggerPercent).toFixed(1);
 	const suffix = isReTrigger ? "since last alert" : "today";
-	return `${symbol} ${arrow} ${absPct}% ${suffix} — $${currentPrice.toFixed(2)}`;
+	return `${symbol} ${arrow} ${absPct}% ${suffix} — ${formatUsdPrice(currentPrice)}`;
 }
 
 /** Build both text and HTML representations of the flat price alert email. */
@@ -341,7 +343,7 @@ function formatFlatPriceAlertEmail(options: {
 	const textLines: string[] = [];
 	textLines.push(`Price Move Alert: ${symbol} — ${companyName}`);
 	textLines.push("");
-	textLines.push(`Current: $${currentPrice.toFixed(2)}`);
+	textLines.push(`Current: ${formatUsdPrice(currentPrice)}`);
 	textLines.push("");
 	for (const row of rows) {
 		textLines.push(formatPriceRowTextLine(row));
@@ -351,6 +353,7 @@ function formatFlatPriceAlertEmail(options: {
 	textLines.push("");
 	textLines.push(`Manage alerts: ${urls.scheduleUrl}`);
 	textLines.push(`Unsubscribe from all emails: ${urls.unsubscribeUrl}`);
+	textLines.push(NOT_FINANCIAL_ADVICE);
 	const text = textLines.join("\n");
 
 	// HTML
@@ -401,7 +404,7 @@ function formatFlatPriceAlertEmail(options: {
 
 	const html = renderEmailShell({
 		bodyHtml: `<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600; display: flex; align-items: center; gap: 8px;">Price Move Alert: ${logoBlock}<span>${escapeHtml(symbol)} <span style="color: #6b7280; font-size: 16px; font-weight: 400;">— ${escapeHtml(companyName)}</span></span></h2>
-		<p style="color: #111827; font-size: 32px; font-weight: 700; margin: 16px 0 12px 0; font-variant-numeric: tabular-nums;">$${escapeHtml(currentPrice.toFixed(2))}</p>
+		<p style="color: #111827; font-size: 32px; font-weight: 700; margin: 16px 0 12px 0; font-variant-numeric: tabular-nums;">${escapeHtml(formatUsdPrice(currentPrice))}</p>
 		<table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
 			<tbody>${rowsHtml}
 			</tbody>

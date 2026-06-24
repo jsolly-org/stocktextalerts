@@ -3,6 +3,8 @@ import {
 	formatAssetHtmlLine,
 	formatAssetsHtmlList,
 	formatAssetTextLine,
+	formatSignedChangePercent,
+	formatUsdPrice,
 	getSafeHrefUrl,
 } from "../../../src/lib/messaging/asset-formatting";
 import type { SparklineData } from "../../../src/lib/messaging/sparkline";
@@ -326,5 +328,27 @@ describe("After-hours change-% rendering", () => {
 			"after",
 		);
 		expect(line).toBe("MSFT — $416.50 (+1.50%)");
+	});
+});
+
+describe("Prices render with thousands separators consistently across channels", () => {
+	it("formatUsdPrice groups thousands and keeps 2 decimals", () => {
+		expect(formatUsdPrice(1247.83)).toBe("$1,247.83");
+		expect(formatUsdPrice(416.5)).toBe("$416.50");
+		expect(formatUsdPrice(1234567.8)).toBe("$1,234,567.80");
+	});
+
+	it("formatSignedChangePercent always signs and uses 2 decimals (>=0 gets +)", () => {
+		expect(formatSignedChangePercent(1.5)).toBe("+1.50%");
+		expect(formatSignedChangePercent(-4.2)).toBe("-4.20%");
+		expect(formatSignedChangePercent(0)).toBe("+0.00%");
+	});
+
+	it("A four-figure asset price in the shared line renders with a comma", () => {
+		const line = formatAssetTextLine(
+			{ symbol: "BRK.B", name: "Berkshire Hathaway" },
+			{ price: 1483.27, changePercent: 0.8 },
+		);
+		expect(line).toBe("BRK.B — $1,483.27 (+0.80%)");
 	});
 });

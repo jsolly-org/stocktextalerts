@@ -1,3 +1,4 @@
+import { formatUsdPrice } from "../messaging/asset-formatting";
 import type { IntradayCandle } from "../providers/massive";
 import type { ExtendedAssetQuote } from "../providers/price-fetcher";
 import { generatePriceAlertSummary, type PriceAlertGrokResult } from "./grok-summary";
@@ -40,7 +41,7 @@ function buildPriceContext(symbol: string, quote: ExtendedAssetQuote): string {
 	// readability — deliberately coarser than the 2-decimal precision on multi-asset price
 	// lines (asset-formatting.ts). The flat-alert subject builder mirrors this convention.
 	const absChange = Math.abs(quote.changePercent).toFixed(1);
-	return `${symbol} is ${direction} ${absChange}% today ($${quote.price.toFixed(2)})`;
+	return `${symbol} is ${direction} ${absChange}% today (${formatUsdPrice(quote.price)})`;
 }
 
 /** Enrich a triggered alert with Grok context (summary + links) and intraday closes for sparklines. */

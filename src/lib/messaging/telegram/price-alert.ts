@@ -1,6 +1,7 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import type { MessageEntity } from "grammy/types";
 import type { EnrichedAlert } from "../../market-notifications/enrichment";
+import { TELEGRAM_FOOTER } from "../footer";
 import { buildCandlestickSvg, type Candle, renderChartPng } from "./chart";
 
 /** Rendered Telegram price alert: entity-formatted caption/text + optional candlestick PNG. */
@@ -46,6 +47,8 @@ export function formatPriceAlertTelegram(
 			msg = fmt`${msg}\n\n${FormattedString.bold("Why it's moving")}\n${FormattedString.blockquote(why)}`;
 		}
 	}
+
+	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
 
 	let photo: Buffer | null = null;
 	if (candles.length >= 2) {

@@ -427,6 +427,7 @@ async function deliverStagedDaily(options: {
 				channel: "email",
 				status: result.success ? "sent" : "failed",
 				error: result.success ? undefined : result.error,
+				attemptCount: claim.attemptCount,
 				logger,
 			});
 		} else if (claim.status === "claim_error") {
@@ -554,6 +555,7 @@ async function deliverStagedDaily(options: {
 						channel: "sms",
 						status: result.success ? "sent" : "failed",
 						error: result.success ? undefined : result.error,
+						attemptCount: claim.attemptCount,
 						logger,
 					});
 				} catch (error) {
@@ -572,6 +574,7 @@ async function deliverStagedDaily(options: {
 						channel: "sms",
 						status: "failed",
 						error: error instanceof Error ? error.message : String(error),
+						attemptCount: claim.attemptCount,
 						logger,
 					});
 				}
@@ -656,6 +659,7 @@ async function deliverStagedDaily(options: {
 					channel: "telegram",
 					status: result.success ? "sent" : "failed",
 					error: result.success ? undefined : result.error,
+					attemptCount: claim.attemptCount,
 					logger,
 				});
 			} catch (error) {
@@ -674,6 +678,7 @@ async function deliverStagedDaily(options: {
 					channel: "telegram",
 					status: "failed",
 					error: error instanceof Error ? error.message : String(error),
+					attemptCount: claim.attemptCount,
 					logger,
 				});
 			}

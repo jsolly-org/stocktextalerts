@@ -4,6 +4,7 @@ import { buildSessionFirstLine } from "../../market-notifications/scheduled/sess
 import type { MarketSession } from "../../providers/price-fetcher";
 import type { MarketClosureInfo } from "../../time/market-calendar";
 import { NO_TRACKED_ASSETS_MESSAGE } from "../asset-formatting";
+import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../footer";
 import { buildMarketClosedBannerText } from "../market-closure-banner";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { ProcessingStats, SmsUser } from "../types";
@@ -52,7 +53,7 @@ export function formatSmsMessage(
 		is24: boolean;
 	},
 ): string {
-	const optOutSuffix = "Reply STOP to opt out.";
+	const optOutSuffix = SMS_OPT_OUT;
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const marketOpen = marketSession !== "closed";
 
@@ -60,7 +61,7 @@ export function formatSmsMessage(
 
 	if (assetsList.trim() === NO_TRACKED_ASSETS_MESSAGE) {
 		return padUrlsToSegmentBoundaries(
-			`${header}\n\n${NO_TRACKED_ASSETS_MESSAGE}.\n\nManage your notifications: ${dashboardUrl}\n\n${optOutSuffix}`,
+			`${header}\n\n${NO_TRACKED_ASSETS_MESSAGE}.\n\nManage your notifications: ${dashboardUrl}\n\n${optOutSuffix}\n\n${NOT_FINANCIAL_ADVICE}`,
 		);
 	}
 
@@ -86,6 +87,7 @@ export function formatSmsMessage(
 		extrasBlock,
 		`Manage your notifications: ${dashboardUrl}`,
 		optOutSuffix,
+		NOT_FINANCIAL_ADVICE,
 	].filter(Boolean);
 
 	return padUrlsToSegmentBoundaries(sections.join("\n\n"));

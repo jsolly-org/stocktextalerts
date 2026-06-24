@@ -4,7 +4,7 @@ import { type Logger, rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
 
 /** In-memory cache of fetched logo base64 data URIs (or null on failure). */
-type LogoCache = Map<string, string | null>;
+export type LogoCache = Map<string, string | null>;
 
 /** Create a fresh logo cache for a scheduler run. */
 export function createLogoCache(): LogoCache {
@@ -225,11 +225,14 @@ export async function safePrefetchLogos(options: {
 	supabase?: AppSupabaseClient;
 	logger: Logger;
 	logContext: Record<string, unknown>;
+	/** Shared per-pass cache to reuse across users (a symbol's logo is resolved at most
+	 *  once per cron pass instead of once per user). Defaults to a fresh per-call cache. */
+	cache?: LogoCache;
 }): Promise<{
 	cache: LogoCache;
 	getLogoHtml: (symbol: string) => string | undefined;
 }> {
-	const cache = createLogoCache();
+	const cache = options.cache ?? createLogoCache();
 	if (options.shouldPrefetch) {
 		try {
 			await prefetchLogos(options.assets, cache, options.supabase);

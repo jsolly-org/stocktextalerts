@@ -31,19 +31,20 @@ const mockEq = vi.hoisted(() => {
 });
 const mockSelect = vi.hoisted(() => vi.fn(() => ({ eq: mockEq, maybeSingle: mockMaybeSingle })));
 
-// Durable idempotency lives in `email_dispatch_idempotency`; the handler now
-// reuses a single admin client for claim (INSERT) and release (DELETE). This
-// fake tracks claimed keys in-memory so a duplicate INSERT reports a unique
-// violation and a DELETE actually frees the key for a re-claim.
+// Durable idempotency lives in `email_dispatch_idempotency`; the handler claims via the
+// `claim_email_dispatch_key` RPC (which re-claims an EXPIRED key) and releases via DELETE.
+// This fake tracks live claims in-memory: a second claim of a live key returns false
+// (duplicate), and a DELETE frees the key for a re-claim.
 const idempotencyKeys = vi.hoisted(() => new Set<string>());
-const mockIdempotencyTable = vi.hoisted(() => ({
-	insert: vi.fn(async ({ idempotency_key }: { idempotency_key: string }) => {
-		if (idempotencyKeys.has(idempotency_key)) {
-			return { error: { code: "23505", message: "duplicate key" } };
-		}
-		idempotencyKeys.add(idempotency_key);
-		return { error: null };
+const mockRpc = vi.hoisted(() =>
+	vi.fn(async (fn: string, args: { p_key: string }) => {
+		if (fn !== "claim_email_dispatch_key") return { data: null, error: null };
+		if (idempotencyKeys.has(args.p_key)) return { data: false, error: null };
+		idempotencyKeys.add(args.p_key);
+		return { data: true, error: null };
 	}),
+);
+const mockIdempotencyTable = vi.hoisted(() => ({
 	delete: vi.fn(() => ({
 		eq: vi.fn(async (_column: string, value: string) => {
 			idempotencyKeys.delete(value);
@@ -69,7 +70,7 @@ vi.mock("../../src/lib/db/supabase", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("../../src/lib/db/supabase")>();
 	return {
 		...actual,
-		createSupabaseAdminClient: () => ({ from: mockFrom }),
+		createSupabaseAdminClient: () => ({ from: mockFrom, rpc: mockRpc }),
 	};
 });
 
@@ -273,7 +274,7 @@ describe("email-dispatch Lambda handler", () => {
 		expect(mockEmailSender).toHaveBeenCalledOnce();
 	});
 
-	it("releases the idempotency key when delivery fails so a retry can re-send.", async () => {
+	it("keeps the idempotency claim when SES delivery fails so an immediate retry cannot double-send.", async () => {
 		expectConsoleError("Email dispatch delivery failed");
 		vi.stubEnv("EMAIL_DISPATCH_SECRET", "dispatch-secret");
 		const request = {
@@ -285,7 +286,8 @@ describe("email-dispatch Lambda handler", () => {
 		};
 		const { handler } = await import("../../src/handlers/email-dispatch");
 
-		// First attempt: SES is down -> 502, and the key must be released.
+		// First attempt: SES errors -> 502. The outcome is AMBIGUOUS (SES may have accepted the
+		// message before erroring), so the claim is KEPT rather than released.
 		mockEmailSender.mockResolvedValueOnce({
 			success: false,
 			error: "SES down",
@@ -294,11 +296,12 @@ describe("email-dispatch Lambda handler", () => {
 		const failed = await handler(makeEvent(request), context);
 		expect(failed.statusCode).toBe(502);
 
-		// Retry of the SAME deterministic key must NOT be blocked as a duplicate;
-		// it re-claims and delivers.
+		// An immediate retry of the SAME deterministic key is blocked as a duplicate (409) — no
+		// second send — until the claim's TTL lapses, at which point claim_email_dispatch_key
+		// re-claims it. This is the guard against double-delivery.
 		const retried = await handler(makeEvent(request), context);
-		expect(retried.statusCode).toBe(200);
-		expect(mockEmailSender).toHaveBeenCalledTimes(2);
+		expect(retried.statusCode).toBe(409);
+		expect(mockEmailSender).toHaveBeenCalledOnce();
 	});
 
 	it("releases the idempotency key when the recipient is unauthorized so a fixed retry can send.", async () => {

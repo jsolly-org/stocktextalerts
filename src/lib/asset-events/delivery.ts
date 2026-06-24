@@ -5,6 +5,7 @@ import { renderEmailSection } from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
+import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../messaging/footer";
 import {
 	buildMarketClosedBannerHtml,
 	buildMarketClosedBannerText,
@@ -37,7 +38,7 @@ function formatAssetEventsSmsMessage(options: {
 	/** Optional delay banner text (inserted after header when notification is late). */
 	delayBanner?: string | null;
 }): string {
-	const optOutSuffix = "Reply STOP to opt out.";
+	const optOutSuffix = SMS_OPT_OUT;
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 
 	const parts: string[] = ["StockTextAlerts — Asset Events 🗓️"];
@@ -71,6 +72,7 @@ function formatAssetEventsSmsMessage(options: {
 
 	parts.push(`Manage your notifications: ${dashboardUrl}`);
 	parts.push(optOutSuffix);
+	parts.push(NOT_FINANCIAL_ADVICE);
 
 	return padUrlsToSegmentBoundaries(parts.join("\n\n"));
 }
@@ -129,6 +131,7 @@ function formatAssetEventsEmail(options: {
 	textParts.push(`\nManage your notifications: ${urls.dashboardUrl}`);
 	textParts.push(`Manage your delivery schedule: ${urls.scheduleUrl}`);
 	textParts.push(`Unsubscribe from all emails: ${urls.unsubscribeUrl}`);
+	textParts.push(NOT_FINANCIAL_ADVICE);
 
 	const subject = "Asset Events";
 	const text = textParts.join("\n");
@@ -304,6 +307,7 @@ export async function processAssetEventsEmailDelivery(options: {
 		channel: "email",
 		status: result.success ? "sent" : "failed",
 		error: result.success ? undefined : result.error,
+		attemptCount: claim.attemptCount,
 		logger,
 	});
 }
@@ -389,6 +393,7 @@ export async function processAssetEventsSmsDelivery(options: {
 			channel: "sms",
 			status: "failed",
 			error: errorMessage,
+			attemptCount: claim.attemptCount,
 			logger,
 		});
 		return;
@@ -432,6 +437,7 @@ export async function processAssetEventsSmsDelivery(options: {
 		channel: "sms",
 		status: result.success ? "sent" : "failed",
 		error: result.success ? undefined : result.error,
+		attemptCount: claim.attemptCount,
 		logger,
 	});
 }
@@ -524,6 +530,7 @@ export async function processAssetEventsTelegramDelivery(options: {
 			channel: "telegram",
 			status: "failed",
 			error: errorMessage,
+			attemptCount: claim.attemptCount,
 			logger,
 		});
 		return;
@@ -585,6 +592,7 @@ export async function processAssetEventsTelegramDelivery(options: {
 		channel: "telegram",
 		status: result.success ? "sent" : "failed",
 		error: result.success ? undefined : result.error,
+		attemptCount: claim.attemptCount,
 		logger,
 	});
 }

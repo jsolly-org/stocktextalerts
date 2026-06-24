@@ -1,6 +1,7 @@
 import { DASHBOARD_SECTION_HASHES } from "../../constants";
 import { getSiteUrl } from "../../db/env";
 import { escapeHtml } from "../asset-formatting";
+import { NOT_FINANCIAL_ADVICE } from "../footer";
 import { createEmailUnsubscribeUrl } from "./unsubscribe";
 
 /** Precomputed URLs used in email templates (both raw and HTML-escaped). */
@@ -49,6 +50,7 @@ export function renderEmailFooter(urls: EmailUrls): string {
 			<a href="${urls.escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Adjust delivery schedule</a>
 			<span style="color: #d1d5db; padding: 0 8px;">•</span>
 			<a href="${urls.escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from all emails</a>
+			<br />${escapeHtml(NOT_FINANCIAL_ADVICE)}
 		</p>`;
 }
 

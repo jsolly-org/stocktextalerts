@@ -45,16 +45,29 @@ export function escapeHtml(value: string): string {
 		.replaceAll("'", "&#39;");
 }
 
+/** Canonical USD price rendering, shared across every channel: thousands separators +
+ *  2 decimals ("$1,234.56"). Use everywhere a price is shown so SMS/email/Telegram/alerts
+ *  never diverge on grouping. */
+export function formatUsdPrice(price: number): string {
+	return `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/** Canonical signed change-percent rendering ("+1.23%" / "-4.50%"); `>= 0` gets a `+`.
+ *  Caller adds any surrounding parens. 2 decimals fleet-wide. */
+export function formatSignedChangePercent(changePercent: number): string {
+	const sign = changePercent >= 0 ? "+" : "";
+	return `${sign}${changePercent.toFixed(2)}%`;
+}
+
 function formatAssetPriceText(
 	price: AssetPrice,
 	sparkline?: SparklineData | null,
 	showChangePercent = true,
 ): string {
-	let base = `$${price.price.toFixed(2)}`;
+	let base = formatUsdPrice(price.price);
 	if (showChangePercent) {
 		const changePercent = resolveDisplayChangePercent(price, sparkline);
-		const sign = changePercent >= 0 ? "+" : "";
-		base += ` (${sign}${changePercent.toFixed(2)}%)`;
+		base += ` (${formatSignedChangePercent(changePercent)})`;
 	}
 	if (sparkline?.ascii) {
 		const label = sparkline.cacheAsOfLabel ?? SMS_SPARKLINE_LABEL[sparkline.window];
@@ -174,7 +187,7 @@ export function formatAssetHtmlLine(
 	// Priced asset: a price row followed (when sparkline data exists) by a
 	// trend row. The divider goes on whichever of the two is the asset's last
 	// row so adjacent assets get one visible 1px line between them.
-	const priceStr = escapeHtml(`$${price.price.toFixed(2)}`);
+	const priceStr = escapeHtml(formatUsdPrice(price.price));
 	const displayChangePercent = resolveDisplayChangePercent(price, sparkline);
 	const displayColor = getChangeColor(displayChangePercent);
 
@@ -188,8 +201,7 @@ export function formatAssetHtmlLine(
 
 	let changeCell = `<td style="${ROW_CELL} ${priceRowDivider}"></td>`;
 	if (showChangePercent) {
-		const sign = displayChangePercent >= 0 ? "+" : "";
-		const changeStr = escapeHtml(`(${sign}${displayChangePercent.toFixed(2)}%)`);
+		const changeStr = escapeHtml(`(${formatSignedChangePercent(displayChangePercent)})`);
 		changeCell = `<td style="${NUM_CELL} padding-left: 8px; color: ${displayColor}; ${priceRowDivider}">${changeStr}</td>`;
 	}
 

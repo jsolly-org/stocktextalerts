@@ -223,6 +223,9 @@ export async function updateScheduledNotificationRow(options: {
 	channel: DeliveryMethod;
 	status: Extract<ScheduledNotificationStatus, "sent" | "failed">;
 	error?: string;
+	/** Post-claim attempt_count from claimNotification — when provided, skips the re-SELECT
+	 *  the failed branch would otherwise do to compute the backoff. */
+	attemptCount?: number;
 	logger: Logger;
 }) {
 	type UpdateChain = {
@@ -239,7 +242,8 @@ export async function updateScheduledNotificationRow(options: {
 			next_retry_at: null,
 		};
 	} else {
-		const attemptCount = await getScheduledNotificationAttemptCount(options);
+		const attemptCount =
+			options.attemptCount ?? (await getScheduledNotificationAttemptCount(options));
 		const retryAt = DateTime.fromISO(nowIso, { zone: "utc" }).plus({
 			milliseconds: computeDeliveryRetryDelayMs(attemptCount),
 		});
@@ -277,7 +281,9 @@ export async function updateScheduledNotificationRow(options: {
 }
 
 type ClaimResult =
-	| { status: "claimed" }
+	/** Claimed; `attemptCount` is the post-claim count the RPC just set (>= 1), threaded to
+	 *  `updateScheduledNotificationRow` so the failure path needn't re-read it. */
+	| { status: "claimed"; attemptCount: number }
 	| { status: "claim_error" }
 	| { status: "retries_exhausted" }
 	| { status: "not_ready" };
@@ -300,7 +306,7 @@ export async function claimNotification(options: {
 	const { supabase, userId, notificationType, scheduledDate, scheduledMinutes, channel, logger } =
 		options;
 
-	const { data: claimed, error: claimError } = await (
+	const { data: claimedRaw, error: claimError } = await (
 		supabase as unknown as {
 			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
 		}
@@ -321,7 +327,10 @@ export async function claimNotification(options: {
 		return { status: "claim_error" };
 	}
 
-	if (!claimed) {
+	// The RPC returns the post-claim attempt_count (>= 1) when this run won the claim, or NULL
+	// when denied (already sent / retries exhausted / not yet due per the backoff).
+	const claimedAttemptCount = typeof claimedRaw === "number" ? claimedRaw : null;
+	if (claimedAttemptCount === null) {
 		const { data: row, error: rowError } = await supabase
 			.from("scheduled_notifications")
 			.select("attempt_count, status")
@@ -357,7 +366,7 @@ export async function claimNotification(options: {
 		return { status: "not_ready" };
 	}
 
-	return { status: "claimed" };
+	return { status: "claimed", attemptCount: claimedAttemptCount };
 }
 
 /**

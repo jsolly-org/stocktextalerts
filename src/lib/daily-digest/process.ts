@@ -6,9 +6,10 @@ import {
 import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
 import type { Logger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
+import { formatSignedChangePercent, formatUsdPrice } from "../messaging/asset-formatting";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/delay-banner";
 import type { EmailSender } from "../messaging/email/utils";
-import { safePrefetchLogos } from "../messaging/logo-fetcher";
+import { type LogoCache, safePrefetchLogos } from "../messaging/logo-fetcher";
 import { buildMarketClosedBannerText } from "../messaging/market-closure-banner";
 import { anyFacetEnabled, enabledFacets, isFacetEnabled } from "../messaging/notification-prefs";
 import { shouldSendSms } from "../messaging/sms";
@@ -59,8 +60,7 @@ const GROK_WINDOW_HOURS = 24;
 const GROK_MAX_SENDS_PER_WINDOW = 10;
 
 function formatMoverLine(mover: TopMover): string {
-	const sign = mover.changePercent >= 0 ? "+" : "";
-	return `${mover.ticker} — $${mover.price.toFixed(2)} (${sign}${mover.changePercent.toFixed(2)}%)`;
+	return `${mover.ticker} — ${formatUsdPrice(mover.price)} (${formatSignedChangePercent(mover.changePercent)})`;
 }
 
 /**
@@ -279,6 +279,8 @@ export async function processDailyDigestUser(options: {
 	marketOpen?: boolean;
 	/** Pre-fetched market closure info (avoids per-user API calls in fan-out). */
 	marketClosureInfo?: MarketClosureInfo | null;
+	/** Shared per-pass logo cache so a symbol's logo is resolved once per pass, not per user. */
+	logoCache?: LogoCache;
 }): Promise<ScheduledNotificationTotals> {
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
@@ -468,6 +470,7 @@ export async function processDailyDigestUser(options: {
 			supabase,
 			logger,
 			logContext: { action: "daily_run", userId: user.id },
+			cache: options.logoCache,
 		});
 
 		// Classify tickers without prices into two buckets:

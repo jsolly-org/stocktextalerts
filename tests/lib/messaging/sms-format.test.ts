@@ -14,6 +14,8 @@ describe("SMS scheduled update includes asset price data.", () => {
 		expect(message).toContain("$412.10");
 		expect(message).toContain("-0.31%");
 		expect(message).toContain("Reply STOP to opt out.");
+		// Footer contract: SMS now also carries the disclaimer.
+		expect(message).toContain("Not financial advice.");
 	});
 
 	it("Market-closed disclaimer appears when market is closed.", () => {

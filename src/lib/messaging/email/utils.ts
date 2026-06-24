@@ -22,6 +22,7 @@ import { NO_SESSION_TRADE } from "../../providers/price-fetcher";
 import { isProduction } from "../../runtime/mode";
 import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
 import { withDeliveryRetry } from "../delivery-retry";
+import { NOT_FINANCIAL_ADVICE } from "../footer";
 import { buildMarketClosedBannerHtml, buildMarketClosedBannerText } from "../market-closure-banner";
 import type { DeliveryResult, EmailFormatContext, EmailUser, UserAssetRow } from "../types";
 
@@ -67,7 +68,7 @@ async function waitForRateLimit(): Promise<void> {
 	}
 }
 
-import { buildEmailUrls } from "./layout";
+import { buildEmailUrls, renderEmailFooter } from "./layout";
 
 export interface EmailRequest {
 	to: string;
@@ -232,13 +233,10 @@ export function formatEmailMessage(
 	const { getSparkline, marketClosureInfo, getLogoHtml } = context ?? {};
 	const marketOpen = marketSession !== "closed";
 	const urls = buildEmailUrls(user.id, user.email, "marketNotifications");
-	const textFooter = `\n\nManage your delivery schedule: ${urls.scheduleUrl}\nUnsubscribe from all emails: ${urls.unsubscribeUrl}`;
-	const htmlFooter = `
-		<p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-			<a href="${urls.escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Adjust delivery schedule</a>
-			<span style="color: #d1d5db; padding: 0 8px;">•</span>
-			<a href="${urls.escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from all emails</a>
-		</p>`;
+	const textFooter = `\n\nManage your delivery schedule: ${urls.scheduleUrl}\nUnsubscribe from all emails: ${urls.unsubscribeUrl}\n${NOT_FINANCIAL_ADVICE}`;
+	// The HTML footer is the shared canonical renderer (F2) — same one delisting / daily-digest /
+	// asset-events / price-targets emails use, so the scheduled email no longer forks its own copy.
+	const htmlFooter = renderEmailFooter(urls);
 
 	if (userAssets.length === 0) {
 		const text = `You don't have any tracked assets yet.\n\nVisit your dashboard to add assets to track: ${urls.dashboardUrl}${textFooter}`;

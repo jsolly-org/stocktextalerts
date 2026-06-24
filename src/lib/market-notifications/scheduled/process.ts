@@ -4,7 +4,7 @@ import { createErrorForLogging, extractErrorMessage } from "../../logging/errors
 import { formatAssetsTextList } from "../../messaging/asset-formatting";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../../messaging/delay-banner";
 import type { EmailSender } from "../../messaging/email/utils";
-import { safePrefetchLogos } from "../../messaging/logo-fetcher";
+import { type LogoCache, safePrefetchLogos } from "../../messaging/logo-fetcher";
 import { buildMarketClosedBannerText } from "../../messaging/market-closure-banner";
 import { anyFacetEnabled, isFacetEnabled } from "../../messaging/notification-prefs";
 import { recordNotification } from "../../messaging/shared";
@@ -55,6 +55,8 @@ export async function processMarketScheduledUser(options: {
 	marketClosureInfo?: MarketClosureInfo | null;
 	/** Pre-fetched user assets (avoids N+1 when batch processing). */
 	userAssetsMap?: UserAssetsMap;
+	/** Shared per-pass logo cache so a symbol's logo is resolved once per pass, not per user. */
+	logoCache?: LogoCache;
 }): Promise<ScheduledNotificationTotals> {
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
@@ -283,6 +285,7 @@ export async function processMarketScheduledUser(options: {
 			supabase,
 			logger,
 			logContext: { action: "market_notifications_run", userId: user.id },
+			cache: options.logoCache,
 		});
 
 		// Past the early return, the session is always pre/regular/after — show change%.

@@ -6,26 +6,26 @@ type AdminClient = SupabaseClient<Database>;
 
 type DispatchClaimResult = "claimed" | "duplicate";
 
-/** Postgres unique-violation. */
-const UNIQUE_VIOLATION = "23505";
-
 /**
  * Atomically claim an email-dispatch idempotency key. Returns "claimed" the
- * first time a key is seen and "duplicate" on any subsequent attempt — durable
+ * first time a key is seen and "duplicate" while a live claim exists — durable
  * across Lambda cold starts and concurrent instances, unlike the previous
  * in-memory map.
+ *
+ * The `claim_email_dispatch_key` RPC RE-CLAIMS an expired key (TTL lapsed), so a
+ * claim that the dispatcher deliberately kept on an ambiguous SES outcome self-heals
+ * after the window instead of suppressing a legitimate later retry forever.
  */
 export async function claimEmailDispatchKey(
 	supabase: AdminClient,
 	idempotencyKey: string,
 ): Promise<DispatchClaimResult> {
-	const { error } = await supabase
-		.from("email_dispatch_idempotency")
-		.insert({ idempotency_key: idempotencyKey });
+	const { data, error } = await supabase.rpc("claim_email_dispatch_key", {
+		p_key: idempotencyKey,
+	});
 
-	if (!error) return "claimed";
-	if (error.code === UNIQUE_VIOLATION) return "duplicate";
-	throw error;
+	if (error) throw error;
+	return data ? "claimed" : "duplicate";
 }
 
 /**

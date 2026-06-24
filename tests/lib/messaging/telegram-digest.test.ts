@@ -26,6 +26,8 @@ describe("Telegram daily digest formatting", () => {
 		expect(msg.text).toContain("(-1.80%)");
 		expect(msg.text).toContain("Apple unveils a new in-house modem chip.");
 		expect(msg.text).toContain("Not financial advice.");
+		// Footer contract: Telegram now also carries an opt-out hint.
+		expect(msg.text).toContain("/stop");
 
 		// Entities travel out-of-band (no escaping): bold header/tickers + a news blockquote.
 		expect(msg.entities.length).toBeGreaterThan(0);

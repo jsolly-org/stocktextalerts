@@ -8,6 +8,7 @@ import { renderEmailSection } from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
+import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../messaging/footer";
 import {
 	buildMarketClosedBannerHtml,
 	buildMarketClosedBannerText,
@@ -240,7 +241,7 @@ function buildDailyDigestSmsBlocks(options: DailyDigestSmsFormatOptions): SmsBlo
 		{
 			id: "footer",
 			boundary: "atomic",
-			text: `Manage your notifications:\n${dashboardUrl}\n\nReply STOP to opt out.`,
+			text: `Manage your notifications:\n${dashboardUrl}\n\n${SMS_OPT_OUT}\n\n${NOT_FINANCIAL_ADVICE}`,
 		},
 	];
 }
@@ -395,6 +396,7 @@ export function formatDailyDigestEmail(options: {
 		`\nManage your notifications: ${urls.dashboardUrl}`,
 		`Manage your delivery schedule: ${urls.scheduleUrl}`,
 		`Unsubscribe from all emails: ${urls.unsubscribeUrl}`,
+		NOT_FINANCIAL_ADVICE,
 	].filter(Boolean);
 
 	const text = sectionsText.join("\n");
@@ -547,6 +549,7 @@ export async function processDailyDigestEmailDelivery(options: {
 		channel: "email",
 		status: result.success ? "sent" : "failed",
 		error: result.success ? undefined : result.error,
+		attemptCount: claim.attemptCount,
 		logger,
 	});
 }
@@ -626,6 +629,7 @@ export async function processDailyDigestSmsDelivery(options: {
 			channel: "sms",
 			status: "failed",
 			error: errorMessage,
+			attemptCount: claim.attemptCount,
 			logger,
 		});
 		return;
@@ -693,6 +697,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		channel: "sms",
 		status: result.success ? "sent" : "failed",
 		error: result.success ? undefined : result.error,
+		attemptCount: claim.attemptCount,
 		logger,
 	});
 }
@@ -781,6 +786,7 @@ export async function processDailyDigestTelegramDelivery(options: {
 			channel: "telegram",
 			status: "failed",
 			error: errorMessage,
+			attemptCount: claim.attemptCount,
 			logger,
 		});
 		return;
@@ -844,6 +850,7 @@ export async function processDailyDigestTelegramDelivery(options: {
 		channel: "telegram",
 		status: result.success ? "sent" : "failed",
 		error: result.success ? undefined : result.error,
+		attemptCount: claim.attemptCount,
 		logger,
 	});
 }

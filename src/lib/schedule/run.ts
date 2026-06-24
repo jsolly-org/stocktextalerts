@@ -49,6 +49,7 @@ import { processMarketScheduledUser } from "../market-notifications/scheduled/pr
 import { fetchMarketScheduledUsers } from "../market-notifications/scheduled/query";
 import { purgeOldAssetSnapshots } from "../market-notifications/snapshot-store";
 import { createEmailSender } from "../messaging/email/utils";
+import { createLogoCache, type LogoCache } from "../messaging/logo-fetcher";
 import { type PriceTargetTotals, processPriceTargets } from "../price-targets/process";
 import {
 	type AssetPriceMap,
@@ -161,6 +162,9 @@ async function runPass(options: {
 	getTelegramSender: ReturnType<typeof createTelegramSenderProvider>;
 	marketSession: MarketSession;
 	schedulerQuoteCache: SchedulerQuoteCache;
+	/** Per-invocation logo cache shared across both passes + all users (resolve each
+	 *  symbol's logo at most once per cron tick, not once per user). */
+	logoCache: LogoCache;
 	/** When true, run asset events processing (only in the first pass). */
 	includeAssetEvents: boolean;
 }): Promise<ScheduledNotificationTotals> {
@@ -172,6 +176,7 @@ async function runPass(options: {
 		getTelegramSender,
 		marketSession,
 		schedulerQuoteCache,
+		logoCache,
 	} = options;
 
 	// Use actual UTC time — NOT rounded to end-of-minute like the old single-pass approach.
@@ -358,6 +363,7 @@ async function runPass(options: {
 					marketSession,
 					userAssetsMap,
 					marketClosureInfo,
+					logoCache,
 				}),
 			),
 		);
@@ -401,6 +407,7 @@ async function runPass(options: {
 						sendEmail,
 						getSmsSender,
 						getTelegramSender,
+						logoCache,
 					}),
 				),
 			);
@@ -645,6 +652,9 @@ export async function runScheduledNotifications(options: {
 	// Seed from the captured (superset) map so fallback passes reuse the watched-symbol
 	// quotes the price-history capture already fetched, instead of re-fetching them.
 	const schedulerQuoteCache = createSchedulerQuoteCache(capturedQuoteMap);
+	// One logo cache for the whole invocation (both passes, all users): logos are static
+	// within a tick, so a symbol's logo is fetched at most once instead of once per user.
+	const logoCache = createLogoCache();
 
 	/* ============= Two-pass execution ============= */
 	const passStartTime = Date.now();
@@ -658,6 +668,7 @@ export async function runScheduledNotifications(options: {
 		getTelegramSender,
 		marketSession: schedulerMarketSession,
 		schedulerQuoteCache,
+		logoCache,
 		includeAssetEvents: true,
 	});
 
@@ -679,6 +690,7 @@ export async function runScheduledNotifications(options: {
 		getTelegramSender,
 		marketSession: schedulerMarketSession,
 		schedulerQuoteCache,
+		logoCache,
 		includeAssetEvents: false,
 	});
 

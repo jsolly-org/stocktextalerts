@@ -115,7 +115,8 @@ describe("Daily digest email prices", () => {
 		}
 
 		const supabase = {
-			rpc: vi.fn(async () => ({ data: true, error: null })),
+			// claim_scheduled_notification returns the post-claim attempt_count (>= 1) when claimed.
+			rpc: vi.fn(async () => ({ data: 1, error: null })),
 			from: vi.fn((table: string) => {
 				if (table === "notification_log") {
 					return {

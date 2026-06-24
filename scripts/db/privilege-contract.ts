@@ -110,11 +110,21 @@ export const RPC_PRIVILEGES: RpcPrivilege[] = [
 		class: "server-only",
 		reason: "Schedule Lambda claims a digest/scheduled-notification delivery slot",
 	},
+	{
+		signature: "claim_email_dispatch_key(p_key text)",
+		class: "server-only",
+		reason: "Email-dispatch Lambda claims an idempotency key (with expired-key reclaim)",
+	},
 	// --- Maintenance / purge RPCs (server cron only) ------------------------
 	{
 		signature: "purge_expired_short_urls()",
 		class: "server-only",
 		reason: "Schedule handler purges expired short URLs",
+	},
+	{
+		signature: "purge_expired_email_dispatch_keys()",
+		class: "server-only",
+		reason: "Schedule handler purges expired email-dispatch idempotency keys",
 	},
 	{
 		signature: "purge_old_asset_price_history(p_retention_hours integer)",

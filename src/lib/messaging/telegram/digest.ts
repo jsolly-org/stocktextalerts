@@ -1,22 +1,13 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
+import { formatSignedChangePercent, formatUsdPrice } from "../asset-formatting";
+import { TELEGRAM_FOOTER } from "../footer";
 import type { SmsExtras } from "../sms/delivery";
 import type { UserAssetRow } from "../types";
 
 const UP = "🟢";
 const DOWN = "🔴";
 const FLAT = "⚪️";
-
-function formatPct(p: number): string {
-	// `>= 0` matches the canonical asset-formatting convention (a flat asset renders
-	// "+0.00%" consistently across email/SMS/Telegram).
-	const sign = p >= 0 ? "+" : "";
-	return `${sign}${p.toFixed(2)}%`;
-}
-
-function formatPrice(p: number): string {
-	return p.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 interface DailyDigestTelegramOptions {
 	userAssets: UserAssetRow[];
@@ -53,7 +44,7 @@ export function formatDailyDigestTelegram(opts: DailyDigestTelegramOptions): For
 		const quote = assetPrices.get(asset.symbol);
 		if (!quote) continue;
 		const dot = quote.changePercent > 0 ? UP : quote.changePercent < 0 ? DOWN : FLAT;
-		msg = fmt`${msg}\n${dot} ${FormattedString.bold(asset.symbol)}  $${formatPrice(quote.price)}  (${formatPct(quote.changePercent)})`;
+		msg = fmt`${msg}\n${dot} ${FormattedString.bold(asset.symbol)}  ${formatUsdPrice(quote.price)}  (${formatSignedChangePercent(quote.changePercent)})`;
 	}
 
 	if (extras.topMovers) {
@@ -66,6 +57,6 @@ export function formatDailyDigestTelegram(opts: DailyDigestTelegramOptions): For
 		msg = fmt`${msg}\n\n${FormattedString.bold("💬 Rumors")}\n${FormattedString.blockquote(extras.rumors)}`;
 	}
 
-	msg = fmt`${msg}\n\nNot financial advice.`;
+	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
 	return msg;
 }

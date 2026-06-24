@@ -1,5 +1,6 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import type { MarketClosureInfo } from "../../time/market-calendar";
+import { TELEGRAM_FOOTER } from "../footer";
 import { buildMarketClosedBannerText } from "../market-closure-banner";
 
 interface AssetEventsTelegramOptions {
@@ -52,6 +53,6 @@ export function formatAssetEventsTelegram(opts: AssetEventsTelegramOptions): For
 		msg = fmt`${msg}\n\n${FormattedString.bold("📊 Analyst Consensus (published monthly on the 1st)")}\n${opts.analystSection}`;
 	}
 
-	msg = fmt`${msg}\n\nNot financial advice.`;
+	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
 	return msg;
 }

@@ -39,6 +39,29 @@ describe("claimEmailDispatchKey", () => {
 		}
 	});
 
+	it("An expired claim is re-claimable, so a claim the dispatcher kept on an ambiguous failure self-heals after its TTL", async () => {
+		const supabase = createSupabaseAdminClient();
+		const key = "scheduled-update/ttl-reclaim-user/2026-06-13/540/email";
+		try {
+			expect(await claimEmailDispatchKey(supabase, key)).toBe("claimed");
+			// A live (unexpired) claim still blocks a duplicate — no double-send window.
+			expect(await claimEmailDispatchKey(supabase, key)).toBe("duplicate");
+
+			// Expire the claim in place, simulating the TTL lapsing on a claim that the dispatcher
+			// deliberately kept after an ambiguous SES outcome.
+			const { error } = await supabase
+				.from("email_dispatch_idempotency")
+				.update({ expires_at: "2000-01-01T00:00:00Z" })
+				.eq("idempotency_key", key);
+			expect(error).toBeNull();
+
+			// The expired key is now re-claimable — a genuine later retry is not suppressed forever.
+			expect(await claimEmailDispatchKey(supabase, key)).toBe("claimed");
+		} finally {
+			await supabase.from("email_dispatch_idempotency").delete().eq("idempotency_key", key);
+		}
+	});
+
 	it("Releasing a key that was never claimed is a safe no-op", async () => {
 		const supabase = createSupabaseAdminClient();
 		await expect(

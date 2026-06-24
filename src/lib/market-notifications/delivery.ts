@@ -8,6 +8,7 @@ import { sendUserEmail } from "../messaging/email/index";
 import { renderIntradaySparklineImg } from "../messaging/email/intraday-sparkline";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
+import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../messaging/footer";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
 import { isFacetEnabled } from "../messaging/notification-prefs";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
@@ -86,7 +87,7 @@ async function formatPriceAlertSms(
 	supabase: AppSupabaseClient,
 ): Promise<string> {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const optOutSuffix = "Reply STOP to opt out.";
+	const optOutSuffix = SMS_OPT_OUT;
 
 	const priceContextLine = formatPriceContextWithSparkline(
 		alert.priceContext,
@@ -118,6 +119,7 @@ async function formatPriceAlertSms(
 
 	sections.push(`Manage your notifications: ${dashboardUrl}`);
 	sections.push(optOutSuffix);
+	sections.push(NOT_FINANCIAL_ADVICE);
 
 	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
 }
@@ -199,6 +201,7 @@ function formatPriceAlertEmail(
 
 	textSections.push(`Manage your notifications: ${urls.scheduleUrl}`);
 	textSections.push(`Unsubscribe from all emails: ${urls.unsubscribeUrl}`);
+	textSections.push(NOT_FINANCIAL_ADVICE);
 
 	const text = textSections.join("\n\n");
 

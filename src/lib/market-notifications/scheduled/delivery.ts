@@ -115,6 +115,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 		channel: "email",
 		status: sent ? "sent" : "failed",
 		error,
+		attemptCount: claim.attemptCount,
 		logger,
 	});
 }
@@ -202,6 +203,7 @@ export async function processMarketScheduledSmsDelivery(options: {
 			channel: "sms",
 			status: "failed",
 			error: errorMessage,
+			attemptCount: claim.attemptCount,
 			logger,
 		});
 
@@ -244,6 +246,7 @@ export async function processMarketScheduledSmsDelivery(options: {
 		channel: "sms",
 		status: sent ? "sent" : "failed",
 		error,
+		attemptCount: claim.attemptCount,
 		logger,
 	});
 }
@@ -328,6 +331,7 @@ export async function processMarketScheduledTelegramDelivery(options: {
 			channel: "telegram",
 			status: "failed",
 			error: errorMessage,
+			attemptCount: claim.attemptCount,
 			logger,
 		});
 		return;
@@ -386,6 +390,7 @@ export async function processMarketScheduledTelegramDelivery(options: {
 		channel: "telegram",
 		status: result.success ? "sent" : "failed",
 		error: result.success ? undefined : result.error,
+		attemptCount: claim.attemptCount,
 		logger,
 	});
 }

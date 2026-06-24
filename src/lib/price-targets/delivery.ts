@@ -2,11 +2,12 @@ import { getSiteUrl } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import type { EnrichedAlert } from "../market-notifications/enrichment";
-import { escapeHtml } from "../messaging/asset-formatting";
+import { escapeHtml, formatUsdPrice } from "../messaging/asset-formatting";
 import { isEmailChannelUsable } from "../messaging/email/eligibility";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
+import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../messaging/footer";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
 import { isFacetEnabled } from "../messaging/notification-prefs";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
@@ -51,7 +52,7 @@ function buildPriceTargetEnriched(target: TriggeredPriceTarget): EnrichedAlert {
 	const verb = target.direction === "above" ? "rose to" : "fell to";
 	return {
 		symbol: target.symbol,
-		priceContext: `${target.symbol} ${verb} $${target.currentPrice.toFixed(2)}, hitting your target of $${target.targetPrice.toFixed(2)}`,
+		priceContext: `${target.symbol} ${verb} ${formatUsdPrice(target.currentPrice)}, hitting your target of ${formatUsdPrice(target.targetPrice)}`,
 		signalContext: "",
 		grokContext: "",
 		grokResult: null,
@@ -64,22 +65,18 @@ function buildPriceTargetEnriched(target: TriggeredPriceTarget): EnrichedAlert {
 	};
 }
 
-function formatPrice(price: number): string {
-	return `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 /**
  * Format the SMS body for a price target alert.
  */
 export function formatPriceTargetSms(target: TriggeredPriceTarget): string {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const optOutSuffix = "Reply STOP to opt out.";
 
 	const sections = [
 		`StockTextAlerts — Price Target Hit`,
-		`${target.symbol} hit your price target of ${formatPrice(target.targetPrice)} (currently ${formatPrice(target.currentPrice)})`,
+		`${target.symbol} hit your price target of ${formatUsdPrice(target.targetPrice)} (currently ${formatUsdPrice(target.currentPrice)})`,
 		`Manage your notifications: ${dashboardUrl}`,
-		optOutSuffix,
+		SMS_OPT_OUT,
+		NOT_FINANCIAL_ADVICE,
 	];
 
 	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
@@ -98,10 +95,11 @@ function formatPriceTargetEmail(
 	// Plaintext
 	const textSections = [
 		`Price Target Hit: ${target.symbol}`,
-		`${target.symbol} hit your price target of ${formatPrice(target.targetPrice)} (currently ${formatPrice(target.currentPrice)}).`,
+		`${target.symbol} hit your price target of ${formatUsdPrice(target.targetPrice)} (currently ${formatUsdPrice(target.currentPrice)}).`,
 		`Your ${target.direction === "above" ? "upward" : "downward"} price target has been triggered and automatically cleared.`,
 		`Manage your notifications: ${urls.scheduleUrl}`,
 		`Unsubscribe from all emails: ${urls.unsubscribeUrl}`,
+		NOT_FINANCIAL_ADVICE,
 	];
 	const text = textSections.join("\n\n");
 
@@ -113,7 +111,7 @@ function formatPriceTargetEmail(
 		bodyHtml: `<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Price Target Hit: ${logoHtml ?? ""}${escapedSymbol}</h2>
 		<div style="background: #eef2ff; padding: 16px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #c7d2fe;">
 			<p style="color: #4338ca; font-size: 16px; font-weight: 500; margin: 0;">
-				${escapedSymbol} ${directionLabel} ${formatPrice(target.currentPrice)}, hitting your target of ${formatPrice(target.targetPrice)}.
+				${escapedSymbol} ${directionLabel} ${formatUsdPrice(target.currentPrice)}, hitting your target of ${formatUsdPrice(target.targetPrice)}.
 			</p>
 		</div>
 		<p style="color: #6b7280; font-size: 14px;">

@@ -302,14 +302,17 @@ export type Database = {
       email_dispatch_idempotency: {
         Row: {
           created_at: string
+          expires_at: string
           idempotency_key: string
         }
         Insert: {
           created_at?: string
+          expires_at?: string
           idempotency_key: string
         }
         Update: {
           created_at?: string
+          expires_at?: string
           idempotency_key?: string
         }
         Relationships: []
@@ -960,6 +963,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      claim_email_dispatch_key: { Args: { p_key: string }; Returns: boolean }
       claim_flat_price_alert: {
         Args: {
           p_baseline_price: number
@@ -991,7 +995,7 @@ export type Database = {
           p_scheduled_minutes: number
           p_user_id: string
         }
-        Returns: boolean
+        Returns: number
       }
       finalize_flat_price_alert: {
         Args: { p_symbol: string; p_user_id: string }
@@ -1007,6 +1011,7 @@ export type Database = {
         Args: { times: number[] }
         Returns: boolean
       }
+      purge_expired_email_dispatch_keys: { Args: never; Returns: number }
       purge_expired_short_urls: { Args: never; Returns: number }
       purge_old_asset_daily_closes: {
         Args: { p_retention_days?: number }

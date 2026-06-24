@@ -155,6 +155,12 @@ export async function handler(
 			});
 		}
 
+		// Build the sender BEFORE claiming the idempotency key. createEmailSender() reads
+		// EMAIL_FROM at construction and throws if it's missing — a provably-not-sent failure.
+		// Constructing it pre-claim means that throw never leaves a claim held (there's nothing
+		// to release), keeping the release contract: a claim is made only once a send is possible.
+		const sendEmail = createEmailSender();
+
 		const supabase = createSupabaseAdminClient();
 		const claim = await claimEmailDispatchKey(supabase, dispatchKey);
 		if (claim === "duplicate") {
@@ -169,14 +175,17 @@ export async function handler(
 			});
 		}
 
-		// The key is now claimed. It must persist only if the email is actually
-		// delivered; every non-delivery path releases it so the deterministic
-		// upstream key can be re-claimed on a retry.
-		let delivered = false;
+		// The key is now claimed. Release it ONLY on outcomes where the email provably did not
+		// go out — both authorization-failure branches below return before the SES send. An
+		// ambiguous SES *send* failure KEEPS the claim (SES can accept a message and still
+		// surface an error, so re-sending risks a double-delivery); the claim's TTL lets a
+		// genuine retry re-claim the key once the window lapses (see claim_email_dispatch_key).
+		let releaseClaim = false;
 		try {
 			try {
 				const authorizedRecipient = await isAuthorizedRecipient(request);
 				if (!authorizedRecipient) {
+					releaseClaim = true; // pre-send rejection — the email provably did not go out
 					logger.warn("Rejected email dispatch request for unauthorized recipient", {
 						action: "email_dispatch_authorization",
 						userId: request.userId,
@@ -188,6 +197,7 @@ export async function handler(
 					});
 				}
 			} catch (error) {
+				releaseClaim = true; // pre-send failure — the email provably did not go out
 				logger.error(
 					"Failed to authorize email dispatch recipient",
 					{ action: "email_dispatch_authorization", userId: request.userId },
@@ -200,8 +210,10 @@ export async function handler(
 				});
 			}
 
-			const result = await createEmailSender()(request);
+			const result = await sendEmail(request);
 			if (!result.success) {
+				// Ambiguous: keep the claim (releaseClaim stays false) so a retry collapses to
+				// "duplicate" until the TTL lapses, instead of risking a double-send.
 				logger.error("Email dispatch delivery failed", {
 					action: "email_dispatch_send",
 					userId: request.userId,
@@ -211,14 +223,13 @@ export async function handler(
 				return jsonResponse(502, result);
 			}
 
-			delivered = true;
 			logger.info("Email dispatch delivered", {
 				action: "email_dispatch_send",
 				userId: request.userId,
 			});
 			return jsonResponse(200, result);
 		} finally {
-			if (!delivered) await releaseEmailDispatchKey(supabase, dispatchKey);
+			if (releaseClaim) await releaseEmailDispatchKey(supabase, dispatchKey);
 		}
 	});
 }

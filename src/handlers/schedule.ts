@@ -42,6 +42,31 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				logger.error("Failed to purge expired short URLs", { action: "purge_short_urls" }, error);
 			}
 
+			// Purge expired email-dispatch idempotency keys (non-blocking)
+			try {
+				const { data: purgedKeys, error: purgeKeysError } = await supabase.rpc(
+					"purge_expired_email_dispatch_keys",
+				);
+				if (purgeKeysError) {
+					logger.error(
+						"Failed to purge expired email-dispatch keys",
+						{ action: "purge_email_dispatch_keys" },
+						purgeKeysError,
+					);
+				} else if (purgedKeys && purgedKeys > 0) {
+					logger.info("Purged expired email-dispatch keys", {
+						action: "purge_email_dispatch_keys",
+						deletedCount: purgedKeys,
+					});
+				}
+			} catch (error) {
+				logger.error(
+					"Failed to purge expired email-dispatch keys",
+					{ action: "purge_email_dispatch_keys" },
+					error,
+				);
+			}
+
 			const optionalVendorSkips = getAndResetOptionalVendorSkipCount();
 			logger.info("Schedule complete", {
 				action: "schedule_complete",

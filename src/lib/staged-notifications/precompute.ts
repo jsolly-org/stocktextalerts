@@ -16,6 +16,7 @@ import { dispatchDailyDigestUser } from "../daily-digest/dispatch";
 import { fetchUpcomingDailyDigestUsers } from "../daily-digest/query-upcoming";
 import type { Logger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
+import { createLogoCache } from "../messaging/logo-fetcher";
 import { getCurrentMarketSession } from "../providers/price-fetcher";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { createSmsSenderProvider } from "../schedule/sms-sender";
@@ -93,6 +94,8 @@ export async function precomputeDailyDigest(options: {
 	const marketOpen = options.marketOpen ?? (await getCurrentMarketSession()) === "regular";
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
+	// One logo cache for the whole precompute fan-out so a symbol's logo is resolved once.
+	const logoCache = createLogoCache();
 
 	for (let index = 0; index < upcomingUsers.length; index += DAILY_DISPATCH_BATCH_SIZE) {
 		const batch = upcomingUsers.slice(index, index + DAILY_DISPATCH_BATCH_SIZE);
@@ -109,6 +112,7 @@ export async function precomputeDailyDigest(options: {
 					supabase,
 					sendEmail,
 					getSmsSender,
+					logoCache,
 				}),
 			),
 		);
