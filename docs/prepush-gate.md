@@ -1,9 +1,12 @@
 # The pre-push gate on `main`
 
-The **pre-push gate** — [`.git-hooks/pre-push`](../.git-hooks/pre-push), the committed hook — runs the full battery on push to `main`, then
-deploys (`aws/deploy-web.sh`: Supabase migrations → Lambda code). A failing check aborts the
-push, so nothing ships ungated. The web tier deploys via Vercel's git integration, which
-auto-builds `main` once the push lands.
+The **pre-push gate** — [`.git-hooks/pre-push`](../.git-hooks/pre-push), the committed hook — runs the full battery on push to `main`. It is
+**gate-only: it does not deploy.** A failing check aborts the push, so nothing lands ungated. The
+**deploy is a separate post-landing step** (`npm run deploy:code` → `aws/deploy-web.sh`: Supabase
+migrations → Lambda code), run by `/ship` after the push lands or by hand; `deploy-web.sh` calls
+`gate_require_landed` and fails closed unless `HEAD == origin/main`, so it can never ship code that
+hasn't landed. The web tier deploys via Vercel's git integration, which auto-builds `main` once the
+push lands.
 
 ## The gate (runs automatically on push to `main`)
 

@@ -153,6 +153,14 @@ if [ "${1:-}" = "--preflight" ]; then
 fi
 
 echo "▶ stocktextalerts production deploy"
+
+# --- Landed-ref guard: deploy ONLY what has landed on origin/main ---
+# gate_require_landed (gate-lib, sourced above) fetches and aborts unless HEAD == origin/main's
+# landed tip — so this deploy can never ship the local tree before the ref lands (the 2026-06-24
+# concurrent-push race) or a stale checkout. Runs only in the full deploy (--build/--preflight exit
+# above) and BEFORE the one-way Phase 2 migration.
+gate_require_landed main
+
 phase="init"
 trap 'echo "✗ deploy failed during: $phase — completed phases remain LIVE (no rollback). Fix and re-run: npm run deploy:code" >&2' ERR
 

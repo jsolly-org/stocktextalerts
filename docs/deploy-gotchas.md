@@ -4,7 +4,7 @@
 
 A feature-branch SAM deploy can remove env vars (e.g., a stale `RESEND_API_KEY`) before the PR that introduces the replacement env var (`SES_*`) lands on main. The Lambda picks up the partial env immediately and starts crashing on the missing value.
 
-**Rule:** any PR that adds, removes, or renames a Lambda env var must merge to `main` first. Only then run `cd aws && npm run deploy:infra`. The pre-push deploy (`aws/deploy-web.sh`) builds the commit being pushed to `main`, so it sees the full env-var set; the rule still applies to manual feature-branch `npm run deploy:infra` runs.
+**Rule:** any PR that adds, removes, or renames a Lambda env var must merge to `main` first. Only then run `cd aws && npm run deploy:infra`. The post-push code deploy (`npm run deploy:code` → `aws/deploy-web.sh`) calls `gate_require_landed` and only ever builds `origin/main`'s landed HEAD, so it sees the full env-var set; the rule still applies to manual feature-branch `npm run deploy:infra` runs.
 
 For the approval-admin allowlist rename, the safe sequence is:
 

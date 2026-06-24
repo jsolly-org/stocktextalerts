@@ -31,7 +31,7 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 - `src/pages/api/` — API endpoints (auth, assets, schedule, notifications)
 - `src/lib/` — Server logic: `db/`, `auth/`, `providers/`, `market-notifications/`, `daily-digest/`, `asset-events/`, `messaging/`, `schedule/`, `time/`, `logging/`
 - `src/components/dashboard/` — Vue dashboard panels with composables
-- `supabase/migrations/` — SQL migrations (source of truth; the pre-push deploy pushes to production)
+- `supabase/migrations/` — SQL migrations (source of truth; the post-push deploy pushes to production)
 - `tests/helpers/` — `test-user.ts`, `test-env.ts`, `asset-data.ts`
 
 ## Local development
@@ -73,8 +73,8 @@ See `docs/testing.md` for the production-credential gating model and Mailpit dev
 
 ## Supabase Migrations
 
-- **Local files are source of truth.** Create with `supabase migration new <name>`, write SQL, commit, merge. The pre-push deploy (`aws/deploy-web.sh` on push to `main`) runs `supabase db push`.
-- **Apply migrations to production only via the pre-push deploy's `supabase db push`.** Local-only paths: `supabase migration new <name>` then commit. (No MCP against prod, no manual `db push`, no dashboard DDL.)
+- **Local files are source of truth.** Create with `supabase migration new <name>`, write SQL, commit, merge. The post-push deploy (`npm run deploy:code` → `aws/deploy-web.sh`, run after the push lands) runs `supabase db push`.
+- **Apply migrations to production only via the deploy's `supabase db push`** (`npm run deploy:code`, post-push). Local-only paths: `supabase migration new <name>` then commit. (No MCP against prod, no manual `db push`, no dashboard DDL.)
 - After creating/modifying a migration: `npm run db:gen-types`.
 - **Regenerate `src/lib/db/generated/database.types.ts` via `npm run db:gen-types`** — it's overwritten on every run.
 - **Explicit grants required for functions, tables, and sequences.** `public` default privileges are empty in both local and production (parity established by `20260610182813_tighten_table_privileges`) — an object created without an explicit `GRANT` is usable by nobody but `postgres` (a missing function grant caused the duplicate-SMS incident). Every migration that creates a Data-API (`.rpc(...)`) function must include `GRANT EXECUTE ON FUNCTION ... TO <role>` (server-only → `service_role`; session-scoped → `authenticated`, `service_role`) and the function must be classified in `scripts/db/privilege-contract.ts`. Every migration that creates a table or sequence must grant exactly what code needs (server-only → `service_role`; session-visible → `authenticated`/`anon`). `npm run check:db-privileges` (in `db:reset` + the pre-push gate) and `npm run check:migration-grants` enforce the function side; `npm run audit:db-parity` diffs the full local permission structure against production (read-only). Test fixtures needing writes beyond prod grants use the `pg` client (`tests/helpers/asset-db.ts`), not `adminClient`. `supabase db diff` does not surface `ALTER DEFAULT PRIVILEGES`; review grants manually. See `docs/local-supabase.md` → "Function & table privilege parity".
@@ -85,7 +85,7 @@ Agents (Cursor, Claude Code, Codex) **must not** apply production Supabase schem
 
 **Never run or invoke:**
 
-- `supabase db push` (production apply happens only inside the pre-push deploy `aws/deploy-web.sh` on push to `main` — never run it by hand)
+- `supabase db push` (production apply happens only inside the post-push deploy `npm run deploy:code` → `aws/deploy-web.sh`, after the push lands — never run it by hand)
 - `supabase migration repair` against linked/production (human runbook only — see `docs/incidents/2026-05-migration-squash.md`)
 - `psql` using production credentials for writes, DDL, migrations, repairs, or ad hoc data fixes (`DATABASE_URL_PROD`, `SUPABASE_URL_PROD`, project ref `japesagairjvvuebzpvr`, etc.)
 - Supabase MCP `apply_migration` against production
@@ -95,7 +95,7 @@ Agents (Cursor, Claude Code, Codex) **must not** apply production Supabase schem
 
 **Allowed production data fixes:** direct `UPDATE` / `INSERT` / `DELETE` only when the user explicitly approves the exact statement or well-scoped operation in the current conversation. Prefer a transaction, include a preflight `SELECT`, report affected row counts, and avoid broad predicates. Never use this path for schema changes or migration history changes.
 
-**Allowed agent workflow:** `supabase migration new <name>` → edit `supabase/migrations/*.sql` → `npm run db:reset` / `db:gen-types` → commit → push to `main` (the pre-push deploy runs `supabase db push`).
+**Allowed agent workflow:** `supabase migration new <name>` → edit `supabase/migrations/*.sql` → `npm run db:reset` / `db:gen-types` → commit → push to `main` → `npm run deploy:code` (the post-push deploy runs `supabase db push`).
 
 **Codex:** mark this repo as a **trusted** project so `.codex/config.toml` and `.codex/execpolicy.rules` load (see [Codex config basics](https://developers.openai.com/codex/config-basic)).
 
@@ -109,7 +109,7 @@ See `docs/local-supabase.md` for `db:bootstrap`, seed hardening, and Podman setu
 
 ## AWS / SAM Deploy
 
-Lambda **code** ships automatically on push to `main` (the pre-push deploy runs `update-function-code` under the scoped `fleet-deploy` role). A **full SAM deploy** is still required when changing `aws/template.yaml` or `aws/deploy.sh` (infra/config): run `npm run deploy:infra` manually with admin creds. Copy `aws/samconfig.toml.example` → gitignored `aws/samconfig.toml`; use `AWS_PROFILE` locally. Never commit personal/admin AWS profile names in tracked files (the shared fleet convention `fleet-deploy` is the documented exception).
+Lambda **code** ships via **`npm run deploy:code`** (`aws/deploy-web.sh`, scoped `fleet-deploy` role) run **after the push lands** (by `/ship`, or by hand) — **not inside the pre-push hook**. The hook only GATES the landing; `deploy-web.sh` calls **`gate_require_landed`** and fails closed unless `HEAD == origin/main`, so a deploy can never ship code that hasn't landed (the 2026-06-24 concurrent-push race). A **full SAM deploy** is still required when changing `aws/template.yaml` or `aws/deploy.sh` (infra/config): run `npm run deploy:infra` manually with admin creds. Copy `aws/samconfig.toml.example` → gitignored `aws/samconfig.toml`; use `AWS_PROFILE` locally. Never commit personal/admin AWS profile names in tracked files (the shared fleet convention `fleet-deploy` is the documented exception).
 
 ### Post-deploy live verification (no local live-test tier)
 
@@ -121,9 +121,9 @@ See `docs/external-apis.md` for Massive (prices/reference) and Finnhub (earnings
 
 ## CI on push to main (local pre-push gate)
 
-The pre-push hook (`.git-hooks/pre-push`, the committed gate) runs the full CI battery and then the deploy on push to `main`. See `docs/prepush-gate.md` for the command list. The gate needs local Supabase up (`npm run db:start`).
+The pre-push hook (`.git-hooks/pre-push`, the committed gate) runs the full CI battery on push to `main` — **gate-only; it does not deploy**. The deploy is a separate post-landing step (`npm run deploy:code`, run by `/ship` after the push lands, or by hand). See `docs/prepush-gate.md` for the command list. The gate needs local Supabase up (`npm run db:start`).
 
-**The gate only runs on local pushes.** Server-side merges (GitHub UI merge button, Dependabot merges) bypass CI and deploy entirely — merge PRs locally and push instead. Cloud VMs have no deploy credentials: push feature branches only from cloud; pushes to `main` happen from a credentialed laptop.
+**The gate only runs on local pushes.** Server-side merges (GitHub UI merge button, Dependabot merges) bypass the CI gate, and nothing triggers the post-push `npm run deploy:code` — merge PRs locally and push (then deploy) instead. Cloud VMs have no deploy credentials: push feature branches only from cloud; pushes to `main` happen from a credentialed laptop.
 
 ## AWS IAM
 
