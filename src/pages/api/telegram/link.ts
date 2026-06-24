@@ -58,10 +58,22 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		return jsonResponse(500, { ok: false, message: "failed_to_create_link" });
 	}
 
+	// The server owns the link shape: the app deep link, the web client URL, and
+	// the raw `/start <token>` command browser-only users paste into web Telegram.
+	// Returning all three keeps the client from reverse-engineering the URL.
 	const botUsername = requireEnv("TELEGRAM_BOT_USERNAME");
 	const deepLink = `https://t.me/${botUsername}?start=${token}`;
+	const webUrl = `https://web.telegram.org/k/#@${botUsername}`;
+	const startCommand = `/start ${token}`;
 
 	logger.info("Minted Telegram link token", { userId: authUser.id });
 
-	return jsonResponse(200, { ok: true, message: "link_created", deepLink });
+	return jsonResponse(200, {
+		ok: true,
+		message: "link_created",
+		deepLink,
+		webUrl,
+		botUsername,
+		startCommand,
+	});
 };

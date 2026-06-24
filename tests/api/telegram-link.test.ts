@@ -25,13 +25,25 @@ describe("A signed-in user starts linking their Telegram account.", () => {
 		const response = await POST(createApiContext({ request: buildLinkRequest(), cookies }));
 
 		expect(response.status).toBe(200);
-		const body = (await response.json()) as { ok: boolean; deepLink: string };
+		const body = (await response.json()) as {
+			ok: boolean;
+			deepLink: string;
+			webUrl: string;
+			botUsername: string;
+			startCommand: string;
+		};
 		expect(body.ok).toBe(true);
 		expect(body.deepLink).toMatch(/^https:\/\/t\.me\/[^?]+\?start=[A-Za-z0-9_-]{1,64}$/);
 
 		const token = new URL(body.deepLink).searchParams.get("start");
 		expect(token).not.toBeNull();
 		if (!token) throw new Error("expected start token");
+
+		// Browser-only users need the structured fields, not just the deep link:
+		// the web client URL, the @bot handle, and the literal `/start <token>`.
+		expect(body.botUsername).toBe(new URL(body.deepLink).pathname.replace(/^\//, ""));
+		expect(body.webUrl).toBe(`https://web.telegram.org/k/#@${body.botUsername}`);
+		expect(body.startCommand).toBe(`/start ${token}`);
 
 		// The token's signature verifies, and its nonce maps to a fresh,
 		// unconsumed row bound to THIS user.
