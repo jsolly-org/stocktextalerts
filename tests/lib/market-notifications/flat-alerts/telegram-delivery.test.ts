@@ -97,7 +97,6 @@ async function deliver(options: { user: FlatPriceAlertUser; sendTelegram: Telegr
 		isReTrigger: false,
 		lastNotificationAt: null,
 		nowMs: Date.now(),
-		todayEt: "2026-06-19",
 		intraday: null,
 		sevenDaySparkline: null,
 		iconUrl: null,

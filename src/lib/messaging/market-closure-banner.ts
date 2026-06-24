@@ -21,15 +21,23 @@ export function buildMarketClosureLabel(closureInfo: MarketClosureInfo): string 
 
 type MarketClosedBannerContext = "prices" | "events";
 
+/** Build the subline, optionally appending an "as of {asOf}" staleness hint to the
+ *  prices variant (e.g. the daily digest passes its latest quote timestamp). */
+function buildSubline(context: MarketClosedBannerContext, asOf?: string | null): string {
+	if (context === "events") {
+		return "Event dates are as scheduled.";
+	}
+	const asOfSuffix = asOf ? ` (as of ${asOf})` : "";
+	return `Prices below reflect the last market close${asOfSuffix}.`;
+}
+
 /** Build a plain-text market-closed banner. */
 export function buildMarketClosedBannerText(
 	closureInfo?: MarketClosureInfo | null,
 	context: MarketClosedBannerContext = "prices",
+	asOf?: string | null,
 ): string {
-	const subline =
-		context === "events"
-			? "Event dates are as scheduled."
-			: "Prices below reflect the last market close.";
+	const subline = buildSubline(context, asOf);
 	if (closureInfo) {
 		const label = buildMarketClosureLabel(closureInfo);
 		return `🔔 ${label}\n${subline}`;
@@ -41,11 +49,10 @@ export function buildMarketClosedBannerText(
 export function buildMarketClosedBannerHtml(
 	closureInfo?: MarketClosureInfo | null,
 	context: MarketClosedBannerContext = "prices",
+	asOf?: string | null,
 ): string {
-	const subline =
-		context === "events"
-			? "Event dates are as scheduled."
-			: "Prices below reflect the last market close.";
+	// `asOf` is interpolated raw here and escaped with the rest of the subline below.
+	const subline = buildSubline(context, asOf);
 	const label = closureInfo ? escapeHtml(buildMarketClosureLabel(closureInfo)) : "Market Closed";
 	return `<div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; text-align: center;">
 			<div style="font-size: 14px; color: #92400e; font-weight: 600;">🔔 ${label}</div>

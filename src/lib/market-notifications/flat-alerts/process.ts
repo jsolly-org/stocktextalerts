@@ -321,7 +321,6 @@ export async function processFlatPriceAlerts(options: {
 			isReTrigger: alert.isReTrigger,
 			lastNotificationAt: alert.lastNotificationAt,
 			nowMs,
-			todayEt,
 			intraday: intradayMap.get(alert.symbol) ?? null,
 			sevenDaySparkline: sevenDaySparklines.get(alert.symbol) ?? null,
 			iconUrl: alert.iconUrl,

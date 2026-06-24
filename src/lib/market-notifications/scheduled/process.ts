@@ -376,6 +376,7 @@ export async function processMarketScheduledUser(options: {
 				userAssets,
 				priceMap,
 				sessionLabel,
+				delayBanner: delayBannerText,
 				marketClosedBanner: telegramMarketBanner,
 				getTelegramSender,
 				stats,
@@ -420,10 +421,16 @@ export async function processMarketScheduledUser(options: {
 
 		try {
 			const deliveryAttempts =
-				stats.emailsSent + stats.emailsFailed + stats.smsSent + stats.smsFailed;
+				stats.emailsSent +
+				stats.emailsFailed +
+				stats.smsSent +
+				stats.smsFailed +
+				stats.telegramSent +
+				stats.telegramFailed;
 
 			// Avoid false negatives: if delivery already happened (or was at least recorded as
-			// attempted), a later failure (e.g. updating market_scheduled_asset_price_next_send_at) shouldn't log as undelivered.
+			// attempted) on ANY channel — including Telegram — a later failure (e.g. updating
+			// market_scheduled_asset_price_next_send_at) shouldn't log as undelivered.
 			if (deliveryAttempts === 0) {
 				const shouldAttemptSms = shouldSendSms(user);
 				const eligibleEmail =

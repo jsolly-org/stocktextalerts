@@ -16,7 +16,6 @@ export async function processEmailUpdate(
 	sendEmail: EmailSender,
 	priceMap: AssetPriceMap,
 	marketSession: MarketSession,
-	idempotencyKey?: string,
 	context?: EmailFormatContext,
 	delayBanners?: { text?: string | null; html?: string | null },
 	sessionFirstLine?: {
@@ -36,13 +35,7 @@ export async function processEmailUpdate(
 		sessionFirstLine,
 		noSessionTrade,
 	);
-	const result = await sendUserEmail(
-		user,
-		"Your Scheduled Price Notification",
-		message,
-		sendEmail,
-		idempotencyKey,
-	);
+	const result = await sendUserEmail(user, "Your Scheduled Price Notification", message, sendEmail);
 
 	const logged = await recordNotification(supabase, {
 		user_id: user.id,

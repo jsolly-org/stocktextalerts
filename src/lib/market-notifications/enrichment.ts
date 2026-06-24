@@ -36,6 +36,9 @@ export interface EnrichedAlert {
 /** Build a human-readable price context string. */
 function buildPriceContext(symbol: string, quote: ExtendedAssetQuote): string {
 	const direction = quote.changePercent >= 0 ? "up" : "down";
+	// Single-asset alert HEADLINE rounds change% to 1 decimal ("up 5.2% today") for
+	// readability — deliberately coarser than the 2-decimal precision on multi-asset price
+	// lines (asset-formatting.ts). The flat-alert subject builder mirrors this convention.
 	const absChange = Math.abs(quote.changePercent).toFixed(1);
 	return `${symbol} is ${direction} ${absChange}% today ($${quote.price.toFixed(2)})`;
 }

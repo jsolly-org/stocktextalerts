@@ -654,7 +654,8 @@ describe("processFlatPriceAlerts", () => {
 
 		expect(totals.alertsTriggered).toBe(1);
 		expect(totals.smsSent).toBe(0);
-		expect(totals.smsFailed).toBe(1);
+		// Ineligibility is a config skip, not a delivery failure — it stays uncounted.
+		expect(totals.smsFailed).toBe(0);
 		expect(mockSmsSender).not.toHaveBeenCalled();
 		expect(mockEmailSender).not.toHaveBeenCalled();
 	});

@@ -3,16 +3,13 @@ import { US_MARKET_TIMEZONE } from "../constants";
 import { getSiteUrl } from "../db/env";
 import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
-import {
-	escapeHtml,
-	formatAssetsHtmlList,
-	formatAssetTextLine,
-} from "../messaging/asset-formatting";
+import { formatAssetsHtmlList, formatAssetTextLine } from "../messaging/asset-formatting";
 import { renderEmailSection } from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
 import {
+	buildMarketClosedBannerHtml,
 	buildMarketClosedBannerText,
 	buildMarketClosureLabel,
 } from "../messaging/market-closure-banner";
@@ -35,7 +32,7 @@ import type { TelegramSenderProvider } from "../schedule/telegram-sender";
 import type { MarketClosureInfo } from "../time/market-calendar";
 
 const TICKER_LINE_RE = /^[A-Z][A-Z0-9.-]{0,9}:\s/;
-const QUOTE_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat("en-US", {
+const QUOTE_TIMESTAMP_FORMAT_BASE: Intl.DateTimeFormatOptions = {
 	timeZone: US_MARKET_TIMEZONE,
 	month: "short",
 	day: "numeric",
@@ -43,7 +40,31 @@ const QUOTE_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat("en-US", {
 	hour: "numeric",
 	minute: "2-digit",
 	timeZoneName: "short",
+};
+const QUOTE_TIMESTAMP_FORMATTER_12H = new Intl.DateTimeFormat("en-US", {
+	...QUOTE_TIMESTAMP_FORMAT_BASE,
+	hour12: true,
 });
+const QUOTE_TIMESTAMP_FORMATTER_24H = new Intl.DateTimeFormat("en-US", {
+	...QUOTE_TIMESTAMP_FORMAT_BASE,
+	hour12: false,
+});
+
+/** The latest quote timestamp in the map, formatted in ET as an "as of" label
+ *  ("Jan 2, 2025, 4:00 PM EST" / "Jan 2, 2025, 16:00 EST"), or null when none is usable.
+ *  Stamps the market-closed banner with how stale the last-close prices are — shared by all
+ *  three digest channels. Respects `use_24_hour_time` per the UI time convention (`is24`). */
+export function formatDigestQuoteAsOf(assetPrices: AssetPriceMap, is24: boolean): string | null {
+	let latest: number | null = null;
+	for (const quote of assetPrices.values()) {
+		if (!quote || typeof quote.timestamp !== "number") continue;
+		if (!Number.isFinite(quote.timestamp) || quote.timestamp <= 0) continue;
+		latest = latest === null ? quote.timestamp : Math.max(latest, quote.timestamp);
+	}
+	if (!latest) return null;
+	const formatter = is24 ? QUOTE_TIMESTAMP_FORMATTER_24H : QUOTE_TIMESTAMP_FORMATTER_12H;
+	return formatter.format(new Date(latest * 1000));
+}
 
 /**
  * Ensure each ticker snippet starts after a blank line so entries are visually separated.
@@ -71,56 +92,6 @@ function ensureBlankLineBetweenTickerSnippets(content: string): string {
 	return normalized.join("\n").trim();
 }
 
-/** Extract the latest quote timestamp from asset prices, if any. */
-function getLatestQuoteTimestamp(assetPrices: AssetPriceMap): number | null {
-	let latestTimestamp: number | null = null;
-
-	for (const quote of assetPrices.values()) {
-		if (!quote || typeof quote.timestamp !== "number") continue;
-		if (!Number.isFinite(quote.timestamp) || quote.timestamp <= 0) continue;
-		latestTimestamp =
-			latestTimestamp === null ? quote.timestamp : Math.max(latestTimestamp, quote.timestamp);
-	}
-
-	return latestTimestamp;
-}
-
-/** Format a Unix timestamp in Eastern time for display. */
-function formatQuoteTimestamp(timestamp: number): string {
-	return QUOTE_TIMESTAMP_FORMATTER.format(new Date(timestamp * 1000));
-}
-
-type DigestMarketClosedContent = {
-	label: string;
-	quoteTimestamp: string | null;
-};
-
-/** Build market-closed banner content shared by text and HTML rendering. */
-function buildDigestMarketClosedContent(
-	closureInfo: MarketClosureInfo | null,
-	assetPrices: AssetPriceMap,
-): DigestMarketClosedContent {
-	const label = closureInfo ? buildMarketClosureLabel(closureInfo) : "Market Closed";
-	const ts = getLatestQuoteTimestamp(assetPrices);
-	return { label, quoteTimestamp: ts ? formatQuoteTimestamp(ts) : null };
-}
-
-/** Build a plain-text market-closed banner for the digest. */
-function buildDigestMarketClosedText(content: DigestMarketClosedContent): string {
-	const asOf = content.quoteTimestamp ? ` (as of ${content.quoteTimestamp})` : "";
-	return `🔔 ${content.label}\nPrices below reflect the last market close${asOf}.`;
-}
-
-/** Build an HTML market-closed banner for the digest. */
-function buildDigestMarketClosedHtml(content: DigestMarketClosedContent): string {
-	const label = escapeHtml(content.label);
-	const asOf = content.quoteTimestamp ? ` (as of ${escapeHtml(content.quoteTimestamp)})` : "";
-	return `<div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; text-align: center;">
-			<div style="font-size: 14px; color: #92400e; font-weight: 600;">🔔 ${label}</div>
-			<div style="font-size: 12px; color: #92400e; margin-top: 4px;">Prices below reflect the last market close${asOf}.</div>
-		</div>`;
-}
-
 type AssetEventsResult = Awaited<ReturnType<typeof buildAssetEventsContent>> | null;
 
 type DailyDigestSmsFormatOptions = {
@@ -131,6 +102,9 @@ type DailyDigestSmsFormatOptions = {
 	sparklines?: SparklineMap;
 	marketOpen?: boolean;
 	marketClosureInfo?: MarketClosureInfo | null;
+	/** User's 24-hour-time preference for the market-closed "as of" timestamp.
+	 *  Defaults to 12-hour (the DB default) when omitted; production callers pass it. */
+	is24Hour?: boolean;
 	/** Optional delay banner text (inserted after header when notification is late). */
 	delayBanner?: string | null;
 };
@@ -202,7 +176,13 @@ export function summarizeDailyDigestSmsResults(
 function buildDailyDigestSmsBlocks(options: DailyDigestSmsFormatOptions): SmsBlock[] {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const marketDisclaimer =
-		options.marketOpen === false ? buildMarketClosedBannerText(options.marketClosureInfo) : "";
+		options.marketOpen === false
+			? buildMarketClosedBannerText(
+					options.marketClosureInfo,
+					"prices",
+					formatDigestQuoteAsOf(options.assetPrices, options.is24Hour ?? false),
+				)
+			: "";
 	const ae = options.assetEvents;
 
 	return [
@@ -334,6 +314,9 @@ function buildDailyDigestPricesHtml(
 /** Format the daily digest payload for email delivery. */
 export function formatDailyDigestEmail(options: {
 	user: { id: string; email: string };
+	/** User's 24-hour-time preference for the market-closed "as of" timestamp.
+	 *  Defaults to 12-hour (the DB default) when omitted; production callers pass it. */
+	is24Hour?: boolean;
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
 	extras: SmsExtras;
@@ -376,16 +359,23 @@ export function formatDailyDigestEmail(options: {
 	);
 	const closureInfo = options.marketClosureInfo ?? null;
 	const showClosureBanner = options.marketOpen === false;
-	const marketClosedContent = showClosureBanner
-		? buildDigestMarketClosedContent(closureInfo, options.assetPrices)
+	// All three channels render the shared market-closed banner (with the same "as of"
+	// quote-staleness hint) so the wording is identical — the digest no longer carries a
+	// bespoke email-only variant.
+	const closureAsOf = showClosureBanner
+		? formatDigestQuoteAsOf(options.assetPrices, options.is24Hour ?? false)
 		: null;
-	const marketClosedText = marketClosedContent
-		? buildDigestMarketClosedText(marketClosedContent)
+	const marketClosedText = showClosureBanner
+		? buildMarketClosedBannerText(closureInfo, "prices", closureAsOf)
 		: null;
-	const marketClosedHtml = marketClosedContent
-		? buildDigestMarketClosedHtml(marketClosedContent)
+	const marketClosedHtml = showClosureBanner
+		? buildMarketClosedBannerHtml(closureInfo, "prices", closureAsOf)
 		: "";
-	const closureLabel = marketClosedContent?.label ?? null;
+	const closureLabel = showClosureBanner
+		? closureInfo
+			? buildMarketClosureLabel(closureInfo)
+			: "Market Closed"
+		: null;
 	const subject = closureLabel ? `Daily digest — ${closureLabel}` : "Daily digest";
 
 	const sectionsText = [
@@ -509,9 +499,9 @@ export async function processDailyDigestEmailDelivery(options: {
 		return;
 	}
 
-	const emailIdempotencyKey = `daily-digest/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
 	const message = formatDailyDigestEmail({
 		user,
+		is24Hour: user.use_24_hour_time,
 		userAssets,
 		assetPrices,
 		extras,
@@ -528,7 +518,6 @@ export async function processDailyDigestEmailDelivery(options: {
 		message.subject,
 		{ text: message.text, html: message.html },
 		sendEmail,
-		emailIdempotencyKey,
 	);
 
 	const logged = await recordNotification(supabase, {
@@ -650,6 +639,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		sparklines: options.sparklines,
 		marketOpen: options.marketOpen,
 		marketClosureInfo: options.marketClosureInfo,
+		is24Hour: user.use_24_hour_time,
 		delayBanner: options.delayBanner,
 	});
 	const partResults: DeliveryResult[] = [];

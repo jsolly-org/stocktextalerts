@@ -709,13 +709,33 @@ export async function fetchDailyOHLCV(
 	return extractOHLCVFromBars(data);
 }
 
+/** In-flight intraday-bar fetches keyed by symbol, to de-duplicate concurrent requests
+ *  for the same symbol across users within a scheduler batch (sparklines are built per
+ *  user, so a popular ticker would otherwise be fetched once per holder). Entries are
+ *  cleared on settle, so there is no cross-invocation staleness — unlike a retained
+ *  module-level cache, which would leak stale bars across warm Lambda invocations.
+ *  Mirrors the logo-fetcher `inFlight` dedup. */
+const intradayBarsInFlight = new Map<string, Promise<IntradayBarsResult | null>>();
+
 /**
  * Fetch intraday 5-minute closing prices for a single symbol (today, ET timezone).
  *
  * Uses `/v2/aggs/ticker/{symbol}/range/5/minute/{today}/{today}?sort=asc&limit=5000`.
  * Returns closes and bar timestamps for axis labeling, or null on failure.
+ *
+ * Concurrent calls for the same symbol share one fetch (see `intradayBarsInFlight`).
  */
-export async function fetchIntradayBars(symbol: string): Promise<IntradayBarsResult | null> {
+export function fetchIntradayBars(symbol: string): Promise<IntradayBarsResult | null> {
+	const existing = intradayBarsInFlight.get(symbol);
+	if (existing) return existing;
+	const promise = fetchIntradayBarsUncached(symbol).finally(() => {
+		intradayBarsInFlight.delete(symbol);
+	});
+	intradayBarsInFlight.set(symbol, promise);
+	return promise;
+}
+
+async function fetchIntradayBarsUncached(symbol: string): Promise<IntradayBarsResult | null> {
 	const today = new Date().toLocaleDateString("en-CA", {
 		timeZone: US_MARKET_TIMEZONE,
 	});

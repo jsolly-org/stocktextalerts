@@ -54,9 +54,12 @@ function setupMocks(options: {
 		upsertError = null,
 		deleteError = null,
 	} = options;
+	const upsertMock = vi.fn((_payload: Record<string, unknown>) =>
+		Promise.resolve({ error: upsertError }),
+	);
 	const supabaseMock = {
 		from: () => ({
-			upsert: () => Promise.resolve({ error: upsertError }),
+			upsert: upsertMock,
 			delete: () => ({
 				eq: () => ({
 					eq: () => Promise.resolve({ error: deleteError }),
@@ -70,6 +73,7 @@ function setupMocks(options: {
 	} as never);
 	mockGetUserAssets.mockResolvedValue(watchlist as never);
 	mockFetchAssetPrices.mockResolvedValue(prices);
+	return { upsertMock };
 }
 
 describe("A signed-in user saves or removes a price target for a watched symbol", () => {
@@ -123,6 +127,27 @@ describe("A signed-in user saves or removes a price target for a watched symbol"
 		expect(response.status).toBe(200);
 		const data = await response.json();
 		expect(data.message).toBe("target_removed");
+	});
+
+	it("Saving a target resets all trigger/delivery-retry state so a stale triggered row can't resume", async () => {
+		// Editing a target mid-retry must not resume against a stale triggered_price or skip
+		// channels via stale *_delivered_at on the next scheduler tick.
+		const { upsertMock } = setupMocks({
+			watchlist: [{ symbol: "AAPL", name: "Apple", type: "stock", created_at: "2025-01-01" }],
+			prices: new Map([["AAPL", { price: 195, changePercent: 1 }]]),
+		});
+		const response = await handler(makeContext({ symbol: "AAPL", target_price: 200 }));
+		expect(response.status).toBe(200);
+		expect(upsertMock).toHaveBeenCalledOnce();
+		expect(upsertMock.mock.calls[0]?.[0]).toMatchObject({
+			triggered_at: null,
+			triggered_price: null,
+			attempt_count: 0,
+			next_retry_at: null,
+			email_delivered_at: null,
+			sms_delivered_at: null,
+			telegram_delivered_at: null,
+		});
 	});
 
 	it("Symbol is normalized (trimmed and uppercased) before validation and save", async () => {

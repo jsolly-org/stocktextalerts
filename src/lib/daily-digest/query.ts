@@ -77,3 +77,26 @@ export async function fetchDailyDigestUsers(options: {
 		},
 	});
 }
+
+/**
+ * Fetch a single user as a complete daily-digest `UserRecord` (with prefs), via the
+ * same canonical `DAILY_DIGEST_USER_SELECT` + `attachPrefsToUsers` as the batch fetch.
+ * Used by the standalone-invoke dispatch path so it doesn't hand-maintain a second copy
+ * of the column list. Throws on a query error; returns null when the user doesn't exist.
+ */
+export async function fetchOneDailyDigestUser(
+	supabase: SupabaseAdminClient,
+	userId: string,
+): Promise<UserRecord | null> {
+	const { data, error } = await supabase
+		.from("users")
+		.select(DAILY_DIGEST_USER_SELECT)
+		.eq("id", userId)
+		.maybeSingle();
+	if (error) throw error;
+	if (!data) return null;
+	const [withPrefs] = await attachPrefsToUsers(supabase, [
+		data as unknown as UserRecordWithoutPrefs,
+	]);
+	return (withPrefs as UserRecord | undefined) ?? null;
+}

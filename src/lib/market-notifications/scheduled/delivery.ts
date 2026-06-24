@@ -80,7 +80,8 @@ export async function processMarketScheduledEmailDelivery(options: {
 		return;
 	}
 
-	const emailIdempotencyKey = `scheduled-update/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
+	// Dedup here is the claimNotification CAS above, not an email-level key — the
+	// direct-SES path does not honor idempotency keys.
 	const { sent, logged, error } = await processEmailUpdate(
 		supabase,
 		user,
@@ -89,7 +90,6 @@ export async function processMarketScheduledEmailDelivery(options: {
 		sendEmail,
 		priceMap,
 		marketSession,
-		emailIdempotencyKey,
 		{ getSparkline, marketClosureInfo, getLogoHtml },
 		options.delayBanners,
 		sessionFirstLine,
@@ -205,18 +205,10 @@ export async function processMarketScheduledSmsDelivery(options: {
 			logger,
 		});
 
-		const logged = await recordNotification(supabase, {
-			user_id: user.id,
-			type: "market",
-			delivery_method: "sms",
-			message_delivered: false,
-			message: "SMS service unavailable",
-			error: errorMessage,
-		});
-		if (!logged) {
-			stats.logFailures++;
-		}
-
+		// A sender that never initialized built/sent no message, so it does NOT get a
+		// notification_log row (which records actual message sends) — the per-channel
+		// scheduled_notifications failed row + error log above are the record, matching
+		// every other sender-resolution catch across the pipeline.
 		return;
 	}
 	const smsSender = smsSenderResult.sender;
@@ -274,6 +266,7 @@ export async function processMarketScheduledTelegramDelivery(options: {
 	userAssets: UserAssetRow[];
 	priceMap: AssetPriceMap;
 	sessionLabel?: string | null;
+	delayBanner?: string | null;
 	marketClosedBanner?: string | null;
 	getTelegramSender: TelegramSenderProvider;
 	stats: ScheduledNotificationTotals;
@@ -287,6 +280,7 @@ export async function processMarketScheduledTelegramDelivery(options: {
 		userAssets,
 		priceMap,
 		sessionLabel,
+		delayBanner,
 		marketClosedBanner,
 		getTelegramSender,
 		stats,
@@ -343,6 +337,7 @@ export async function processMarketScheduledTelegramDelivery(options: {
 		userAssets,
 		assetPrices: priceMap,
 		sessionLabel,
+		delayBanner,
 		marketClosedBanner,
 	});
 

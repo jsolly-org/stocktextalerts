@@ -44,6 +44,7 @@ function makeUser(overrides: Partial<PriceTargetUser> = {}): PriceTargetUser {
 	return {
 		id: "00000000-0000-0000-0000-000000000001",
 		email: "test@example.com",
+		email_notifications_enabled: true,
 		phone_country_code: "+1",
 		phone_number: "5551112222",
 		phone_verified: true,
@@ -92,6 +93,32 @@ describe("Price target alert delivery", () => {
 		expect(stats.emailsSent).toBe(1);
 	});
 
+	it("No email is sent when the user disabled email globally, even if the price-target email facet is still on", async () => {
+		// Global email kill-switch off + a stale per-option email facet on. The
+		// facet alone must not override the global opt-out (it does for the 4 other
+		// notification types; price targets used to leak here).
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
+		const stats = makeStats();
+
+		await deliverPriceTargetAlert({
+			user: makeUser({
+				email_notifications_enabled: false,
+				prefs: makePrefRows([
+					["price_targets", "", "email", true],
+					["price_targets", "", "sms", false],
+				]),
+			}),
+			target: makeTarget(),
+			supabase: makeSupabaseMock(),
+			sendEmail,
+			sendSms: null,
+			stats,
+		});
+
+		expect(sendEmail).not.toHaveBeenCalled();
+		expect(stats.emailsSent).toBe(0);
+	});
+
 	it("A user with SMS alerts enabled receives the price target SMS", async () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
@@ -112,14 +139,14 @@ describe("Price target alert delivery", () => {
 		expect(stats.smsSent).toBe(1);
 	});
 
-	it("SMS is not sent and failure is counted when user is opted out", async () => {
+	it("SMS is skipped (not counted as a failure) when the user is opted out", async () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
 		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
-		await deliverPriceTargetAlert({
+		const outcome = await deliverPriceTargetAlert({
 			user: makeUser({ sms_opted_out: true }),
 			target: makeTarget(),
 			supabase: makeSupabaseMock(),
@@ -129,17 +156,20 @@ describe("Price target alert delivery", () => {
 		});
 
 		expect(sendSms).not.toHaveBeenCalled();
-		expect(stats.smsFailed).toBe(1);
+		// Ineligibility is a skip, not a delivery failure — it must not inflate smsFailed
+		// nor block the target from clearing once email succeeds.
+		expect(outcome.sms).toBe("skipped");
+		expect(stats.smsFailed).toBe(0);
 	});
 
-	it("SMS is not sent and failure is counted when phone number is missing", async () => {
+	it("SMS is skipped (not counted as a failure) when the phone number is missing", async () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
 		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
-		await deliverPriceTargetAlert({
+		const outcome = await deliverPriceTargetAlert({
 			user: makeUser({
 				phone_country_code: null,
 				phone_number: null,
@@ -152,7 +182,8 @@ describe("Price target alert delivery", () => {
 		});
 
 		expect(sendSms).not.toHaveBeenCalled();
-		expect(stats.smsFailed).toBe(1);
+		expect(outcome.sms).toBe("skipped");
+		expect(stats.smsFailed).toBe(0);
 	});
 
 	it("SMS failure is counted when user has SMS enabled but sender is unavailable", async () => {

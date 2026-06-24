@@ -13,6 +13,13 @@ const TELEGRAM_FORBIDDEN_CODE = "403";
  * a real send result, never inbound message content (see eligibility.ts). No-ops on
  * a successful send or any non-403 failure, so callers can invoke it unconditionally
  * after every send. Best-effort: a failed opt-out write is logged, never thrown.
+ *
+ * Intentional ONE-FLAG model: this sets only `telegram_opted_out`, unlike SMS
+ * auto-opt-out which disables BOTH `sms_opted_out` and `sms_notifications_enabled`.
+ * There is no `telegram_notifications_enabled` peer flag — `telegram_opted_out` (plus
+ * the chat link) is the SOLE channel-disable signal, so every Telegram send path MUST
+ * gate on `isTelegramChannelUsable` / `shouldSendTelegram` rather than re-deriving
+ * usability from a second flag.
  */
 export async function optOutIfBotBlocked(
 	supabase: AppSupabaseClient,

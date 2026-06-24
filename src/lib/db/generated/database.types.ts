@@ -530,28 +530,43 @@ export type Database = {
       }
       price_targets: {
         Row: {
+          attempt_count: number
           created_at: string
           direction: string
+          email_delivered_at: string | null
+          next_retry_at: string | null
+          sms_delivered_at: string | null
           symbol: string
           target_price: number
+          telegram_delivered_at: string | null
           triggered_at: string | null
           triggered_price: number | null
           user_id: string
         }
         Insert: {
+          attempt_count?: number
           created_at?: string
           direction: string
+          email_delivered_at?: string | null
+          next_retry_at?: string | null
+          sms_delivered_at?: string | null
           symbol: string
           target_price: number
+          telegram_delivered_at?: string | null
           triggered_at?: string | null
           triggered_price?: number | null
           user_id: string
         }
         Update: {
+          attempt_count?: number
           created_at?: string
           direction?: string
+          email_delivered_at?: string | null
+          next_retry_at?: string | null
+          sms_delivered_at?: string | null
           symbol?: string
           target_price?: number
+          telegram_delivered_at?: string | null
           triggered_at?: string | null
           triggered_price?: number | null
           user_id?: string

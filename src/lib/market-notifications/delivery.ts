@@ -2,6 +2,7 @@ import { getSiteUrl } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { escapeHtml, getSafeHrefUrl } from "../messaging/asset-formatting";
+import { isEmailChannelUsable } from "../messaging/email/eligibility";
 import { markdownLinksToHtml, stripMarkdownLinks } from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
 import { renderIntradaySparklineImg } from "../messaging/email/intraday-sparkline";
@@ -247,8 +248,12 @@ export async function deliverPriceAlert(options: {
 	const { user, alert, supabase, sendEmail, sendSms, sendTelegram, stats, logoCache } = options;
 	let delivered = false;
 
-	// Email delivery
-	if (isFacetEnabled(user.prefs, "market_asset_price_alerts", "email")) {
+	// Email delivery — gate on the global email kill-switch AND the per-option facet,
+	// matching every sibling notification type (the facet alone does not imply the global flag).
+	if (
+		isEmailChannelUsable(user) &&
+		isFacetEnabled(user.prefs, "market_asset_price_alerts", "email")
+	) {
 		const effectiveLogoCache = logoCache ?? createLogoCache();
 		const logoDataUri = await fetchLogoBase64(
 			alert.symbol,
@@ -286,16 +291,17 @@ export async function deliverPriceAlert(options: {
 
 	// SMS delivery
 	if (isFacetEnabled(user.prefs, "market_asset_price_alerts", "sms") && sendSms) {
+		// Channel ineligibility (opted out / unverified / no phone) is a config skip, NOT a
+		// delivery failure — leave it uncounted, matching the scheduled paths and price
+		// targets, so smsFailed reflects real send failures only.
 		if (!shouldSendSms(user)) {
 			rootLogger.info("Price alert SMS skipped: user not eligible", {
 				userId: user.id,
 			});
-			stats.smsFailed++;
 		} else if (!user.phone_country_code || !user.phone_number) {
 			rootLogger.info("Price alert SMS skipped: no phone number", {
 				userId: user.id,
 			});
-			stats.smsFailed++;
 		} else {
 			const smsBody = await formatPriceAlertSms(alert, supabase);
 			const result = await sendUserSms(user, smsBody, sendSms, supabase);

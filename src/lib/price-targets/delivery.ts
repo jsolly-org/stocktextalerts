@@ -3,6 +3,7 @@ import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import type { EnrichedAlert } from "../market-notifications/enrichment";
 import { escapeHtml } from "../messaging/asset-formatting";
+import { isEmailChannelUsable } from "../messaging/email/eligibility";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
@@ -12,7 +13,7 @@ import { deliveryResultToLogFields, recordNotification } from "../messaging/shar
 import { isSmsChannelUsable, sendUserSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SmsSender } from "../messaging/sms/twilio-utils";
-import { isTelegramChannelUsable, shouldSendTelegram } from "../messaging/telegram/eligibility";
+import { shouldSendTelegram } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../messaging/telegram/price-alert";
 import type { TelegramSender } from "../messaging/telegram/sender";
@@ -27,6 +28,18 @@ export interface PriceTargetDeliveryStats {
 	telegramSent: number;
 	telegramFailed: number;
 	logFailures: number;
+}
+
+/** Outcome of one channel in a single delivery round. `skipped` means the channel
+ *  was not attempted (not wanted, not usable, or already delivered on a prior round). */
+export type PriceTargetChannelOutcome = "sent" | "failed" | "skipped";
+
+/** Per-channel outcome of one `deliverPriceTargetAlert` round. The caller uses this
+ *  to decide when every *required* channel has reached a terminal (sent) state. */
+export interface PriceTargetDeliveryOutcome {
+	email: PriceTargetChannelOutcome;
+	sms: PriceTargetChannelOutcome;
+	telegram: PriceTargetChannelOutcome;
 }
 
 /**
@@ -118,8 +131,15 @@ function formatPriceTargetEmail(
 }
 
 /**
- * Deliver a price target alert to a user via their preferred channels.
- * @returns true if at least one notification was successfully sent (email or SMS).
+ * Deliver a price target alert to a user via their enabled + usable channels.
+ *
+ * Per-channel and idempotent across retry rounds: a channel already delivered for
+ * this trigger (its `*_delivered_at` column set, surfaced via `alreadyDelivered`)
+ * is skipped so it is never re-sent. Channel ineligibility (e.g. SMS opted-out /
+ * unverified phone) is `skipped`, not `failed`, so it never blocks terminal state.
+ *
+ * @returns the per-channel outcome so the caller can decide when every *required*
+ *   channel has reached a terminal (sent) state and the target can be cleared.
  */
 export async function deliverPriceTargetAlert(options: {
 	user: PriceTargetUser;
@@ -131,13 +151,30 @@ export async function deliverPriceTargetAlert(options: {
 	sendTelegram?: TelegramSender | null;
 	stats: PriceTargetDeliveryStats;
 	logoCache?: ReturnType<typeof createLogoCache>;
-}): Promise<boolean> {
+	/** Channels already delivered on a prior retry round (from the row's
+	 *  `*_delivered_at` columns). Delivered channels are skipped, never re-sent. */
+	alreadyDelivered?: { email: boolean; sms: boolean; telegram: boolean };
+}): Promise<PriceTargetDeliveryOutcome> {
 	const { user, target, supabase, sendEmail, sendSms, sendTelegram, stats } = options;
 	const logoCache = options.logoCache ?? createLogoCache();
-	let delivered = false;
+	const alreadyDelivered = options.alreadyDelivered ?? {
+		email: false,
+		sms: false,
+		telegram: false,
+	};
+	const outcome: PriceTargetDeliveryOutcome = {
+		email: "skipped",
+		sms: "skipped",
+		telegram: "skipped",
+	};
 
-	// Email delivery
-	if (isFacetEnabled(user.prefs, "price_targets", "email")) {
+	// Email delivery — gate on the global email kill-switch AND the per-option facet,
+	// matching every sibling notification type (the facet alone does not imply the global flag).
+	if (
+		!alreadyDelivered.email &&
+		isEmailChannelUsable(user) &&
+		isFacetEnabled(user.prefs, "price_targets", "email")
+	) {
 		const logoDataUri = await fetchLogoBase64(
 			target.symbol,
 			target.iconUrl,
@@ -156,9 +193,10 @@ export async function deliverPriceTargetAlert(options: {
 
 		if (result.success) {
 			stats.emailsSent++;
-			delivered = true;
+			outcome.email = "sent";
 		} else {
 			stats.emailsFailed++;
+			outcome.email = "failed";
 		}
 
 		const logged = await recordNotification(supabase, {
@@ -167,34 +205,37 @@ export async function deliverPriceTargetAlert(options: {
 			delivery_method: "email",
 			message_delivered: result.success,
 			message: message.text,
-			error: result.success ? undefined : result.error,
+			...deliveryResultToLogFields(result),
 		});
 		if (!logged) stats.logFailures++;
 	}
 
 	// SMS delivery
-	if (isFacetEnabled(user.prefs, "price_targets", "sms")) {
-		if (!sendSms) {
+	if (!alreadyDelivered.sms && isFacetEnabled(user.prefs, "price_targets", "sms")) {
+		if (!isSmsChannelUsable(user)) {
+			// Ineligible (opted out / unverified phone): the channel can never deliver,
+			// so it is skipped (not a failure) — it must not block terminal state nor be retried.
+			rootLogger.info("Price target SMS skipped: user not eligible", {
+				userId: user.id,
+			});
+		} else if (!sendSms) {
 			rootLogger.error(
 				"Price target SMS sender unavailable",
 				{ userId: user.id },
 				new Error("Price target SMS sender unavailable"),
 			);
 			stats.smsFailed++;
-		} else if (!isSmsChannelUsable(user)) {
-			rootLogger.info("Price target SMS skipped: user not eligible", {
-				userId: user.id,
-			});
-			stats.smsFailed++;
+			outcome.sms = "failed";
 		} else {
 			const smsBody = formatPriceTargetSms(target);
 			const result = await sendUserSms(user, smsBody, sendSms, supabase);
 
 			if (result.success) {
 				stats.smsSent++;
-				delivered = true;
+				outcome.sms = "sent";
 			} else {
 				stats.smsFailed++;
+				outcome.sms = "failed";
 			}
 
 			const logged = await recordNotification(supabase, {
@@ -203,22 +244,30 @@ export async function deliverPriceTargetAlert(options: {
 				delivery_method: "sms",
 				message_delivered: result.success,
 				message: smsBody,
-				error: result.success ? undefined : result.error,
+				...deliveryResultToLogFields(result),
 			});
 			if (!logged) stats.logFailures++;
 		}
 	}
 
-	// Telegram delivery (additive; never alters the email/SMS paths above). Real-time
-	// alert — the target's CAS claim already deduped delivery, so Telegram piggybacks.
-	// Only query per-option prefs for users whose channel is usable (linked + not opted
-	// out). Text-only: price targets carry no intraday candles.
-	if (sendTelegram && isTelegramChannelUsable(user)) {
-		if (shouldSendTelegram(user, user.prefs, "price_targets")) {
+	// Telegram delivery (additive; never alters the email/SMS paths above). Text-only:
+	// price targets carry no intraday candles. `shouldSendTelegram` already folds in
+	// channel usability (linked + not opted out) and the per-option pref.
+	if (!alreadyDelivered.telegram && shouldSendTelegram(user, user.prefs, "price_targets")) {
+		if (!sendTelegram) {
+			rootLogger.error(
+				"Price target Telegram sender unavailable",
+				{ userId: user.id },
+				new Error("Price target Telegram sender unavailable"),
+			);
+			stats.telegramFailed++;
+			outcome.telegram = "failed";
+		} else {
 			const enriched = buildPriceTargetEnriched(target);
 			const { text, entities, photo } = formatPriceAlertTelegram(enriched, []);
 			const result = await sendTelegram({
-				// telegram_chat_id is non-null here: isTelegramChannelUsable requires it.
+				// telegram_chat_id is non-null here: isTelegramChannelUsable (folded into
+				// shouldSendTelegram) requires it.
 				chatId: user.telegram_chat_id as number,
 				text,
 				entities,
@@ -227,9 +276,10 @@ export async function deliverPriceTargetAlert(options: {
 
 			if (result.success) {
 				stats.telegramSent++;
-				delivered = true;
+				outcome.telegram = "sent";
 			} else {
 				stats.telegramFailed++;
+				outcome.telegram = "failed";
 				rootLogger.error(
 					"Failed to send price target Telegram message",
 					{ userId: user.id, symbol: target.symbol, errorCode: result.errorCode ?? null },
@@ -251,5 +301,5 @@ export async function deliverPriceTargetAlert(options: {
 		}
 	}
 
-	return delivered;
+	return outcome;
 }

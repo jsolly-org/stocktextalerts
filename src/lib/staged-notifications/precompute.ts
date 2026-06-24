@@ -100,6 +100,9 @@ export async function precomputeDailyDigest(options: {
 			batch.map((user) =>
 				dispatchDailyDigestUser({
 					userId: user.id,
+					// fetchUpcomingDailyDigestUsers returns a full UserRecord (with prefs) — reuse it
+					// so dispatch doesn't re-fetch the user row + prefs per user (matches run.ts).
+					user,
 					currentTimeIso,
 					precompute: true,
 					marketOpen,

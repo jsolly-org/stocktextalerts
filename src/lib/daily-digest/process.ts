@@ -41,6 +41,7 @@ import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsMessageBodies,
+	formatDigestQuoteAsOf,
 	processDailyDigestEmailDelivery,
 	processDailyDigestSmsDelivery,
 	processDailyDigestTelegramDelivery,
@@ -222,7 +223,12 @@ async function updateGrokSendCounter(
 	currentTime: DateTime,
 	logger: Logger,
 ): Promise<void> {
-	if (!grokAllowed || (stats.emailsSent === 0 && stats.smsSent === 0)) return;
+	// Count a Grok send on ANY delivered channel, including Telegram — otherwise a
+	// telegram-only user's Grok rate-limit counter never advances (the staged path
+	// already includes telegram; keep the live path consistent).
+	if (!grokAllowed || (stats.emailsSent === 0 && stats.smsSent === 0 && stats.telegramSent === 0)) {
+		return;
+	}
 
 	const now = currentTime.toISO();
 	if (!now) return;
@@ -676,7 +682,13 @@ export async function processDailyDigestUser(options: {
 			? dueAtLocal.toFormat("ccc, LLL d")
 			: (scheduledDate ?? "");
 		const telegramMarketBanner =
-			marketOpen === false ? buildMarketClosedBannerText(marketClosureInfo) : null;
+			marketOpen === false
+				? buildMarketClosedBannerText(
+						marketClosureInfo,
+						"prices",
+						formatDigestQuoteAsOf(telegramPriceMap, user.use_24_hour_time),
+					)
+				: null;
 
 		if (!hasEmailContent && !hasSmsContent && !hasTelegramContent) {
 			logger.info("Skipping daily digest: no content available", {
@@ -729,6 +741,7 @@ export async function processDailyDigestUser(options: {
 				hasEmailContent && emailExtras
 					? formatDailyDigestEmail({
 							user,
+							is24Hour: user.use_24_hour_time,
 							userAssets: emailPriceAssets,
 							assetPrices: emailPriceMap,
 							extras: emailExtras,
@@ -751,6 +764,7 @@ export async function processDailyDigestUser(options: {
 								sparklines,
 								marketOpen,
 								marketClosureInfo,
+								is24Hour: user.use_24_hour_time,
 							}),
 						}
 					: null;
@@ -764,6 +778,7 @@ export async function processDailyDigestUser(options: {
 							assetPrices: telegramPriceMap,
 							extras: telegramExtras,
 							dateLabel: telegramDateLabel,
+							delayBanner: delayBannerText,
 							marketClosedBanner: telegramMarketBanner,
 						})
 					: null;
@@ -929,7 +944,7 @@ export async function processDailyDigestUser(options: {
 		if (!stageOnly && scheduleCtxOnError) {
 			await recordDailyDigestProcessingFailure({
 				supabase,
-				userId: user.id,
+				user,
 				scheduledDate: scheduleCtxOnError.scheduledDate,
 				scheduledMinutes: scheduleCtxOnError.scheduledMinutes,
 				logger,

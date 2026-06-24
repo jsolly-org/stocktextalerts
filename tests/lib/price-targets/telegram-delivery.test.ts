@@ -65,6 +65,7 @@ function makeUser(overrides: Partial<PriceTargetUser> = {}): PriceTargetUser {
 	return {
 		id: "00000000-0000-0000-0000-000000000001",
 		email: "test@example.com",
+		email_notifications_enabled: true,
 		phone_country_code: "+1",
 		phone_number: "5551112222",
 		phone_verified: true,
@@ -86,7 +87,7 @@ describe("A Telegram-linked user receives a price-target alert via Telegram", ()
 		}));
 		const stats = makeStats();
 
-		const delivered = await deliverPriceTargetAlert({
+		const outcome = await deliverPriceTargetAlert({
 			user: makeUser({
 				telegram_chat_id: 445566,
 				prefs: makePrefRows([["price_targets", "", "telegram", true]]),
@@ -99,7 +100,7 @@ describe("A Telegram-linked user receives a price-target alert via Telegram", ()
 			stats,
 		});
 
-		expect(delivered).toBe(true);
+		expect(outcome.telegram).toBe("sent");
 		expect(sendTelegram).toHaveBeenCalledOnce();
 		const sent = sendTelegram.mock.calls[0]![0] as TelegramMessage;
 		expect(sent.chatId).toBe(445566);

@@ -19,7 +19,11 @@ vi.mock("../../../src/lib/schedule/sms-sender", () => ({
 }));
 
 vi.mock("../../../src/lib/price-targets/delivery", () => ({
-	deliverPriceTargetAlert: vi.fn(async () => true),
+	deliverPriceTargetAlert: vi.fn(async () => ({
+		email: "sent",
+		sms: "skipped",
+		telegram: "skipped",
+	})),
 }));
 
 import { deliverPriceTargetAlert } from "../../../src/lib/price-targets/delivery";
@@ -50,10 +54,16 @@ function makeSupabaseMock(options: {
 		direction: string;
 		triggered_at?: string | null;
 		triggered_price?: number | null;
+		attempt_count?: number;
+		next_retry_at?: string | null;
+		email_delivered_at?: string | null;
+		sms_delivered_at?: string | null;
+		telegram_delivered_at?: string | null;
 	}>;
 	users?: Array<{
 		id: string;
 		email: string;
+		email_notifications_enabled: boolean;
 		phone_country_code: string | null;
 		phone_number: string | null;
 		phone_verified: boolean;
@@ -75,7 +85,11 @@ function makeSupabaseMock(options: {
 		enabled: boolean;
 	}>;
 	onDelete?: () => void;
+	/** Fires when the CAS claim UPDATE (`triggered_at` set) runs. */
 	onUpdate?: () => void;
+	/** Captures the payload of the retry-state UPDATE (attempt_count / next_retry_at /
+	 *  *_delivered_at) — i.e. any UPDATE that is NOT the claim. */
+	onRetryUpdate?: (payload: Record<string, unknown>) => void;
 	/** Rows returned by the CAS claim's .select(). Empty = another run won the claim. */
 	claimedRows?: Array<{ user_id: string }>;
 }) {
@@ -93,29 +107,61 @@ function makeSupabaseMock(options: {
 		],
 		onDelete,
 		onUpdate,
+		onRetryUpdate,
 		claimedRows = [{ user_id: "user-1" }],
 	} = options;
 	return {
 		from: (table: string) => {
 			if (table === "price_targets") {
 				return {
-					select: () => Promise.resolve({ data: targets, error: null }),
-					update: () => ({
-						eq: () => ({
-							eq: () => ({
+					select: () =>
+						Promise.resolve({
+							// Default the delivery-retry columns (NOT NULL DEFAULT 0 / NULL in prod)
+							// so the loop reads real numbers, mirroring the live schema.
+							data: targets.map((t) => ({
+								triggered_at: null,
+								triggered_price: null,
+								attempt_count: 0,
+								next_retry_at: null,
+								email_delivered_at: null,
+								sms_delivered_at: null,
+								telegram_delivered_at: null,
+								...t,
+							})),
+							error: null,
+						}),
+					update: (payload: Record<string, unknown>) => {
+						// The CAS claim sets triggered_at (then .is().select()); the retry-state
+						// update sets attempt_count/next_retry_at/*_delivered_at (awaited after 4 eqs).
+						if (payload && "triggered_at" in payload) {
+							return {
 								eq: () => ({
 									eq: () => ({
-										is: () => ({
-											select: () => {
-												onUpdate?.();
-												return Promise.resolve({ data: claimedRows, error: null });
-											},
+										eq: () => ({
+											eq: () => ({
+												is: () => ({
+													select: () => {
+														onUpdate?.();
+														return Promise.resolve({ data: claimedRows, error: null });
+													},
+												}),
+											}),
 										}),
 									}),
 								}),
+							};
+						}
+						onRetryUpdate?.(payload);
+						return {
+							eq: () => ({
+								eq: () => ({
+									eq: () => ({
+										eq: () => Promise.resolve({ error: null }),
+									}),
+								}),
 							}),
-						}),
-					}),
+						};
+					},
 					delete: () => ({
 						eq: () => ({
 							eq: () => ({
@@ -166,6 +212,7 @@ function makeSupabaseMock(options: {
 const testUser = {
 	id: "user-1",
 	email: "test@example.com",
+	email_notifications_enabled: true,
 	phone_country_code: "+1",
 	phone_number: "5551112222",
 	phone_verified: true,
@@ -330,7 +377,11 @@ describe("Price target processing", () => {
 
 	it("keeps a triggered target when delivery fails so it can retry", async () => {
 		mockGetCurrentMarketSession.mockResolvedValue("regular");
-		mockDeliverPriceTargetAlert.mockResolvedValueOnce(false);
+		mockDeliverPriceTargetAlert.mockResolvedValueOnce({
+			email: "failed",
+			sms: "skipped",
+			telegram: "skipped",
+		});
 
 		let deleted = false;
 		let markedPending = false;
@@ -349,6 +400,7 @@ describe("Price target processing", () => {
 				{
 					id: "user-1",
 					email: "a@b.com",
+					email_notifications_enabled: true,
 					phone_country_code: null,
 					phone_number: null,
 					phone_verified: false,
@@ -373,6 +425,202 @@ describe("Price target processing", () => {
 		expect(totals.targetsTriggered).toBe(1);
 		expect(markedPending).toBe(true);
 		expect(deleted).toBe(false);
+	});
+
+	it("A partial delivery keeps the target, records the delivered channel, and schedules a retry", async () => {
+		mockGetCurrentMarketSession.mockResolvedValue("regular");
+		// Email lands, Telegram transiently fails.
+		mockDeliverPriceTargetAlert.mockResolvedValueOnce({
+			email: "sent",
+			sms: "skipped",
+			telegram: "failed",
+		});
+
+		let deleted = false;
+		let retryPayload: Record<string, unknown> | null = null;
+		const supabase = makeSupabaseMock({
+			// Already-triggered (pending) target, mid-retry.
+			targets: [
+				{
+					user_id: "user-1",
+					symbol: "AAPL",
+					target_price: 150,
+					direction: "above",
+					triggered_at: "2026-06-24T17:00:00.000Z",
+					triggered_price: 151,
+					attempt_count: 0,
+				},
+			],
+			users: [{ ...testUser, telegram_chat_id: 9001 }],
+			prefs: [
+				{
+					user_id: "user-1",
+					notification_type: "price_targets",
+					content: "",
+					channel: "email",
+					enabled: true,
+				},
+				{
+					user_id: "user-1",
+					notification_type: "price_targets",
+					content: "",
+					channel: "telegram",
+					enabled: true,
+				},
+			],
+			onDelete: () => {
+				deleted = true;
+			},
+			onRetryUpdate: (payload) => {
+				retryPayload = payload;
+			},
+		});
+
+		await processPriceTargets({ supabase });
+
+		// Telegram still owes delivery, so the target is NOT cleared.
+		expect(deleted).toBe(false);
+		expect(retryPayload).not.toBeNull();
+		const payload = retryPayload as unknown as Record<string, unknown>;
+		expect(payload.attempt_count).toBe(1);
+		expect(payload.next_retry_at).toBeTruthy();
+		// The delivered channel is recorded so it is not re-sent next round...
+		expect(payload.email_delivered_at).toBeTruthy();
+		// ...but the failed channel is not.
+		expect(payload.telegram_delivered_at).toBeUndefined();
+	});
+
+	it("Already-delivered channels are skipped on the next retry round", async () => {
+		mockGetCurrentMarketSession.mockResolvedValue("regular");
+		mockDeliverPriceTargetAlert.mockResolvedValueOnce({
+			email: "skipped",
+			sms: "skipped",
+			telegram: "sent",
+		});
+
+		let deleted = false;
+		const supabase = makeSupabaseMock({
+			targets: [
+				{
+					user_id: "user-1",
+					symbol: "AAPL",
+					target_price: 150,
+					direction: "above",
+					triggered_at: "2026-06-24T17:00:00.000Z",
+					triggered_price: 151,
+					attempt_count: 1,
+					email_delivered_at: "2026-06-24T17:00:30.000Z",
+				},
+			],
+			users: [{ ...testUser, telegram_chat_id: 9001 }],
+			prefs: [
+				{
+					user_id: "user-1",
+					notification_type: "price_targets",
+					content: "",
+					channel: "email",
+					enabled: true,
+				},
+				{
+					user_id: "user-1",
+					notification_type: "price_targets",
+					content: "",
+					channel: "telegram",
+					enabled: true,
+				},
+			],
+			onDelete: () => {
+				deleted = true;
+			},
+		});
+
+		await processPriceTargets({ supabase });
+
+		// The processor tells the delivery layer email is already done, so it isn't re-sent.
+		const callArgs = mockDeliverPriceTargetAlert.mock.calls[0]?.[0] as
+			| { alreadyDelivered?: { email: boolean; sms: boolean; telegram: boolean } }
+			| undefined;
+		expect(callArgs?.alreadyDelivered).toEqual({ email: true, sms: false, telegram: false });
+		// Telegram landed this round → every required channel done → target cleared.
+		expect(deleted).toBe(true);
+	});
+
+	it("An undeliverable target is cleared once the retry ceiling is reached", async () => {
+		mockGetCurrentMarketSession.mockResolvedValue("regular");
+		mockDeliverPriceTargetAlert.mockResolvedValueOnce({
+			email: "failed",
+			sms: "skipped",
+			telegram: "skipped",
+		});
+		// Terminal-failure path logs at error; absorb + assert it fires for the alarm.
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		let deleted = false;
+		let retried = false;
+		const supabase = makeSupabaseMock({
+			targets: [
+				{
+					user_id: "user-1",
+					symbol: "AAPL",
+					target_price: 150,
+					direction: "above",
+					triggered_at: "2026-06-24T17:00:00.000Z",
+					triggered_price: 151,
+					// One short of the ceiling → this round (attempt 3) exhausts it.
+					attempt_count: 2,
+				},
+			],
+			users: [testUser],
+			onDelete: () => {
+				deleted = true;
+			},
+			onRetryUpdate: () => {
+				retried = true;
+			},
+		});
+
+		await processPriceTargets({ supabase });
+
+		expect(deleted).toBe(true);
+		expect(retried).toBe(false);
+		expect(errorSpy).toHaveBeenCalled();
+		errorSpy.mockRestore();
+	});
+
+	it("A pending target whose backoff window has not elapsed waits — no delivery, no clear, no re-update", async () => {
+		// This is the throttle the retry ceiling depends on: without it, a failing target
+		// re-fires every market-minute. next_retry_at far in the future = window not elapsed.
+		mockGetCurrentMarketSession.mockResolvedValue("regular");
+
+		let deleted = false;
+		let retried = false;
+		const supabase = makeSupabaseMock({
+			targets: [
+				{
+					user_id: "user-1",
+					symbol: "AAPL",
+					target_price: 150,
+					direction: "above",
+					triggered_at: "2026-06-24T17:00:00.000Z",
+					triggered_price: 151,
+					attempt_count: 1,
+					next_retry_at: "2099-01-01T00:00:00.000Z",
+				},
+			],
+			users: [testUser],
+			onDelete: () => {
+				deleted = true;
+			},
+			onRetryUpdate: () => {
+				retried = true;
+			},
+		});
+
+		await processPriceTargets({ supabase });
+
+		expect(mockDeliverPriceTargetAlert).not.toHaveBeenCalled();
+		expect(deleted).toBe(false);
+		expect(retried).toBe(false);
 	});
 
 	it("No targets are checked when none exist", async () => {

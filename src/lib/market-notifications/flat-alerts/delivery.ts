@@ -278,6 +278,9 @@ function buildSubject(options: {
 }): string {
 	const { symbol, currentPrice, triggerPercent, isReTrigger } = options;
 	const arrow = triggerPercent >= 0 ? "↑" : "↓";
+	// Alert SUBJECT rounds change% to 1 decimal for readability — deliberately coarser
+	// than the 2-decimal precision on multi-asset price lines (asset-formatting.ts), mirroring
+	// the price-alert headline (enrichment.ts buildPriceContext).
 	const absPct = Math.abs(triggerPercent).toFixed(1);
 	const suffix = isReTrigger ? "since last alert" : "today";
 	return `${symbol} ${arrow} ${absPct}% ${suffix} — $${currentPrice.toFixed(2)}`;
@@ -424,10 +427,6 @@ export async function deliverFlatPriceAlert(options: {
 	isReTrigger: boolean;
 	lastNotificationAt: Date | null;
 	nowMs: number;
-	/** Today's ET calendar date as ISO (YYYY-MM-DD). Used to build a stable
-	 *  idempotency key on first-of-day alerts so SES dedup catches duplicates
-	 *  if the claim RPC fails open mid-run. */
-	todayEt: string;
 	intraday: IntradayBarsResult | null;
 	sevenDaySparkline: SparklineData | null;
 	iconUrl: string | null;
@@ -450,7 +449,6 @@ export async function deliverFlatPriceAlert(options: {
 		isReTrigger,
 		lastNotificationAt,
 		nowMs,
-		todayEt,
 		intraday,
 		sevenDaySparkline,
 		iconUrl,
@@ -494,15 +492,10 @@ export async function deliverFlatPriceAlert(options: {
 			isReTrigger,
 		});
 
-		// Re-trigger keys off last_notification_at (stable until the next alert
-		// fires). First-of-day keys off the ET calendar date (stable across all
-		// cron ticks of the day), so if the claim RPC fails open and the email
-		// send fires again on the next tick, SES dedup collapses it to one send.
-		const idempotencyKey = lastNotificationAt
-			? `flat-price-alert-${user.id}-${symbol}-${lastNotificationAt.toISOString()}`
-			: `flat-price-alert-${user.id}-${symbol}-first-${todayEt}`;
-
-		const result = await sendUserEmail(user, subject, message, sendEmail, idempotencyKey);
+		// Dedup is the flat-alert reserve/finalize CAS (reserve_flat_price_alert), not an
+		// email-level key: the direct-SES path does not honor idempotency keys, so a
+		// claim that fails open CAN double-send. The reserve CAS is the real guard.
+		const result = await sendUserEmail(user, subject, message, sendEmail);
 
 		if (result.success) {
 			stats.emailsSent++;
@@ -530,11 +523,12 @@ export async function deliverFlatPriceAlert(options: {
 	// SMS
 	if (isFacetEnabled(user.prefs, "price_move_alerts", "sms") && sendSms) {
 		if (!shouldSendSms(user)) {
+			// Channel ineligibility is a config skip, NOT a delivery failure — leave it
+			// uncounted, matching the scheduled paths and price targets.
 			rootLogger.info("Flat price alert SMS skipped: user not eligible", {
 				userId: user.id,
 				symbol,
 			});
-			stats.smsFailed++;
 		} else {
 			const smsBody = formatFlatPriceAlertSms({
 				user,

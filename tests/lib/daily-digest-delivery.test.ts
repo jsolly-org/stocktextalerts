@@ -462,6 +462,24 @@ describe("Daily digest email prices", () => {
 		expect(message).not.toContain("(+1.23%)");
 	});
 
+	it("SMS market-closed banner stamps the 'as of' quote time, matching email", () => {
+		// timestamp 1735837200 = 2025-01-02 (EST). Same shared banner as email, so SMS now
+		// carries the staleness hint too (was previously email-only).
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23, timestamp: 1735837200 }],
+		]);
+
+		const message = formatDailyDigestSmsMessage({
+			userAssets: [userAssets[0]],
+			assetPrices,
+			extras,
+			marketOpen: false,
+			marketClosureInfo: { reason: "weekend" },
+		});
+
+		expect(message).toMatch(/Prices below reflect the last market close \(as of .+EST\)\./);
+	});
+
 	it("closed-market digest shows 7-day change % aligned with the sparkline", () => {
 		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 79.5, changePercent: -1.2 }]]);
 		const sparklines = new Map<string, SparklineData>([

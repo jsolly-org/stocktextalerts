@@ -9,6 +9,8 @@ interface AssetEventsTelegramOptions {
 	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
+	/** Optional "your notification is late" banner — same as email/SMS get. */
+	delayBanner?: string | null;
 	marketClosureInfo?: MarketClosureInfo | null;
 }
 
@@ -24,6 +26,9 @@ interface AssetEventsTelegramOptions {
 export function formatAssetEventsTelegram(opts: AssetEventsTelegramOptions): FormattedString {
 	let msg = fmt`${FormattedString.bold("🗓️ Asset Events")}`;
 
+	if (opts.delayBanner) {
+		msg = fmt`${msg}\n${opts.delayBanner}`;
+	}
 	if (opts.marketClosureInfo) {
 		msg = fmt`${msg}\n${buildMarketClosedBannerText(opts.marketClosureInfo, "events")}`;
 	}

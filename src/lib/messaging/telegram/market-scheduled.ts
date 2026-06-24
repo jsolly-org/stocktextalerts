@@ -7,7 +7,9 @@ const DOWN = "🔴";
 const FLAT = "⚪️";
 
 function formatPct(p: number): string {
-	const sign = p > 0 ? "+" : "";
+	// `>= 0` matches the canonical asset-formatting convention (a flat asset renders
+	// "+0.00%" consistently across email/SMS/Telegram).
+	const sign = p >= 0 ? "+" : "";
 	return `${sign}${p.toFixed(2)}%`;
 }
 
@@ -20,6 +22,8 @@ interface MarketScheduledTelegramOptions {
 	assetPrices: AssetPriceMap;
 	/** Human session/time label, e.g. "9:30 AM" or "Pre-market". */
 	sessionLabel?: string | null;
+	/** Optional "your notification is late" banner — same as email/SMS get. */
+	delayBanner?: string | null;
 	/** Optional market-closed banner text (weekend/holiday). */
 	marketClosedBanner?: string | null;
 }
@@ -40,6 +44,9 @@ export function formatMarketScheduledTelegram(
 
 	const header = opts.sessionLabel ? `📈 Price Update · ${opts.sessionLabel}` : "📈 Price Update";
 	let msg = fmt`${FormattedString.bold(header)}`;
+	if (opts.delayBanner) {
+		msg = fmt`${msg}\n${opts.delayBanner}`;
+	}
 	if (opts.marketClosedBanner) {
 		msg = fmt`${msg}\n${opts.marketClosedBanner}`;
 	}

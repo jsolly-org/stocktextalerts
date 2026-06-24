@@ -385,7 +385,8 @@ async function runPass(options: {
 		results.push(...batchResults);
 	}
 
-	// Fan-out: dispatch each fallback daily user to its own serverless function
+	// Dispatch each fallback daily user in-process, reusing the UserRecord (with prefs)
+	// already loaded above so dispatch doesn't re-fetch the user row + prefs per user.
 	if (fallbackDailyUsers.length > 0) {
 		for (let index = 0; index < fallbackDailyUsers.length; index += DAILY_DISPATCH_BATCH_SIZE) {
 			const batch = fallbackDailyUsers.slice(index, index + DAILY_DISPATCH_BATCH_SIZE);
@@ -393,6 +394,7 @@ async function runPass(options: {
 				batch.map((user) =>
 					dispatchDailyDigestUser({
 						userId: user.id,
+						user,
 						currentTimeIso,
 						marketOpen,
 						supabase,
@@ -521,23 +523,26 @@ export async function runScheduledNotifications(options: {
 		logger.warn("Price alerts processing failed (non-fatal)", { action: "price_alerts" }, error);
 	}
 
+	// Quotes fetched for the price-history capture are a SUPERSET of the price-alert map
+	// (they add the watched-symbol universe). Hold the merged map so it can seed the
+	// scheduler quote cache below — otherwise both passes re-fetch those extra symbols.
+	let capturedQuoteMap = priceAlertQuoteMap;
 	if (schedulerMarketSession !== "closed") {
 		try {
-			let captureQuoteMap = priceAlertQuoteMap;
 			const cacheSymbols = await getPriceCacheSymbols(supabase);
 			const missingSymbols = cacheSymbols.filter((symbol) => {
-				const quote = captureQuoteMap?.get(symbol);
+				const quote = capturedQuoteMap?.get(symbol);
 				return quote === undefined || quote === null;
 			});
 			if (missingSymbols.length > 0) {
 				const extraQuotes = await fetchExtendedQuotes(missingSymbols, schedulerMarketSession);
-				captureQuoteMap = new Map(captureQuoteMap ?? []);
+				capturedQuoteMap = new Map(capturedQuoteMap ?? []);
 				for (const [symbol, quote] of extraQuotes) {
-					captureQuoteMap.set(symbol, quote);
+					capturedQuoteMap.set(symbol, quote);
 				}
 			}
-			if (captureQuoteMap && captureQuoteMap.size > 0) {
-				const failedRows = await storePriceHistoryMinuteSnapshots(supabase, captureQuoteMap);
+			if (capturedQuoteMap && capturedQuoteMap.size > 0) {
+				const failedRows = await storePriceHistoryMinuteSnapshots(supabase, capturedQuoteMap);
 				if (failedRows) {
 					const enqueued = await enqueuePriceHistoryStoreRetry({
 						rows: failedRows,
@@ -637,7 +642,9 @@ export async function runScheduledNotifications(options: {
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 	const getTelegramSender = createTelegramSenderProvider();
-	const schedulerQuoteCache = createSchedulerQuoteCache(priceAlertQuoteMap);
+	// Seed from the captured (superset) map so fallback passes reuse the watched-symbol
+	// quotes the price-history capture already fetched, instead of re-fetching them.
+	const schedulerQuoteCache = createSchedulerQuoteCache(capturedQuoteMap);
 
 	/* ============= Two-pass execution ============= */
 	const passStartTime = Date.now();

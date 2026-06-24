@@ -276,6 +276,7 @@ export async function processAssetEventsUser(options: {
 				iposSection: telegramContent.eventsSection?.ipos ?? null,
 				analystSection: telegramContent.analystSection,
 				insiderSection: telegramContent.insiderSection,
+				delayBanner: delayBannerText,
 				marketClosureInfo,
 				getTelegramSender,
 				stats,

@@ -105,6 +105,33 @@ function makeUser(overrides: Partial<PriceAlertUser> = {}): PriceAlertUser {
 	};
 }
 
+describe("deliverPriceAlert email opt-out", () => {
+	it("does not send the anomaly email when email is globally disabled, even with the email facet on", async () => {
+		// Global email kill-switch off + a stale per-option email facet on — the facet
+		// alone must not override the global opt-out (this path used to leak, like price targets).
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
+		const stats = makeStats();
+
+		await deliverPriceAlert({
+			user: makeUser({
+				email_notifications_enabled: false,
+				prefs: makePrefRows([
+					["market_asset_price_alerts", "", "email", true],
+					["market_asset_price_alerts", "", "sms", false],
+				]),
+			}),
+			alert: makeAlert(),
+			supabase: makeSupabaseMock(),
+			sendEmail,
+			sendSms: null,
+			stats,
+		});
+
+		expect(sendEmail).not.toHaveBeenCalled();
+		expect(stats.emailsSent).toBe(0);
+	});
+});
+
 describe("deliverPriceAlert SMS eligibility", () => {
 	it("does not attempt SMS when user is opted out", async () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
@@ -124,7 +151,8 @@ describe("deliverPriceAlert SMS eligibility", () => {
 
 		expect(sendSms).not.toHaveBeenCalled();
 		expect(stats.smsSent).toBe(0);
-		expect(stats.smsFailed).toBe(1);
+		// Ineligibility is a config skip, not a delivery failure — it stays uncounted.
+		expect(stats.smsFailed).toBe(0);
 	});
 
 	it("does not attempt SMS when phone number is missing", async () => {
@@ -145,7 +173,8 @@ describe("deliverPriceAlert SMS eligibility", () => {
 
 		expect(sendSms).not.toHaveBeenCalled();
 		expect(stats.smsSent).toBe(0);
-		expect(stats.smsFailed).toBe(1);
+		// Ineligibility is a config skip, not a delivery failure — it stays uncounted.
+		expect(stats.smsFailed).toBe(0);
 	});
 
 	it("does not attempt SMS when phone is not verified", async () => {
@@ -166,7 +195,8 @@ describe("deliverPriceAlert SMS eligibility", () => {
 
 		expect(sendSms).not.toHaveBeenCalled();
 		expect(stats.smsSent).toBe(0);
-		expect(stats.smsFailed).toBe(1);
+		// Ineligibility is a config skip, not a delivery failure — it stays uncounted.
+		expect(stats.smsFailed).toBe(0);
 	});
 
 	it("does not attempt SMS when sms_notifications_enabled is false", async () => {
@@ -187,7 +217,8 @@ describe("deliverPriceAlert SMS eligibility", () => {
 
 		expect(sendSms).not.toHaveBeenCalled();
 		expect(stats.smsSent).toBe(0);
-		expect(stats.smsFailed).toBe(1);
+		// Ineligibility is a config skip, not a delivery failure — it stays uncounted.
+		expect(stats.smsFailed).toBe(0);
 	});
 });
 

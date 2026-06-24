@@ -100,10 +100,10 @@ export async function purgeStaleStaged(
 		.lte("scheduled_for", nowIso)
 		.select("id");
 
-	if (error) {
-		// Non-fatal: swallow and return 0 (log upstream if needed)
-		return 0;
-	}
+	// Throw (like every sibling here) so a sustained purge failure — which would let
+	// the table grow unbounded — surfaces to the caller's catch and the alarm, instead
+	// of being masked as "0 rows purged".
+	if (error) throw error;
 
 	return (data ?? []).length;
 }

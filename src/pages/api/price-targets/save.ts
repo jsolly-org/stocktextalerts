@@ -136,6 +136,16 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				target_price,
 				direction,
 				created_at: new Date().toISOString(),
+				// Editing a target is a fresh target — reset all trigger/delivery-retry state so
+				// a row mid-retry (kept alive across backoff ticks) can't resume against a stale
+				// triggered_price or skip channels via stale *_delivered_at on the next tick.
+				triggered_at: null,
+				triggered_price: null,
+				attempt_count: 0,
+				next_retry_at: null,
+				email_delivered_at: null,
+				sms_delivered_at: null,
+				telegram_delivered_at: null,
 			},
 			{ onConflict: "user_id,symbol" },
 		);

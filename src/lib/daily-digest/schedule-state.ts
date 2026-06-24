@@ -153,12 +153,13 @@ export async function deferDailyDigestProcessingRetry(options: {
  */
 export async function recordDailyDigestProcessingFailure(options: {
 	supabase: SupabaseAdminClient;
-	userId: string;
+	user: UserRecord;
 	scheduledDate: string;
 	scheduledMinutes: number;
 	logger: Logger;
 }): Promise<void> {
-	const { supabase, userId, scheduledDate, scheduledMinutes, logger } = options;
+	const { supabase, user, scheduledDate, scheduledMinutes, logger } = options;
+	const userId = user.id;
 	const nowIso = toIsoOrThrow(DateTime.utc(), "Failed to format UTC ISO string");
 
 	const { data: rows, error: selectError } = await supabase
@@ -178,10 +179,25 @@ export async function recordDailyDigestProcessingFailure(options: {
 		return;
 	}
 
-	const channels: Array<"email" | "sms"> =
-		rows && rows.length > 0
-			? rows.map((r) => r.channel).filter((c): c is "email" | "sms" => c === "email" || c === "sms")
-			: ["email"];
+	const isChannel = (c: string): c is "email" | "sms" | "telegram" =>
+		c === "email" || c === "sms" || c === "telegram";
+
+	// Prefer the channels that already have a slot row. When none exist (the failure
+	// happened before any channel row was seeded), derive the set from the user's
+	// actually-enabled channels — including Telegram — so a telegram-only user's slot
+	// can still reach terminal state instead of being mis-recorded as an email failure.
+	const existingChannels = (rows ?? []).map((r) => r.channel).filter(isChannel);
+	const enabledChannels: Array<"email" | "sms" | "telegram"> = [
+		...(user.email_notifications_enabled ? (["email"] as const) : []),
+		...(shouldSendSms(user) ? (["sms"] as const) : []),
+		...(isTelegramChannelUsable(user) ? (["telegram"] as const) : []),
+	];
+	const channels: Array<"email" | "sms" | "telegram"> =
+		existingChannels.length > 0
+			? existingChannels
+			: enabledChannels.length > 0
+				? enabledChannels
+				: ["email"];
 
 	for (const channel of channels) {
 		const existing = rows?.find((r) => r.channel === channel);

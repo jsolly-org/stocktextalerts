@@ -1,23 +1,37 @@
 import { rootLogger } from "../logging";
+import { isEmailChannelUsable } from "../messaging/email/eligibility";
 import { createEmailSender } from "../messaging/email/utils";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
 import { createLogoCache } from "../messaging/logo-fetcher";
 import { isFacetEnabled, type PrefRow } from "../messaging/notification-prefs";
-import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
+import { isSmsChannelUsable } from "../messaging/sms/index";
+import { isTelegramChannelUsable, shouldSendTelegram } from "../messaging/telegram/eligibility";
 import {
 	type ExtendedQuoteMap,
 	fetchExtendedQuotes,
 	getCurrentMarketSession,
 	type MarketSession,
 } from "../providers/price-fetcher";
+import { computeDeliveryRetryDelayMs } from "../providers/vendor-fault-tolerance";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 import { createSmsSenderProvider } from "../schedule/sms-sender";
 import { createTelegramSenderProvider } from "../schedule/telegram-sender";
-import { deliverPriceTargetAlert, type PriceTargetDeliveryStats } from "./delivery";
+import {
+	deliverPriceTargetAlert,
+	type PriceTargetDeliveryOutcome,
+	type PriceTargetDeliveryStats,
+} from "./delivery";
+
+/** Max delivery rounds before a triggered-but-undeliverable target is cleared
+ *  (tombstoned with an error log). Mirrors `MAX_NOTIFICATION_RETRIES` for
+ *  scheduled notifications. */
+const MAX_PRICE_TARGET_DELIVERY_ATTEMPTS = 3;
 
 export interface PriceTargetUser {
 	id: string;
 	email: string;
+	/** Global per-user email kill-switch; gates the email delivery branch. */
+	email_notifications_enabled: boolean;
 	phone_country_code: string | null;
 	phone_number: string | null;
 	phone_verified: boolean;
@@ -43,6 +57,10 @@ export interface TriggeredPriceTarget {
 export interface PriceTargetTotals extends PriceTargetDeliveryStats {
 	targetsChecked: number;
 	targetsTriggered: number;
+	/** Times `deliverPriceTargetAlert` threw (a hard delivery failure), distinct
+	 *  from `logFailures` (a `notification_log` insert failure on an otherwise
+	 *  successful or normally-failed send). */
+	deliveryErrors: number;
 }
 
 interface PriceTargetRow {
@@ -52,6 +70,11 @@ interface PriceTargetRow {
 	direction: string;
 	triggered_at: string | null;
 	triggered_price: number | null;
+	attempt_count: number;
+	next_retry_at: string | null;
+	email_delivered_at: string | null;
+	sms_delivered_at: string | null;
+	telegram_delivered_at: string | null;
 }
 
 /**
@@ -77,6 +100,7 @@ export async function processPriceTargets(options: {
 		telegramSent: 0,
 		telegramFailed: 0,
 		logFailures: 0,
+		deliveryErrors: 0,
 	};
 
 	// Only process during market hours (use pre-fetched status when available)
@@ -92,7 +116,7 @@ export async function processPriceTargets(options: {
 	const { data: targetRows, error: targetsError } = await (supabase
 		.from("price_targets")
 		.select(
-			"user_id, symbol, target_price, direction, triggered_at, triggered_price",
+			"user_id, symbol, target_price, direction, triggered_at, triggered_price, attempt_count, next_retry_at, email_delivered_at, sms_delivered_at, telegram_delivered_at",
 		) as unknown as Promise<{
 		data: PriceTargetRow[] | null;
 		error: unknown;
@@ -112,7 +136,7 @@ export async function processPriceTargets(options: {
 	const { data: userData, error: usersError } = await (supabase
 		.from("users")
 		.select(
-			"id, email, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, telegram_chat_id, telegram_opted_out",
+			"id, email, email_notifications_enabled, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, telegram_chat_id, telegram_opted_out",
 		)
 		.in("id", userIds) as unknown as Promise<{
 		data: Omit<PriceTargetUser, "prefs">[] | null;
@@ -164,7 +188,7 @@ export async function processPriceTargets(options: {
 	const iconBase64Map = new Map<string, string | null>();
 	const hasAnyEmailTargets = activeTargets.some((t) => {
 		const u = userMap.get(t.user_id);
-		return u ? isFacetEnabled(u.prefs, "price_targets", "email") : false;
+		return u ? isEmailChannelUsable(u) && isFacetEnabled(u.prefs, "price_targets", "email") : false;
 	});
 	if (hasAnyEmailTargets) {
 		const { data: iconRows, error: iconRowsError } = await supabase
@@ -196,13 +220,56 @@ export async function processPriceTargets(options: {
 	let telegramSender: ReturnType<typeof getTelegramSender>["sender"] | null = null;
 	const logoCache = createLogoCache();
 
+	/** Clear (delete) a triggered price target by its primary key, logging on failure. */
+	const clearTarget = async (t: PriceTargetRow, reason: string): Promise<void> => {
+		const { error } = await supabase
+			.from("price_targets")
+			.delete()
+			.eq("user_id", t.user_id)
+			.eq("symbol", t.symbol)
+			.eq("target_price", t.target_price)
+			.eq("direction", t.direction);
+		if (error) {
+			rootLogger.error(
+				`Failed to clear price target (${reason})`,
+				{ userId: t.user_id, symbol: t.symbol },
+				error,
+			);
+		}
+	};
+
 	for (const target of activeTargets) {
 		totals.targetsChecked++;
 
 		const user = userMap.get(target.user_id);
 		if (!user) continue;
 
+		// Channels that are both wanted (per-option facet) AND usable for this user —
+		// the same predicates `deliverPriceTargetAlert` uses. A channel that can never
+		// deliver (e.g. SMS facet on but unverified phone) is not "required", so it
+		// neither blocks the target from clearing nor forces a doomed retry loop.
+		const required = {
+			email: isEmailChannelUsable(user) && isFacetEnabled(user.prefs, "price_targets", "email"),
+			sms: isSmsChannelUsable(user) && isFacetEnabled(user.prefs, "price_targets", "sms"),
+			telegram: shouldSendTelegram(user, user.prefs, "price_targets"),
+		};
+
+		if (!required.email && !required.sms && !required.telegram) {
+			await clearTarget(target, "no enabled channels");
+			continue;
+		}
+
 		const pendingDelivery = target.triggered_at != null && target.triggered_price != null;
+
+		// Backoff: a pending target whose retry window hasn't elapsed waits for a later tick.
+		if (
+			pendingDelivery &&
+			target.next_retry_at != null &&
+			new Date(target.next_retry_at).getTime() > Date.now()
+		) {
+			continue;
+		}
+
 		let currentPrice: number;
 		let triggeredTarget: TriggeredPriceTarget;
 
@@ -235,34 +302,7 @@ export async function processPriceTargets(options: {
 				iconUrl: iconUrlMap.get(target.symbol) ?? null,
 				iconBase64: iconBase64Map.get(target.symbol) ?? null,
 			};
-		}
 
-		const hasEnabledChannel =
-			isFacetEnabled(user.prefs, "price_targets", "email") ||
-			(isFacetEnabled(user.prefs, "price_targets", "sms") &&
-				user.sms_notifications_enabled &&
-				!user.sms_opted_out) ||
-			// Telegram-linked users may receive the alert even with email/SMS off; the
-			// per-option Telegram pref is checked in deliverPriceTargetAlert.
-			isTelegramChannelUsable(user);
-
-		if (!hasEnabledChannel) {
-			const { error: deleteError } = await supabase
-				.from("price_targets")
-				.delete()
-				.eq("user_id", target.user_id)
-				.eq("symbol", target.symbol);
-			if (deleteError) {
-				rootLogger.error(
-					"Failed to delete price target with no enabled channels",
-					{ userId: target.user_id, symbol: target.symbol },
-					deleteError,
-				);
-			}
-			continue;
-		}
-
-		if (!pendingDelivery) {
 			const { data: claimedRows, error: markPendingError } = await supabase
 				.from("price_targets")
 				.update({
@@ -305,7 +345,7 @@ export async function processPriceTargets(options: {
 		totals.targetsTriggered++;
 
 		// Initialize SMS sender lazily
-		if (isFacetEnabled(user.prefs, "price_targets", "sms") && !smsSender) {
+		if (required.sms && !smsSender) {
 			try {
 				smsSender = getSmsSender().sender;
 			} catch (error) {
@@ -331,9 +371,16 @@ export async function processPriceTargets(options: {
 			}
 		}
 
-		let delivered = false;
+		// Channels delivered on a prior retry round are skipped, never re-sent.
+		const alreadyDelivered = {
+			email: target.email_delivered_at != null,
+			sms: target.sms_delivered_at != null,
+			telegram: target.telegram_delivered_at != null,
+		};
+
+		let outcome: PriceTargetDeliveryOutcome;
 		try {
-			delivered = await deliverPriceTargetAlert({
+			outcome = await deliverPriceTargetAlert({
 				user,
 				target: triggeredTarget,
 				supabase,
@@ -342,6 +389,7 @@ export async function processPriceTargets(options: {
 				sendTelegram: telegramSender,
 				stats: totals,
 				logoCache,
+				alreadyDelivered,
 			});
 		} catch (error) {
 			rootLogger.error(
@@ -349,25 +397,86 @@ export async function processPriceTargets(options: {
 				{ userId: target.user_id, symbol: target.symbol },
 				error,
 			);
-			totals.logFailures++;
+			// A thrown delivery is a hard delivery failure, NOT a notification_log
+			// write failure — keep logFailures reserved for recordNotification inserts.
+			totals.deliveryErrors++;
+			// Treat as a fully-failed round so the retry ceiling still applies.
+			outcome = { email: "failed", sms: "failed", telegram: "failed" };
 		}
 
-		if (delivered) {
-			const { error: deleteError } = await supabase
-				.from("price_targets")
-				.delete()
-				.eq("user_id", target.user_id)
-				.eq("symbol", target.symbol)
-				.eq("target_price", target.target_price)
-				.eq("direction", target.direction);
+		// A required channel is satisfied if it was delivered now or on a prior round.
+		const satisfied =
+			(!required.email || alreadyDelivered.email || outcome.email === "sent") &&
+			(!required.sms || alreadyDelivered.sms || outcome.sms === "sent") &&
+			(!required.telegram || alreadyDelivered.telegram || outcome.telegram === "sent");
 
-			if (deleteError) {
-				rootLogger.error(
-					"Failed to delete triggered price target after delivery",
-					{ userId: target.user_id, symbol: target.symbol },
-					deleteError,
-				);
-			}
+		if (satisfied) {
+			// Every required channel delivered — clear the target (auto-cleared semantics).
+			await clearTarget(target, "delivered");
+			continue;
+		}
+
+		// At least one required channel still failing. Apply the retry ceiling so an
+		// undeliverable target stops re-firing every market-minute.
+		const newAttemptCount = target.attempt_count + 1;
+		if (newAttemptCount >= MAX_PRICE_TARGET_DELIVERY_ATTEMPTS) {
+			const unsatisfiedChannels = [
+				required.email && !alreadyDelivered.email && outcome.email !== "sent" ? "email" : null,
+				required.sms && !alreadyDelivered.sms && outcome.sms !== "sent" ? "sms" : null,
+				required.telegram && !alreadyDelivered.telegram && outcome.telegram !== "sent"
+					? "telegram"
+					: null,
+			].filter((c): c is string => c !== null);
+			// Terminal delivery failure — clear the target and surface at error so the
+			// alarm sees a genuinely undeliverable target.
+			rootLogger.error(
+				"Price target delivery retries exhausted; clearing target",
+				{
+					userId: target.user_id,
+					symbol: target.symbol,
+					unsatisfiedChannels: unsatisfiedChannels.join(","),
+					attemptCount: newAttemptCount,
+				},
+				new Error(`price_target delivery attempt_count >= ${MAX_PRICE_TARGET_DELIVERY_ATTEMPTS}`),
+			);
+			await clearTarget(target, "retries exhausted");
+			continue;
+		}
+
+		// Schedule another retry round: record which channels succeeded so they are
+		// not re-sent, bump the attempt count, and back off.
+		const retryUpdate: {
+			attempt_count: number;
+			next_retry_at: string;
+			email_delivered_at?: string;
+			sms_delivered_at?: string;
+			telegram_delivered_at?: string;
+		} = {
+			attempt_count: newAttemptCount,
+			// Pass the post-increment count (failures so far) to match the scheduled-notification
+			// backoff convention — computeDeliveryRetryDelayMs is 1-based on failures.
+			next_retry_at: new Date(
+				Date.now() + computeDeliveryRetryDelayMs(newAttemptCount),
+			).toISOString(),
+		};
+		const deliveredAtIso = new Date().toISOString();
+		if (outcome.email === "sent") retryUpdate.email_delivered_at = deliveredAtIso;
+		if (outcome.sms === "sent") retryUpdate.sms_delivered_at = deliveredAtIso;
+		if (outcome.telegram === "sent") retryUpdate.telegram_delivered_at = deliveredAtIso;
+
+		const { error: retryError } = await supabase
+			.from("price_targets")
+			.update(retryUpdate)
+			.eq("user_id", target.user_id)
+			.eq("symbol", target.symbol)
+			.eq("target_price", target.target_price)
+			.eq("direction", target.direction);
+		if (retryError) {
+			rootLogger.error(
+				"Failed to update price target retry state",
+				{ userId: target.user_id, symbol: target.symbol },
+				retryError,
+			);
 		}
 	}
 

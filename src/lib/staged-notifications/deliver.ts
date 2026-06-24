@@ -386,13 +386,13 @@ async function deliverStagedDaily(options: {
 		});
 
 		if (claim.status === "claimed") {
-			const idempotencyKey = `daily-digest/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
+			// Dedup here is the claimNotification CAS above, not an email-level key — the
+			// direct-SES path does not honor idempotency keys.
 			const result = await sendUserEmail(
 				user,
 				stagedData.email.subject,
 				{ text: emailContent.text, html: emailContent.html },
 				sendEmail,
-				idempotencyKey,
 			);
 
 			// Mark as delivered immediately after a successful send so fallback doesn't

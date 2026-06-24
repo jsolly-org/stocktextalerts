@@ -258,7 +258,6 @@ export async function processAssetEventsEmailDelivery(options: {
 		return;
 	}
 
-	const emailIdempotencyKey = `asset-events/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
 	const message = formatAssetEventsEmail({
 		user,
 		earningsSection,
@@ -276,7 +275,6 @@ export async function processAssetEventsEmailDelivery(options: {
 		message.subject,
 		{ text: message.text, html: message.html },
 		sendEmail,
-		emailIdempotencyKey,
 	);
 
 	const logged = await recordNotification(supabase, {
@@ -462,6 +460,7 @@ export async function processAssetEventsTelegramDelivery(options: {
 	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
+	delayBanner?: string | null;
 	marketClosureInfo?: MarketClosureInfo | null;
 	getTelegramSender: TelegramSenderProvider;
 	stats: ScheduledNotificationTotals;
@@ -478,6 +477,7 @@ export async function processAssetEventsTelegramDelivery(options: {
 		iposSection,
 		analystSection,
 		insiderSection,
+		delayBanner,
 		getTelegramSender,
 		stats,
 	} = options;
@@ -536,6 +536,7 @@ export async function processAssetEventsTelegramDelivery(options: {
 		iposSection,
 		analystSection,
 		insiderSection,
+		delayBanner,
 		marketClosureInfo: options.marketClosureInfo,
 	});
 
