@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
-	compareSubjects,
-	type ExpectedSubject,
-	parseContainerSubjects,
-	readExpectedSubjects,
+	type ExpectedTemplate,
+	evaluateCanaryProbe,
+	normalizeTemplateBody,
+	parseContainerTemplateUrls,
+	parseWgetStatus,
+	readExpectedTemplates,
 } from "../../scripts/db/gotrue-config";
 
-// A faithful slice of supabase/config.toml's auth email section, including the em-dash that must
-// round-trip byte-for-byte against the GOTRUE_MAILER_SUBJECTS_* env the auth container bakes.
+// A faithful slice of supabase/config.toml's auth email section. Each template is declared via a
+// `content_path` HTML file that the Supabase CLI mounts and serves through kong; the drift detector
+// probes whether GoTrue can still load it.
 const CONFIG_TOML = `
 [auth]
 site_url = "http://localhost:4321"
@@ -33,142 +36,133 @@ subject = "Your password has been changed — StockTextAlerts"
 content_path = "./auth-password-changed.html"
 `;
 
-describe("readExpectedSubjects — what GoTrue should serve, from config.toml", () => {
-	it("maps each declared email subject to its GoTrue env var, preserving the em-dash", () => {
-		const subjects = readExpectedSubjects(CONFIG_TOML);
-		const byEnv = new Map(subjects.map((s) => [s.envKey, s.subject]));
+const CONFIRMATION: ExpectedTemplate = {
+	key: "confirmation",
+	envKey: "GOTRUE_MAILER_TEMPLATES_CONFIRMATION",
+	contentPath: "./supabase/auth-confirmation.html",
+};
+const TEMPLATE_URL = "http://supabase_kong_stocktextalerts:8088/email/confirmation.html";
+const OUR_TEMPLATE = "<html><body>Confirm your email — StockTextAlerts</body></html>";
 
-		expect(byEnv.get("GOTRUE_MAILER_SUBJECTS_CONFIRMATION")).toBe(
-			"Confirm your email — StockTextAlerts",
-		);
-		expect(byEnv.get("GOTRUE_MAILER_SUBJECTS_RECOVERY")).toBe(
-			"Reset your password — StockTextAlerts",
-		);
-		expect(byEnv.get("GOTRUE_MAILER_SUBJECTS_EMAIL_CHANGE")).toBe(
-			"Confirm your email change — StockTextAlerts",
-		);
-		expect(byEnv.get("GOTRUE_MAILER_SUBJECTS_PASSWORD_CHANGED_NOTIFICATION")).toBe(
-			"Your password has been changed — StockTextAlerts",
-		);
-		expect(subjects).toHaveLength(4);
+describe("readExpectedTemplates — which branded templates config.toml expects GoTrue to serve", () => {
+	it("maps each declared template to its GoTrue env var and on-disk path, confirmation first", () => {
+		const templates = readExpectedTemplates(CONFIG_TOML);
+		// Confirmation leads (it's the canary the route probe checks) and email_change precedes the
+		// password_changed notification, matching CANARY_PRIORITY.
+		expect(templates.map((t) => t.key)).toEqual([
+			"confirmation",
+			"recovery",
+			"email_change",
+			"password_changed",
+		]);
+		const confirmation = templates.find((t) => t.key === "confirmation");
+		expect(confirmation).toEqual(CONFIRMATION);
 	});
 
-	it("only enforces subjects that are actually declared (a removed one stops being checked)", () => {
+	it("only enforces templates that declare a content_path (a removed one stops being checked)", () => {
 		const partial = `
 [auth.email.template.confirmation]
-subject = "Confirm your email — StockTextAlerts"
+content_path = "./supabase/auth-confirmation.html"
 `;
-		const subjects = readExpectedSubjects(partial);
-		expect(subjects).toHaveLength(1);
-		expect(subjects[0]?.envKey).toBe("GOTRUE_MAILER_SUBJECTS_CONFIRMATION");
+		const templates = readExpectedTemplates(partial);
+		expect(templates).toHaveLength(1);
+		expect(templates[0]?.envKey).toBe("GOTRUE_MAILER_TEMPLATES_CONFIRMATION");
 	});
 
-	it("returns nothing when no email subjects are declared", () => {
-		expect(readExpectedSubjects(`[auth]\nsite_url = "http://localhost:4321"\n`)).toEqual([]);
+	it("returns nothing when no templates are declared (config defers to GoTrue defaults)", () => {
+		expect(readExpectedTemplates(`[auth]\nsite_url = "http://localhost:4321"\n`)).toEqual([]);
 	});
 
-	it("parses a single-quoted subject identically to a double-quoted one (TOML allows both)", () => {
-		const single = `
-[auth.email.template.confirmation]
-subject = 'Confirm your email — StockTextAlerts'
-`;
-		expect(readExpectedSubjects(single)).toEqual([
-			{
-				key: "confirmation",
-				envKey: "GOTRUE_MAILER_SUBJECTS_CONFIRMATION",
-				subject: "Confirm your email — StockTextAlerts",
-			},
-		]);
-	});
-
-	it("strips a trailing inline comment without bleeding it into the subject", () => {
-		const withComment = `
-[auth.email.template.confirmation]
-subject = "Confirm your email — StockTextAlerts"  # keep in sync with the HTML template
-`;
-		expect(readExpectedSubjects(withComment)[0]?.subject).toBe(
-			"Confirm your email — StockTextAlerts",
-		);
-	});
-
-	it("ignores a `subject =` line under a table that isn't one of the four enforced ones", () => {
-		// A stray/typo'd table must not have its subject mis-assigned to the last-seen key.
+	it("does not mis-assign a content_path under a table that isn't one of the four enforced ones", () => {
 		const withStray = `
 [auth.email.template.confirmation]
-subject = "Confirm your email — StockTextAlerts"
+content_path = "./supabase/auth-confirmation.html"
 
 [auth.sms.template.confirm]
-subject = "irrelevant SMS subject"
+content_path = "./irrelevant.txt"
 `;
-		const subjects = readExpectedSubjects(withStray);
-		expect(subjects).toHaveLength(1);
-		expect(subjects[0]).toEqual({
-			key: "confirmation",
-			envKey: "GOTRUE_MAILER_SUBJECTS_CONFIRMATION",
-			subject: "Confirm your email — StockTextAlerts",
-		});
+		const templates = readExpectedTemplates(withStray);
+		expect(templates).toHaveLength(1);
+		expect(templates[0]?.key).toBe("confirmation");
 	});
 });
 
-describe("parseContainerSubjects — reading the auth container's baked env", () => {
-	it("extracts only the GOTRUE_MAILER_SUBJECTS_* lines and ignores everything else", () => {
+describe("parseContainerTemplateUrls — reading the auth container's template URLs", () => {
+	it("extracts only the GOTRUE_MAILER_TEMPLATES_* lines and ignores everything else", () => {
 		const env = [
 			"PATH=/usr/bin",
 			"GOTRUE_SITE_URL=http://localhost:4321",
+			`GOTRUE_MAILER_TEMPLATES_CONFIRMATION=${TEMPLATE_URL}`,
 			"GOTRUE_MAILER_SUBJECTS_CONFIRMATION=Confirm your email — StockTextAlerts",
-			"GOTRUE_MAILER_SUBJECTS_RECOVERY=Reset your password — StockTextAlerts",
 		];
-		const map = parseContainerSubjects(env);
-		expect(map.size).toBe(2);
-		expect(map.get("GOTRUE_MAILER_SUBJECTS_CONFIRMATION")).toBe(
-			"Confirm your email — StockTextAlerts",
-		);
-		expect(map.has("GOTRUE_SITE_URL")).toBe(false);
+		const map = parseContainerTemplateUrls(env);
+		expect(map.size).toBe(1);
+		expect(map.get("GOTRUE_MAILER_TEMPLATES_CONFIRMATION")).toBe(TEMPLATE_URL);
+		expect(map.has("GOTRUE_MAILER_SUBJECTS_CONFIRMATION")).toBe(false);
 	});
 
-	it("splits on the first '=' so a subject containing '=' survives intact", () => {
-		const map = parseContainerSubjects(["GOTRUE_MAILER_SUBJECTS_CONFIRMATION=A = B reminder"]);
-		expect(map.get("GOTRUE_MAILER_SUBJECTS_CONFIRMATION")).toBe("A = B reminder");
+	it("splits on the first '=' so a URL containing '=' survives intact", () => {
+		const map = parseContainerTemplateUrls([
+			"GOTRUE_MAILER_TEMPLATES_CONFIRMATION=http://kong/email?x=1&y=2",
+		]);
+		expect(map.get("GOTRUE_MAILER_TEMPLATES_CONFIRMATION")).toBe("http://kong/email?x=1&y=2");
 	});
 });
 
-describe("compareSubjects — drift verdict", () => {
-	const expected: ExpectedSubject[] = readExpectedSubjects(CONFIG_TOML);
-
-	it("is in_sync when the container serves every declared subject verbatim", () => {
-		const actual = new Map(expected.map((e) => [e.envKey, e.subject]));
-		expect(compareSubjects(expected, actual)).toEqual({ status: "in_sync" });
+describe("parseWgetStatus — reading the HTTP status from busybox wget -S output", () => {
+	it("reads a 200 from the response status line", () => {
+		expect(parseWgetStatus("  HTTP/1.1 200 OK\n  Content-Type: text/html")).toBe(200);
 	});
 
-	it("flags the default GoTrue subject as drift (the real failing-spec scenario)", () => {
-		const actual = new Map(expected.map((e) => [e.envKey, e.subject]));
-		actual.set("GOTRUE_MAILER_SUBJECTS_CONFIRMATION", "Confirm Your Signup");
-
-		const verdict = compareSubjects(expected, actual);
-		expect(verdict.status).toBe("drifted");
-		if (verdict.status !== "drifted") throw new Error("unreachable");
-		expect(verdict.mismatches).toEqual([
-			{
-				envKey: "GOTRUE_MAILER_SUBJECTS_CONFIRMATION",
-				expected: "Confirm your email — StockTextAlerts",
-				actual: "Confirm Your Signup",
-			},
-		]);
+	it("reads a 404 — the real recurring failure when the kong template route is gone", () => {
+		expect(parseWgetStatus("wget: server returned error: HTTP/1.1 404 Not Found")).toBe(404);
 	});
 
-	it("treats a missing env var (container never set the subject) as drift, with actual null", () => {
-		const actual = new Map(expected.map((e) => [e.envKey, e.subject]));
-		actual.delete("GOTRUE_MAILER_SUBJECTS_RECOVERY");
+	it("returns null when there is no HTTP status line (wget couldn't reach the route)", () => {
+		expect(parseWgetStatus("wget: bad address 'supabase_kong_stocktextalerts'")).toBeNull();
+	});
+});
 
-		const verdict = compareSubjects(expected, actual);
-		expect(verdict.status).toBe("drifted");
-		if (verdict.status !== "drifted") throw new Error("unreachable");
-		// Only the deleted subject drifts — the other three still match.
-		expect(verdict.mismatches).toHaveLength(1);
-		expect(verdict.mismatches).toContainEqual({
-			envKey: "GOTRUE_MAILER_SUBJECTS_RECOVERY",
-			expected: "Reset your password — StockTextAlerts",
-			actual: null,
+describe("normalizeTemplateBody — tolerating benign whitespace when comparing bodies", () => {
+	it("treats a body with a trailing newline as equal to one without", () => {
+		expect(normalizeTemplateBody(`${OUR_TEMPLATE}\n`)).toBe(normalizeTemplateBody(OUR_TEMPLATE));
+	});
+
+	it("normalizes CRLF line endings to LF", () => {
+		expect(normalizeTemplateBody("a\r\nb")).toBe("a\nb");
+	});
+});
+
+describe("evaluateCanaryProbe — can GoTrue serve our branded confirmation template?", () => {
+	it("is in_sync (no mismatch) when the route serves our template verbatim", () => {
+		const probe = { kind: "http" as const, status: 200, body: `${OUR_TEMPLATE}\n` };
+		expect(evaluateCanaryProbe(CONFIRMATION, OUR_TEMPLATE, TEMPLATE_URL, probe)).toBeNull();
+	});
+
+	it("flags a 404 as drift — the real failing-spec scenario (GoTrue falls back to its default)", () => {
+		const probe = { kind: "http" as const, status: 404, body: "" };
+		const mismatch = evaluateCanaryProbe(CONFIRMATION, OUR_TEMPLATE, TEMPLATE_URL, probe);
+		expect(mismatch).toMatchObject({ key: "confirmation", reason: "route_unavailable" });
+		expect(mismatch?.detail).toContain("404");
+	});
+
+	it("flags a 200 that serves different content as drift (a stale template mount)", () => {
+		const probe = {
+			kind: "http" as const,
+			status: 200,
+			body: "<html><body>Confirm Your Signup</body></html>",
+		};
+		const mismatch = evaluateCanaryProbe(CONFIRMATION, OUR_TEMPLATE, TEMPLATE_URL, probe);
+		expect(mismatch).toMatchObject({ key: "confirmation", reason: "content_mismatch" });
+	});
+
+	it("flags a missing template env as drift — GoTrue is pointed nowhere, so it uses the default", () => {
+		const probe = { kind: "unreachable" as const, detail: "" };
+		const mismatch = evaluateCanaryProbe(CONFIRMATION, OUR_TEMPLATE, null, probe);
+		expect(mismatch).toMatchObject({
+			key: "confirmation",
+			url: null,
+			reason: "template_env_missing",
 		});
 	});
 });

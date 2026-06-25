@@ -32,12 +32,13 @@ function run(command: string, args: string[]): number {
 }
 
 /**
- * Reconcile the auth container's baked email config with config.toml — but only when it has
- * drifted, so the common (in-sync) reset stays cheap. The auth container bakes config.toml's email
- * subjects as env at `supabase start` time and `supabase db reset` never recreates it, so a stack
- * started from an older config.toml serves the wrong templates and silently fails the four
- * email/auth E2E specs. A full stop+start is the ONLY CLI path that makes GoTrue re-read config.toml
- * (a plain restart keeps the stale env; `supabase start` won't recreate a single removed service
+ * Reconcile the auth/kong containers' email-template serving with config.toml — but only when it
+ * has drifted, so the common (in-sync) reset stays cheap. config.toml's branded templates are
+ * mounted and served through kong at `supabase start` time and `supabase db reset` never recreates
+ * those containers, so a stack started from an older config keeps 404-ing the template route — GoTrue
+ * then falls back to its default templates/subjects and silently fails the four email/auth E2E specs.
+ * A full stop+start is the ONLY CLI path that re-mounts the templates and re-registers the route (a
+ * plain restart keeps the stale mount; `supabase start` won't recreate a single removed service
  * while the stack is "already running"). See scripts/db/gotrue-config.ts.
  *
  * NOTE: the stop+start bounces the WHOLE shared stack (Postgres, auth, Mailpit), not just auth — so

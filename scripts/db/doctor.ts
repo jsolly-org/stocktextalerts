@@ -35,7 +35,7 @@ import { Client } from "pg";
 
 import { EXPECTED_DB_SCHEMA_VERSION } from "../../tests/helpers/constants";
 import { rootLogger } from "../../src/lib/logging";
-import { detectGoTrueDrift, type SubjectMismatch } from "./gotrue-config";
+import { detectGoTrueDrift, type TemplateMismatch } from "./gotrue-config";
 import { isLocalHost } from "./is-local-host";
 import { symlinkedNodeModulesMessage } from "./worktree";
 
@@ -62,24 +62,22 @@ const HINT = [
 ].join("\n");
 
 /**
- * Actionable message when the running auth container's baked email subjects no longer match
- * config.toml. This is the drift that silently breaks the four email/auth E2E specs (confirmation,
- * recovery, email-change). `db:reset` auto-recreates the auth container when drifted, so it is the
- * fix command. See scripts/db/gotrue-config.ts.
+ * Actionable message when the running auth/kong containers can no longer serve the branded email
+ * templates declared in config.toml (the kong /email route 404s, so GoTrue falls back to its default
+ * templates and subjects). This is the drift that silently breaks the four email/auth E2E specs
+ * (confirmation, recovery, email-change). `db:reset` auto-recreates the stack when drifted, so it is
+ * the fix command. See scripts/db/gotrue-config.ts.
  */
-function gotrueDriftHint(mismatches: SubjectMismatch[]): string {
-  const detail = mismatches.map(
-    (m) =>
-      `     ${m.envKey}: config.toml expects "${m.expected}", auth serves ${
-        m.actual === null ? "(unset)" : `"${m.actual}"`
-      }`,
-  );
+function gotrueDriftHint(mismatches: TemplateMismatch[]): string {
+  const detail = mismatches.map((m) => `     ${m.key}: ${m.detail}`);
   return [
     "",
-    "✋ Local GoTrue (auth) is serving email templates that don't match supabase/config.toml.",
-    "   The running auth container baked an older config; `db:reset` alone won't recreate it.",
+    "✋ Local GoTrue (auth) can't serve the branded email templates in supabase/config.toml —",
+    "   it's falling back to its default templates (wrong subjects), failing the email/auth E2E specs.",
+    "   The running auth/kong containers were started from an older config; `db:reset` alone won't",
+    "   recreate them.",
     ...detail,
-    "   Recreate it from config.toml:  npm run db:reset   (auto-restarts auth when drifted)",
+    "   Recreate from config.toml:  npm run db:reset   (auto-restarts the stack when drifted)",
     "",
   ].join("\n");
 }
@@ -349,13 +347,14 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	// 1b. GoTrue email-config drift — the auth container (now confirmed up by the health check above)
-	// bakes config.toml's email subjects as env at `supabase start` time, and `supabase db reset`
-	// never recreates it. A stack started from an older config.toml therefore keeps serving the wrong
-	// subjects and silently breaks the four email/auth E2E specs. Catch it here with a precise fix
-	// instead of as cryptic Playwright failures. Only FAIL on positive drift; an un-inspectable
-	// container (auth is reachable, but podman couldn't read it) is a probe gap, not drift — warn and
-	// continue so a podman hiccup never false-fails the gate.
+	// 1b. GoTrue email-template drift — config.toml's branded templates are served through kong at
+	// `/email/*.html` and wired into the auth container (now confirmed up by the health check above)
+	// at `supabase start` time, and `supabase db reset` never recreates it. A stack started from an
+	// older config keeps 404-ing that route, so GoTrue falls back to its default templates/subjects
+	// and silently breaks the four email/auth E2E specs. Catch it here with a precise fix instead of
+	// as cryptic Playwright failures. Only FAIL on positive drift; an un-probeable container (auth is
+	// reachable, but podman couldn't read/exec it) is a probe gap, not drift — warn and continue so a
+	// podman hiccup never false-fails the gate.
 	const gotrue = detectGoTrueDrift(CONFIG_FILE);
 	if (gotrue.status === "drifted") {
 		rootLogger.error("db:doctor — GoTrue email config drifted from config.toml", {
