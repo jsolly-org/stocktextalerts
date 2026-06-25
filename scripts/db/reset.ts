@@ -12,11 +12,14 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { rootLogger } from "../../src/lib/logging";
 import { acquireTestLock, formatContentionMessage, TestLockHeldError } from "../../tests/lock";
 import { ensureContainerEngineEnv, resolveSupabaseCli } from "./container-engine";
+import { detectGoTrueDrift } from "./gotrue-config";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..", "..");
+const CONFIG_FILE = path.join(projectRoot, "supabase", "config.toml");
 const supabaseExecutable = resolveSupabaseCli();
 
 function run(command: string, args: string[]): number {
@@ -26,6 +29,48 @@ function run(command: string, args: string[]): number {
 		stdio: "inherit",
 	});
 	return result.status ?? 1;
+}
+
+/**
+ * Reconcile the auth container's baked email config with config.toml — but only when it has
+ * drifted, so the common (in-sync) reset stays cheap. The auth container bakes config.toml's email
+ * subjects as env at `supabase start` time and `supabase db reset` never recreates it, so a stack
+ * started from an older config.toml serves the wrong templates and silently fails the four
+ * email/auth E2E specs. A full stop+start is the ONLY CLI path that makes GoTrue re-read config.toml
+ * (a plain restart keeps the stale env; `supabase start` won't recreate a single removed service
+ * while the stack is "already running"). See scripts/db/gotrue-config.ts.
+ *
+ * NOTE: the stop+start bounces the WHOLE shared stack (Postgres, auth, Mailpit), not just auth — so
+ * a concurrent `npm run dev` in another worktree (which doesn't hold the test.lock db:reset acquires)
+ * drops its DB/auth connections and reconnects. It only fires on actual drift (rare, post-config
+ * change) and is recoverable — an acceptable deepening of db:reset's existing shared-stack churn.
+ */
+function reconcileGoTrueIfDrifted(): void {
+	const drift = detectGoTrueDrift(CONFIG_FILE);
+	if (drift.status === "in_sync") return;
+
+	if (drift.status === "drifted") {
+		rootLogger.warn("db:reset — GoTrue email config drifted from config.toml; recreating auth", {
+			action: "db_reset_reconcile_gotrue",
+			mismatches: drift.mismatches,
+		});
+	} else {
+		// auth_unavailable (container absent / un-inspectable): a stop+start recreates it from
+		// config.toml. If the engine is genuinely unreachable, the start below fails loud.
+		rootLogger.warn("db:reset — auth container not inspectable; recreating stack to reconcile", {
+			action: "db_reset_reconcile_gotrue",
+			reason: drift.reason,
+		});
+	}
+
+	// stop may exit non-zero on a partial/absent stack — mirror start.ts and proceed to start anyway.
+	run(supabaseExecutable, ["stop"]);
+	if (run(supabaseExecutable, ["start"]) !== 0) {
+		rootLogger.error("db:reset — failed to restart the stack while reconciling GoTrue config", {
+			action: "db_reset_reconcile_gotrue",
+		});
+		process.exit(1);
+	}
 }
 
 function main(): void {
@@ -45,6 +90,10 @@ function main(): void {
 	// here means every child spawn below (supabase status / db reset, and the npm-run children that
 	// shell out to supabase) inherits it. Throws loud + actionable if no engine is reachable.
 	ensureContainerEngineEnv();
+
+	// Recreate the auth container from config.toml when (and only when) its email config has drifted,
+	// before reseeding — otherwise `supabase db reset` leaves GoTrue serving stale email templates.
+	reconcileGoTrueIfDrifted();
 
 	const status = run(supabaseExecutable, ["status"]);
 	if (status !== 0) {

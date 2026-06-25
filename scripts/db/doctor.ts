@@ -35,6 +35,7 @@ import { Client } from "pg";
 
 import { EXPECTED_DB_SCHEMA_VERSION } from "../../tests/helpers/constants";
 import { rootLogger } from "../../src/lib/logging";
+import { detectGoTrueDrift, type SubjectMismatch } from "./gotrue-config";
 import { isLocalHost } from "./is-local-host";
 import { symlinkedNodeModulesMessage } from "./worktree";
 
@@ -59,6 +60,29 @@ const HINT = [
   "   (equivalent to: npm run db:start && npm run db:reset && npm run db:doctor)",
   "",
 ].join("\n");
+
+/**
+ * Actionable message when the running auth container's baked email subjects no longer match
+ * config.toml. This is the drift that silently breaks the four email/auth E2E specs (confirmation,
+ * recovery, email-change). `db:reset` auto-recreates the auth container when drifted, so it is the
+ * fix command. See scripts/db/gotrue-config.ts.
+ */
+function gotrueDriftHint(mismatches: SubjectMismatch[]): string {
+  const detail = mismatches.map(
+    (m) =>
+      `     ${m.envKey}: config.toml expects "${m.expected}", auth serves ${
+        m.actual === null ? "(unset)" : `"${m.actual}"`
+      }`,
+  );
+  return [
+    "",
+    "✋ Local GoTrue (auth) is serving email templates that don't match supabase/config.toml.",
+    "   The running auth container baked an older config; `db:reset` alone won't recreate it.",
+    ...detail,
+    "   Recreate it from config.toml:  npm run db:reset   (auto-restarts auth when drifted)",
+    "",
+  ].join("\n");
+}
 
 /**
  * Refusal message when this worktree's supabase/config.toml still points at a per-worktree
@@ -323,6 +347,30 @@ async function main(): Promise<void> {
 		process.stderr.write(HINT);
 		process.exitCode = 1;
 		return;
+	}
+
+	// 1b. GoTrue email-config drift — the auth container (now confirmed up by the health check above)
+	// bakes config.toml's email subjects as env at `supabase start` time, and `supabase db reset`
+	// never recreates it. A stack started from an older config.toml therefore keeps serving the wrong
+	// subjects and silently breaks the four email/auth E2E specs. Catch it here with a precise fix
+	// instead of as cryptic Playwright failures. Only FAIL on positive drift; an un-inspectable
+	// container (auth is reachable, but podman couldn't read it) is a probe gap, not drift — warn and
+	// continue so a podman hiccup never false-fails the gate.
+	const gotrue = detectGoTrueDrift(CONFIG_FILE);
+	if (gotrue.status === "drifted") {
+		rootLogger.error("db:doctor — GoTrue email config drifted from config.toml", {
+			action: "db_doctor",
+			mismatches: gotrue.mismatches,
+		});
+		process.stderr.write(gotrueDriftHint(gotrue.mismatches));
+		process.exitCode = 1;
+		return;
+	}
+	if (gotrue.status === "auth_unavailable") {
+		rootLogger.warn("db:doctor — skipped GoTrue config check (auth container not inspectable)", {
+			action: "db_doctor",
+			reason: gotrue.reason,
+		});
 	}
 
 	// 2. Seed-user existence — catches partial seeds where auth.users wasn't

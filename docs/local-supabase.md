@@ -35,6 +35,21 @@ sees whatever the last `db:reset` applied. `db:doctor` (and vitest's `tests/setu
 live `app_metadata.schema_version` to this branch's `EXPECTED_DB_SCHEMA_VERSION` and fail loud with
 a `npm run db:reset` hint. Switch branches → if doctor flags drift, `npm run db:reset`.
 
+**GoTrue (auth) email-config drift:** the Supabase CLI bakes `config.toml`'s email *subjects* into
+the auth container as `GOTRUE_MAILER_SUBJECTS_*` env at `supabase start` time. `supabase db reset`
+reseeds the DB but **never recreates the auth container** (same container id before and after), and a
+plain `podman restart` keeps the stale baked env — so on the one shared, long-lived stack an auth
+container started from an older `config.toml` keeps serving the *default* subjects ("Confirm Your
+Signup" instead of "Confirm your email — StockTextAlerts") indefinitely. That silently fails exactly
+the four email/auth E2E specs that assert on the subject (auth-onboarding confirmation + recovery,
+profile-settings email change, registration-approval). The only CLI path that makes GoTrue re-read
+`config.toml` is a full `supabase stop && supabase start` recreate (`supabase start` won't recreate a
+single removed service while the stack is "already running"). So `db:reset` **auto-reconciles**:
+`scripts/db/gotrue-config.ts` compares the container's baked subjects to `config.toml` and, *only when
+they differ*, pays the ~35s stop+start before reseeding — the in-sync path stays cheap. `db:doctor`
+(the pre-push gate's preflight) is the read-only tripwire: on positive drift it fails with the exact
+mismatch and `npm run db:reset`, instead of surfacing as four cryptic Playwright failures.
+
 **Migrating from the old per-worktree model:** existing worktrees still carry a `skip-worktree`'d
 `config.toml` (project_id `stocktextalerts-wt-<slug>`, offset ports). Run the one-shot migration —
 **dry-run first**, then `--apply`:
