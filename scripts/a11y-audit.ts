@@ -223,7 +223,7 @@ async function runLighthouse(routes: string[]): Promise<LighthouseScore[]> {
 			}
 		}
 	} finally {
-		await chrome.kill();
+		chrome.kill();
 	}
 
 	return scores;

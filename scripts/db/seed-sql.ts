@@ -23,19 +23,6 @@ export function escapeSql(str: string): string {
   return str.replace(/'/g, "''");
 }
 
-/**
- * Render a nullable SQL string literal from a potentially-empty value.
- *
- * Seed inputs come from local JSON; normalize whitespace since DB constraints
- * do not apply to auth.users and the seed data is sourced from external JSON.
- */
-function sqlNullableString(value: string | null | undefined): string {
-  if (value === null || value === undefined) return 'NULL';
-  const trimmed = value.trim();
-  if (!trimmed) return 'NULL';
-  return `'${escapeSql(trimmed)}'`;
-}
-
 /** Render a non-null SQL string literal, trimming and escaping. */
 function sqlString(value: string): string {
   const trimmed = value.trim();

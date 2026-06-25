@@ -58,7 +58,9 @@
 					class="flex size-4 shrink-0 items-center justify-center rounded border"
 					:class="
 						option.selected
-							? 'border-primary bg-primary text-white'
+							? option.disabled
+								? 'border-muted bg-muted text-white'
+								: 'border-primary bg-primary text-white'
 							: 'border-edge-strong bg-surface'
 					"
 				>
