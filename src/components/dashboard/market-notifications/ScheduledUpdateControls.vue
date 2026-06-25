@@ -143,7 +143,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref } from "vue";
+import { computed } from "vue";
 
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
@@ -155,6 +155,7 @@ import {
 	type ScheduledMarketSession,
 	userLocalToEtMinute,
 } from "../../../lib/time/format";
+import { useHydrated } from "../../composables/useHydrated";
 import StatusMessage from "../../StatusMessage.vue";
 import TimePicker from "../shared/TimePicker.vue";
 import SessionBadge from "./SessionBadge.vue";
@@ -195,7 +196,7 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const isHydrated = ref(false);
+const isHydrated = useHydrated();
 
 const emit = defineEmits<{
 	(event: "time-change", index: number, value: string): void;
@@ -204,10 +205,6 @@ const emit = defineEmits<{
 	(event: "add-after-open"): void;
 	(event: "remove-time", index: number): void;
 }>();
-
-onMounted(() => {
-	isHydrated.value = true;
-});
 
 const serializedTimes = computed(() => JSON.stringify(props.scheduledUpdateTimes));
 

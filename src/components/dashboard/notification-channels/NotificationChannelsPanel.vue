@@ -128,6 +128,7 @@ import {
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
 } from "../../../lib/time/format";
+import { useHydrated } from "../../composables/useHydrated";
 import StatusMessage from "../../StatusMessage.vue";
 import type { InitialAsset } from "../assets/types";
 import {
@@ -159,12 +160,11 @@ const emit = defineEmits<(event: "update:emailEnabled", value: boolean) => void>
 const user = useDashboardUser();
 
 const isEditingPhone = ref(false);
-const isHydrated = ref(false);
+const isHydrated = useHydrated();
 const tick = ref(0);
 let intervalId: number | null = null;
 
 onMounted(() => {
-	isHydrated.value = true;
 	tick.value = Date.now();
 	intervalId = window.setInterval(() => {
 		tick.value = Date.now();

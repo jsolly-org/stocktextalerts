@@ -69,11 +69,12 @@
 
 <script lang="ts" setup>
 import { useMediaQuery } from "@vueuse/core";
-import { computed, defineAsyncComponent, onMounted, ref, toRefs, watch } from "vue";
+import { computed, defineAsyncComponent, ref, toRefs, watch } from "vue";
 import {
 	DASHBOARD_ASSETS_FORM_ID,
 } from "../../lib/constants";
 import type { DashboardUser } from "../../lib/db";
+import { useHydrated } from "../composables/useHydrated";
 import type { InitialAsset } from "./assets/types";
 import WatchlistPanel from "./assets/WatchlistPanel.vue";
 import { useAutoSaveForm } from "./composables/useAutoSaveNotificationPreferences";
@@ -172,10 +173,7 @@ const visitedIndices = ref(new Set<number>([0]));
 // hydration render diverge from the server markup on narrow viewports (Vue:
 // "Server rendered element contains more child nodes than client vdom"). Match
 // SSR by rendering every panel until mounted, then apply the lazy-load gating.
-const isHydrated = ref(false);
-onMounted(() => {
-	isHydrated.value = true;
-});
+const isHydrated = useHydrated();
 
 watch(activeIndex, (i) => visitedIndices.value.add(i));
 

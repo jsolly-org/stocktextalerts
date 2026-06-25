@@ -1,6 +1,6 @@
 <template>
 	<div class="relative w-full sm:max-w-xs">
-		<Teleport v-if="isMounted" to="body">
+		<Teleport v-if="isHydrated" to="body">
 			<div
 				v-if="isBackdropVisible"
 				class="sta-timepicker-backdrop fixed inset-0 bg-transparent"
@@ -17,7 +17,7 @@
 			:disabled="isDisabled"
 		/>
 		<VueDatePicker
-			v-if="isMounted"
+			v-if="isHydrated"
 			ref="datepicker"
 			v-model="selectedTime"
 			time-picker
@@ -66,6 +66,7 @@ import {
 	parseTimeString,
 	resolveIs24,
 } from "../../../lib/time/format";
+import { useHydrated } from "../../composables/useHydrated";
 
 type TimeModel = {
 	hours: number | string;
@@ -172,7 +173,7 @@ const disabledTimes = computed<
 		return total < minMinutes || total > maxMinutes;
 	};
 });
-const isMounted = ref(false);
+const isHydrated = useHydrated();
 const lastSyncedValue = ref<string | null>(null);
 const selectedTime = ref<TimeModel | null>(
 	parseTimeString(props.initialTime) ?? null,
@@ -302,7 +303,7 @@ const formattedTime = computed(() => {
 watch(
 	formattedTime,
 	(newValue) => {
-		if (!isMounted.value) {
+		if (!isHydrated.value) {
 			return;
 		}
 		if (newValue === lastSyncedValue.value) {
@@ -331,7 +332,6 @@ watch(
 );
 
 onMounted(() => {
-	isMounted.value = true;
 	is24Hour.value = props.is24 ?? resolveIs24();
 });
 

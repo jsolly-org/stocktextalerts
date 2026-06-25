@@ -4,6 +4,7 @@ import {
 	getNowInTimezone,
 	getSecondsUntilNextSend,
 } from "../../../lib/time/format";
+import { useHydrated } from "../../composables/useHydrated";
 
 // Defers time-dependent rendering until after mount to avoid hydration mismatches.
 /** Provide derived UI state for scheduled update timing (local “now” and countdown). */
@@ -13,7 +14,7 @@ export function useScheduledUpdateTiming(options: {
 	timeInputs: ComputedRef<string[]>;
 	is24?: ComputedRef<boolean>;
 }) {
-	const hasMounted = ref(false);
+	const isHydrated = useHydrated();
 	const tick = ref(0);
 	const intervalId = ref<number | null>(null);
 	const adjustedNextSendAtIso = ref<string | null>(null);
@@ -89,7 +90,6 @@ export function useScheduledUpdateTiming(options: {
 	};
 
 	onMounted(() => {
-		hasMounted.value = true;
 		tick.value = Date.now();
 		intervalId.value = window.setInterval(() => {
 			tick.value = Date.now();
@@ -111,7 +111,7 @@ export function useScheduledUpdateTiming(options: {
 			() => options.timeInputs.value.join(","),
 		],
 		() => {
-			if (!hasMounted.value) {
+			if (!isHydrated.value) {
 				return;
 			}
 			void refreshAdjustedNextSendAt();
@@ -119,7 +119,7 @@ export function useScheduledUpdateTiming(options: {
 	);
 
 	const currentTimeInTimezone = computed(() => {
-		if (!hasMounted.value) {
+		if (!isHydrated.value) {
 			return null;
 		}
 		void tick.value;
@@ -128,7 +128,7 @@ export function useScheduledUpdateTiming(options: {
 	});
 
 	const countdownText = computed(() => {
-		if (!hasMounted.value) {
+		if (!isHydrated.value) {
 			return null;
 		}
 		void tick.value;

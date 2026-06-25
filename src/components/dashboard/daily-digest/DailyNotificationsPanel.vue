@@ -250,6 +250,7 @@ import {
 	getSecondsUntilNextSend,
 	minutesToTimeInputValue,
 } from "../../../lib/time/format";
+import { useHydrated } from "../../composables/useHydrated";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
@@ -334,12 +335,11 @@ const smsDisabledTitle = computed(() =>
 );
 const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
 
-const isHydrated = ref(false);
+const isHydrated = useHydrated();
 const tick = ref(0);
 let intervalId: number | null = null;
 
 onMounted(() => {
-	isHydrated.value = true;
 	tick.value = Date.now();
 	intervalId = window.setInterval(() => {
 		tick.value = Date.now();

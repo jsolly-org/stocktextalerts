@@ -2,7 +2,7 @@
 	<section
 		class="card"
 		aria-labelledby="timezone-heading"
-		:data-hydrated="isClient || undefined"
+		:data-hydrated="isHydrated || undefined"
 	>
 		<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.gray}`"></div>
 		<div class="card-body">
@@ -48,7 +48,7 @@
 				/>
 
 				<TimezoneMismatchBanner
-					:is-client="isClient"
+					:is-client="isHydrated"
 					:saved-timezone="user.timezone"
 					:allowed-timezones="timezones.map((tz) => tz.value)"
 					:dismiss-timezone-mismatch-prompts="user.dismiss_timezone_mismatch_prompts"
@@ -73,6 +73,7 @@ import { CARD_GRADIENT_ACCENTS, DEFAULT_TIMEZONE } from "../../lib/constants";
 import type { NotificationPreferencesSnapshot, User } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
 import type { TimezoneOption } from "../../lib/time/types";
+import { useHydrated } from "../composables/useHydrated";
 import StatusMessage from "../StatusMessage.vue";
 import TimezoneMismatchBanner from "./TimezoneMismatchBanner.vue";
 import TimezoneSelect from "./TimezoneSelect.vue";
@@ -150,7 +151,7 @@ const savedNotificationPreferences =
 	);
 
 const selectedTimezone = ref(user.value.timezone);
-const isClient = ref(false);
+const isHydrated = useHydrated();
 const statusMessage = ref<string | null>(null);
 const statusTone = ref<"success" | "error" | "warning" | "info">("info");
 
@@ -329,7 +330,6 @@ watch(timezones, () => {
 });
 
 onMounted(() => {
-	isClient.value = true;
 	resolveDefaultTimezone();
 });
 </script>

@@ -224,6 +224,7 @@ import {
 	userLocalToEtMinute,
 } from "../../../lib/time/format";
 import { calculateNextSendAt } from "../../../lib/time/scheduled-times";
+import { useHydrated } from "../../composables/useHydrated";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
@@ -587,10 +588,9 @@ function scrollToDailyNotifications() {
 	if (el) el.scrollIntoView({ behavior: getScrollBehavior() });
 }
 
-const isHydrated = ref(false);
+const isHydrated = useHydrated();
 
 onMounted(() => {
-	isHydrated.value = true;
 	tick.value = Date.now();
 	tickIntervalId = window.setInterval(() => {
 		tick.value = Date.now();
