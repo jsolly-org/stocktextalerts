@@ -69,7 +69,7 @@
 
 <script lang="ts" setup>
 import { useMediaQuery } from "@vueuse/core";
-import { computed, defineAsyncComponent, ref, toRefs, watch } from "vue";
+import { computed, defineAsyncComponent, onMounted, ref, toRefs, watch } from "vue";
 import {
 	DASHBOARD_ASSETS_FORM_ID,
 } from "../../lib/constants";
@@ -167,6 +167,15 @@ const {
 const isMobile = useMediaQuery("(max-width: 767.99px)");
 const activeIndex = ref(0);
 const visitedIndices = ref(new Set<number>([0]));
+// `isMobile` is always false during SSR but reflects the real viewport on the
+// client, so gating panels on it during the initial render makes the client's
+// hydration render diverge from the server markup on narrow viewports (Vue:
+// "Server rendered element contains more child nodes than client vdom"). Match
+// SSR by rendering every panel until mounted, then apply the lazy-load gating.
+const isHydrated = ref(false);
+onMounted(() => {
+	isHydrated.value = true;
+});
 
 watch(activeIndex, (i) => visitedIndices.value.add(i));
 
@@ -176,6 +185,7 @@ watch(isMobile, (mobile) => {
 }, { immediate: true });
 
 function shouldRender(panelIndex: number): boolean {
+	if (!isHydrated.value) return true;
 	if (!isMobile.value) return true;
 	return visitedIndices.value.has(panelIndex);
 }
