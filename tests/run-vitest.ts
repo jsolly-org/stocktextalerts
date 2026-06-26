@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 import { spawnSync } from "node:child_process";
-import { acquireTestLock, formatContentionMessage, TestLockHeldError } from "./lock";
+import { acquireTestLockWithRetry, formatContentionMessage, TestLockHeldError } from "./lock";
 
 /**
  * Ensure Vitest runs without watch mode unless explicitly set.
@@ -20,7 +20,7 @@ function ensureNoWatch(vitestArgs: string[]): string[] {
  * - forces `--no-watch` by default
  * - exits with the child process status code
  */
-function main() {
+async function main() {
 	// Force NODE_ENV=test regardless of what the shell inherits. The sender
 	// hard-gates in src/lib/messaging/ and src/lib/auth/ call isProduction()
 	// which reads process.env.NODE_ENV, and Vitest only sets NODE_ENV via
@@ -31,7 +31,7 @@ function main() {
 	process.env.NODE_ENV = "test";
 
 	try {
-		acquireTestLock("vitest");
+		await acquireTestLockWithRetry("vitest");
 	} catch (err) {
 		if (err instanceof TestLockHeldError) {
 			process.stderr.write(formatContentionMessage(err));
@@ -71,4 +71,7 @@ function main() {
 	process.exit(1);
 }
 
-main();
+main().catch((err) => {
+	process.stderr.write(`${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`);
+	process.exit(1);
+});

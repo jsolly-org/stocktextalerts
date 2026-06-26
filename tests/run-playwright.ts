@@ -1,10 +1,10 @@
 #!/usr/bin/env npx tsx
 import { spawnSync } from "node:child_process";
-import { acquireTestLock, formatContentionMessage, TestLockHeldError } from "./lock";
+import { acquireTestLockWithRetry, formatContentionMessage, TestLockHeldError } from "./lock";
 
-function main() {
+async function main() {
 	try {
-		acquireTestLock("playwright");
+		await acquireTestLockWithRetry("playwright");
 	} catch (err) {
 		if (err instanceof TestLockHeldError) {
 			process.stderr.write(formatContentionMessage(err));
@@ -22,4 +22,7 @@ function main() {
 	process.exit(typeof child.status === "number" ? child.status : 1);
 }
 
-main();
+main().catch((err) => {
+	process.stderr.write(`${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`);
+	process.exit(1);
+});

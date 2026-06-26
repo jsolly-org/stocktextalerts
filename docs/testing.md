@@ -62,4 +62,4 @@ Do not use `page.request.post("/api/auth/signin")` in E2E — that bypasses CSRF
 - Tests assuming no concurrent users with the same email prefix
 - Global Mailpit clears racing with parallel email assertions
 
-Per-repo test locking (`tests/run-vitest.ts` / `tests/run-playwright.ts`) prevents concurrent `npm test` and `npm run test:e2e` across worktrees; parallelism would be within a single Vitest invocation only.
+Per-repo test locking (`tests/run-vitest.ts` / `tests/run-playwright.ts`) prevents concurrent `npm test` and `npm run test:e2e` across worktrees. When the lock is held, each runner waits 2 minutes and retries up to 3 times before failing with the contention banner. Parallelism would be within a single Vitest invocation only.

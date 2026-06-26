@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
 	acquireTestLock,
+	acquireTestLockWithRetry,
 	getLockPath,
 	releaseTestLock,
 	TestLockHeldError,
@@ -161,6 +162,102 @@ describe("releaseTestLock — defensive", () => {
 			rmSync(path.dirname(lockPath), { recursive: true, force: true });
 		}
 	});
+});
+
+describe("acquireTestLockWithRetry", () => {
+	it("acquires immediately when the lock is free", async () => {
+		const lockPath = makeTempLockPath();
+		try {
+			await acquireTestLockWithRetry("vitest", { waitMs: 50, maxAttempts: 3 }, lockPath);
+			const payload = JSON.parse(readFileSync(lockPath, "utf8")) as TestLockPayload;
+			expect(payload.pid).toBe(process.pid);
+		} finally {
+			releaseTestLock(lockPath);
+			rmSync(path.dirname(lockPath), { recursive: true, force: true });
+		}
+	});
+
+	it("waits and retries until the holder releases the lock", async () => {
+		const lockPath = makeTempLockPath();
+		const lockModulePath = path.resolve(process.cwd(), "tests/lock.ts");
+		const markerPath = `${lockPath}.child-ready`;
+
+		const child = spawn(
+			"./node_modules/.bin/tsx",
+			[
+				"-e",
+				`import("${lockModulePath}").then(async ({ acquireTestLock, releaseTestLock }) => {
+					acquireTestLock("playwright", ${JSON.stringify(lockPath)});
+					require("node:fs").writeFileSync(${JSON.stringify(markerPath)}, "ok");
+					await new Promise((r) => setTimeout(r, 180));
+					releaseTestLock(${JSON.stringify(lockPath)});
+				});`,
+			],
+			{ cwd: process.cwd() },
+		);
+
+		try {
+			const start = Date.now();
+			while (!existsSync(markerPath)) {
+				if (Date.now() - start > 10_000) {
+					throw new Error("child never acquired lock");
+				}
+				await new Promise((r) => setTimeout(r, 25));
+			}
+
+			await acquireTestLockWithRetry("vitest", { waitMs: 50, maxAttempts: 5 }, lockPath);
+
+			const payload = JSON.parse(readFileSync(lockPath, "utf8")) as TestLockPayload;
+			expect(payload.pid).toBe(process.pid);
+			expect(payload.command).toBe("vitest");
+		} finally {
+			child.kill("SIGKILL");
+			await new Promise<void>((resolve) => {
+				child.on("exit", () => resolve());
+			});
+			releaseTestLock(lockPath);
+			rmSync(path.dirname(lockPath), { recursive: true, force: true });
+		}
+	}, 10_000);
+
+	it("throws TestLockHeldError after maxAttempts when the lock stays held", async () => {
+		const lockPath = makeTempLockPath();
+		const lockModulePath = path.resolve(process.cwd(), "tests/lock.ts");
+		const markerPath = `${lockPath}.child-ready`;
+
+		const child = spawn(
+			"./node_modules/.bin/tsx",
+			[
+				"-e",
+				`import("${lockModulePath}").then(({ acquireTestLock }) => {
+					acquireTestLock("playwright", ${JSON.stringify(lockPath)});
+					require("node:fs").writeFileSync(${JSON.stringify(markerPath)}, "ok");
+					setInterval(() => {}, 1000);
+				});`,
+			],
+			{ cwd: process.cwd() },
+		);
+
+		try {
+			const start = Date.now();
+			while (!existsSync(markerPath)) {
+				if (Date.now() - start > 10_000) {
+					throw new Error("child never acquired lock");
+				}
+				await new Promise((r) => setTimeout(r, 25));
+			}
+
+			await expect(
+				acquireTestLockWithRetry("vitest", { waitMs: 20, maxAttempts: 2 }, lockPath),
+			).rejects.toBeInstanceOf(TestLockHeldError);
+		} finally {
+			child.kill("SIGKILL");
+			await new Promise<void>((resolve) => {
+				child.on("exit", () => resolve());
+			});
+			rmSync(path.dirname(lockPath), { recursive: true, force: true });
+		}
+	}, 10_000);
 });
 
 describe("acquireTestLock — signal handlers", () => {
