@@ -1,4 +1,4 @@
-import { DateTime, Duration } from "luxon";
+import { DateTime, Duration, Interval } from "luxon";
 import {
 	US_AFTER_OPEN_EASTERN_MINUTES,
 	US_BEFORE_OPEN_EASTERN_MINUTES,
@@ -17,6 +17,23 @@ import {
 } from "../domain/types";
 import { calculateNextSendAt, calculateNextSendAtFromTimes } from "./scheduled-times";
 import type { ParsedTime, TimeValue } from "./types";
+
+function clampMinuteOfDay(minutes: number): number {
+	const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
+	return Math.max(0, Math.min(1439, Math.floor(safeMinutes)));
+}
+
+/** Wall-clock time on the anchor's calendar day at `minutes` since midnight. */
+function dateTimeAtMinuteOfDay(minutes: number, zone?: string, anchor?: DateTime): DateTime {
+	const base = (anchor ?? DateTime.now()).setZone(zone);
+	const hour = Math.floor(minutes / 60);
+	const minute = minutes % 60;
+	return base.startOf("day").set({ hour, minute, second: 0, millisecond: 0 });
+}
+
+function minuteOfDayFromDateTime(dateTime: DateTime): number {
+	return dateTime.hour * 60 + dateTime.minute;
+}
 
 export function formatCountdownWithSeconds(secondsUntil: number): string {
 	const safeSeconds = Math.max(secondsUntil, 0);
@@ -97,12 +114,7 @@ export function parseTimeString(value: string | null | undefined): ParsedTime | 
 }
 
 export function minutesToTimeInputValue(minutes: number): string {
-	const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
-	const clamped = Math.max(0, Math.min(1439, Math.floor(safeMinutes)));
-	return DateTime.fromObject({
-		hour: Math.floor(clamped / 60),
-		minute: clamped % 60,
-	}).toFormat("HH:mm");
+	return dateTimeAtMinuteOfDay(clampMinuteOfDay(minutes)).toFormat("HH:mm");
 }
 
 export function formatTimeValue(value: TimeValue): string {
@@ -223,17 +235,12 @@ export function getUsAfterOpenLocalMinutes(userTimezone: string): number {
  * `((result % 1440) + 1440) % 1440` if a same-day value is required.
  */
 export function etMinuteToUserLocal(etMinute: number, userTimezone: string): number {
-	const hour = Math.floor(etMinute / 60);
-	const minute = etMinute % 60;
-	const eastern = DateTime.fromObject(
-		{ hour, minute, second: 0, millisecond: 0 },
-		{ zone: US_MARKET_TIMEZONE },
-	);
+	const eastern = dateTimeAtMinuteOfDay(etMinute, US_MARKET_TIMEZONE);
 	const local = eastern.setZone(userTimezone);
 	if (!local.isValid) {
 		return etMinute;
 	}
-	return local.hour * 60 + local.minute;
+	return minuteOfDayFromDateTime(local);
 }
 
 /**
@@ -242,17 +249,12 @@ export function etMinuteToUserLocal(etMinute: number, userTimezone: string): num
  * is applied correctly.
  */
 export function userLocalToEtMinute(localMinute: number, userTimezone: string): number {
-	const hour = Math.floor(localMinute / 60);
-	const minute = localMinute % 60;
-	const local = DateTime.fromObject(
-		{ hour, minute, second: 0, millisecond: 0 },
-		{ zone: userTimezone },
-	);
+	const local = dateTimeAtMinuteOfDay(localMinute, userTimezone);
 	if (!local.isValid) {
 		return localMinute;
 	}
 	const eastern = local.setZone(US_MARKET_TIMEZONE);
-	return eastern.hour * 60 + eastern.minute;
+	return minuteOfDayFromDateTime(eastern);
 }
 
 /**
@@ -294,14 +296,7 @@ export function getScheduledMarketSession(etMinutes: number): ScheduledMarketSes
 Format minute-of-day for UI display in the runtime locale
 ============= */
 export function formatMinutesAsLocalTime(minutes: number, is24?: boolean): string {
-	const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
-	const clamped = Math.max(0, Math.min(1439, Math.floor(safeMinutes)));
-	const dt = DateTime.now().set({
-		hour: Math.floor(clamped / 60),
-		minute: clamped % 60,
-		second: 0,
-		millisecond: 0,
-	});
+	const dt = dateTimeAtMinuteOfDay(clampMinuteOfDay(minutes));
 	if (is24 === true) {
 		return dt.toLocaleString(DateTime.TIME_24_SIMPLE);
 	}
@@ -320,13 +315,11 @@ export function formatMinutesAsLocalTime(minutes: number, is24?: boolean): strin
  */
 export function isMarketCurrentlyOpen(now?: DateTime): boolean {
 	const eastern = (now ?? DateTime.now()).setZone(US_MARKET_TIMEZONE);
-	const weekday = eastern.weekday; // 1=Mon … 7=Sun
-	if (weekday > 5) return false;
-	const minutesSinceMidnight = eastern.hour * 60 + eastern.minute;
-	return (
-		minutesSinceMidnight >= US_MARKET_OPEN_EASTERN_MINUTES &&
-		minutesSinceMidnight < US_MARKET_CLOSE_EASTERN_MINUTES
-	);
+	if (eastern.weekday > 5) return false;
+
+	const open = dateTimeAtMinuteOfDay(US_MARKET_OPEN_EASTERN_MINUTES, US_MARKET_TIMEZONE, eastern);
+	const close = dateTimeAtMinuteOfDay(US_MARKET_CLOSE_EASTERN_MINUTES, US_MARKET_TIMEZONE, eastern);
+	return Interval.fromDateTimes(open, close).contains(eastern);
 }
 
 /**
@@ -335,35 +328,19 @@ export function isMarketCurrentlyOpen(now?: DateTime): boolean {
  */
 export function getLastMarketClose(now?: DateTime): DateTime {
 	const eastern = (now ?? DateTime.now()).setZone(US_MARKET_TIMEZONE);
-	const closeHour = Math.floor(US_MARKET_CLOSE_EASTERN_MINUTES / 60);
-	const closeMinute = US_MARKET_CLOSE_EASTERN_MINUTES % 60;
+	const todayClose = dateTimeAtMinuteOfDay(
+		US_MARKET_CLOSE_EASTERN_MINUTES,
+		US_MARKET_TIMEZONE,
+		eastern,
+	);
 
-	const todayClose = eastern.set({
-		hour: closeHour,
-		minute: closeMinute,
-		second: 0,
-		millisecond: 0,
-	});
-
-	// If it's a weekday and past market close, today's close is the most recent
 	if (eastern.weekday <= 5 && eastern >= todayClose) {
 		return todayClose;
 	}
 
-	// Otherwise, walk back to the most recent weekday's close
-	let candidate = todayClose;
-	if (eastern < todayClose) {
-		// Haven't reached today's close yet, start from yesterday
-		candidate = candidate.minus({ days: 1 });
-	}
-	// Skip weekends
+	let candidate = eastern < todayClose ? todayClose.minus({ days: 1 }) : todayClose;
 	while (candidate.weekday > 5) {
 		candidate = candidate.minus({ days: 1 });
 	}
-	return candidate.set({
-		hour: closeHour,
-		minute: closeMinute,
-		second: 0,
-		millisecond: 0,
-	});
+	return candidate;
 }
