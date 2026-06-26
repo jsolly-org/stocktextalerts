@@ -11,7 +11,7 @@ import Layout from "../layouts/Layout.astro";
 import { isUserApproved } from "../lib/auth/approval";
 import { getAuthErrorMessage } from "../lib/auth/messages";
 import { buildSigninRedirectUrl } from "../lib/auth/redirects";
-import { CARD_GRADIENT_ACCENTS, formatMessage } from "../lib/constants";
+import { formatMessage } from "../lib/constants";
 import { createUserService } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
@@ -92,7 +92,7 @@ const successMessage = formatMessage(success);
     
     <main id="main-content" class="max-w-3xl mx-auto px-4 py-8 sm:px-6 sm:py-12">
 			<header class="card mb-8">
-				<div class={`card-accent ${CARD_GRADIENT_ACCENTS.primary}`}></div>
+				<div class="card-accent card-accent-primary"></div>
 				<div class="card-body">
 					<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 						<div>

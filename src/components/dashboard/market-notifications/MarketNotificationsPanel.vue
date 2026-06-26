@@ -17,7 +17,7 @@
 				:is-saving="isSaving"
 			/>
 
-			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.success}`"></div>
+			<div class="card-accent card-accent-success"></div>
 		<div class="card-body">
 		<fieldset class="min-w-0">
 		<header class="mb-4">
@@ -420,7 +420,6 @@ import InformationCircleIcon from "../../../icons/information-circle-20.svg?comp
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import XMarkIcon from "../../../icons/x-mark.svg?component";
 import {
-	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_MARKET_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_SECTION_IDS,

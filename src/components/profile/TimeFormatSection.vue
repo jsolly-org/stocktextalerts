@@ -3,7 +3,7 @@
 		class="card"
 		aria-labelledby="time-format-heading"
 	>
-		<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.gray}`"></div>
+		<div class="card-accent card-accent-gray"></div>
 		<div class="card-body">
 			<div class="flex items-center gap-3 mb-2">
 				<div class="flex items-center justify-center w-10 h-10 rounded-lg bg-surface-active">
@@ -58,7 +58,6 @@ import { ref, watch } from "vue";
 
 import ClockIcon from "../../icons/clock.svg?component";
 import { createSaveSequencer, type SequencedResult } from "../../lib/async/save-sequencer";
-import { CARD_GRADIENT_ACCENTS } from "../../lib/constants";
 import type { User } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
 import StatusMessage from "../StatusMessage.vue";

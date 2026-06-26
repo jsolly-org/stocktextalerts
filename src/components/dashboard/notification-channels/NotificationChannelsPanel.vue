@@ -24,7 +24,7 @@
 				:id="DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID"
 			/>
 
-			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.primary}`"></div>
+			<div class="card-accent card-accent-primary"></div>
 			<div class="card-body">
 
 			<!-- Persistent live region: always mounted so newly-pushed flash messages
@@ -72,7 +72,7 @@
 
 	<!-- Notification Preview -->
 	<section class="card">
-		<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.gray}`"></div>
+		<div class="card-accent card-accent-gray"></div>
 		<div class="card-body">
 			<header class="mb-4">
 				<h2 class="text-xl sm:text-2xl font-bold text-heading">
@@ -112,7 +112,6 @@ import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import { fetchCurrentNotificationPreferences } from "../../../lib/api/notification-preferences";
 import {
-	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID,
 	type FlashMessage,

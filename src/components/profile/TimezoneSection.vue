@@ -4,7 +4,7 @@
 		aria-labelledby="timezone-heading"
 		:data-hydrated="isHydrated || undefined"
 	>
-		<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.gray}`"></div>
+		<div class="card-accent card-accent-gray"></div>
 		<div class="card-body">
 			<div class="flex items-center gap-3 mb-2">
 				<div class="flex items-center justify-center w-10 h-10 rounded-lg bg-surface-active">
@@ -69,7 +69,7 @@ import GlobeAltIcon from "../../icons/globe-alt.svg?component";
 import { fetchCurrentNotificationPreferences } from "../../lib/api/notification-preferences";
 import { updateProfileTimezone } from "../../lib/api/profile";
 import { createSaveSequencer, type SequencedResult } from "../../lib/async/save-sequencer";
-import { CARD_GRADIENT_ACCENTS, DEFAULT_TIMEZONE } from "../../lib/constants";
+import { DEFAULT_TIMEZONE } from "../../lib/constants";
 import type { NotificationPreferencesSnapshot, User } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
 import type { TimezoneOption } from "../../lib/time/types";

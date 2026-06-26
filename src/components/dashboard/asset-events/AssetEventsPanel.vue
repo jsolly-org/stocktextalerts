@@ -18,7 +18,7 @@
 			show-only-for-tone="error"
 		/>
 
-			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.purple}`"></div>
+			<div class="card-accent card-accent-purple"></div>
 		<div class="card-body">
 		<fieldset class="min-w-0">
 			<header class="mb-4">
@@ -213,7 +213,6 @@ import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import { getScrollBehavior } from "../../../lib/accessibility";
 import {
-	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_ASSET_EVENTS_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_SECTION_IDS,

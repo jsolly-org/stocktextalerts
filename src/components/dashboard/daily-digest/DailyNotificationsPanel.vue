@@ -23,7 +23,7 @@
 				:is-saving="isSaving"
 			/>
 
-			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.teal}`"></div>
+			<div class="card-accent card-accent-teal"></div>
 			<div class="card-body">
 			<header class="mb-4">
 				<h2
@@ -239,7 +239,6 @@ import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import {
-	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_SECTION_IDS,

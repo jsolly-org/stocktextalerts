@@ -227,6 +227,26 @@ body {
 	@apply h-1 rounded-t-xl;
 }
 
+.card-accent-primary {
+	@apply bg-gradient-to-r from-primary via-blue-500 to-primary-soft;
+}
+
+.card-accent-success {
+	@apply bg-gradient-to-r from-success-strong via-green-400 to-success-strong;
+}
+
+.card-accent-teal {
+	@apply bg-gradient-to-r from-teal-500 via-teal-400 to-teal-500;
+}
+
+.card-accent-purple {
+	@apply bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500;
+}
+
+.card-accent-gray {
+	@apply bg-gradient-to-r from-edge-strong via-muted to-edge-strong;
+}
+
 .card-body {
 	@apply p-4 sm:p-6;
 }

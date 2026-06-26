@@ -21,7 +21,7 @@
 			</div>
 		</FadeTransition>
 
-		<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.teal}`"></div>
+		<div class="card-accent card-accent-teal"></div>
 		<div class="card-body">
 		<header class="flex items-center gap-2 mb-4">
 			<h2
@@ -138,7 +138,6 @@ import { computed, ref, toRefs, watch } from "vue";
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import XMarkIcon from "../../../icons/x-mark.svg?component";
 import {
-	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_ASSETS_STATUS_ID,
 	DASHBOARD_SECTION_IDS,
 	type FlashMessage,

@@ -122,19 +122,6 @@ Finnhub API
 export const FINNHUB_BASE_URL = "https://finnhub.io/api/v1";
 
 /* =============
-Card Gradient Accents
-============= */
-
-/** Tailwind class presets for card gradient accents. */
-export const CARD_GRADIENT_ACCENTS = {
-	primary: "bg-gradient-to-r from-primary via-blue-500 to-primary-soft",
-	success: "bg-gradient-to-r from-success-strong via-green-400 to-success-strong",
-	teal: "bg-gradient-to-r from-teal-500 via-teal-400 to-teal-500",
-	purple: "bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500",
-	gray: "bg-gradient-to-r from-edge-strong via-muted to-edge-strong",
-} as const;
-
-/* =============
 Dashboard Sections
 ============= */
 
