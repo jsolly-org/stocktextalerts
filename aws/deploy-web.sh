@@ -246,7 +246,7 @@ deploy_code VendorBackfillFunction stocktextalerts-vendor-backfill
 deploy_code LiveProviderCheckFunction stocktextalerts-live-provider-check
 deploy_code BackupUserSettingsFunction stocktextalerts-backup-user-settings
 
-# --- Phase 4: Vercel web deploy (remote build) ---
+# --- Phase 4: Vercel web deploy (local build via gate_deploy_vercel, prebuilt upload) ---
 # Last, so the web tier ships against the freshly migrated DB + updated Lambdas.
 # Link via non-secret env vars (the gitignored .vercel/ may be absent in a worktree).
 phase="vercel web deploy"
