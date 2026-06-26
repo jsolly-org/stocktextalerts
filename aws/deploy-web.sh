@@ -98,7 +98,7 @@ fi
 # Allowlist-load ONLY the deploy creds from .env.local — never `set -a` the
 # whole file: the rest of it (prod service keys, Twilio, vendor keys) must not
 # reach the deploy's child processes (sam/zip/aws).
-DEPLOY_VARS=(DATABASE_URL_PROD AWS_PROFILE)
+DEPLOY_VARS=(DATABASE_URL_PROD AWS_PROFILE PRODUCTION_SITE_URL)
 if [ -f .env.local ]; then
   for _var in "${DEPLOY_VARS[@]}"; do
     if [ -z "${!_var:-}" ]; then
@@ -250,6 +250,9 @@ deploy_code BackupUserSettingsFunction stocktextalerts-backup-user-settings
 # --- Phase 4: Vercel web deploy (local build via gate_deploy_vercel, prebuilt upload) ---
 # Last, so the web tier ships against the freshly migrated DB + updated Lambdas.
 # Link via non-secret env vars (the gitignored .vercel/ may be absent in a worktree).
+: "${PRODUCTION_SITE_URL:?set PRODUCTION_SITE_URL in .env.local (canonical production URL for local vercel build)}"
+export VERCEL_PROJECT_PRODUCTION_URL="${PRODUCTION_SITE_URL#https://}"
+export VERCEL_PROJECT_PRODUCTION_URL="${VERCEL_PROJECT_PRODUCTION_URL#http://}"
 phase="vercel web deploy"
 gate_deploy_vercel team_T8yHg0aDz7nCbyBgJh5a2saR prj_wrSGjuWe4w82AdjlQAI3b60PSypJ
 
