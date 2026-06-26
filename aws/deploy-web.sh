@@ -35,6 +35,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
+ROOT="$REPO_ROOT"
 
 # Shared fleet gate helpers (dotagents/gate/gate-lib.sh) — sourced the same way .git-hooks/pre-push
 # does, purely for gate_npm_ci below (sourcing has no side effects). gate_npm_ci resolves the repo
