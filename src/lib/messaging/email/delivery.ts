@@ -46,10 +46,14 @@ export async function processEmailUpdate(
 		...deliveryResultToLogFields(result),
 	});
 
+	if (result.success) {
+		return { sent: true, logged };
+	}
+
 	return {
-		sent: result.success,
+		sent: false,
 		logged,
-		error: result.success ? undefined : result.error,
-		errorCode: result.success ? undefined : result.errorCode,
+		error: result.error,
+		errorCode: result.errorCode,
 	};
 }

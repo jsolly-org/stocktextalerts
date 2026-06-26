@@ -82,7 +82,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 
 	// Dedup here is the claimNotification CAS above, not an email-level key — the
 	// direct-SES path does not honor idempotency keys.
-	const { sent, logged, error } = await processEmailUpdate(
+	const emailStats = await processEmailUpdate(
 		supabase,
 		user,
 		userAssets,
@@ -95,6 +95,9 @@ export async function processMarketScheduledEmailDelivery(options: {
 		sessionFirstLine,
 		noSessionTrade,
 	);
+
+	const { sent, logged } = emailStats;
+	const error = emailStats.sent ? undefined : emailStats.error;
 
 	if (sent) {
 		stats.emailsSent++;
@@ -215,7 +218,7 @@ export async function processMarketScheduledSmsDelivery(options: {
 	}
 	const smsSender = smsSenderResult.sender;
 
-	const { sent, logged, error } = await processSmsUpdate(
+	const smsStats = await processSmsUpdate(
 		supabase,
 		user,
 		assetsList,
@@ -226,6 +229,9 @@ export async function processMarketScheduledSmsDelivery(options: {
 		options.delayBanner,
 		sessionFirstLine,
 	);
+
+	const { sent, logged } = smsStats;
+	const error = smsStats.sent ? undefined : smsStats.error;
 
 	if (sent) {
 		stats.smsSent++;

@@ -1,6 +1,6 @@
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
-import type { PrefChannel, PrefRow } from "./notification-prefs";
+import { type PrefRow, parsePrefRow } from "./notification-prefs";
 
 /* =============
 Batch loader for notification_preferences rows.
@@ -38,16 +38,22 @@ export async function loadPrefsByUser(
 			user_id: string;
 			notification_type: string;
 			content: string;
-			channel: PrefChannel;
+			channel: string;
 			enabled: boolean;
 		};
+		const pref = parsePrefRow(r);
+		if (!pref) {
+			rootLogger.warn("Skipping invalid notification preference row", {
+				action: "load_prefs",
+				userId: r.user_id,
+				notification_type: r.notification_type,
+				content: r.content,
+				channel: r.channel,
+			});
+			continue;
+		}
 		const list = byUser.get(r.user_id) ?? [];
-		list.push({
-			notification_type: r.notification_type,
-			content: r.content,
-			channel: r.channel,
-			enabled: r.enabled,
-		});
+		list.push(pref);
 		byUser.set(r.user_id, list);
 	}
 
