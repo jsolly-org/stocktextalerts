@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
 	acquireTestLock,
+	acquireTestLockWithRetry,
 	getLockPath,
 	releaseTestLock,
 	TestLockHeldError,
@@ -158,6 +159,20 @@ describe("releaseTestLock — defensive", () => {
 			releaseTestLock(lockPath);
 			expect(existsSync(lockPath)).toBe(false);
 		} finally {
+			rmSync(path.dirname(lockPath), { recursive: true, force: true });
+		}
+	});
+});
+
+describe("acquireTestLockWithRetry", () => {
+	it("acquires immediately when the lock is free", async () => {
+		const lockPath = makeTempLockPath();
+		try {
+			await acquireTestLockWithRetry("vitest", { waitMs: 50, maxAttempts: 3 }, lockPath);
+			const payload = JSON.parse(readFileSync(lockPath, "utf8")) as TestLockPayload;
+			expect(payload.pid).toBe(process.pid);
+		} finally {
+			releaseTestLock(lockPath);
 			rmSync(path.dirname(lockPath), { recursive: true, force: true });
 		}
 	});

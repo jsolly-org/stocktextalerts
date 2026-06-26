@@ -168,6 +168,55 @@ const RED = "\x1b[0;31m";
 const RESET = "\x1b[0m";
 
 /** Format the contention banner shown when another worktree holds the lock. */
+const DEFAULT_LOCK_RETRY_WAIT_MS = 120_000;
+const DEFAULT_LOCK_RETRY_MAX_ATTEMPTS = 3;
+
+interface AcquireTestLockRetryOptions {
+	waitMs?: number;
+	maxAttempts?: number;
+}
+
+/** Banner printed before each wait when the lock is still held. */
+function formatWaitingMessage(
+	err: TestLockHeldError,
+	attempt: number,
+	maxAttempts: number,
+	waitMs: number,
+): string {
+	const waitMin = Math.round(waitMs / 60_000);
+	return (
+		`test-lock: still held by PID ${err.holder.pid} (${err.holder.command}) ` +
+		`in ${err.holder.worktreePath} — ` +
+		`waiting ${waitMin}m before retry (${attempt}/${maxAttempts})\n`
+	);
+}
+
+/**
+ * Acquire the cross-worktree test lock, waiting between attempts when another
+ * worktree holds it. Used by `npm test` / `npm run test:e2e` so agents (and
+ * humans) don't fail immediately during concurrent runs.
+ */
+export async function acquireTestLockWithRetry(
+	command: TestLockCommand,
+	options: AcquireTestLockRetryOptions = {},
+	lockPath: string = getLockPath(),
+): Promise<void> {
+	const waitMs = options.waitMs ?? DEFAULT_LOCK_RETRY_WAIT_MS;
+	const maxAttempts = options.maxAttempts ?? DEFAULT_LOCK_RETRY_MAX_ATTEMPTS;
+
+	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		try {
+			acquireTestLock(command, lockPath);
+			return;
+		} catch (err) {
+			if (!(err instanceof TestLockHeldError)) throw err;
+			if (attempt >= maxAttempts) throw err;
+			process.stderr.write(formatWaitingMessage(err, attempt, maxAttempts, waitMs));
+			await new Promise((resolve) => setTimeout(resolve, waitMs));
+		}
+	}
+}
+
 export function formatContentionMessage(err: TestLockHeldError): string {
 	const { pid, worktreePath, command, startedAt } = err.holder;
 	const elapsedMs = Date.now() - Date.parse(startedAt);
