@@ -1,4 +1,9 @@
-import type { PrefChannel, PrefRow } from "../../src/lib/messaging/notification-prefs";
+import {
+	type NotificationPreferenceType,
+	type PrefChannel,
+	type PrefRow,
+	parsePrefRow,
+} from "../../src/lib/messaging/notification-prefs";
 import type { UserRecord } from "../../src/lib/messaging/types";
 
 /**
@@ -9,14 +14,15 @@ import type { UserRecord } from "../../src/lib/messaging/types";
  * per-column `*_include_*` flags).
  */
 export function makePrefRows(
-	specs: ReadonlyArray<[string, string, PrefChannel, boolean]>,
+	specs: ReadonlyArray<[NotificationPreferenceType, string, PrefChannel, boolean]>,
 ): PrefRow[] {
-	return specs.map(([notification_type, content, channel, enabled]) => ({
-		notification_type,
-		content,
-		channel,
-		enabled,
-	}));
+	return specs.map(([notification_type, content, channel, enabled]) => {
+		const row = parsePrefRow({ notification_type, content, channel, enabled });
+		if (!row) {
+			throw new Error(`Invalid test preference row: ${notification_type}/${content}/${channel}`);
+		}
+		return row;
+	});
 }
 
 /** Default UserRecord fixture for unit tests that don't hit the DB. */

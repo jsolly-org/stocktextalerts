@@ -106,7 +106,7 @@
 					class="group flex items-center gap-3 p-3 bg-surface-alt rounded-lg hover:bg-surface-active transition-colors"
 				>
 					<span class="min-w-0 flex-1 flex items-center gap-2 text-sm font-medium text-heading">
-						<AssetBadge :type="asset.type as 'stock' | 'etf'" :symbol="asset.symbol" :icon-url="asset.icon_url" />
+						<AssetBadge :type="asset.type" :symbol="asset.symbol" :icon-url="asset.icon_url" />
 						<span class="min-w-0">
 							<span class="font-semibold block">{{ asset.symbol }}</span>
 							<span class="text-xs text-muted truncate block">{{ asset.name }}</span>

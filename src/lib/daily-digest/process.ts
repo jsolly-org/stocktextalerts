@@ -4,6 +4,7 @@ import {
 	buildAssetEventsContentForChannels,
 } from "../asset-events/content";
 import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
+import { assertIsoDateString, assertMinuteOfDay, assertYearMonthString } from "../domain/types";
 import type { Logger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
 import { formatSignedChangePercent, formatUsdPrice } from "../messaging/asset-formatting";
@@ -793,15 +794,17 @@ export async function processDailyDigestUser(options: {
 
 			const stagedData: StagedDailyData = {
 				type: "daily",
-				scheduledDate,
-				scheduledMinutes,
+				scheduledDate: assertIsoDateString(scheduledDate),
+				scheduledMinutes: assertMinuteOfDay(scheduledMinutes),
 				email: emailContent,
 				sms: smsContent,
 				telegram: telegramContent,
 				grokAllowed,
 				hasAnyAssetEventsOption,
 				shouldUpdateAnalyst,
-				analystMonth: shouldUpdateAnalyst ? dueAtLocal.toFormat("yyyy-MM") : null,
+				analystMonth: shouldUpdateAnalyst
+					? assertYearMonthString(dueAtLocal.toFormat("yyyy-MM"))
+					: null,
 			};
 
 			const { error: stageError } = await upsertStagedNotification(supabase, {

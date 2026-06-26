@@ -1,10 +1,13 @@
 import type { AstroCookies } from "astro";
 import { isApprovedAtValue } from "../auth/approval";
 import { setAuthCookies } from "../auth/cookies";
+import { type AssetType, assertAssetType } from "../domain/types";
 import { rootLogger } from "../logging";
 import { getApprovalCached } from "./approval-cache";
 import type { Database } from "./generated/database.types";
 import type { AppSupabaseClient } from "./supabase";
+
+export type { AssetType } from "../domain/types";
 
 /* =============
 Row Types
@@ -57,7 +60,7 @@ export type DashboardUser = User & DashboardUserChannelPrefs;
 /** A user's tracked asset joined with canonical asset details. */
 export type UserAsset = Pick<DbUserAssetRow, "symbol" | "created_at"> & {
 	name: DbAssetRow["name"];
-	type: DbAssetRow["type"];
+	type: AssetType;
 	icon_url: DbAssetRow["icon_url"];
 };
 
@@ -244,7 +247,7 @@ export async function getUserAssets(
 			symbol: row.symbol,
 			created_at: row.created_at,
 			name: assets.name,
-			type: assets.type,
+			type: assertAssetType(assets.type),
 			icon_url: assets.icon_url,
 		};
 	});

@@ -8,6 +8,13 @@ import {
 	US_MARKET_OPEN_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,
 } from "../constants";
+import {
+	asHour24,
+	asMinuteOfDay,
+	asMinuteOfHour,
+	asSecondOfMinute,
+	type MinuteOfDay,
+} from "../domain/types";
 import { calculateNextSendAt, calculateNextSendAtFromTimes } from "./scheduled-times";
 import type { ParsedTime, TimeValue } from "./types";
 
@@ -40,34 +47,17 @@ export function toIsoOrThrow(
 	return iso;
 }
 
-export function parseTimeToMinutes(value: string): number | null {
-	const parts = value.split(":");
-	if (parts.length !== 2) {
+export function parseTimeToMinutes(value: string): MinuteOfDay | null {
+	if (!/^\d+:\d+$/.test(value)) {
 		return null;
 	}
 
-	const [hoursPart, minutesPart] = parts;
-	if (!hoursPart || !minutesPart) {
-		return null;
-	}
-	if (!/^\d+$/.test(hoursPart) || !/^\d+$/.test(minutesPart)) {
-		return null;
-	}
-	const hours = Number.parseInt(hoursPart, 10);
-	const minutes = Number.parseInt(minutesPart, 10);
-
-	if (
-		Number.isNaN(hours) ||
-		Number.isNaN(minutes) ||
-		hours < 0 ||
-		hours > 23 ||
-		minutes < 0 ||
-		minutes > 59
-	) {
+	const dt = DateTime.fromFormat(value, "H:m", { zone: "utc" });
+	if (!dt.isValid || dt.hour > 23 || dt.minute > 59) {
 		return null;
 	}
 
-	return hours * 60 + minutes;
+	return asMinuteOfDay(dt.hour * 60 + dt.minute);
 }
 
 export function parseTimeString(value: string | null | undefined): ParsedTime | null {
@@ -75,54 +65,44 @@ export function parseTimeString(value: string | null | undefined): ParsedTime | 
 		return null;
 	}
 
-	const parts = value.split(":");
-	if (parts.length !== 2 && parts.length !== 3) {
-		return null;
+	if (/^\d+:\d+:\d+$/.test(value)) {
+		const dt = DateTime.fromFormat(value, "H:m:s", { zone: "utc" });
+		if (!dt.isValid || dt.hour > 23 || dt.minute > 59 || dt.second > 59) {
+			return null;
+		}
+		const hours = asHour24(dt.hour);
+		const minutes = asMinuteOfHour(dt.minute);
+		const seconds = asSecondOfMinute(dt.second);
+		if (hours === null || minutes === null || seconds === null) {
+			return null;
+		}
+		return { hours, minutes, seconds };
 	}
 
-	const [hoursPart, minutesPart, secondsPart] = parts;
-	if (!hoursPart || !minutesPart) {
-		return null;
+	if (/^\d+:\d+$/.test(value)) {
+		const dt = DateTime.fromFormat(value, "H:m", { zone: "utc" });
+		if (!dt.isValid || dt.hour > 23 || dt.minute > 59) {
+			return null;
+		}
+		const hours = asHour24(dt.hour);
+		const minutes = asMinuteOfHour(dt.minute);
+		const seconds = asSecondOfMinute(0);
+		if (hours === null || minutes === null || seconds === null) {
+			return null;
+		}
+		return { hours, minutes, seconds };
 	}
 
-	if (!/^\d+$/.test(hoursPart) || !/^\d+$/.test(minutesPart)) {
-		return null;
-	}
-
-	const hours = Number.parseInt(hoursPart, 10);
-	const minutes = Number.parseInt(minutesPart, 10);
-
-	if (
-		!Number.isInteger(hours) ||
-		!Number.isInteger(minutes) ||
-		hours < 0 ||
-		hours > 23 ||
-		minutes < 0 ||
-		minutes > 59
-	) {
-		return null;
-	}
-
-	if (parts.length === 2) {
-		return { hours, minutes, seconds: 0 };
-	}
-
-	if (!secondsPart || !/^\d+$/.test(secondsPart)) {
-		return null;
-	}
-	const seconds = Number.parseInt(secondsPart, 10);
-	if (!Number.isInteger(seconds) || seconds < 0 || seconds > 59) {
-		return null;
-	}
-	return { hours, minutes, seconds };
+	return null;
 }
 
 export function minutesToTimeInputValue(minutes: number): string {
 	const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
 	const clamped = Math.max(0, Math.min(1439, Math.floor(safeMinutes)));
-	const hours = Math.floor(clamped / 60);
-	const mins = clamped % 60;
-	return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+	return DateTime.fromObject({
+		hour: Math.floor(clamped / 60),
+		minute: clamped % 60,
+	}).toFormat("HH:mm");
 }
 
 export function formatTimeValue(value: TimeValue): string {
@@ -131,7 +111,7 @@ export function formatTimeValue(value: TimeValue): string {
 		typeof value.minutes === "string" ? Number.parseInt(value.minutes, 10) : value.minutes;
 	const h = Number.isNaN(hours) ? 0 : Math.max(0, Math.min(23, Math.floor(hours)));
 	const m = Number.isNaN(minutes) ? 0 : Math.max(0, Math.min(59, Math.floor(minutes)));
-	return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+	return DateTime.fromObject({ hour: h, minute: m }).toFormat("HH:mm");
 }
 
 // Fallback when no stored user preference; stored use_24_hour_time is primary.
@@ -184,7 +164,7 @@ export function getSecondsUntilNextSend(options: {
 	if (Array.isArray(options.timeInputs) && options.timeInputs.length > 0) {
 		const localMinutes = options.timeInputs
 			.map((value) => parseTimeToMinutes(value))
-			.filter((value): value is number => value !== null);
+			.filter((value): value is MinuteOfDay => value !== null);
 		if (localMinutes.length === 0) {
 			return null;
 		}
@@ -245,12 +225,10 @@ export function getUsAfterOpenLocalMinutes(userTimezone: string): number {
 export function etMinuteToUserLocal(etMinute: number, userTimezone: string): number {
 	const hour = Math.floor(etMinute / 60);
 	const minute = etMinute % 60;
-	const eastern = DateTime.now().setZone(US_MARKET_TIMEZONE).set({
-		hour,
-		minute,
-		second: 0,
-		millisecond: 0,
-	});
+	const eastern = DateTime.fromObject(
+		{ hour, minute, second: 0, millisecond: 0 },
+		{ zone: US_MARKET_TIMEZONE },
+	);
 	const local = eastern.setZone(userTimezone);
 	if (!local.isValid) {
 		return etMinute;
@@ -266,12 +244,10 @@ export function etMinuteToUserLocal(etMinute: number, userTimezone: string): num
 export function userLocalToEtMinute(localMinute: number, userTimezone: string): number {
 	const hour = Math.floor(localMinute / 60);
 	const minute = localMinute % 60;
-	const local = DateTime.now().setZone(userTimezone).set({
-		hour,
-		minute,
-		second: 0,
-		millisecond: 0,
-	});
+	const local = DateTime.fromObject(
+		{ hour, minute, second: 0, millisecond: 0 },
+		{ zone: userTimezone },
+	);
 	if (!local.isValid) {
 		return localMinute;
 	}

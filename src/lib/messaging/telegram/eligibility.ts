@@ -1,4 +1,12 @@
-import { anyFacetEnabled, enabledFacets, type PrefRow } from "../notification-prefs";
+import {
+	type AssetEventsContent,
+	anyFacetEnabled,
+	type DailyDigestContent,
+	enabledFacets,
+	type FacetlessContent,
+	type NotificationPreferenceType,
+	type PrefRow,
+} from "../notification-prefs";
 
 /** Minimal user fields needed to decide Telegram deliverability. */
 interface TelegramEligibilityUser {
@@ -29,8 +37,8 @@ export function isTelegramChannelUsable(user: TelegramEligibilityUser): boolean 
  */
 export function enabledTelegramFacets(
 	prefs: readonly PrefRow[],
-	notificationType: string,
-): Set<string> {
+	notificationType: NotificationPreferenceType,
+): Set<DailyDigestContent | AssetEventsContent | FacetlessContent> {
 	return enabledFacets(prefs, notificationType, "telegram");
 }
 
@@ -41,7 +49,7 @@ export function enabledTelegramFacets(
 export function shouldSendTelegram(
 	user: TelegramEligibilityUser,
 	prefs: readonly PrefRow[],
-	notificationType: string,
+	notificationType: NotificationPreferenceType,
 ): boolean {
 	return isTelegramChannelUsable(user) && anyFacetEnabled(prefs, notificationType, "telegram");
 }

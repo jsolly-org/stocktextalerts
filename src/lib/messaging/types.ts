@@ -9,12 +9,9 @@ export type DeliveryResult =
 	| { success: false; error: string; errorCode?: string };
 
 /** Per-notification processing metadata used for auditing/debugging. */
-export interface ProcessingStats {
-	sent: boolean;
-	logged: boolean;
-	error?: string;
-	errorCode?: string;
-}
+export type ProcessingStats =
+	| { sent: true; logged: boolean }
+	| { sent: false; logged: boolean; error: string; errorCode?: string };
 
 type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
 
