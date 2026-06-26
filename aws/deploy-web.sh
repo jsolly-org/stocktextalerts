@@ -250,9 +250,6 @@ deploy_code BackupUserSettingsFunction stocktextalerts-backup-user-settings
 # Last, so the web tier ships against the freshly migrated DB + updated Lambdas.
 # Link via non-secret env vars (the gitignored .vercel/ may be absent in a worktree).
 phase="vercel web deploy"
-echo "• vercel deploy --prod"
-VERCEL_ORG_ID=team_T8yHg0aDz7nCbyBgJh5a2saR \
-VERCEL_PROJECT_ID=prj_wrSGjuWe4w82AdjlQAI3b60PSypJ \
-  vercel deploy --prod --yes
+gate_deploy_vercel team_T8yHg0aDz7nCbyBgJh5a2saR prj_wrSGjuWe4w82AdjlQAI3b60PSypJ
 
 echo "✓ stocktextalerts production deploy complete (Supabase + Lambda + Vercel web)"

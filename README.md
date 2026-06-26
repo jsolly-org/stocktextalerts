@@ -167,7 +167,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - **Vercel (SSR + webhooks):** `TWILIO_*`, `UNSUBSCRIBE_TOKEN_SECRET` (must match Lambda — signs email unsubscribe links), `MASSIVE_API_KEY` (asset logo proxy), `ADMIN_EMAILS`, `EMAIL_DISPATCH_URL`, and `EMAIL_DISPATCH_SECRET`. App-triggered emails are dispatched to AWS Lambda via HMAC; outbound notification email/SMS is sent by **AWS Lambda**, not Vercel — do not add Lambda-only `FINNHUB_API_KEY`, `XAI_API_KEY`, `EMAIL_FROM`, or AWS access keys to Vercel.
 - **AWS Lambda (SAM deploy from `.env.local` via `aws/sam-params.sh`):** Supabase prod keys, Twilio, `UNSUBSCRIBE_TOKEN_SECRET`, Massive, Finnhub, optional `XAI_API_KEY`. `EmailFrom` is **not** passed on the CLI — the template defaults to SSM `/stocktextalerts/email-from`. SES auth is the Lambda execution role, not static `AWS_*` keys.
 - **Local-only values:** `DATABASE_URL` and `DEFAULT_PASSWORD` are for local Supabase + seed generation and should not be added to Vercel.
-- **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD` (full prod Postgres URL — migrations connect with it directly) and `AWS_PROFILE` (= `fleet-deploy`, the scoped assume-role profile). The local post-push deploy (`npm run deploy:code` → `aws/deploy-web.sh`) reads these. The web tier needs no local creds: Vercel auto-builds `main` via its git integration.
+- **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD` (full prod Postgres URL — migrations connect with it directly) and `AWS_PROFILE` (= `fleet-deploy`, the scoped assume-role profile). The post-push deploy (`npm run deploy:code` → `aws/deploy-web.sh`) reads these and deploys the Vercel web tier in Phase 4 via the pinned CLI (`gate_deploy_vercel`).
 - **Live provider keys** (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`): SAM parameters in gitignored `.env.local` (via `aws/sam-params.sh`), consumed by the runtime Lambdas and the scheduled `stocktextalerts-live-provider-check` Lambda (weekday mid-session live vendor health check). Failures fire `stocktextalerts-live-provider-check-lambda-errors` → **shared-infra** (SES email).
 
 ### 4. Generate Seed File
@@ -332,7 +332,7 @@ SES notification sending runs on Lambda (`EMAIL_FROM` from SSM `/stocktextalerts
 
 ### 1a. Deploy creds and live provider keys
 
-- **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD`, `AWS_PROFILE=fleet-deploy`. Read by the post-push deploy (`npm run deploy:code` → `aws/deploy-web.sh`). Web tier: Vercel git auto-deploy, no local creds.
+- **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD`, `AWS_PROFILE=fleet-deploy`. Read by the post-push deploy (`npm run deploy:code` → `aws/deploy-web.sh`), including the Vercel web deploy in Phase 4.
 - **Live provider keys** (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`): SAM params (gitignored `.env.local`), used by the runtime + `stocktextalerts-live-provider-check` Lambdas.
 
 ### 2. Deploy
@@ -366,7 +366,7 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 
 **Local testing:** `cd aws && npm run local:test-all` builds and invokes all three functions locally via `sam local invoke` (requires Podman or Docker — SAM CLI uses `DOCKER_HOST`). To test a single function: `npm run local:schedule`, `npm run local:asset-maintenance`, or `npm run local:daily-stats`. Run `npm run local:gen-env` first to generate `env.json` from `.env.local` with per-function env var scoping.
 
-**Deploying:** push to `main` (the pre-push gate lands the commit), then `npm run deploy:code` (`aws/deploy-web.sh`), run by `/ship` after the push lands or by hand: Supabase migrations → Lambda code via `update-function-code` (code-only, under the scoped `fleet-deploy` role). The deploy calls `gate_require_landed` and fails closed unless `HEAD == origin/main`, so it never ships code that hasn't landed. The web tier ships separately: Vercel's git integration auto-builds `main` once the push lands. **A full SAM deploy (`npm run deploy:infra`) is still required whenever `aws/template.yaml` or `aws/deploy.sh` changes** (infrastructure/config) — that stays a manual admin step, not part of the hook.
+**Deploying:** push to `main` (the pre-push gate lands the commit), then `npm run deploy:code` (`aws/deploy-web.sh`), run by `/ship` after the push lands or by hand: Supabase migrations → Lambda code via `update-function-code` (code-only, under the scoped `fleet-deploy` role) → Vercel web via `gate_deploy_vercel`. The deploy calls `gate_require_landed` and fails closed unless `HEAD == origin/main`, so it never ships code that hasn't landed. **A full SAM deploy (`npm run deploy:infra`) is still required whenever `aws/template.yaml` or `aws/deploy.sh` changes** (infrastructure/config) — that stays a manual admin step, not part of the hook.
 
 ## Project Structure
 

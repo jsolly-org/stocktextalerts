@@ -5,8 +5,8 @@ The **pre-push gate** — [`.git-hooks/pre-push`](../.git-hooks/pre-push), the c
 **deploy is a separate post-landing step** (`npm run deploy:code` → `aws/deploy-web.sh`: Supabase
 migrations → Lambda code), run by `/ship` after the push lands or by hand; `deploy-web.sh` calls
 `gate_require_landed` and fails closed unless `HEAD == origin/main`, so it can never ship code that
-hasn't landed. The web tier deploys via Vercel's git integration, which auto-builds `main` once the
-push lands.
+hasn't landed. The web tier deploys in Phase 4 of `aws/deploy-web.sh` via `gate_deploy_vercel`
+(Vercel↔GitHub integration is disconnected — same as the other CLI-deploy fleet repos).
 
 ## The gate (runs automatically on push to `main`)
 
