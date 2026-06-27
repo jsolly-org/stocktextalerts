@@ -8,12 +8,12 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runDelistingSweep } from "../../../src/lib/assets/delisting-sweep";
+import type { TickerReferenceStatus } from "../../../src/lib/assets/reference/delistings";
 import { rootLogger } from "../../../src/lib/logging";
 import type { EmailRequest, EmailSender } from "../../../src/lib/messaging/email/utils";
 import type { SmsSenderFactory } from "../../../src/lib/messaging/sms/sender-factory";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { DeliveryResult } from "../../../src/lib/messaging/types";
-import type { TickerReferenceStatus } from "../../../src/lib/vendors/massive/reference";
 import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";

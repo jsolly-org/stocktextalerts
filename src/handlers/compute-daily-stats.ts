@@ -2,6 +2,7 @@ import type { Context, ScheduledEvent } from "aws-lambda";
 import { enqueueDailyCloseBackfill } from "../lib/backfill/queue";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
+import { fetchDailyOHLCV } from "../lib/market-data/bars";
 import { computeADV, computeATR } from "../lib/market-notifications/daily-stats";
 import { upsertDailyStatsInChunks } from "../lib/market-notifications/daily-stats-upsert";
 import {
@@ -10,7 +11,6 @@ import {
 	storeDailyCloseRows,
 } from "../lib/market-notifications/price-history-cache";
 import { runLambda } from "../lib/run-lambda";
-import { fetchDailyOHLCV } from "../lib/vendors/massive/aggregates";
 
 /** Batch size for Massive API calls to stay under ~100 req/s. */
 const BATCH_SIZE = 50;

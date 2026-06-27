@@ -1,16 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+	fetchInsiderTransactions,
+	fetchRecommendationTrends,
+} from "../../../src/lib/asset-events/enrichment";
+import {
 	ANALYST_FRESHNESS_MS,
 	fetchAndStoreFinnhubEnrichment,
 	loadStoredFinnhubExtras,
 } from "../../../src/lib/asset-events/enrichment-store";
-import { fetchRecommendationTrends } from "../../../src/lib/vendors/finnhub/analyst";
-import { fetchInsiderTransactions } from "../../../src/lib/vendors/finnhub/insider";
 
-vi.mock("../../../src/lib/vendors/finnhub/analyst", () => ({
+vi.mock("../../../src/lib/asset-events/enrichment", () => ({
 	fetchRecommendationTrends: vi.fn(),
-}));
-vi.mock("../../../src/lib/vendors/finnhub/insider", () => ({
 	fetchInsiderTransactions: vi.fn(),
 }));
 

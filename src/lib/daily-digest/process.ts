@@ -6,6 +6,7 @@ import {
 import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
 import type { Logger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
+import { fetchTopMovers, type TopMover } from "../market-data/movers";
 import { fetchAssetPricesWithSessionState } from "../market-data/prices";
 import { getCurrentMarketSession } from "../market-data/session";
 import { fetchIntradaySparklines, fetchSparklines } from "../market-data/sparklines";
@@ -38,7 +39,6 @@ import {
 	type MinuteOfDay,
 	type ScheduledSlotKey,
 } from "../types";
-import { fetchTopMovers, type TopMover } from "../vendors/massive/movers";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsMessageBodies,

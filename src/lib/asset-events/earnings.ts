@@ -1,13 +1,5 @@
-import type { ProviderResult } from "../massive/reference";
-import { finnhubFetch } from "./client";
-
-interface EarningsEvent {
-	ticker: string;
-	date: string; // YYYY-MM-DD
-	time: string | null; // UTC 24h format
-	epsEstimate: number | null;
-	revenueEstimate: number | null;
-}
+import { finnhubFetch } from "../vendors/finnhub/client";
+import type { EarningsEvent, ProviderResult } from "./types";
 
 async function fetchFinnhubEarnings(
 	from: string,
@@ -51,13 +43,6 @@ async function fetchFinnhubEarnings(
 	return { data: events, failed: false };
 }
 
-// Short-TTL memo of the market-wide earnings calendar, keyed by date range.
-// The calendar is symbol-independent, but new-symbol warmup (vendor-backfill)
-// fetches the SAME week's full calendar once per symbol — processed serially in
-// one SQS batch, a bulk add fans these into N identical Finnhub calls and
-// exhausts the rate limit (the 2026-06-22 429 burst: 649 calls for a handful of
-// week-ranges). Memoizing successful fetches collapses a burst to one call per
-// week-range; a 5-min TTL keeps the weekly asset-maintenance run fresh.
 const EARNINGS_CACHE_TTL_MS = 5 * 60_000;
 const earningsCalendarCache = new Map<
 	string,
@@ -69,9 +54,7 @@ export function resetEarningsCacheForTests(): void {
 	earningsCalendarCache.clear();
 }
 
-/**
- * Fetch all earnings events for a date range (market-wide).
- */
+/** Fetch all earnings events for a date range (market-wide). */
 export async function fetchEarnings(
 	from: string,
 	to: string,
@@ -82,11 +65,8 @@ export async function fetchEarnings(
 		return cached.result;
 	}
 
-	// Use Finnhub as the canonical earnings feed to avoid partner entitlement issues on Massive.
 	const result = await fetchFinnhubEarnings(from, to);
 
-	// Cache successes only — a 429/transient failure must not become sticky and
-	// block the retry that the next warmup (or the maintenance run) will attempt.
 	if (!result.failed) {
 		earningsCalendarCache.set(cacheKey, {
 			result,

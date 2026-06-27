@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchSnapshotQuotes } from "../../../src/lib/vendors/massive/snapshot";
+import { fetchSnapshotQuotes } from "../../../src/lib/market-data/quotes";
 
 // Mock retry delays so error/retry paths don't wait real seconds.
 vi.mock("node:timers/promises", () => ({

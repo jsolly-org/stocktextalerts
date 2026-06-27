@@ -4,10 +4,8 @@ import type { Logger } from "../logging";
 import { payloadLogFields, preparePayloadForLog } from "../logging/log-payload";
 import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "../resilience/optional-vendors";
 import type { SupabaseAdminClient } from "../schedule/helpers";
-import type { RecommendationTrend } from "../vendors/finnhub/analyst";
-import { fetchRecommendationTrends } from "../vendors/finnhub/analyst";
-import type { InsiderTransaction } from "../vendors/finnhub/insider";
-import { fetchInsiderTransactions } from "../vendors/finnhub/insider";
+import { fetchInsiderTransactions, fetchRecommendationTrends } from "./enrichment";
+import type { InsiderTransaction, RecommendationTrend } from "./types";
 
 /** Analyst rows older than this are treated as stale at send time. */
 export const ANALYST_FRESHNESS_MS = 36 * 60 * 60 * 1000;

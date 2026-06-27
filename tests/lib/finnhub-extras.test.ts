@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { formatAnalystSection, formatInsiderSection } from "../../src/lib/asset-events/format";
+import type { InsiderTransaction, RecommendationTrend } from "../../src/lib/asset-events/types";
 import type { CompanyNewsItem } from "../../src/lib/company-news/types";
 import {
 	buildNewsContextForGrok,
@@ -10,8 +11,6 @@ import {
 	recordOptionalVendorFailure,
 	resetOptionalVendorCircuitsForTests,
 } from "../../src/lib/resilience/optional-vendors";
-import type { RecommendationTrend } from "../../src/lib/vendors/finnhub/analyst";
-import type { InsiderTransaction } from "../../src/lib/vendors/finnhub/insider";
 
 describe("buildNewsContextForGrok formats Finnhub headlines into a Grok context string.", () => {
 	it("Builds context lines from multiple tickers with headlines.", () => {

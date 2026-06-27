@@ -99,7 +99,7 @@ fetchFinnhubExtrasMock.mockResolvedValue({
 	analystFetchSucceeded: false,
 });
 
-vi.mock("../../../src/lib/vendors/massive/movers", () => ({
+vi.mock("../../../src/lib/market-data/movers", () => ({
 	fetchTopMovers: vi.fn().mockResolvedValue([]),
 }));
 

@@ -4,11 +4,11 @@ import { expectConsoleError } from "../setup";
 
 // The handler is thin orchestration over the real provider clients; mock those
 // so we can assert the pass/fail aggregation + paging behavior deterministically.
-vi.mock("../../src/lib/vendors/massive/aggregates", () => ({
+vi.mock("../../src/lib/market-data/bars", () => ({
 	fetchPrevClose: vi.fn(),
 	fetchDailyCloses: vi.fn(),
 }));
-vi.mock("../../src/lib/vendors/finnhub/earnings", () => ({
+vi.mock("../../src/lib/asset-events/earnings", () => ({
 	fetchEarnings: vi.fn(),
 }));
 vi.mock("../../src/lib/market-data/prices", () => ({
@@ -28,11 +28,11 @@ vi.mock("../../src/lib/messaging/telegram/sender", () => ({
 }));
 
 import { handler } from "../../src/handlers/live-provider-check";
+import { fetchEarnings } from "../../src/lib/asset-events/earnings";
+import { fetchDailyCloses, fetchPrevClose } from "../../src/lib/market-data/bars";
 import { fetchAssetPrices } from "../../src/lib/market-data/prices";
 import { getCurrentMarketSession } from "../../src/lib/market-data/session";
 import { checkTelegramLive } from "../../src/lib/messaging/telegram/health";
-import { fetchEarnings } from "../../src/lib/vendors/finnhub/earnings";
-import { fetchDailyCloses, fetchPrevClose } from "../../src/lib/vendors/massive/aggregates";
 
 const event = { id: "evt-1", time: "2026-06-13T16:00:00Z" } as ScheduledEvent;
 const context = { awsRequestId: "test-request-id" } as Context;

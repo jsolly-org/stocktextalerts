@@ -11,7 +11,7 @@ import {
 	type SparklineWindow,
 	toSparkline,
 } from "../messaging/sparkline";
-import { fetchDailyCloses, fetchIntradayBars } from "../vendors/massive/aggregates";
+import { fetchDailyCloses, fetchIntradayBars } from "./bars";
 import type { SparklineCacheOptions } from "./types";
 
 /** Fetch 7-point sparklines for the last ~week of closes. */

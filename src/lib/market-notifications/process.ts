@@ -6,6 +6,8 @@ import {
 	US_MARKET_TIMEZONE,
 } from "../constants";
 import { rootLogger } from "../logging";
+import { fetchIntradayBars } from "../market-data/bars";
+import type { IntradayCandle } from "../market-data/types";
 import { fetchExtendedQuotes } from "../market-data/prices";
 import { getCurrentMarketSession } from "../market-data/session";
 import type { ExtendedAssetQuote, ExtendedQuoteMap, MarketSession } from "../market-data/types";
@@ -16,7 +18,6 @@ import { createSmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { createTelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { SupabaseAdminClient } from "../schedule/helpers";
-import { fetchIntradayBars, type IntradayCandle } from "../vendors/massive/aggregates";
 import { getAnomalyThreshold } from "./alert-profile";
 import { computeAnomalyScore } from "./anomaly-detection";
 import { fetchDailyStats } from "./daily-stats";

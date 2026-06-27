@@ -2,12 +2,12 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.unmock("../../../src/lib/market-data/sparklines");
 
-vi.mock("../../../src/lib/vendors/massive/aggregates", () => ({
+vi.mock("../../../src/lib/market-data/bars", () => ({
 	fetchIntradayBars: vi.fn(),
 	fetchDailyCloses: vi.fn(),
 }));
 
-import { fetchIntradayBars } from "../../../src/lib/vendors/massive/aggregates";
+import { fetchIntradayBars } from "../../../src/lib/market-data/bars";
 
 type MarketDataSparklines = typeof import("../../../src/lib/market-data/sparklines");
 

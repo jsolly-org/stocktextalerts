@@ -1,6 +1,6 @@
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
-import { fetchPrevDayBar, fetchSnapshotQuotes } from "../vendors/massive/snapshot";
+import { fetchPrevDayBar, fetchSnapshotQuotes } from "./quotes";
 import type {
 	AssetPriceMap,
 	AssetPricesWithSessionState,

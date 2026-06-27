@@ -1,7 +1,3 @@
-export { fetchEarnings } from "../vendors/finnhub/earnings";
-export {
-	fetchDividends,
-	fetchIpos,
-	fetchSplits,
-	type ProviderResult,
-} from "../vendors/massive/reference";
+export { fetchDividends, fetchIpos, fetchSplits } from "./corporate-actions";
+export { fetchEarnings } from "./earnings";
+export type { ProviderResult } from "./types";

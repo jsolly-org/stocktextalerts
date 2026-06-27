@@ -82,7 +82,7 @@ getCurrentMarketSessionMock.mockResolvedValue("regular");
 fetchIntradaySparklinesMock.mockResolvedValue(new Map());
 fetchSparklinesMock.mockResolvedValue(new Map());
 
-vi.mock("../../../src/lib/vendors/massive/movers", () => ({
+vi.mock("../../../src/lib/market-data/movers", () => ({
 	fetchTopMovers: vi.fn().mockResolvedValue([]),
 }));
 

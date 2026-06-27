@@ -4,6 +4,7 @@ import { DateTime } from "luxon";
 import { type AssetEventProvider, fetchAndStoreAssetEvents } from "../asset-events/fetch";
 import { readEnv } from "../db/env";
 import type { Logger } from "../logging";
+import { fetchDailyOHLCV } from "../market-data/bars";
 import {
 	dailyBarsToCloseRows,
 	type PriceHistoryRow,
@@ -12,7 +13,6 @@ import {
 } from "../market-notifications/price-history-cache";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
-import { fetchDailyOHLCV } from "../vendors/massive/aggregates";
 
 /** Max SQS receive attempts before redrive to poison DLQ (matches template maxReceiveCount). */
 export const VENDOR_BACKFILL_MAX_ATTEMPTS = 5;

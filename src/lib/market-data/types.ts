@@ -1,14 +1,50 @@
 import type { SupabaseAdminClient } from "../schedule/helpers";
 
-// Re-exported so messaging-layer consumers don't reach into `vendors/massive/snapshot`
-// directly — market-data is the public abstraction over the snapshot API.
-export { NO_SESSION_TRADE, type NoSessionTrade } from "../vendors/massive/snapshot";
+/**
+ * Sentinel when Massive returned the ticker entry but no live trade exists for
+ * the current session. Distinct from `null` (ticker missing from response).
+ */
+export const NO_SESSION_TRADE = "no_session_trade" as const;
+export type NoSessionTrade = typeof NO_SESSION_TRADE;
+
+/** A single intraday OHLC bar (`t` is ms since epoch). */
+export interface IntradayCandle {
+	o: number;
+	h: number;
+	l: number;
+	c: number;
+	t: number;
+}
+
+/** Result of extracting closes and timestamps from intraday bars. */
+export interface IntradayBarsResult {
+	closes: number[];
+	timestamps: (number | null)[] | null;
+	startTimestamp: number | null;
+	endTimestamp: number | null;
+	candles: IntradayCandle[] | null;
+}
+
+/** Single daily OHLCV bar extracted from Massive aggregates. */
+export interface DailyOHLCVBar {
+	open: number;
+	high: number;
+	low: number;
+	close: number;
+	volume: number;
+	tradingDate?: string;
+}
+
+export interface TopMover {
+	ticker: string;
+	price: number;
+	changePercent: number;
+}
 
 interface AssetPrice {
 	price: number;
 	changePercent: number;
 	timestamp?: number | null;
-	/** Yesterday's close (Massive `prevDay.c`). */
 	prevClose?: number | null;
 }
 
@@ -30,12 +66,6 @@ export type ExtendedQuoteMap = Map<string, ExtendedAssetQuote | null>;
 /**
  * Price map plus a side-channel set of symbols whose ticker entry was
  * returned by Massive but had no live trade in the current session.
- *
- * Only the scheduled-notification renderer consumes `noSessionTrade` (to
- * show "no pre-market trades" instead of the generic "price unavailable").
- * Movement alerts, snapshot persistence, the daily digest, etc. don't
- * distinguish — a `null` entry in `prices` is treated the same regardless
- * of cause, so they use `fetchAssetPrices` / `fetchExtendedQuotes` directly.
  */
 export interface AssetPricesWithSessionState {
 	prices: AssetPriceMap;

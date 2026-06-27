@@ -1,11 +1,8 @@
 import { enqueueNewSymbolWarmup } from "../backfill/queue";
 import type { Logger } from "../logging";
 import type { SupabaseAdminClient } from "../schedule/helpers";
-import {
-	type ActiveTicker,
-	fetchActiveTickers,
-	fetchTickerDetail,
-} from "../vendors/massive/reference";
+import { fetchTickerDetail } from "./reference/ticker-detail";
+import { type ActiveTicker, fetchActiveTickers } from "./reference/universe";
 
 /** Default per-run enrichment cap — candidates beyond this defer to subsequent runs. */
 const DEFAULT_ENRICHMENT_CAP = 500;

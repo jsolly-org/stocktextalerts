@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { extractOHLCVFromBars } from "../../../src/lib/market-data/bars";
 import {
 	computeADV,
 	computeATR,
 	type DailyOHLCVBar,
 } from "../../../src/lib/market-notifications/daily-stats";
-import { extractOHLCVFromBars } from "../../../src/lib/vendors/massive/aggregates";
 
 function makeBar(overrides: Partial<DailyOHLCVBar> = {}): DailyOHLCVBar {
 	return {

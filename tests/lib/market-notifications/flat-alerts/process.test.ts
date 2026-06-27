@@ -15,10 +15,10 @@ import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
  * Mocks: only external providers + the email sender.
  * Supabase stays real so RPC/DB semantics are tested end-to-end.
  * ============= */
-vi.mock("../../../../src/lib/vendors/massive/aggregates", async () => {
-	const actual = await vi.importActual<
-		typeof import("../../../../src/lib/vendors/massive/aggregates")
-	>("../../../../src/lib/vendors/massive/aggregates");
+vi.mock("../../../../src/lib/market-data/bars", async () => {
+	const actual = await vi.importActual<typeof import("../../../../src/lib/market-data/bars")>(
+		"../../../../src/lib/market-data/bars",
+	);
 	return {
 		...actual,
 		fetchIntradayBars: vi.fn(async () => ({
@@ -400,7 +400,7 @@ describe("processFlatPriceAlerts", () => {
 		await enableFlatAlerts(testUser.id);
 
 		// Simulate a transient Massive 5xx during market hours
-		const { fetchIntradayBars } = await import("../../../../src/lib/vendors/massive/aggregates");
+		const { fetchIntradayBars } = await import("../../../../src/lib/market-data/bars");
 		vi.mocked(fetchIntradayBars).mockRejectedValueOnce(new Error("Massive 502 bad gateway"));
 
 		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);

@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fillSnapshotMissesWithPrevDayBar } from "../../../src/lib/market-data/prices";
 import { expectConsoleError } from "../../setup";
 
-vi.mock("../../../src/lib/vendors/massive/snapshot", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/massive/snapshot")>(
-		"../../../src/lib/vendors/massive/snapshot",
+vi.mock("../../../src/lib/market-data/quotes", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/quotes")>(
+		"../../../src/lib/market-data/quotes",
 	);
 	return {
 		...actual,
@@ -12,7 +12,7 @@ vi.mock("../../../src/lib/vendors/massive/snapshot", async () => {
 	};
 });
 
-const { fetchPrevDayBar } = await import("../../../src/lib/vendors/massive/snapshot");
+const { fetchPrevDayBar } = await import("../../../src/lib/market-data/quotes");
 const fetchPrevDayBarMock = vi.mocked(fetchPrevDayBar);
 
 afterEach(() => {
