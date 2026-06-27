@@ -35,6 +35,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
+ROOT="$REPO_ROOT"
 
 # Shared fleet gate helpers (dotagents/gate/gate-lib.sh) — sourced the same way .git-hooks/pre-push
 # does, purely for gate_npm_ci below (sourcing has no side effects). gate_npm_ci resolves the repo
@@ -97,7 +98,7 @@ fi
 # Allowlist-load ONLY the deploy creds from .env.local — never `set -a` the
 # whole file: the rest of it (prod service keys, Twilio, vendor keys) must not
 # reach the deploy's child processes (sam/zip/aws).
-DEPLOY_VARS=(DATABASE_URL_PROD AWS_PROFILE)
+DEPLOY_VARS=(DATABASE_URL_PROD AWS_PROFILE PRODUCTION_SITE_URL)
 if [ -f .env.local ]; then
   for _var in "${DEPLOY_VARS[@]}"; do
     if [ -z "${!_var:-}" ]; then
@@ -246,13 +247,13 @@ deploy_code VendorBackfillFunction stocktextalerts-vendor-backfill
 deploy_code LiveProviderCheckFunction stocktextalerts-live-provider-check
 deploy_code BackupUserSettingsFunction stocktextalerts-backup-user-settings
 
-# --- Phase 4: Vercel web deploy (remote build) ---
+# --- Phase 4: Vercel web deploy (local build via gate_deploy_vercel, prebuilt upload) ---
 # Last, so the web tier ships against the freshly migrated DB + updated Lambdas.
 # Link via non-secret env vars (the gitignored .vercel/ may be absent in a worktree).
+: "${PRODUCTION_SITE_URL:?set PRODUCTION_SITE_URL in .env.local (canonical production URL for local vercel build)}"
+export VERCEL_PROJECT_PRODUCTION_URL="${PRODUCTION_SITE_URL#https://}"
+export VERCEL_PROJECT_PRODUCTION_URL="${VERCEL_PROJECT_PRODUCTION_URL#http://}"
 phase="vercel web deploy"
-echo "• vercel deploy --prod"
-VERCEL_ORG_ID=team_T8yHg0aDz7nCbyBgJh5a2saR \
-VERCEL_PROJECT_ID=prj_wrSGjuWe4w82AdjlQAI3b60PSypJ \
-  vercel deploy --prod --yes
+gate_deploy_vercel team_T8yHg0aDz7nCbyBgJh5a2saR prj_wrSGjuWe4w82AdjlQAI3b60PSypJ
 
 echo "✓ stocktextalerts production deploy complete (Supabase + Lambda + Vercel web)"
