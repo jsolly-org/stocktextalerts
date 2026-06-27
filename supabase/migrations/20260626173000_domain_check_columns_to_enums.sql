@@ -1,3 +1,4 @@
+-- squawk-ignore-file changing-column-type
 -- Convert CHECK-constrained text columns to Postgres enums so generated types narrow at the source.
 
 SET lock_timeout = '5s';
