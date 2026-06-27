@@ -4,7 +4,7 @@ import {
 	fetchGrokResponse,
 	type GrokResponsesRequest,
 	type GrokResponsesResponse,
-} from "../vendors/grok/client";
+} from "../vendors/grok";
 
 export type GrokSectionResult = {
 	content: string;

@@ -23,7 +23,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import { marketDataFetch } from "../../src/lib/vendors/massive/client";
+import { marketDataFetch } from "../../src/lib/vendors/massive";
 import { sicCodeToSector } from "../../src/lib/assets/sector-mapping";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

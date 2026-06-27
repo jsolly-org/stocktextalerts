@@ -4,7 +4,7 @@ import {
 	linkLabelFromUrl,
 	type XaiAnnotation,
 } from "../ai/grok-citations";
-import { fetchGrokResponseOnce, type GrokResponsesResponse } from "../vendors/grok/client";
+import { fetchGrokResponseOnce, type GrokResponsesResponse } from "../vendors/grok";
 
 const GROK_TIMEOUT_MS = 60_000;
 
