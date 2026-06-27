@@ -17,7 +17,7 @@ export interface AssetSnapshot {
 }
 
 /** Minutes to retain asset snapshots; rows older than this are purged by `purgeOldAssetSnapshots`. */
-export const RETENTION_MINUTES = 60;
+const RETENTION_MINUTES = 60;
 
 /**
  * Bulk-insert current tick's quotes as snapshot rows.
