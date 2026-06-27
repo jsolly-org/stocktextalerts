@@ -14,7 +14,7 @@ import {
 	asMinuteOfHour,
 	asSecondOfMinute,
 	type MinuteOfDay,
-} from "../domain/types";
+} from "../types";
 import { calculateNextSendAt, calculateNextSendAtFromTimes } from "./scheduled-times";
 import type { ParsedTime, TimeValue } from "./types";
 

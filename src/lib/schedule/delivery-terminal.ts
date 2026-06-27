@@ -1,19 +1,23 @@
 import { shouldSendSms } from "../messaging/sms/index";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { UserRecord } from "../messaging/types";
-import { MAX_NOTIFICATION_RETRIES, type SupabaseAdminClient } from "./helpers";
+import type { ScheduledSlotKey } from "../types";
+import {
+	type DeliveryMethod,
+	MAX_NOTIFICATION_RETRIES,
+	type ScheduledNotificationStatus,
+	type ScheduledNotificationType,
+	type SupabaseAdminClient,
+} from "./helpers";
 
-type ScheduledNotificationType = "market" | "daily" | "asset_events";
-type ChannelStatus = "sent" | "failed" | "sending" | "missing";
-
-async function getChannelStatus(options: {
-	supabase: SupabaseAdminClient;
-	userId: string;
-	notificationType: ScheduledNotificationType;
-	scheduledDate: string;
-	scheduledMinutes: number;
-	channel: "email" | "sms" | "telegram";
-}): Promise<{ status: ChannelStatus; attemptCount: number }> {
+async function getChannelDeliveryState(
+	options: {
+		supabase: SupabaseAdminClient;
+		userId: string;
+		notificationType: ScheduledNotificationType;
+		channel: DeliveryMethod;
+	} & ScheduledSlotKey,
+): Promise<{ status: ScheduledNotificationStatus | null; attemptCount: number }> {
 	const { data, error } = await options.supabase
 		.from("scheduled_notifications")
 		.select("status, attempt_count")
@@ -25,16 +29,19 @@ async function getChannelStatus(options: {
 		.maybeSingle();
 
 	if (error || !data) {
-		return { status: "missing", attemptCount: 0 };
+		return { status: null, attemptCount: 0 };
 	}
 
 	return {
-		status: data.status as ChannelStatus,
+		status: data.status,
 		attemptCount: data.attempt_count,
 	};
 }
 
-function channelIsTerminal(status: ChannelStatus, attemptCount: number): boolean {
+function channelDeliveryIsTerminal(
+	status: ScheduledNotificationStatus | null,
+	attemptCount: number,
+): boolean {
 	if (attemptCount >= MAX_NOTIFICATION_RETRIES) {
 		return true;
 	}
@@ -48,16 +55,16 @@ function channelIsTerminal(status: ChannelStatus, attemptCount: number): boolean
  * True when every required delivery channel for this slot is sent or retries are exhausted.
  * Failed channels with a future retry window remain non-terminal.
  */
-export async function shouldAdvanceScheduledNotificationSchedule(options: {
-	supabase: SupabaseAdminClient;
-	user: UserRecord;
-	notificationType: ScheduledNotificationType;
-	scheduledDate: string;
-	scheduledMinutes: number;
-	emailRequired: boolean;
-	smsRequired: boolean;
-	telegramRequired?: boolean;
-}): Promise<boolean> {
+export async function shouldAdvanceScheduledNotificationSchedule(
+	options: {
+		supabase: SupabaseAdminClient;
+		user: UserRecord;
+		notificationType: ScheduledNotificationType;
+		emailRequired: boolean;
+		smsRequired: boolean;
+		telegramRequired?: boolean;
+	} & ScheduledSlotKey,
+): Promise<boolean> {
 	const {
 		supabase,
 		user,
@@ -70,7 +77,7 @@ export async function shouldAdvanceScheduledNotificationSchedule(options: {
 	} = options;
 
 	if (emailRequired) {
-		const email = await getChannelStatus({
+		const email = await getChannelDeliveryState({
 			supabase,
 			userId: user.id,
 			notificationType,
@@ -78,13 +85,13 @@ export async function shouldAdvanceScheduledNotificationSchedule(options: {
 			scheduledMinutes,
 			channel: "email",
 		});
-		if (!channelIsTerminal(email.status, email.attemptCount)) {
+		if (!channelDeliveryIsTerminal(email.status, email.attemptCount)) {
 			return false;
 		}
 	}
 
 	if (smsRequired && shouldSendSms(user)) {
-		const sms = await getChannelStatus({
+		const sms = await getChannelDeliveryState({
 			supabase,
 			userId: user.id,
 			notificationType,
@@ -92,13 +99,13 @@ export async function shouldAdvanceScheduledNotificationSchedule(options: {
 			scheduledMinutes,
 			channel: "sms",
 		});
-		if (!channelIsTerminal(sms.status, sms.attemptCount)) {
+		if (!channelDeliveryIsTerminal(sms.status, sms.attemptCount)) {
 			return false;
 		}
 	}
 
 	if (telegramRequired && isTelegramChannelUsable(user)) {
-		const telegram = await getChannelStatus({
+		const telegram = await getChannelDeliveryState({
 			supabase,
 			userId: user.id,
 			notificationType,
@@ -106,7 +113,7 @@ export async function shouldAdvanceScheduledNotificationSchedule(options: {
 			scheduledMinutes,
 			channel: "telegram",
 		});
-		if (!channelIsTerminal(telegram.status, telegram.attemptCount)) {
+		if (!channelDeliveryIsTerminal(telegram.status, telegram.attemptCount)) {
 			return false;
 		}
 	}

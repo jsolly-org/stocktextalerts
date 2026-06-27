@@ -1,6 +1,8 @@
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.unmock("../../../src/lib/vendors/price-fetcher");
+
 const marketDataFetchMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../../../src/lib/vendors/massive", () => ({
@@ -25,7 +27,6 @@ describe("getCurrentMarketSession — calendar-aware half-day override", () => {
 
 	beforeEach(async () => {
 		marketDataFetchMock.mockReset();
-		isTestMock.mockReturnValue(false);
 		// Module-level cache in market-calendar persists across tests; reset
 		// the module graph so each test gets a fresh cache + fresh DateTime.utc().
 		vi.resetModules();

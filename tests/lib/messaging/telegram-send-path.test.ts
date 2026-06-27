@@ -1,12 +1,7 @@
 /**
- * Transformer payload tests for the REAL grammY send path.
+ * Transformer payload tests for the real grammY send path.
  *
- * The sender hard-gates (`!isProduction()` in createTelegramSender) mean the
- * mock branch short-circuits before `bot.api` is ever touched — so the actual
- * sendMessage/sendPhoto payload construction (entities, InputFile,
- * link_preview_options, disable_notification, message_id → messageSid) is never
- * exercised by the mock-gated suite. These tests close that gap WITHOUT hitting
- * Telegram by installing a grammY **transformer**
+ * Tests install a grammY **transformer**
  * (`bot.api.config.use((prev, method, payload) => fakeResponse)`), which
  * intercepts every outgoing call and lets us assert on the (method, payload)
  * pair while returning a fabricated Bot-API response.

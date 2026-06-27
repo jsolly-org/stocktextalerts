@@ -13,6 +13,7 @@ import type { UserAssetRow, UserRecord } from "../../messaging/types";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../../schedule/helpers";
 import { claimNotification, updateScheduledNotificationRow } from "../../schedule/helpers";
 import type { MarketClosureInfo } from "../../time/market-calendar";
+import type { IsoDateString, MinuteOfDay } from "../../types";
 import type { AssetPriceMap, MarketSession } from "../../vendors/price-fetcher";
 
 /**
@@ -25,8 +26,8 @@ export async function processMarketScheduledEmailDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	scheduledDate: string;
-	scheduledMinutes: number;
+	scheduledDate: IsoDateString;
+	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
 	assetsList: string;
 	sendEmail: EmailSender;
@@ -133,8 +134,8 @@ export async function processMarketScheduledSmsDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	scheduledDate: string;
-	scheduledMinutes: number;
+	scheduledDate: IsoDateString;
+	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
 	assetsList: string;
 	getSmsSender: SmsSenderFactory;
@@ -270,8 +271,8 @@ export async function processMarketScheduledTelegramDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	scheduledDate: string;
-	scheduledMinutes: number;
+	scheduledDate: IsoDateString;
+	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
 	priceMap: AssetPriceMap;
 	sessionLabel?: string | null;

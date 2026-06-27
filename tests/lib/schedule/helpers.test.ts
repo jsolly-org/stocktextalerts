@@ -13,6 +13,7 @@ import {
 	claimNotification,
 	MAX_NOTIFICATION_RETRIES,
 } from "../../../src/lib/schedule/helpers";
+import { assertIsoDateString, assertMinuteOfDay } from "../../../src/lib/types";
 import { computeDeliveryRetryDelayMs } from "../../../src/lib/vendors/vendor-fault-tolerance";
 import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";
@@ -31,8 +32,8 @@ describe("claimNotification surfaces the claim RPC's post-claim attempt_count", 
 			supabase,
 			userId: "00000000-0000-0000-0000-000000000001",
 			notificationType: "daily",
-			scheduledDate: "2026-06-24",
-			scheduledMinutes: 540,
+			scheduledDate: assertIsoDateString("2026-06-24"),
+			scheduledMinutes: assertMinuteOfDay(540),
 			channel: "email",
 			logger: rootLogger,
 		});
@@ -48,8 +49,8 @@ describe("claimNotification surfaces the claim RPC's post-claim attempt_count", 
 			supabase,
 			userId: "00000000-0000-0000-0000-000000000002",
 			notificationType: "daily",
-			scheduledDate: "2026-06-24",
-			scheduledMinutes: 540,
+			scheduledDate: assertIsoDateString("2026-06-24"),
+			scheduledMinutes: assertMinuteOfDay(540),
 			channel: "email",
 			logger: rootLogger,
 		});
@@ -68,8 +69,8 @@ describe("claimNotification surfaces the claim RPC's post-claim attempt_count", 
 			supabase: adminClient,
 			userId: user.id,
 			notificationType: "daily" as const,
-			scheduledDate: "2026-06-24",
-			scheduledMinutes: 540,
+			scheduledDate: assertIsoDateString("2026-06-24"),
+			scheduledMinutes: assertMinuteOfDay(540),
 			channel: "email" as const,
 			logger: rootLogger,
 		};

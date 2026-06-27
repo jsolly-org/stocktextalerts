@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../constants";
 import type { Logger } from "../logging";
+import { asMinuteOfDay, type MinuteOfDay } from "../types";
 import { parseTimeToMinutes } from "./format";
 
 function buildLocalDateTime(options: {
@@ -125,13 +126,13 @@ export function calculateNextSendAtFromTimes(
  *
  * Returns `null` when the timezone conversion is invalid.
  */
-export function getLocalMinutesFromDateTime(timezone: string, date: DateTime): number | null {
+export function getLocalMinutesFromDateTime(timezone: string, date: DateTime): MinuteOfDay | null {
 	const local = date.setZone(timezone);
 	if (!local.isValid) {
 		return null;
 	}
 
-	return local.hour * 60 + local.minute;
+	return asMinuteOfDay(local.hour * 60 + local.minute);
 }
 
 type ScheduledTimesParseResult = { ok: true; times: number[] } | { ok: false; reason: string };

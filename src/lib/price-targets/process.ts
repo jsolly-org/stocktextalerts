@@ -1,3 +1,4 @@
+import type { PriceTargetDirection } from "../db";
 import { rootLogger } from "../logging";
 import { isEmailChannelUsable } from "../messaging/email/eligibility";
 import { createEmailSender } from "../messaging/email/utils";
@@ -49,7 +50,7 @@ export interface TriggeredPriceTarget {
 	symbol: string;
 	targetPrice: number;
 	currentPrice: number;
-	direction: "above" | "below";
+	direction: PriceTargetDirection;
 	iconUrl?: string | null;
 	iconBase64?: string | null;
 }
@@ -67,7 +68,7 @@ interface PriceTargetRow {
 	user_id: string;
 	symbol: string;
 	target_price: number;
-	direction: string;
+	direction: PriceTargetDirection;
 	triggered_at: string | null;
 	triggered_price: number | null;
 	attempt_count: number;
@@ -279,7 +280,7 @@ export async function processPriceTargets(options: {
 				symbol: target.symbol,
 				targetPrice: target.target_price,
 				currentPrice,
-				direction: target.direction as "above" | "below",
+				direction: target.direction,
 				iconUrl: iconUrlMap.get(target.symbol) ?? null,
 				iconBase64: iconBase64Map.get(target.symbol) ?? null,
 			};
@@ -298,7 +299,7 @@ export async function processPriceTargets(options: {
 				symbol: target.symbol,
 				targetPrice: target.target_price,
 				currentPrice,
-				direction: target.direction as "above" | "below",
+				direction: target.direction,
 				iconUrl: iconUrlMap.get(target.symbol) ?? null,
 				iconBase64: iconBase64Map.get(target.symbol) ?? null,
 			};

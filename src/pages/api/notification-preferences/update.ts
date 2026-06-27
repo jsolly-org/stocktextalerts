@@ -10,6 +10,7 @@ import {
 	buildNotificationPreferencesUpdatePayload,
 } from "../../../lib/api/notification-preferences-update";
 import { createUserService, type User } from "../../../lib/db";
+import { Constants } from "../../../lib/db/generated/database.types";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
@@ -47,7 +48,7 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	market_asset_price_alerts_include_sms: { type: "boolean" },
 	market_asset_price_alert_move_size: {
 		type: "enum",
-		values: ["significant", "extreme"],
+		values: Constants.public.Enums.alert_move_size,
 	},
 	price_move_alerts_include_email: { type: "boolean" },
 	price_move_alerts_include_sms: { type: "boolean" },

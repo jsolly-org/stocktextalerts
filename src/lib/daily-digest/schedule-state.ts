@@ -3,111 +3,30 @@ import type { Logger } from "../logging";
 import { shouldSendSms } from "../messaging/sms/index";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { UserRecord } from "../messaging/types";
+import { shouldAdvanceScheduledNotificationSchedule } from "../schedule/delivery-terminal";
 import {
 	getMaxDailyDigestSlotAttempts,
 	MAX_NOTIFICATION_RETRIES,
 	type SupabaseAdminClient,
 } from "../schedule/helpers";
 import { toIsoOrThrow } from "../time/format";
+import type { ScheduledSlotKey } from "../types";
 import { computeDeliveryRetryDelayMs } from "../vendors/vendor-fault-tolerance";
 
-type ChannelStatus = "sent" | "failed" | "sending" | "missing";
-
-async function getChannelStatus(options: {
-	supabase: SupabaseAdminClient;
-	userId: string;
-	scheduledDate: string;
-	scheduledMinutes: number;
-	channel: "email" | "sms" | "telegram";
-}): Promise<{ status: ChannelStatus; attemptCount: number }> {
-	const { data, error } = await options.supabase
-		.from("scheduled_notifications")
-		.select("status, attempt_count")
-		.eq("user_id", options.userId)
-		.eq("notification_type", "daily")
-		.eq("scheduled_date", options.scheduledDate)
-		.eq("scheduled_minutes", options.scheduledMinutes)
-		.eq("channel", options.channel)
-		.maybeSingle();
-
-	if (error || !data) {
-		return { status: "missing", attemptCount: 0 };
-	}
-
-	return {
-		status: data.status as ChannelStatus,
-		attemptCount: data.attempt_count,
-	};
-}
-
-function channelIsTerminal(status: ChannelStatus, attemptCount: number): boolean {
-	if (attemptCount >= MAX_NOTIFICATION_RETRIES) return true;
-	if (status === "sent") return true;
-	return false;
-}
-
-/**
- * True when every enabled delivery channel for this digest slot is sent or retries are exhausted.
- */
-export async function shouldAdvanceDailyDigestSchedule(options: {
-	supabase: SupabaseAdminClient;
-	user: UserRecord;
-	scheduledDate: string;
-	scheduledMinutes: number;
-	emailRequired: boolean;
-	smsRequired: boolean;
-	telegramRequired?: boolean;
-}): Promise<boolean> {
-	const {
-		supabase,
-		user,
-		scheduledDate,
-		scheduledMinutes,
-		emailRequired,
-		smsRequired,
-		telegramRequired,
-	} = options;
-
-	if (emailRequired) {
-		const email = await getChannelStatus({
-			supabase,
-			userId: user.id,
-			scheduledDate,
-			scheduledMinutes,
-			channel: "email",
-		});
-		if (!channelIsTerminal(email.status, email.attemptCount)) {
-			return false;
-		}
-	}
-
-	if (smsRequired && shouldSendSms(user)) {
-		const sms = await getChannelStatus({
-			supabase,
-			userId: user.id,
-			scheduledDate,
-			scheduledMinutes,
-			channel: "sms",
-		});
-		if (!channelIsTerminal(sms.status, sms.attemptCount)) {
-			return false;
-		}
-	}
-
-	if (telegramRequired && isTelegramChannelUsable(user)) {
-		const telegram = await getChannelStatus({
-			supabase,
-			userId: user.id,
-			scheduledDate,
-			scheduledMinutes,
-			channel: "telegram",
-		});
-		if (!channelIsTerminal(telegram.status, telegram.attemptCount)) {
-			return false;
-		}
-	}
-
-	return true;
+/** True when every enabled delivery channel for this digest slot is sent or retries are exhausted. */
+export async function shouldAdvanceDailyDigestSchedule(
+	options: {
+		supabase: SupabaseAdminClient;
+		user: UserRecord;
+		emailRequired: boolean;
+		smsRequired: boolean;
+		telegramRequired?: boolean;
+	} & ScheduledSlotKey,
+): Promise<boolean> {
+	return shouldAdvanceScheduledNotificationSchedule({
+		...options,
+		notificationType: "daily",
+	});
 }
 
 /**
@@ -151,13 +70,13 @@ export async function deferDailyDigestProcessingRetry(options: {
 /**
  * Record a processing failure before any channel delivery (increments slot attempt counters).
  */
-export async function recordDailyDigestProcessingFailure(options: {
-	supabase: SupabaseAdminClient;
-	user: UserRecord;
-	scheduledDate: string;
-	scheduledMinutes: number;
-	logger: Logger;
-}): Promise<void> {
+export async function recordDailyDigestProcessingFailure(
+	options: {
+		supabase: SupabaseAdminClient;
+		user: UserRecord;
+		logger: Logger;
+	} & ScheduledSlotKey,
+): Promise<void> {
 	const { supabase, user, scheduledDate, scheduledMinutes, logger } = options;
 	const userId = user.id;
 	const nowIso = toIsoOrThrow(DateTime.utc(), "Failed to format UTC ISO string");

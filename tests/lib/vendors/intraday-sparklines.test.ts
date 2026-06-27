@@ -1,8 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../src/lib/runtime/mode", () => ({
-	isTest: () => false,
-}));
+vi.unmock("../../../src/lib/vendors/price-fetcher");
 
 vi.mock("../../../src/lib/vendors/massive", () => ({
 	fetchIntradayBars: vi.fn(),
@@ -15,9 +13,16 @@ vi.mock("../../../src/lib/vendors/massive", () => ({
 }));
 
 import { fetchIntradayBars } from "../../../src/lib/vendors/massive";
-import { fetchIntradaySparklines } from "../../../src/lib/vendors/price-fetcher";
+
+type PriceFetcher = typeof import("../../../src/lib/vendors/price-fetcher");
 
 describe("A subscriber in early pre-market receives a notification before any 5-minute bar has closed", () => {
+	let fetchIntradaySparklines: PriceFetcher["fetchIntradaySparklines"];
+
+	beforeAll(async () => {
+		({ fetchIntradaySparklines } = await import("../../../src/lib/vendors/price-fetcher"));
+	});
+
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
@@ -88,6 +93,12 @@ describe("A subscriber in early pre-market receives a notification before any 5-
 });
 
 describe("Pre-market snapshot quote is fresher than the latest 5-minute aggregate bar", () => {
+	let fetchIntradaySparklines: PriceFetcher["fetchIntradaySparklines"];
+
+	beforeAll(async () => {
+		({ fetchIntradaySparklines } = await import("../../../src/lib/vendors/price-fetcher"));
+	});
+
 	afterEach(() => {
 		vi.clearAllMocks();
 	});

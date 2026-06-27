@@ -30,6 +30,7 @@ import type { DeliveryResult, UserAssetRow, UserRecord } from "../messaging/type
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
 import type { MarketClosureInfo } from "../time/market-calendar";
+import type { IsoDateString, MinuteOfDay } from "../types";
 import type { AssetPriceMap } from "../vendors/price-fetcher";
 
 const TICKER_LINE_RE = /^[A-Z][A-Z0-9.-]{0,9}:\s/;
@@ -454,8 +455,8 @@ export async function processDailyDigestEmailDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	scheduledDate: string;
-	scheduledMinutes: number;
+	scheduledDate: IsoDateString;
+	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
 	extras: SmsExtras;
@@ -559,8 +560,8 @@ export async function processDailyDigestSmsDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	scheduledDate: string;
-	scheduledMinutes: number;
+	scheduledDate: IsoDateString;
+	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
 	extras: SmsExtras;
@@ -716,8 +717,8 @@ export async function processDailyDigestTelegramDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	scheduledDate: string;
-	scheduledMinutes: number;
+	scheduledDate: IsoDateString;
+	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
 	extras: SmsExtras;

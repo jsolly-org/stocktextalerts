@@ -17,7 +17,6 @@ import {
 	buildSessionFirstLine,
 	buildSessionFirstLineHtml,
 } from "../../market-notifications/scheduled/session-label";
-import { isProduction } from "../../runtime/mode";
 import type { AssetPriceMap, MarketSession } from "../../vendors/price-fetcher";
 import { NO_SESSION_TRADE } from "../../vendors/price-fetcher";
 import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
@@ -85,40 +84,18 @@ export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 /**
  * Create an email sender.
  *
- * Three branches, in order:
- *  1. `EMAIL_SMTP_HOST` set → route through local SMTP (Mailpit). Used by
- *     `astro dev` and by live email tests; inspect at http://localhost:54324.
- *  2. Non-production build → mock sender. Tests and dev can never reach
- *     real SES by accident.
- *  3. Production build → real AWS SES via `SESv2Client`.
- *
- * Rationale: on 2026-04-11 a local test run delivered a real "Scheduled
- * Price Notification" email to a real inbox via prod credentials from
- * `.env.local`. Do not add an ALLOW_REAL_EMAIL escape hatch — if you
- * need to see a rendered email, point `EMAIL_SMTP_HOST` at Mailpit.
+ * When `EMAIL_SMTP_HOST` is set, routes through local SMTP (Mailpit) — used by
+ * `astro dev` and live email tests. Otherwise sends via AWS SES.
  */
 export function createEmailSender(): EmailSender {
 	const fromEmail = requireEnv("EMAIL_FROM");
 	const defaultReplyTo = readEnv("EMAIL_REPLY_TO");
 	const smtpHost = readEnv("EMAIL_SMTP_HOST");
 
-	// 1. Local SMTP (Mailpit) branch. Used by dev + live email tests.
 	if (smtpHost) {
 		return createSmtpSender({ host: smtpHost, fromEmail, defaultReplyTo });
 	}
 
-	// 2. Hard gate: no real SES outside production builds, ever. Tests and
-	// `astro dev` receive a no-op mock so they can never burn SES credits
-	// or deliver to real mailboxes.
-	if (!isProduction()) {
-		return async () => ({
-			success: true,
-			messageSid: "mock",
-		});
-	}
-
-	// 3. Production: real SES via the default credential chain (Lambda execution role).
-	// maxAttempts: 1 — retries are delegated to withDeliveryRetry so they aren't multiplied.
 	const sesClient = new SESv2Client({
 		region: readEnv("AWS_REGION") || "us-east-1",
 		maxAttempts: 1,

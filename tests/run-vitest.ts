@@ -21,13 +21,9 @@ function ensureNoWatch(vitestArgs: string[]): string[] {
  * - exits with the child process status code
  */
 async function main() {
-	// Force NODE_ENV=test regardless of what the shell inherits. The sender
-	// hard-gates in src/lib/messaging/ and src/lib/auth/ call isProduction()
-	// which reads process.env.NODE_ENV, and Vitest only sets NODE_ENV via
-	// `??=` — it won't overwrite an inherited `NODE_ENV=production` from the
-	// shell. Without this line, a developer with `NODE_ENV=production` in
-	// their shell rc would silently route real Twilio/SES calls during
-	// tests (the 2026-04-11 incident class).
+	// Force NODE_ENV=test regardless of what the shell inherits. Vitest only
+	// sets NODE_ENV via `??=` — it won't overwrite an inherited
+	// `NODE_ENV=production` from the shell.
 	process.env.NODE_ENV = "test";
 
 	try {

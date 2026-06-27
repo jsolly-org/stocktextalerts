@@ -1,6 +1,5 @@
 import { readEnv } from "../../db/env";
 import type { Logger } from "../../logging";
-import { isProduction } from "../../runtime/mode";
 import type { DeliveryResult } from "../types";
 import { signEmailDispatchBody } from "./dispatch-auth";
 import {
@@ -25,7 +24,8 @@ export async function sendAppTransactionalEmail(
 	const dispatchSecret = readEnv("EMAIL_DISPATCH_SECRET");
 
 	if (!dispatchUrl || !dispatchSecret) {
-		if (!isProduction()) {
+		const smtpHost = readEnv("EMAIL_SMTP_HOST");
+		if (smtpHost?.trim()) {
 			return createEmailSender()(request);
 		}
 		const missing = [

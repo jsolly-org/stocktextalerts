@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { EmailSender } from "../../../src/lib/messaging/email/utils";
+import type { EmailRequest, EmailSender } from "../../../src/lib/messaging/email/utils";
 import { expectConsoleError } from "../../setup";
 
 const mockEmailSender = vi.hoisted(() =>
@@ -9,13 +9,9 @@ const mockEmailSender = vi.hoisted(() =>
 	})),
 );
 
-vi.mock("../../../src/lib/messaging/email/utils", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("../../../src/lib/messaging/email/utils")>();
-	return {
-		...actual,
-		createEmailSender: () => mockEmailSender,
-	};
-});
+vi.mock("../../../src/lib/messaging/email/dispatch-client", () => ({
+	sendAppTransactionalEmail: (request: EmailRequest, _logger: unknown) => mockEmailSender(request),
+}));
 
 describe("sendUserApprovalEmail", () => {
 	afterEach(() => {

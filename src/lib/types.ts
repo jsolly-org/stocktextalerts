@@ -1,10 +1,12 @@
 /**
- * Application-level domain types that narrow generated Supabase primitives.
+ * Application-level types that narrow generated Supabase primitives.
  *
- * Postgres check constraints and enums are not reflected in `database.types.ts`;
- * use these aliases at app boundaries. Columns listed under "Migration candidates"
- * below could become Postgres enums/domains so generated types narrow at the source.
+ * Branded scalars (dates, minutes) live here. Postgres enum-backed columns are
+ * typed via `Database["public"]["Enums"]` in `src/lib/db/index.ts`.
  */
+
+import type { Database } from "./db/generated/database.types";
+import { Constants } from "./db/generated/database.types";
 
 declare const brand: unique symbol;
 type Brand<B extends string> = { readonly [brand]: B };
@@ -13,22 +15,15 @@ type Brand<B extends string> = { readonly [brand]: B };
 Asset
 ============= */
 
-/** Normalized asset class (`assets.type` CHECK: stock | etf). */
-export type AssetType = "stock" | "etf";
+/** Normalized asset class (`assets.type` enum). */
+export type AssetType = Database["public"]["Enums"]["asset_type"];
 
-const ASSET_TYPES = ["stock", "etf"] as const satisfies readonly AssetType[];
-
-function parseAssetType(value: string): AssetType | null {
-	return ASSET_TYPES.includes(value as AssetType) ? (value as AssetType) : null;
-}
-
-/** Assert asset type at DB read boundaries (constraint-backed). */
+/** Assert asset type at DB read boundaries. */
 export function assertAssetType(value: string): AssetType {
-	const parsed = parseAssetType(value);
-	if (!parsed) {
+	if (!(Constants.public.Enums.asset_type as readonly string[]).includes(value)) {
 		throw new Error(`Invalid asset type: ${value}`);
 	}
-	return parsed;
+	return value as AssetType;
 }
 
 /* =============
@@ -107,15 +102,8 @@ export function assertYearMonthString(value: string): YearMonthString {
 	return parsed;
 }
 
-/* =============
-DB wrapper aliases (migration candidates)
-============= */
-
-/**
- * Migration candidates — app wrappers until converted to Postgres enums:
- * - `price_targets.direction` → "above" | "below"
- * - `users.market_asset_price_alert_move_size` → "significant" | "extreme"
- * - `market_asset_price_alert_cooldowns.delivery_status` → "reserved" | "finalized"
- * - `staged_notifications.notification_type` → align with StagedNotificationType + drop stale `market`
- * - `assets.type` → asset_type enum (AssetType already enforced by CHECK)
- */
+/** Composite key for a `scheduled_notifications` slot (local date + minute-of-day). */
+export interface ScheduledSlotKey {
+	scheduledDate: IsoDateString;
+	scheduledMinutes: MinuteOfDay;
+}

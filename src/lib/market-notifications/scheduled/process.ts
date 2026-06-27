@@ -25,6 +25,7 @@ import { isOutsideMarketHours, userLocalToEtMinute } from "../../time/format";
 import type { MarketClosureInfo } from "../../time/market-calendar";
 import { getUsMarketClosureInfoForInstant } from "../../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../../time/scheduled-times";
+import { assertIsoDateString } from "../../types";
 import type { AssetPriceMap, MarketSession } from "../../vendors/price-fetcher";
 import { fetchIntradaySparklines, NO_SESSION_TRADE } from "../../vendors/price-fetcher";
 import {
@@ -147,8 +148,8 @@ export async function processMarketScheduledUser(options: {
 			stats.skipped++;
 			return stats;
 		}
-		const scheduledDate = dueAtLocal.toISODate();
-		if (!scheduledDate) {
+		const rawScheduledDate = dueAtLocal.toISODate();
+		if (!rawScheduledDate) {
 			logger.error(
 				"Failed to format scheduled date",
 				{
@@ -163,6 +164,7 @@ export async function processMarketScheduledUser(options: {
 			stats.skipped++;
 			return stats;
 		}
+		const scheduledDate = assertIsoDateString(rawScheduledDate);
 		const scheduledMinutes = getLocalMinutesFromDateTime(user.timezone, dueAt);
 		if (scheduledMinutes === null) {
 			logger.error(

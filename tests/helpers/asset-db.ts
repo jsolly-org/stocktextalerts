@@ -37,7 +37,7 @@ export async function upsertAssets(records: AssetFixture[]): Promise<void> {
 		await client.query(
 			`
 				INSERT INTO public.assets (symbol, name, type, delisted_at)
-				SELECT symbol, name, type, delisted_at
+				SELECT symbol, name, type::public.asset_type, delisted_at
 				FROM jsonb_to_recordset($1::jsonb)
 					AS r(symbol text, name text, type text, delisted_at timestamptz)
 				ON CONFLICT (symbol) DO UPDATE

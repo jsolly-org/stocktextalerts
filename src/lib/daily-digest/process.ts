@@ -4,7 +4,6 @@ import {
 	buildAssetEventsContentForChannels,
 } from "../asset-events/content";
 import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
-import { assertIsoDateString, assertMinuteOfDay, assertYearMonthString } from "../domain/types";
 import type { Logger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
 import { formatSignedChangePercent, formatUsdPrice } from "../messaging/asset-formatting";
@@ -40,6 +39,13 @@ import {
 	type MarketSession,
 } from "../vendors/price-fetcher";
 import { withOptionalVendorBudget } from "../vendors/vendor-fault-tolerance";
+import {
+	assertIsoDateString,
+	assertYearMonthString,
+	type IsoDateString,
+	type MinuteOfDay,
+	type ScheduledSlotKey,
+} from "../types";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsMessageBodies,
@@ -116,10 +122,7 @@ function canInvokeGrokWithinLimit(options: {
 	return grokSendsInWindow < GROK_MAX_SENDS_PER_WINDOW;
 }
 
-interface DailyScheduleContext {
-	scheduledDate: string;
-	scheduledMinutes: number;
-}
+interface DailyScheduleContext extends ScheduledSlotKey {}
 
 /** Derive the (scheduledDate, scheduledMinutes) key for daily digest delivery. */
 function parseDailyScheduleContext(
@@ -178,7 +181,10 @@ function parseDailyScheduleContext(
 		);
 		return null;
 	}
-	return { scheduledDate, scheduledMinutes };
+	return {
+		scheduledDate: assertIsoDateString(scheduledDate),
+		scheduledMinutes,
+	};
 }
 
 /** Resolve whether Grok can be used for this digest run. */
@@ -187,8 +193,8 @@ function resolveGrokEligibility(
 	needsGrok: boolean,
 	currentTimeUtc: DateTime,
 	logger: Logger,
-	scheduledDate: string,
-	scheduledMinutes: number,
+	scheduledDate: IsoDateString,
+	scheduledMinutes: MinuteOfDay,
 ): { grokAllowed: boolean } {
 	const grokAllowed =
 		needsGrok &&
@@ -794,8 +800,8 @@ export async function processDailyDigestUser(options: {
 
 			const stagedData: StagedDailyData = {
 				type: "daily",
-				scheduledDate: assertIsoDateString(scheduledDate),
-				scheduledMinutes: assertMinuteOfDay(scheduledMinutes),
+				scheduledDate,
+				scheduledMinutes,
 				email: emailContent,
 				sms: smsContent,
 				telegram: telegramContent,

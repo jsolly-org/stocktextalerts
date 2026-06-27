@@ -46,6 +46,7 @@ import {
 	updateScheduledNotificationRow,
 } from "../schedule/helpers";
 import { toIsoOrThrow } from "../time/format";
+import type { IsoDateString, MinuteOfDay } from "../types";
 import { computeDeliveryRetryDelayMs } from "../vendors/vendor-fault-tolerance";
 import {
 	deleteStagedNotification,
@@ -74,7 +75,7 @@ function buildFinalStagedSmsMessages(
 	sms: StagedSmsContent,
 	delayText: string | null,
 	logger: Logger,
-	context: { userId: string; scheduledDate: string; scheduledMinutes: number },
+	context: { userId: string; scheduledDate: IsoDateString; scheduledMinutes: MinuteOfDay },
 ): string[] {
 	const messages = normalizeStagedSmsMessages(sms);
 	if (!delayText || messages.length === 0) {

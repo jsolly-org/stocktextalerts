@@ -1,3 +1,4 @@
+import type { AlertMoveSize } from "../../../lib/db";
 import { type AutoSaveFormOptions, useAutoSaveFormBase } from "./useAutoSaveFormBase";
 
 export type NotificationPreferencesData = {
@@ -31,7 +32,7 @@ export type NotificationPreferencesData = {
 	market_asset_price_alerts_enabled: boolean;
 	market_asset_price_alerts_include_email: boolean;
 	market_asset_price_alerts_include_sms: boolean;
-	market_asset_price_alert_move_size: "significant" | "extreme";
+	market_asset_price_alert_move_size: AlertMoveSize;
 	price_move_alerts_include_email: boolean;
 	price_move_alerts_include_sms: boolean;
 	price_targets_include_email: boolean;

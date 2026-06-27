@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_TIMEZONE } from "../../../../src/lib/constants";
-import type { EmailSender } from "../../../../src/lib/messaging/email/utils";
+import type { EmailRequest, EmailSender } from "../../../../src/lib/messaging/email/utils";
 import { POST } from "../../../../src/pages/api/auth/email/register";
 import { createApiContext } from "../../../helpers/api-context";
 import { TEST_PASSWORD } from "../../../helpers/constants";
@@ -22,13 +22,9 @@ vi.mock("../../../../src/lib/constants", async (importOriginal) => {
 	return { ...actual, REGISTRATION_ENABLED: true };
 });
 
-vi.mock("../../../../src/lib/messaging/email/utils", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("../../../../src/lib/messaging/email/utils")>();
-	return {
-		...actual,
-		createEmailSender: () => mockEmailSender,
-	};
-});
+vi.mock("../../../../src/lib/messaging/email/dispatch-client", () => ({
+	sendAppTransactionalEmail: (request: EmailRequest, _logger: unknown) => mockEmailSender(request),
+}));
 
 function buildRegistrationPayload(
 	overrides: Partial<{

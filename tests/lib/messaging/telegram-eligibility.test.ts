@@ -51,8 +51,8 @@ describe("Telegram delivery eligibility", () => {
 	});
 });
 
-describe("Telegram sender provider gate", () => {
-	it("in test mode the provider returns the deterministic mock, never the real bot", async () => {
+describe("Telegram sender factory gate", () => {
+	it("in test mode the factory returns the deterministic mock, never the real bot", async () => {
 		const { sender } = createTelegramSenderFactory()();
 		const result = await sender({ chatId: 8675309, text: "AAPL daily digest: up 1.2%" });
 		expect(result).toMatchObject({ success: true, messageSid: "mock" });
