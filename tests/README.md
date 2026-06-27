@@ -5,7 +5,7 @@ StockTextAlerts uses Vitest for unit/integration tests and Playwright for browse
 ## Supported entrypoints
 
 | Command | Wrapper | Notes |
-|---------|---------|-------|
+| --- | --- | --- |
 | `npm test` | `tests/run-vitest.ts` | Preferred. Loads `.env.local`, runs `db:doctor` preflight, acquires test lock. |
 | `npm run test:e2e` | `tests/run-playwright.ts` | Starts Astro on port **4322** (`MODE=test`). Acquires test lock. |
 | `npx vitest` / IDE runner | `vitest.config.ts` | Also normalized — see guardrails below. |
