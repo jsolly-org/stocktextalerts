@@ -1,9 +1,5 @@
 import type { Bot } from "grammy";
-import {
-	createTelegramBot,
-	createTelegramSender,
-	readTelegramBotToken,
-} from "./sender";
+import { createTelegramBot, createTelegramSender, readTelegramBotToken } from "./sender";
 
 interface TelegramSenderResult {
 	sender: ReturnType<typeof createTelegramSender>;

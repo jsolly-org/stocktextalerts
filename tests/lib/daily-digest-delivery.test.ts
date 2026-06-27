@@ -20,8 +20,8 @@ import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
 } from "../../src/lib/schedule/helpers";
-import type { AssetPriceMap } from "../../src/lib/vendors/price-fetcher";
 import { assertIsoDateString, assertMinuteOfDay } from "../../src/lib/types";
+import type { AssetPriceMap } from "../../src/lib/vendors/price-fetcher";
 import { makePrefRows } from "../helpers/user-record-fixture";
 
 describe("Daily digest email prices", () => {
