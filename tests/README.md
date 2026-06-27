@@ -34,7 +34,7 @@ Direct Vitest invocation (IDE, `npx vitest`) loads `.env.local` then applies `no
 
 `tests/helpers/env-stubs.ts` centralizes provider/messaging stub env vars (Massive, Finnhub, XAI, Telegram, Twilio, unsubscribe secrets). `tests/setup.ts` applies them at startup and restores them in `afterEach` so specs that call `vi.unstubAllEnvs()` cannot poison later files.
 
-For scoped env overrides inside a file, prefer `resetTestEnvStubs()` (`unstubAllEnvs` + restore baseline) in `afterEach`/`afterAll`.
+For scoped env overrides inside a file, call `vi.unstubAllEnvs()` then `restoreBaselineTestEnvStubs()` in `afterEach`/`afterAll`.
 
 ## Production credentials
 
