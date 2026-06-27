@@ -1,10 +1,9 @@
 import type { AstroCookies } from "astro";
-import { isProduction } from "../runtime/mode";
 
 const authCookieOptions = {
 	path: "/",
 	httpOnly: true,
-	secure: isProduction(),
+	secure: (process.env.NODE_ENV ?? process.env.MODE) === "production",
 	sameSite: "lax" as const,
 };
 

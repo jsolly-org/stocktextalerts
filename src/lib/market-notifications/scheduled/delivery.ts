@@ -14,6 +14,7 @@ import { claimNotification, updateScheduledNotificationRow } from "../../schedul
 import type { SmsSenderProvider } from "../../schedule/sms-sender";
 import type { TelegramSenderProvider } from "../../schedule/telegram-sender";
 import type { MarketClosureInfo } from "../../time/market-calendar";
+import type { IsoDateString, MinuteOfDay } from "../../types";
 
 /**
  * Deliver a scheduled market asset update via email and record the result.
@@ -25,8 +26,8 @@ export async function processMarketScheduledEmailDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	scheduledDate: string;
-	scheduledMinutes: number;
+	scheduledDate: IsoDateString;
+	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
 	assetsList: string;
 	sendEmail: EmailSender;
@@ -133,8 +134,8 @@ export async function processMarketScheduledSmsDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	scheduledDate: string;
-	scheduledMinutes: number;
+	scheduledDate: IsoDateString;
+	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
 	assetsList: string;
 	getSmsSender: SmsSenderProvider;
@@ -270,8 +271,8 @@ export async function processMarketScheduledTelegramDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	scheduledDate: string;
-	scheduledMinutes: number;
+	scheduledDate: IsoDateString;
+	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
 	priceMap: AssetPriceMap;
 	sessionLabel?: string | null;

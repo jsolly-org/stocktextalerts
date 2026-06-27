@@ -5,7 +5,6 @@ Twilio SMS
 import twilio, { type RestException } from "twilio";
 import { requireEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
-import { isProduction } from "../../runtime/mode";
 
 import { withDeliveryRetry } from "../delivery-retry";
 import type { DeliveryResult } from "../types";
@@ -58,45 +57,8 @@ export function createTwilioClient(config: TwilioSenderConfig): TwilioClient {
 	});
 }
 
-/**
- * Create an SMS sender function backed by Twilio.
- *
- * SMS has **no live test tier** — see docs/testing.md. Tests and
- * `astro dev` always receive a deterministic mock; only production builds reach
- * real Twilio, because the harness has no way to prevent real-number delivery
- * or per-message Twilio charges. SMS code paths are covered by unit/integration
- * tests that assert against the mock's recorded request shape.
- */
+/** Create an SMS sender function backed by Twilio. */
 export function createSmsSender(client: TwilioClient, defaultFromNumber: string): SmsSender {
-	// Hard gate: non-production always mocks. The `client` arg is ignored in
-	// this branch, so even if upstream constructs a real Twilio client with
-	// prod credentials from .env.local, we never call .messages.create on it.
-	if (!isProduction()) {
-		const behavior = process.env.SMS_TEST_BEHAVIOR ?? "success";
-		const testMessageSid = process.env.SMS_TEST_MESSAGE_SID ?? "mock";
-		const testError = process.env.SMS_TEST_ERROR ?? "Test SMS failure";
-		const testErrorCode = process.env.SMS_TEST_ERROR_CODE;
-		return async (request: SmsRequest) => {
-			if (!request.to || !request.body) {
-				return {
-					success: false,
-					error: `Test mock: missing required field(s): ${[!request.to && "to", !request.body && "body"].filter(Boolean).join(", ")}`,
-				};
-			}
-			if (behavior === "fail") {
-				return {
-					success: false,
-					error: testError,
-					errorCode: testErrorCode,
-				};
-			}
-			return {
-				success: true,
-				messageSid: testMessageSid,
-			};
-		};
-	}
-
 	return async (request: SmsRequest): Promise<DeliveryResult> => {
 		const from = request.from ?? defaultFromNumber;
 

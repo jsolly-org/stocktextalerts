@@ -1,9 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../src/lib/runtime/mode", () => ({
-	isTest: () => false,
-}));
-
 vi.mock("../../../src/lib/providers/massive", () => ({
 	fetchIntradayBars: vi.fn(),
 	fetchDailyCloses: vi.fn(),

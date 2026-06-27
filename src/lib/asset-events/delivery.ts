@@ -21,6 +21,7 @@ import { claimNotification, updateScheduledNotificationRow } from "../schedule/h
 import type { SmsSenderProvider } from "../schedule/sms-sender";
 import type { TelegramSenderProvider } from "../schedule/telegram-sender";
 import type { MarketClosureInfo } from "../time/market-calendar";
+import type { IsoDateString, MinuteOfDay } from "../types";
 
 /* =============
 SMS formatting
@@ -213,8 +214,8 @@ export async function processAssetEventsEmailDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	scheduledDate: string;
-	scheduledMinutes: number;
+	scheduledDate: IsoDateString;
+	scheduledMinutes: MinuteOfDay;
 	earningsSection: string | null;
 	dividendsSection: string | null;
 	splitsSection: string | null;
@@ -321,8 +322,8 @@ export async function processAssetEventsSmsDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	scheduledDate: string;
-	scheduledMinutes: number;
+	scheduledDate: IsoDateString;
+	scheduledMinutes: MinuteOfDay;
 	earningsSection: string | null;
 	dividendsSection: string | null;
 	splitsSection: string | null;
@@ -458,8 +459,8 @@ export async function processAssetEventsTelegramDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	scheduledDate: string;
-	scheduledMinutes: number;
+	scheduledDate: IsoDateString;
+	scheduledMinutes: MinuteOfDay;
 	earningsSection: string | null;
 	dividendsSection: string | null;
 	splitsSection: string | null;

@@ -47,6 +47,7 @@ import {
 import type { SmsSenderProvider } from "../schedule/sms-sender";
 import type { TelegramSenderProvider } from "../schedule/telegram-sender";
 import { toIsoOrThrow } from "../time/format";
+import type { IsoDateString, MinuteOfDay } from "../types";
 import {
 	deleteStagedNotification,
 	fetchDueStagedNotifications,
@@ -74,7 +75,7 @@ function buildFinalStagedSmsMessages(
 	sms: StagedSmsContent,
 	delayText: string | null,
 	logger: Logger,
-	context: { userId: string; scheduledDate: string; scheduledMinutes: number },
+	context: { userId: string; scheduledDate: IsoDateString; scheduledMinutes: MinuteOfDay },
 ): string[] {
 	const messages = normalizeStagedSmsMessages(sms);
 	if (!delayText || messages.length === 0) {

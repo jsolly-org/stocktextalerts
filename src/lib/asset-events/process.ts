@@ -16,6 +16,7 @@ import type { SmsSenderProvider } from "../schedule/sms-sender";
 import type { TelegramSenderProvider } from "../schedule/telegram-sender";
 import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
+import { assertIsoDateString } from "../types";
 import { type AssetEventsTelegramFacets, buildAssetEventsContentForChannels } from "./content";
 import {
 	processAssetEventsEmailDelivery,
@@ -92,8 +93,8 @@ export async function processAssetEventsUser(options: {
 			stats.skipped++;
 			return stats;
 		}
-		const scheduledDate = dueAtLocal.toISODate();
-		if (!scheduledDate) {
+		const rawScheduledDate = dueAtLocal.toISODate();
+		if (!rawScheduledDate) {
 			logger.error(
 				"Failed to format scheduled date (asset events)",
 				{
@@ -106,6 +107,7 @@ export async function processAssetEventsUser(options: {
 			stats.skipped++;
 			return stats;
 		}
+		const scheduledDate = assertIsoDateString(rawScheduledDate);
 		const scheduledMinutes = getLocalMinutesFromDateTime(user.timezone, dueAt);
 		if (scheduledMinutes === null) {
 			logger.error(

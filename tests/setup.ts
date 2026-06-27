@@ -30,18 +30,72 @@ vi.mock("../src/lib/db/env", async (importOriginal) => {
 	};
 });
 
+vi.mock("../src/lib/messaging/email/utils", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../src/lib/messaging/email/utils")>();
+	const { createTestEmailSender } = await import("./helpers/messaging-doubles");
+	return {
+		...actual,
+		createEmailSender: () => {
+			const smtpHost = process.env.EMAIL_SMTP_HOST;
+			if (typeof smtpHost === "string" && smtpHost.trim().length > 0) {
+				return actual.createEmailSender();
+			}
+			return createTestEmailSender();
+		},
+	};
+});
+
+vi.mock("../src/lib/messaging/sms/twilio-utils", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../src/lib/messaging/sms/twilio-utils")>();
+	const { createTestSmsSender } = await import("./helpers/messaging-doubles");
+	return {
+		...actual,
+		createSmsSender: (_client: unknown, _defaultFromNumber: string) => createTestSmsSender(),
+	};
+});
+
+vi.mock("../src/lib/messaging/telegram/sender", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../src/lib/messaging/telegram/sender")>();
+	const { createTestTelegramSender } = await import("./helpers/messaging-doubles");
+	return {
+		...actual,
+		createTelegramSender: (_bot: unknown) => createTestTelegramSender(),
+	};
+});
+
+vi.mock("../src/lib/auth/sms-verification", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../src/lib/auth/sms-verification")>();
+	const { testCheckVerification, testSendVerification } = await import(
+		"./helpers/messaging-doubles"
+	);
+	return {
+		...actual,
+		sendVerification: testSendVerification,
+		checkVerification: testCheckVerification,
+	};
+});
+
+vi.mock("../src/lib/providers/price-fetcher", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../src/lib/providers/price-fetcher")>();
+	const { testFetchIntradaySparklines, testFetchSparklines, testGetCurrentMarketSession } =
+		await import("./helpers/price-fetcher-doubles");
+	return {
+		...actual,
+		getCurrentMarketSession: testGetCurrentMarketSession,
+		fetchSparklines: testFetchSparklines,
+		fetchIntradaySparklines: testFetchIntradaySparklines,
+	};
+});
+
 // Live provider keys exist only in the Lambda runtime (SAM params). Locally
 // they are always stubbed — the real providers are exercised in production by
 // the scheduled `live-provider-check` Lambda (src/handlers/live-provider-check.ts),
 // not by the local test suite.
 //
-// Email/SMS mocking is handled in the source factories themselves:
-//   - createEmailSender (src/lib/messaging/email/utils.ts) gates on MODE
-//     and EMAIL_SMTP_HOST. Non-prod builds either mock or route to Mailpit.
-//   - createSmsSender (src/lib/messaging/sms/twilio-utils.ts) gates on
-//     MODE and always mocks outside production. No live SMS tier.
-//   - createVerificationClient (src/lib/auth/sms-verification.ts) gates
-//     on MODE and always mocks outside production.
+// Outbound email/SMS/Telegram/Verify and default price-fetcher session/sparkline
+// stubs are wired via vi.mock above (tests/helpers/*-doubles.ts). Tests that
+// need the real factory can vi.importActual or override the mock per file.
+// Mailpit email tests opt in by setting EMAIL_SMTP_HOST (see run-vitest.ts).
 // Data-provider stubs set a dummy API key so requireEnv() doesn't throw.
 // Actual HTTP calls are prevented by fetch mocks or module-level mocks in
 // individual test files.
@@ -68,6 +122,17 @@ vi.stubEnv("TELEGRAM_LINK_TOKEN_SECRET", "test-telegram-link-token-secret");
 vi.stubEnv("TELEGRAM_WEBHOOK_SECRET", "test-telegram-webhook-secret");
 vi.stubEnv("TELEGRAM_BOT_USERNAME", "StockTextAlertsTestBot");
 vi.stubEnv("TELEGRAM_BOT_TOKEN", "123456:test-telegram-bot-token");
+
+// Twilio sender credentials (Restricted API key path). Production values live in
+// the Lambda runtime; tests stub Twilio's magic test identifiers so
+// readTwilioSenderConfig() succeeds without a synced `.env.local`. Forced
+// unconditionally — real credentials must never reach the test path (cf. the
+// 2026-04-11 incident). Outbound sends are stubbed via vi.mock in this file.
+vi.stubEnv("TWILIO_ACCOUNT_SID", "ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+vi.stubEnv("TWILIO_API_KEY_SID", "SKaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+vi.stubEnv("TWILIO_API_KEY_SECRET", "stubaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+vi.stubEnv("TWILIO_PHONE_NUMBER", "+15005550006");
+vi.stubEnv("TWILIO_VERIFY_SERVICE_SID", "VAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
 function getDatabaseUrl(): string {
 	const databaseUrl = process.env.DATABASE_URL;

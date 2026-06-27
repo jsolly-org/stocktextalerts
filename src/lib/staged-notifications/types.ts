@@ -6,12 +6,10 @@
  */
 
 import type { MessageEntity } from "grammy/types";
-import type {
-	IsoDateString,
-	IsoTimestampString,
-	MinuteOfDay,
-	YearMonthString,
-} from "../domain/types";
+import type { StagedNotificationType } from "../db";
+import type { IsoTimestampString, ScheduledSlotKey, YearMonthString } from "../types";
+
+export type { StagedNotificationType };
 
 export interface StagedEmailContent {
 	subject: string;
@@ -30,10 +28,8 @@ export interface StagedTelegramContent {
 	entities: MessageEntity[];
 }
 
-export interface StagedDailyData {
+export interface StagedDailyData extends ScheduledSlotKey {
 	type: "daily";
-	scheduledDate: IsoDateString;
-	scheduledMinutes: MinuteOfDay;
 	email: StagedEmailContent | null;
 	sms: StagedSmsContent | null;
 	telegram: StagedTelegramContent | null;
@@ -49,9 +45,6 @@ export interface StagedDailyData {
 }
 
 export type StagedData = StagedDailyData;
-
-/** Matches app usage; DB CHECK still allows legacy `market` rows (unused). */
-export type StagedNotificationType = "daily";
 
 export interface StagedNotificationRow {
 	id: string;

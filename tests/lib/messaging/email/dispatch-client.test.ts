@@ -4,23 +4,7 @@ import {
 	EMAIL_DISPATCH_SIGNATURE_HEADER,
 	EMAIL_DISPATCH_TIMESTAMP_HEADER,
 } from "../../../../src/lib/messaging/email/dispatch-contract";
-import type { EmailSender } from "../../../../src/lib/messaging/email/utils";
 import { expectConsoleError } from "../../../setup";
-
-const mockEmailSender = vi.hoisted(() =>
-	vi.fn<EmailSender>(async () => ({
-		success: true,
-		messageSid: "local-email",
-	})),
-);
-
-vi.mock("../../../../src/lib/messaging/email/utils", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("../../../../src/lib/messaging/email/utils")>();
-	return {
-		...actual,
-		createEmailSender: () => mockEmailSender,
-	};
-});
 
 describe("sendAppTransactionalEmail", () => {
 	afterEach(() => {
@@ -77,24 +61,8 @@ describe("sendAppTransactionalEmail", () => {
 		).toBe(true);
 	});
 
-	it("falls back to the local email sender outside production when dispatch env is missing.", async () => {
-		const { sendAppTransactionalEmail } = await import(
-			"../../../../src/lib/messaging/email/dispatch-client"
-		);
-		const { createLogger } = await import("../../../../src/lib/logging");
-
-		const result = await sendAppTransactionalEmail(
-			{ to: "admin@example.com", subject: "Local", body: "Local fallback" },
-			createLogger({ path: "/test", method: "POST" }),
-		);
-
-		expect(result).toEqual({ success: true, messageSid: "local-email" });
-		expect(mockEmailSender).toHaveBeenCalledOnce();
-	});
-
-	it("fails closed in production when dispatch env is missing.", async () => {
+	it("fails closed when dispatch env is missing.", async () => {
 		expectConsoleError("Email dispatch is not configured");
-		vi.stubEnv("NODE_ENV", "production");
 		const { sendAppTransactionalEmail } = await import(
 			"../../../../src/lib/messaging/email/dispatch-client"
 		);
@@ -109,6 +77,5 @@ describe("sendAppTransactionalEmail", () => {
 			success: false,
 			errorCode: "email_dispatch_not_configured",
 		});
-		expect(mockEmailSender).not.toHaveBeenCalled();
 	});
 });

@@ -12,11 +12,6 @@ vi.mock("../../../src/lib/providers/massive", () => ({
 	fetchSnapshotQuotes: vi.fn(),
 }));
 
-const isTestMock = vi.hoisted(() => vi.fn(() => false));
-vi.mock("../../../src/lib/runtime/mode", () => ({
-	isTest: isTestMock,
-}));
-
 type PriceFetcher = typeof import("../../../src/lib/providers/price-fetcher");
 
 describe("getCurrentMarketSession — calendar-aware half-day override", () => {
@@ -25,7 +20,6 @@ describe("getCurrentMarketSession — calendar-aware half-day override", () => {
 
 	beforeEach(async () => {
 		marketDataFetchMock.mockReset();
-		isTestMock.mockReturnValue(false);
 		// Module-level cache in market-calendar persists across tests; reset
 		// the module graph so each test gets a fresh cache + fresh DateTime.utc().
 		vi.resetModules();

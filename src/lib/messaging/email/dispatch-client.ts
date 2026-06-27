@@ -1,6 +1,5 @@
 import { readEnv } from "../../db/env";
 import type { Logger } from "../../logging";
-import { isProduction } from "../../runtime/mode";
 import type { DeliveryResult } from "../types";
 import { signEmailDispatchBody } from "./dispatch-auth";
 import {
@@ -8,7 +7,7 @@ import {
 	EMAIL_DISPATCH_TIMESTAMP_HEADER,
 	type EmailDispatchResponse,
 } from "./dispatch-contract";
-import { createEmailSender, type EmailRequest } from "./utils";
+import type { EmailRequest } from "./utils";
 
 function isEmailDispatchResponse(value: unknown): value is EmailDispatchResponse {
 	if (typeof value !== "object" || value === null) return false;
@@ -25,9 +24,6 @@ export async function sendAppTransactionalEmail(
 	const dispatchSecret = readEnv("EMAIL_DISPATCH_SECRET");
 
 	if (!dispatchUrl || !dispatchSecret) {
-		if (!isProduction()) {
-			return createEmailSender()(request);
-		}
 		const missing = [
 			...(dispatchUrl ? [] : ["EMAIL_DISPATCH_URL"]),
 			...(dispatchSecret ? [] : ["EMAIL_DISPATCH_SECRET"]),

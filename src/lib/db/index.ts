@@ -1,13 +1,22 @@
 import type { AstroCookies } from "astro";
 import { isApprovedAtValue } from "../auth/approval";
 import { setAuthCookies } from "../auth/cookies";
-import { type AssetType, assertAssetType } from "../domain/types";
 import { rootLogger } from "../logging";
+import { type AssetType, assertAssetType } from "../types";
 import { getApprovalCached } from "./approval-cache";
 import type { Database } from "./generated/database.types";
 import type { AppSupabaseClient } from "./supabase";
 
-export type { AssetType } from "../domain/types";
+export type { AssetType } from "../types";
+
+/* =============
+Enum aliases (Postgres enums)
+============= */
+
+export type AlertMoveSize = Database["public"]["Enums"]["alert_move_size"];
+export type PriceTargetDirection = Database["public"]["Enums"]["price_target_direction"];
+export type StagedNotificationType = Database["public"]["Enums"]["staged_notification_type"];
+export type PriceAlertDeliveryStatus = Database["public"]["Enums"]["price_alert_delivery_status"];
 
 /* =============
 Row Types

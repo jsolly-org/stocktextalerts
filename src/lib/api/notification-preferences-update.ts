@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import { computeAssetEventsNextSendAt } from "../asset-events/scheduling-helpers";
-import { omitUndefined, type User, type UserUpdateInput } from "../db";
+import { type AlertMoveSize, omitUndefined, type User, type UserUpdateInput } from "../db";
 import type { Logger } from "../logging";
 import { userLocalToEtMinute } from "../time/format";
 import {
@@ -23,7 +23,7 @@ interface ParsedNotificationPreferencesForm {
 	market_scheduled_asset_price_times?: string[];
 	daily_digest_time?: number;
 	market_asset_price_alerts_enabled?: boolean;
-	market_asset_price_alert_move_size?: "significant" | "extreme";
+	market_asset_price_alert_move_size?: AlertMoveSize;
 	// asset_events per-option fields (used only for next-send-at scheduling here;
 	// persisted to the table by persistChannelPreferences).
 	asset_events_include_calendar_email?: boolean;

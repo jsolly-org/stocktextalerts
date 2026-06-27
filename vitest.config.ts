@@ -2,11 +2,9 @@ import { getViteConfig } from "astro/config";
 import { loadEnv } from "vite";
 import type {} from "vitest/config";
 
-// Force NODE_ENV=test so sender hard-gates (isProduction() in
-// src/lib/runtime/mode.ts) correctly mock out Twilio/SES even when the
-// shell inherits NODE_ENV=production. Vitest's own injection is
-// `??=`-style and won't overwrite an inherited value — see
-// tests/run-vitest.ts for the same belt-and-suspenders guard.
+// Force NODE_ENV=test so Vitest runs in test mode even when the shell
+// inherits NODE_ENV=production. Vitest's own injection is `??=`-style and
+// won't overwrite an inherited value — see tests/run-vitest.ts.
 process.env.NODE_ENV = "test";
 
 // Load .env / .env.local into process.env so tests work regardless of

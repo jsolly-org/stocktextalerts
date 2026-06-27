@@ -252,7 +252,7 @@ export type Database = {
           reference_updated_utc: string | null
           sector: string | null
           symbol: string
-          type: string
+          type: Database["public"]["Enums"]["asset_type"]
         }
         Insert: {
           composite_figi?: string | null
@@ -263,7 +263,7 @@ export type Database = {
           reference_updated_utc?: string | null
           sector?: string | null
           symbol: string
-          type?: string
+          type?: Database["public"]["Enums"]["asset_type"]
         }
         Update: {
           composite_figi?: string | null
@@ -274,7 +274,7 @@ export type Database = {
           reference_updated_utc?: string | null
           sector?: string | null
           symbol?: string
-          type?: string
+          type?: Database["public"]["Enums"]["asset_type"]
         }
         Relationships: []
       }
@@ -320,7 +320,7 @@ export type Database = {
       market_asset_price_alert_cooldowns: {
         Row: {
           alerts_sent_count: number
-          delivery_status: string
+          delivery_status: Database["public"]["Enums"]["price_alert_delivery_status"]
           last_alerted_at: string
           max_abs_move_dollar: number
           max_abs_move_percent: number
@@ -331,7 +331,7 @@ export type Database = {
         }
         Insert: {
           alerts_sent_count?: number
-          delivery_status?: string
+          delivery_status?: Database["public"]["Enums"]["price_alert_delivery_status"]
           last_alerted_at?: string
           max_abs_move_dollar?: number
           max_abs_move_percent?: number
@@ -342,7 +342,7 @@ export type Database = {
         }
         Update: {
           alerts_sent_count?: number
-          delivery_status?: string
+          delivery_status?: Database["public"]["Enums"]["price_alert_delivery_status"]
           last_alerted_at?: string
           max_abs_move_dollar?: number
           max_abs_move_percent?: number
@@ -535,7 +535,7 @@ export type Database = {
         Row: {
           attempt_count: number
           created_at: string
-          direction: string
+          direction: Database["public"]["Enums"]["price_target_direction"]
           email_delivered_at: string | null
           next_retry_at: string | null
           sms_delivered_at: string | null
@@ -549,7 +549,7 @@ export type Database = {
         Insert: {
           attempt_count?: number
           created_at?: string
-          direction: string
+          direction: Database["public"]["Enums"]["price_target_direction"]
           email_delivered_at?: string | null
           next_retry_at?: string | null
           sms_delivered_at?: string | null
@@ -563,7 +563,7 @@ export type Database = {
         Update: {
           attempt_count?: number
           created_at?: string
-          direction?: string
+          direction?: Database["public"]["Enums"]["price_target_direction"]
           email_delivered_at?: string | null
           next_retry_at?: string | null
           sms_delivered_at?: string | null
@@ -700,7 +700,7 @@ export type Database = {
       staged_notifications: {
         Row: {
           id: string
-          notification_type: string
+          notification_type: Database["public"]["Enums"]["staged_notification_type"]
           scheduled_for: string
           staged_at: string
           staged_data: Json
@@ -708,7 +708,7 @@ export type Database = {
         }
         Insert: {
           id?: string
-          notification_type: string
+          notification_type: Database["public"]["Enums"]["staged_notification_type"]
           scheduled_for: string
           staged_at?: string
           staged_data: Json
@@ -716,7 +716,7 @@ export type Database = {
         }
         Update: {
           id?: string
-          notification_type?: string
+          notification_type?: Database["public"]["Enums"]["staged_notification_type"]
           scheduled_for?: string
           staged_at?: string
           staged_data?: Json
@@ -850,7 +850,7 @@ export type Database = {
           grok_window_start: string | null
           id: string
           last_grok_rumors_at: string | null
-          market_asset_price_alert_move_size: string
+          market_asset_price_alert_move_size: Database["public"]["Enums"]["alert_move_size"]
           market_asset_price_alerts_enabled: boolean
           market_scheduled_asset_price_enabled: boolean
           market_scheduled_asset_price_next_send_at: string | null
@@ -885,7 +885,7 @@ export type Database = {
           grok_window_start?: string | null
           id?: string
           last_grok_rumors_at?: string | null
-          market_asset_price_alert_move_size?: string
+          market_asset_price_alert_move_size?: Database["public"]["Enums"]["alert_move_size"]
           market_asset_price_alerts_enabled?: boolean
           market_scheduled_asset_price_enabled?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
@@ -920,7 +920,7 @@ export type Database = {
           grok_window_start?: string | null
           id?: string
           last_grok_rumors_at?: string | null
-          market_asset_price_alert_move_size?: string
+          market_asset_price_alert_move_size?: Database["public"]["Enums"]["alert_move_size"]
           market_asset_price_alerts_enabled?: boolean
           market_scheduled_asset_price_enabled?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
@@ -1077,10 +1077,15 @@ export type Database = {
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
+      alert_move_size: "significant" | "extreme"
       asset_event_type: "earnings" | "dividend" | "split"
+      asset_type: "stock" | "etf"
       delivery_method: "email" | "sms" | "telegram"
+      price_alert_delivery_status: "reserved" | "finalized"
+      price_target_direction: "above" | "below"
       scheduled_notification_status: "sending" | "sent" | "failed"
       scheduled_notification_type: "market" | "daily" | "asset_events"
+      staged_notification_type: "daily"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1208,10 +1213,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      alert_move_size: ["significant", "extreme"],
       asset_event_type: ["earnings", "dividend", "split"],
+      asset_type: ["stock", "etf"],
       delivery_method: ["email", "sms", "telegram"],
+      price_alert_delivery_status: ["reserved", "finalized"],
+      price_target_direction: ["above", "below"],
       scheduled_notification_status: ["sending", "sent", "failed"],
       scheduled_notification_type: ["market", "daily", "asset_events"],
+      staged_notification_type: ["daily"],
     },
   },
 } as const

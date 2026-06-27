@@ -12,7 +12,6 @@ import {
 	type SparklineWindow,
 	toSparkline,
 } from "../messaging/sparkline";
-import { isTest } from "../runtime/mode";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 import { getUsMarketClosureInfoForInstant } from "../time/market-calendar";
 import {
@@ -107,13 +106,6 @@ export function parseMarketSession(payload: unknown): MarketSession {
 }
 
 export async function getCurrentMarketSession(): Promise<MarketSession> {
-	// Retained session short-circuit — tests that call this transitively
-	// (without explicitly mocking) rely on the synthetic "regular" return.
-	// Migration would need to thread session mocks through every test path
-	// that triggers Massive's /v1/marketstatus/now — separate cleanup.
-	if (isTest()) {
-		return "regular";
-	}
 	const [data, closure] = await Promise.all([
 		marketDataFetch("/v1/marketstatus/now", {}, "market-status"),
 		getUsMarketClosureInfoForInstant(DateTime.utc()),
@@ -288,18 +280,6 @@ export async function fetchSparklines(
 	const result: SparklineMap = new Map();
 	if (symbols.length === 0) return result;
 
-	// Retained sparkline short-circuit (different bug class than the snapshot
-	// pipeline). Removing this requires migrating tests that transitively call
-	// fetchSparklines but mock at the price-fetcher level rather than at
-	// fetchDailyCloses — not worth bundling with the closed-session fix.
-	if (isTest()) {
-		const stubValues = [1, 2, 3, 5, 7, 5, 3];
-		for (const s of symbols) {
-			result.set(s, { values: stubValues, ascii: "▁▂▃▅▇▅▃", window: "7-trading-days" });
-		}
-		return result;
-	}
-
 	const todayET = new Date().toLocaleDateString("en-CA", {
 		timeZone: US_MARKET_TIMEZONE,
 	});
@@ -402,28 +382,6 @@ export async function fetchIntradaySparklines(
 ): Promise<SparklineMap> {
 	const result: SparklineMap = new Map();
 	if (symbols.length === 0) return result;
-
-	// Retained intraday-sparkline short-circuit — same migration cost story as
-	// fetchSparklines above; safe to defer because the closed-session bug class
-	// doesn't apply here (intraday bars are explicitly session-relative and
-	// callers pass prevCloseMap directly).
-	if (isTest()) {
-		const stubBars = [100, 100.5, 101.2, 100.8, 101.5, 102.1, 101.9, 102.4];
-		for (const s of symbols) {
-			const rawPrev = prevCloseMap.get(s);
-			const prevClose = isFinitePositive(rawPrev) ? rawPrev : null;
-			let values = prevClose !== null ? [prevClose, ...stubBars] : stubBars;
-			values = appendCurrentPriceIfStale(values, s, currentPriceMap);
-			const window: SparklineWindow =
-				prevClose !== null ? "intraday-since-prev-close" : "intraday-since-open";
-			result.set(s, {
-				values,
-				ascii: toSparkline(downsampleEvenly(values)),
-				window,
-			});
-		}
-		return result;
-	}
 
 	const CONCURRENCY = 5;
 	const queue = [...symbols];

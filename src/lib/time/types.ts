@@ -1,7 +1,7 @@
 import type { Database } from "../db/generated/database.types";
-import type { Hour24, MinuteOfHour, SecondOfMinute } from "../domain/types";
+import type { Hour24, MinuteOfHour, SecondOfMinute } from "../types";
 
-export type { Hour24, MinuteOfHour, SecondOfMinute } from "../domain/types";
+export type { Hour24, MinuteOfHour, SecondOfMinute } from "../types";
 
 export type ParsedTime = {
 	hours: Hour24;

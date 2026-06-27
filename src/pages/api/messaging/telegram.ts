@@ -284,10 +284,6 @@ async function handleStartLink(
  * Best-effort confirmation reply. Never throws into the webhook handler — a
  * failed reply must not turn a successful link into a non-2XX (which would make
  * Telegram retry the now-consumed update).
- *
- * Routed through `createTelegramSender`, which has a hard `!isProduction()`
- * delivery gate: tests and dev get a deterministic mock and never hit the real
- * Telegram API, even if a bot token is present in the environment.
  */
 async function reply(chatId: number, text: string): Promise<void> {
 	try {

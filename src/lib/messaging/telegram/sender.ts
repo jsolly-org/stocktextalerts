@@ -3,7 +3,6 @@ import { Bot, GrammyError, InputFile } from "grammy";
 import type { InlineKeyboardMarkup, MessageEntity } from "grammy/types";
 import { requireEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
-import { isProduction } from "../../runtime/mode";
 import type { DeliveryResult } from "../types";
 
 /** A fully-rendered outbound Telegram message (text carries out-of-band entities). */
@@ -26,13 +25,10 @@ export type TelegramSender = (message: TelegramMessage) => Promise<DeliveryResul
 /**
  * Perform the real Telegram send for a single message via grammY's `bot.api`.
  *
- * This is the actual production send path — `sendPhoto` when a chart Buffer is
- * present, `sendMessage` otherwise — extracted from {@link createTelegramSender}
- * so it is reachable in tests **without** flipping `isProduction()`. Tests install
- * a capturing transformer (`bot.api.config.use(...)`) that returns a fake API
- * response, exercising the real (method, payload) construction (entities,
- * InputFile, link_preview_options, disable_notification) the hard non-prod mock
- * otherwise skips entirely.
+ * This is the production send path — `sendPhoto` when a chart Buffer is
+ * present, `sendMessage` otherwise. Tests exercise this via a grammY
+ * capturing transformer (see tests/lib/messaging/telegram-send-path.test.ts)
+ * or the test doubles wired in tests/setup.ts.
  *
  * grammY maps a Bot-API error response to a thrown `GrammyError` (see
  * `core/client.ts#callApi`), which we translate to a `{ success: false, errorCode }`
@@ -125,32 +121,7 @@ export function createTelegramBot(
 	return bot;
 }
 
-/**
- * Create a Telegram sender function.
- *
- * Like SMS, Telegram has **no live test tier**: tests and `astro dev` always get a
- * deterministic mock, because the harness can't prevent real delivery or charges
- * (here: real messages to real chats). The hard `!isProduction()` gate means even if
- * upstream constructs a real Bot from a token in `.env.local`, we never call its API.
- * Mock behavior is driven by `TELEGRAM_TEST_BEHAVIOR` / `TELEGRAM_TEST_ERROR(_CODE)` /
- * `TELEGRAM_TEST_MESSAGE_ID`, mirroring the `SMS_TEST_*` knobs.
- */
+/** Create a Telegram sender function backed by the supplied bot. */
 export function createTelegramSender(bot: Bot): TelegramSender {
-	if (!isProduction()) {
-		const behavior = process.env.TELEGRAM_TEST_BEHAVIOR ?? "success";
-		const testMessageId = process.env.TELEGRAM_TEST_MESSAGE_ID ?? "mock";
-		const testError = process.env.TELEGRAM_TEST_ERROR ?? "Test Telegram failure";
-		const testErrorCode = process.env.TELEGRAM_TEST_ERROR_CODE;
-		return async (message: TelegramMessage): Promise<DeliveryResult> => {
-			if (message.chatId === "" || message.chatId === undefined || message.text === "") {
-				return { success: false, error: "Test mock: missing required field(s): chatId or text" };
-			}
-			if (behavior === "fail") {
-				return { success: false, error: testError, errorCode: testErrorCode };
-			}
-			return { success: true, messageSid: testMessageId };
-		};
-	}
-
 	return (message: TelegramMessage): Promise<DeliveryResult> => sendViaBot(bot, message);
 }

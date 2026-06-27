@@ -1,4 +1,6 @@
-export type AlertMoveSize = "significant" | "extreme";
+import type { AlertMoveSize } from "../db";
+
+export type { AlertMoveSize } from "../db";
 
 /** Anomaly-score thresholds per move-size tier.
  *  Lower = more sensitive (fires on smaller anomalies).

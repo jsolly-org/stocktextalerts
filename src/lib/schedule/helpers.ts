@@ -6,6 +6,7 @@ import { recordNotification } from "../messaging/shared";
 import type { UserAssetRow } from "../messaging/types";
 import { computeDeliveryRetryDelayMs } from "../providers/vendor-fault-tolerance";
 import { toIsoOrThrow } from "../time/format";
+import type { ScheduledSlotKey } from "../types";
 
 export const MAX_NOTIFICATION_RETRIES = 3;
 /** Number of users to process concurrently in scheduled-delivery jobs. */
@@ -14,9 +15,12 @@ export const USER_PROCESS_BATCH_SIZE = 5;
 /** Delivery channel enum sourced from the database schema. */
 export type DeliveryMethod = Database["public"]["Enums"]["delivery_method"];
 
-type ScheduledNotificationType = "market" | "daily" | "asset_events";
+/** Scheduled notification type enum sourced from the database schema. */
+export type ScheduledNotificationType = Database["public"]["Enums"]["scheduled_notification_type"];
 
-type ScheduledNotificationStatus = Database["public"]["Enums"]["scheduled_notification_status"];
+/** Row delivery status enum sourced from the database schema. */
+export type ScheduledNotificationStatus =
+	Database["public"]["Enums"]["scheduled_notification_status"];
 
 /** Supabase admin client type used by schedule jobs/RPCs. */
 export type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -167,14 +171,14 @@ export async function batchLoadUserAssets(
 }
 
 /** Read attempt_count for a scheduled notification row (0 when missing). */
-async function getScheduledNotificationAttemptCount(options: {
-	supabase: SupabaseAdminClient;
-	userId: string;
-	notificationType: ScheduledNotificationType;
-	scheduledDate: string;
-	scheduledMinutes: number;
-	channel: DeliveryMethod;
-}): Promise<number> {
+async function getScheduledNotificationAttemptCount(
+	options: {
+		supabase: SupabaseAdminClient;
+		userId: string;
+		notificationType: ScheduledNotificationType;
+		channel: DeliveryMethod;
+	} & ScheduledSlotKey,
+): Promise<number> {
 	const { data, error } = await options.supabase
 		.from("scheduled_notifications")
 		.select("attempt_count")
@@ -190,12 +194,12 @@ async function getScheduledNotificationAttemptCount(options: {
 }
 
 /** Max attempt_count across channels for a daily digest slot. */
-export async function getMaxDailyDigestSlotAttempts(options: {
-	supabase: SupabaseAdminClient;
-	userId: string;
-	scheduledDate: string;
-	scheduledMinutes: number;
-}): Promise<number> {
+export async function getMaxDailyDigestSlotAttempts(
+	options: {
+		supabase: SupabaseAdminClient;
+		userId: string;
+	} & ScheduledSlotKey,
+): Promise<number> {
 	const { data, error } = await options.supabase
 		.from("scheduled_notifications")
 		.select("attempt_count")
@@ -214,20 +218,20 @@ export async function getMaxDailyDigestSlotAttempts(options: {
  * This is keyed by the composite uniqueness of:
  * user + notification type + scheduled date/minutes + channel.
  */
-export async function updateScheduledNotificationRow(options: {
-	supabase: SupabaseAdminClient;
-	userId: string;
-	notificationType: ScheduledNotificationType;
-	scheduledDate: string;
-	scheduledMinutes: number;
-	channel: DeliveryMethod;
-	status: Extract<ScheduledNotificationStatus, "sent" | "failed">;
-	error?: string;
-	/** Post-claim attempt_count from claimNotification — when provided, skips the re-SELECT
-	 *  the failed branch would otherwise do to compute the backoff. */
-	attemptCount?: number;
-	logger: Logger;
-}) {
+export async function updateScheduledNotificationRow(
+	options: {
+		supabase: SupabaseAdminClient;
+		userId: string;
+		notificationType: ScheduledNotificationType;
+		channel: DeliveryMethod;
+		status: Extract<ScheduledNotificationStatus, "sent" | "failed">;
+		error?: string;
+		/** Post-claim attempt_count from claimNotification — when provided, skips the re-SELECT
+		 *  the failed branch would otherwise do to compute the backoff. */
+		attemptCount?: number;
+		logger: Logger;
+	} & ScheduledSlotKey,
+) {
 	type UpdateChain = {
 		eq: (column: string, value: unknown) => UpdateChain;
 	};
@@ -294,15 +298,15 @@ type ClaimResult =
  * Encapsulates the RPC call, error logging, and retries-exhaustion recording so
  * delivery functions can replace ~25 lines of boilerplate with a single call.
  */
-export async function claimNotification(options: {
-	supabase: SupabaseAdminClient;
-	userId: string;
-	notificationType: ScheduledNotificationType;
-	scheduledDate: string;
-	scheduledMinutes: number;
-	channel: DeliveryMethod;
-	logger: Logger;
-}): Promise<ClaimResult> {
+export async function claimNotification(
+	options: {
+		supabase: SupabaseAdminClient;
+		userId: string;
+		notificationType: ScheduledNotificationType;
+		channel: DeliveryMethod;
+		logger: Logger;
+	} & ScheduledSlotKey,
+): Promise<ClaimResult> {
 	const { supabase, userId, notificationType, scheduledDate, scheduledMinutes, channel, logger } =
 		options;
 
@@ -375,15 +379,15 @@ export async function claimNotification(options: {
  * This is used as a backstop so we can track delivery failures without spamming retries
  * within a single run.
  */
-async function logRetriesExhausted(options: {
-	supabase: SupabaseAdminClient;
-	userId: string;
-	notificationType: ScheduledNotificationType;
-	scheduledDate: string;
-	scheduledMinutes: number;
-	channel: DeliveryMethod;
-	logger: Logger;
-}) {
+async function logRetriesExhausted(
+	options: {
+		supabase: SupabaseAdminClient;
+		userId: string;
+		notificationType: ScheduledNotificationType;
+		channel: DeliveryMethod;
+		logger: Logger;
+	} & ScheduledSlotKey,
+) {
 	type SelectChain = {
 		eq: (column: string, value: unknown) => SelectChain;
 		maybeSingle: () => unknown;

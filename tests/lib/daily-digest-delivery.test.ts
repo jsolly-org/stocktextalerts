@@ -21,6 +21,7 @@ import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
 } from "../../src/lib/schedule/helpers";
+import { assertIsoDateString, assertMinuteOfDay } from "../../src/lib/types";
 import { makePrefRows } from "../helpers/user-record-fixture";
 
 describe("Daily digest email prices", () => {
@@ -41,8 +42,8 @@ describe("Daily digest email prices", () => {
 		ascii: "▁▂▃▅▇▅▃",
 		window: "7-trading-days",
 	};
-	const scheduledDate = "2026-06-01";
-	const scheduledMinutes = 9 * 60;
+	const scheduledDate = assertIsoDateString("2026-06-01");
+	const scheduledMinutes = assertMinuteOfDay(9 * 60);
 
 	function makeDailyDigestSmsUser(): UserRecord {
 		return {
