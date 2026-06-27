@@ -1,4 +1,3 @@
-import { isProduction } from "../../runtime/mode";
 import {
 	createSmsSender,
 	createTwilioClient,
@@ -15,12 +14,7 @@ export type SmsSenderFactory = () => SmsSenderResult;
  * Create a lazily-initialized, cached SMS sender factory for batch notification runs.
  *
  * Caches config/sender to avoid per-user Twilio init during cron passes.
- *
- * Non-production builds short-circuit before reading any `TWILIO_*`
- * environment variables. The hard gate inside `createSmsSender` already
- * blocks real API calls, but gating here as well means a clean checkout
- * with no Twilio credentials can still run the full scheduler pipeline
- * in tests — `requireEnv("TWILIO_ACCOUNT_SID")` never fires.
+ * Tests stub `createSmsSender` in tests/setup.ts — no production gate here.
  */
 export function createSmsSenderFactory(): SmsSenderFactory {
 	let twilioConfig: ReturnType<typeof readTwilioSenderConfig> | null = null;
@@ -28,17 +22,6 @@ export function createSmsSenderFactory(): SmsSenderFactory {
 
 	return () => {
 		if (sendSms) {
-			return { sender: sendSms };
-		}
-
-		if (!isProduction()) {
-			// Pass a sentinel client object — the mock branch inside
-			// createSmsSender ignores the `client` arg entirely, so this
-			// never touches the Twilio SDK.
-			sendSms = createSmsSender(
-				null as unknown as ReturnType<typeof createTwilioClient>,
-				"+15005550006",
-			);
 			return { sender: sendSms };
 		}
 

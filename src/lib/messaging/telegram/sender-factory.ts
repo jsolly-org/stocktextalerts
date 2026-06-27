@@ -1,5 +1,4 @@
 import type { Bot } from "grammy";
-import { isProduction } from "../../runtime/mode";
 import {
 	createTelegramBot,
 	createTelegramSender,
@@ -15,10 +14,8 @@ export type TelegramSenderFactory = () => TelegramSenderResult;
 /**
  * Create a lazily-initialized, cached Telegram sender factory for batch notification runs.
  *
- * Mirrors `createSmsSenderFactory`: caches the bot/sender across the run, and
- * non-production short-circuits before reading `TELEGRAM_BOT_TOKEN`. The hard gate
- * inside `createTelegramSender` already blocks real API calls; gating here too lets
- * a clean checkout with no token run the full scheduler pipeline in tests.
+ * Mirrors `createSmsSenderFactory`: caches the bot/sender across the run.
+ * Tests stub `createTelegramSender` in tests/setup.ts — no production gate here.
  */
 export function createTelegramSenderFactory(): TelegramSenderFactory {
 	let bot: Bot | null = null;
@@ -26,13 +23,6 @@ export function createTelegramSenderFactory(): TelegramSenderFactory {
 
 	return () => {
 		if (sendTelegram) {
-			return { sender: sendTelegram };
-		}
-
-		if (!isProduction()) {
-			// Sentinel bot — the mock branch inside createTelegramSender ignores it,
-			// so this never constructs a network-capable Bot or reads the token.
-			sendTelegram = createTelegramSender(null as unknown as Bot);
 			return { sender: sendTelegram };
 		}
 
