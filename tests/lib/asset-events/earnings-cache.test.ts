@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { fetchEarnings, resetEarningsCacheForTests } from "../../../src/lib/asset-events/earnings";
-import { finnhubFetch } from "../../../src/lib/vendors/finnhub/client";
+import { finnhubFetch } from "../../../src/lib/vendors/finnhub";
 
 // Mock the network seam; fetchEarnings' cache wraps the real parsing in finnhub/earnings.ts.
-vi.mock("../../../src/lib/vendors/finnhub/client", () => ({ finnhubFetch: vi.fn() }));
+vi.mock("../../../src/lib/vendors/finnhub", () => ({ finnhubFetch: vi.fn() }));
 
 const mockFinnhubFetch = finnhubFetch as unknown as Mock;
 

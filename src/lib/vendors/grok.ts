@@ -1,6 +1,6 @@
 import { setTimeout as realDelay } from "node:timers/promises";
-import { readEnv } from "../../db/env";
-import { rootLogger } from "../../logging";
+import { readEnv } from "../db/env";
+import { rootLogger } from "../logging";
 
 const BASE_RETRY_DELAY_MS = 1_000;
 
