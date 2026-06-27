@@ -25,8 +25,8 @@ import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/tel
 import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../../messaging/telegram/price-alert";
 import type { TelegramSender } from "../../messaging/telegram/sender";
-import type { IntradayBarsResult } from "../../providers/massive";
-import type { ExtendedAssetQuote } from "../../providers/price-fetcher";
+import type { IntradayBarsResult } from "../../vendors/massive";
+import type { ExtendedAssetQuote } from "../../vendors/price-fetcher";
 import type { EnrichedAlert } from "../enrichment";
 import type { FlatPriceAlertUser } from "./users";
 

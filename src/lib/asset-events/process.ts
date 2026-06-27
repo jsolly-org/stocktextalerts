@@ -4,7 +4,9 @@ import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/delay-b
 import type { EmailSender } from "../messaging/email/utils";
 import { anyFacetEnabled, enabledFacets } from "../messaging/notification-prefs";
 import { shouldSendSms } from "../messaging/sms";
+import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
+import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { UserRecord } from "../messaging/types";
 import type {
 	ScheduledNotificationTotals,
@@ -12,8 +14,6 @@ import type {
 	UserAssetsMap,
 } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
-import type { SmsSenderProvider } from "../schedule/sms-sender";
-import type { TelegramSenderProvider } from "../schedule/telegram-sender";
 import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import { type AssetEventsTelegramFacets, buildAssetEventsContentForChannels } from "./content";
@@ -37,8 +37,8 @@ export async function processAssetEventsUser(options: {
 	logger: Logger;
 	currentTime: DateTime;
 	sendEmail: EmailSender;
-	getSmsSender: SmsSenderProvider;
-	getTelegramSender: TelegramSenderProvider;
+	getSmsSender: SmsSenderFactory;
+	getTelegramSender: TelegramSenderFactory;
 	/** Pre-fetched user assets (avoids N+1 when batch processing). */
 	userAssetsMap?: UserAssetsMap;
 	/** Prefetched market closure info (avoids per-user API calls when provided). */

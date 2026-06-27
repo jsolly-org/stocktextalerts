@@ -10,9 +10,9 @@ import {
 	storeDailyCloseRows,
 	storePriceHistoryRows,
 } from "../market-notifications/price-history-cache";
-import { fetchDailyOHLCV } from "../providers/massive";
-import { computeDeliveryRetryDelayMs } from "../providers/vendor-fault-tolerance";
 import type { SupabaseAdminClient } from "../schedule/helpers";
+import { fetchDailyOHLCV } from "../vendors/massive";
+import { computeDeliveryRetryDelayMs } from "../vendors/vendor-fault-tolerance";
 
 /** Max SQS receive attempts before redrive to poison DLQ (matches template maxReceiveCount). */
 export const VENDOR_BACKFILL_MAX_ATTEMPTS = 5;

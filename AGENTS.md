@@ -30,7 +30,7 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 ### Key Directories
 
 - `src/pages/api/` — API endpoints (auth, assets, schedule, notifications)
-- `src/lib/` — Server logic: `db/`, `auth/`, `providers/`, `market-notifications/`, `daily-digest/`, `asset-events/`, `messaging/`, `schedule/`, `time/`, `logging/`
+- `src/lib/` — Server logic: `db/`, `auth/`, `vendors/`, `market-notifications/`, `daily-digest/`, `asset-events/`, `messaging/`, `schedule/`, `time/`, `logging/`
 - `src/components/dashboard/` — Vue dashboard panels with composables
 - `supabase/migrations/` — SQL migrations (source of truth; the post-push deploy pushes to production)
 - `tests/helpers/` — `test-user.ts`, `test-env.ts`, `asset-data.ts`
@@ -114,7 +114,7 @@ Lambda **code** ships via **`npm run deploy:code`** (`aws/deploy-web.sh`, scoped
 
 ### Post-deploy live verification (no local live-test tier)
 
-Provider keys live in the Lambda runtime (and `MASSIVE_API_KEY` also in Vercel, for the logo endpoint), so the local suite stubs every external call and cannot catch a real-API regression. After a push+deploy whose diff touched **live-affecting code** — `src/lib/providers/`, the provider clients, response parsing, auth/scoping, retry/timeout, notification content built from live data, or the Telegram bot/token path — **manually invoke the scheduled `stocktextalerts-live-provider-check` Lambda** (`src/handlers/live-provider-check.ts`) with `aws lambda invoke` and confirm it succeeds (no thrown error / no `LiveProviderCheckFunctionErrorAlarm`). This Lambda also runs the **read-only Telegram token check** (`getMe()`/`getWebhookInfo()`, side-effect-free — never a send), so it doubles as the Telegram live-verification step. This is `/ship`'s post-deploy live-verification step for this repo. Run it during market hours when snapshot data is fresh. The `fleet-deploy` profile (`agent-deploy` role) is scoped to invoke `*-live-provider-check`, so an agent can run this directly — no admin step-up. Confirming a real Telegram message actually *lands* is a separate one-time manual `/start` E2E (a human-only real send, never automated).
+Provider keys live in the Lambda runtime (and `MASSIVE_API_KEY` also in Vercel, for the logo endpoint), so the local suite stubs every external call and cannot catch a real-API regression. After a push+deploy whose diff touched **live-affecting code** — `src/lib/vendors/`, the provider clients, response parsing, auth/scoping, retry/timeout, notification content built from live data, or the Telegram bot/token path — **manually invoke the scheduled `stocktextalerts-live-provider-check` Lambda** (`src/handlers/live-provider-check.ts`) with `aws lambda invoke` and confirm it succeeds (no thrown error / no `LiveProviderCheckFunctionErrorAlarm`). This Lambda also runs the **read-only Telegram token check** (`getMe()`/`getWebhookInfo()`, side-effect-free — never a send), so it doubles as the Telegram live-verification step. This is `/ship`'s post-deploy live-verification step for this repo. Run it during market hours when snapshot data is fresh. The `fleet-deploy` profile (`agent-deploy` role) is scoped to invoke `*-live-provider-check`, so an agent can run this directly — no admin step-up. Confirming a real Telegram message actually *lands* is a separate one-time manual `/start` E2E (a human-only real send, never automated).
 
 ## External APIs
 

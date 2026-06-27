@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const marketDataFetchMock = vi.hoisted(() => vi.fn());
 
-vi.mock("../../../src/lib/providers/massive", () => ({
+vi.mock("../../../src/lib/vendors/massive", () => ({
 	marketDataFetch: marketDataFetchMock,
 	// `getCurrentMarketSession` only uses marketDataFetch from this module;
 	// the others stay un-stubbed (unused in this file's import graph).
@@ -17,7 +17,7 @@ vi.mock("../../../src/lib/runtime/mode", () => ({
 	isTest: isTestMock,
 }));
 
-type PriceFetcher = typeof import("../../../src/lib/providers/price-fetcher");
+type PriceFetcher = typeof import("../../../src/lib/vendors/price-fetcher");
 
 describe("getCurrentMarketSession — calendar-aware half-day override", () => {
 	let priceFetcher: PriceFetcher;
@@ -30,7 +30,7 @@ describe("getCurrentMarketSession — calendar-aware half-day override", () => {
 		// the module graph so each test gets a fresh cache + fresh DateTime.utc().
 		vi.resetModules();
 		vi.useFakeTimers();
-		priceFetcher = await import("../../../src/lib/providers/price-fetcher");
+		priceFetcher = await import("../../../src/lib/vendors/price-fetcher");
 	});
 	afterEach(() => {
 		vi.useRealTimers();

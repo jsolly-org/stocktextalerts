@@ -23,8 +23,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import { marketDataFetch } from "../../src/lib/providers/massive";
-import { sicCodeToSector } from "../../src/lib/providers/sector-mapping";
+import { marketDataFetch } from "../../src/lib/vendors/massive";
+import { sicCodeToSector } from "../../src/lib/vendors/sector-mapping";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_FILE = path.join(__dirname, "..", "data", "us-assets.json");

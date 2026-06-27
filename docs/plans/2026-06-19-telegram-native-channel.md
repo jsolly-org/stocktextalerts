@@ -6,7 +6,7 @@
 > blockers it found (migration apply order, preference mis-modeling, destructive column drops, inbound
 > security, native-binary bundling, release sequencing) are folded in below. The candlestick blocker
 > (P0-1) was **resolved by a spike**: Massive's aggregates already return full OHLC and a daily parser
-> (`extractOHLCVFromBars`, `src/lib/providers/massive.ts:560`) already exists — the intraday path just
+> (`extractOHLCVFromBars`, `src/lib/vendors/massive.ts:560`) already exists — the intraday path just
 > discards `o/h/l`. Candlesticks stay in v1 with a small intraday-OHLCV parser task.
 
 ## 1. Spec

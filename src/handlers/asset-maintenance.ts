@@ -8,8 +8,8 @@ import { runUniverseReconcile } from "../lib/assets/universe-reconcile";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
 import { createEmailSender } from "../lib/messaging/email/utils";
+import { createSmsSenderFactory } from "../lib/messaging/sms/sender-factory";
 import { runLambda } from "../lib/run-lambda";
-import { createSmsSenderProvider } from "../lib/schedule/sms-sender";
 import { enqueueAssetEventsIngestRetry } from "../lib/vendor-backfill/queue";
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
@@ -160,7 +160,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 		// events job's success — the sweep runs again tomorrow.
 		try {
 			const sendEmail = createEmailSender();
-			const getSmsSender = createSmsSenderProvider();
+			const getSmsSender = createSmsSenderFactory();
 			const sweepResult = await runDelistingSweep({
 				supabase,
 				logger,

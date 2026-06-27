@@ -5,17 +5,17 @@ import { attachPrefsToUsers } from "../messaging/load-prefs";
 import { createLogoCache } from "../messaging/logo-fetcher";
 import { isFacetEnabled, type PrefRow } from "../messaging/notification-prefs";
 import { isSmsChannelUsable } from "../messaging/sms/index";
+import { createSmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable, shouldSendTelegram } from "../messaging/telegram/eligibility";
+import { createTelegramSenderFactory } from "../messaging/telegram/sender-factory";
+import type { SupabaseAdminClient } from "../schedule/helpers";
 import {
 	type ExtendedQuoteMap,
 	fetchExtendedQuotes,
 	getCurrentMarketSession,
 	type MarketSession,
-} from "../providers/price-fetcher";
-import { computeDeliveryRetryDelayMs } from "../providers/vendor-fault-tolerance";
-import type { SupabaseAdminClient } from "../schedule/helpers";
-import { createSmsSenderProvider } from "../schedule/sms-sender";
-import { createTelegramSenderProvider } from "../schedule/telegram-sender";
+} from "../vendors/price-fetcher";
+import { computeDeliveryRetryDelayMs } from "../vendors/vendor-fault-tolerance";
 import {
 	deliverPriceTargetAlert,
 	type PriceTargetDeliveryOutcome,
@@ -214,9 +214,9 @@ export async function processPriceTargets(options: {
 	}
 
 	const sendEmail = createEmailSender();
-	const getSmsSender = createSmsSenderProvider();
+	const getSmsSender = createSmsSenderFactory();
 	let smsSender: ReturnType<typeof getSmsSender>["sender"] | null = null;
-	const getTelegramSender = createTelegramSenderProvider();
+	const getTelegramSender = createTelegramSenderFactory();
 	let telegramSender: ReturnType<typeof getTelegramSender>["sender"] | null = null;
 	const logoCache = createLogoCache();
 

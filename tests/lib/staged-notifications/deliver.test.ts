@@ -20,17 +20,17 @@ import {
 } from "../../../src/lib/messaging/delay-banner";
 import { createEmailSender, type EmailSender } from "../../../src/lib/messaging/email/utils";
 import { findUrls, urlStraddlesBoundary } from "../../../src/lib/messaging/sms/segment-utils";
+import {
+	createSmsSenderFactory,
+	type SmsSenderFactory,
+} from "../../../src/lib/messaging/sms/sender-factory";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { TelegramMessage } from "../../../src/lib/messaging/telegram/sender";
+import {
+	createTelegramSenderFactory,
+	type TelegramSenderFactory,
+} from "../../../src/lib/messaging/telegram/sender-factory";
 import type { DeliveryResult } from "../../../src/lib/messaging/types";
-import {
-	createSmsSenderProvider,
-	type SmsSenderProvider,
-} from "../../../src/lib/schedule/sms-sender";
-import {
-	createTelegramSenderProvider,
-	type TelegramSenderProvider,
-} from "../../../src/lib/schedule/telegram-sender";
 import { deliverStagedNotifications } from "../../../src/lib/staged-notifications/deliver";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
@@ -44,8 +44,8 @@ describe("deliverStagedNotifications", () => {
 		error: vi.fn(),
 	};
 	let sendEmail: EmailSender;
-	let getSmsSender: SmsSenderProvider;
-	let getTelegramSender: TelegramSenderProvider;
+	let getSmsSender: SmsSenderFactory;
+	let getTelegramSender: TelegramSenderFactory;
 	// Fake timers are skipped when live email routing is on. nodemailer's
 	// SMTP client uses setTimeout internally for connect timeouts and
 	// rate limiting, and `vi.useFakeTimers()` freezes setTimeout — the
@@ -63,8 +63,8 @@ describe("deliverStagedNotifications", () => {
 		vi.clearAllMocks();
 
 		sendEmail = createEmailSender();
-		getSmsSender = createSmsSenderProvider();
-		getTelegramSender = createTelegramSenderProvider();
+		getSmsSender = createSmsSenderFactory();
+		getTelegramSender = createTelegramSenderFactory();
 	});
 
 	afterEach(() => {

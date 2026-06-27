@@ -43,9 +43,9 @@ const {
 	fetchSparklinesMock: vi.fn(),
 }));
 
-vi.mock("../../../src/lib/providers/price-fetcher", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/providers/price-fetcher")>(
-		"../../../src/lib/providers/price-fetcher",
+vi.mock("../../../src/lib/vendors/price-fetcher", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/price-fetcher")>(
+		"../../../src/lib/vendors/price-fetcher",
 	);
 	return {
 		...actual,
@@ -66,9 +66,9 @@ fetchSparklinesMock.mockResolvedValue(new Map());
 
 // Mock Massive top-movers to avoid the live call (not exercised here, but the
 // process module imports it).
-vi.mock("../../../src/lib/providers/massive", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/providers/massive")>(
-		"../../../src/lib/providers/massive",
+vi.mock("../../../src/lib/vendors/massive", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/massive")>(
+		"../../../src/lib/vendors/massive",
 	);
 	return {
 		...actual,

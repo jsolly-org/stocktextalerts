@@ -1,26 +1,22 @@
 import type { Bot } from "grammy";
-import {
-	createTelegramBot,
-	createTelegramSender,
-	readTelegramBotToken,
-} from "../messaging/telegram/sender";
-import { isProduction } from "../runtime/mode";
+import { isProduction } from "../../runtime/mode";
+import { createTelegramBot, createTelegramSender, readTelegramBotToken } from "./sender";
 
 interface TelegramSenderResult {
 	sender: ReturnType<typeof createTelegramSender>;
 }
 
-export type TelegramSenderProvider = () => TelegramSenderResult;
+export type TelegramSenderFactory = () => TelegramSenderResult;
 
 /**
- * Create a lazily-initialized, cached Telegram sender provider for scheduler runs.
+ * Create a lazily-initialized, cached Telegram sender factory for batch notification runs.
  *
- * Mirrors `createSmsSenderProvider`: caches the bot/sender across the run, and
+ * Mirrors `createSmsSenderFactory`: caches the bot/sender across the run, and
  * non-production short-circuits before reading `TELEGRAM_BOT_TOKEN`. The hard gate
  * inside `createTelegramSender` already blocks real API calls; gating here too lets
  * a clean checkout with no token run the full scheduler pipeline in tests.
  */
-export function createTelegramSenderProvider(): TelegramSenderProvider {
+export function createTelegramSenderFactory(): TelegramSenderFactory {
 	let bot: Bot | null = null;
 	let sendTelegram: ReturnType<typeof createTelegramSender> | null = null;
 

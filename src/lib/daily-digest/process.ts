@@ -15,14 +15,22 @@ import { buildMarketClosedBannerText } from "../messaging/market-closure-banner"
 import { anyFacetEnabled, enabledFacets, isFacetEnabled } from "../messaging/notification-prefs";
 import { shouldSendSms } from "../messaging/sms";
 import type { SmsExtras } from "../messaging/sms/delivery";
+import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import type { SparklineMap } from "../messaging/sparkline";
 import { formatDailyDigestTelegram } from "../messaging/telegram/digest";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
+import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { UserRecord } from "../messaging/types";
-import { buildNewsContextForGrok, fetchFinnhubExtras } from "../providers/finnhub";
-import type { GrokSectionResult } from "../providers/grok";
-import { generateNewsWithGrok, generateRumorsWithGrok } from "../providers/grok";
-import { fetchTopMovers, type TopMover } from "../providers/massive";
+import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
+import { loadUserAssets } from "../schedule/helpers";
+import { upsertStagedNotification } from "../staged-notifications/db";
+import type { StagedDailyData } from "../staged-notifications/types";
+import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
+import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
+import { buildNewsContextForGrok, fetchFinnhubExtras } from "../vendors/finnhub";
+import type { GrokSectionResult } from "../vendors/grok";
+import { generateNewsWithGrok, generateRumorsWithGrok } from "../vendors/grok";
+import { fetchTopMovers, type TopMover } from "../vendors/massive";
 import {
 	type AssetPriceMap,
 	fetchAssetPricesWithSessionState,
@@ -30,16 +38,8 @@ import {
 	fetchSparklines,
 	getCurrentMarketSession,
 	type MarketSession,
-} from "../providers/price-fetcher";
-import { withOptionalVendorBudget } from "../providers/vendor-fault-tolerance";
-import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
-import { loadUserAssets } from "../schedule/helpers";
-import type { SmsSenderProvider } from "../schedule/sms-sender";
-import type { TelegramSenderProvider } from "../schedule/telegram-sender";
-import { upsertStagedNotification } from "../staged-notifications/db";
-import type { StagedDailyData } from "../staged-notifications/types";
-import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
-import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
+} from "../vendors/price-fetcher";
+import { withOptionalVendorBudget } from "../vendors/vendor-fault-tolerance";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsMessageBodies,
@@ -272,8 +272,8 @@ export async function processDailyDigestUser(options: {
 	logger: Logger;
 	currentTime: DateTime;
 	sendEmail: EmailSender;
-	getSmsSender: SmsSenderProvider;
-	getTelegramSender: TelegramSenderProvider;
+	getSmsSender: SmsSenderFactory;
+	getTelegramSender: TelegramSenderFactory;
 	/** When true, stage content for later delivery instead of sending now. */
 	stageOnly?: boolean;
 	/** Pre-fetched market open status (avoids per-user API calls in fan-out). */

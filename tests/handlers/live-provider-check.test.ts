@@ -4,12 +4,12 @@ import { expectConsoleError } from "../setup";
 
 // The handler is thin orchestration over the real provider clients; mock those
 // so we can assert the pass/fail aggregation + paging behavior deterministically.
-vi.mock("../../src/lib/providers/massive", () => ({
+vi.mock("../../src/lib/vendors/massive", () => ({
 	fetchPrevClose: vi.fn(),
 	fetchDailyCloses: vi.fn(),
 	fetchEarnings: vi.fn(),
 }));
-vi.mock("../../src/lib/providers/price-fetcher", () => ({
+vi.mock("../../src/lib/vendors/price-fetcher", () => ({
 	fetchAssetPrices: vi.fn(),
 	getCurrentMarketSession: vi.fn(),
 }));
@@ -25,8 +25,8 @@ vi.mock("../../src/lib/messaging/telegram/sender", () => ({
 
 import { handler } from "../../src/handlers/live-provider-check";
 import { checkTelegramLive } from "../../src/lib/messaging/telegram/health";
-import { fetchDailyCloses, fetchEarnings, fetchPrevClose } from "../../src/lib/providers/massive";
-import { fetchAssetPrices, getCurrentMarketSession } from "../../src/lib/providers/price-fetcher";
+import { fetchDailyCloses, fetchEarnings, fetchPrevClose } from "../../src/lib/vendors/massive";
+import { fetchAssetPrices, getCurrentMarketSession } from "../../src/lib/vendors/price-fetcher";
 
 const event = { id: "evt-1", time: "2026-06-13T16:00:00Z" } as ScheduledEvent;
 const context = { awsRequestId: "test-request-id" } as Context;

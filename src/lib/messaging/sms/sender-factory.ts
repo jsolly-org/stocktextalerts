@@ -1,20 +1,16 @@
-import {
-	createSmsSender,
-	createTwilioClient,
-	readTwilioSenderConfig,
-} from "../messaging/sms/twilio-utils";
-import { isProduction } from "../runtime/mode";
+import { isProduction } from "../../runtime/mode";
+import { createSmsSender, createTwilioClient, readTwilioSenderConfig } from "./twilio-utils";
 
 interface SmsSenderResult {
 	sender: ReturnType<typeof createSmsSender>;
 }
 
-export type SmsSenderProvider = () => SmsSenderResult;
+export type SmsSenderFactory = () => SmsSenderResult;
 
 /**
- * Create a lazily-initialized, cached SMS sender provider for scheduler runs.
+ * Create a lazily-initialized, cached SMS sender factory for batch notification runs.
  *
- * Caches config/sender to avoid per-user Twilio init during scheduler runs.
+ * Caches config/sender to avoid per-user Twilio init during cron passes.
  *
  * Non-production builds short-circuit before reading any `TWILIO_*`
  * environment variables. The hard gate inside `createSmsSender` already
@@ -22,7 +18,7 @@ export type SmsSenderProvider = () => SmsSenderResult;
  * with no Twilio credentials can still run the full scheduler pipeline
  * in tests — `requireEnv("TWILIO_ACCOUNT_SID")` never fires.
  */
-export function createSmsSenderProvider(): SmsSenderProvider {
+export function createSmsSenderFactory(): SmsSenderFactory {
 	let twilioConfig: ReturnType<typeof readTwilioSenderConfig> | null = null;
 	let sendSms: ReturnType<typeof createSmsSender> | null = null;
 

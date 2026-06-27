@@ -10,14 +10,14 @@ vi.mock("../../../src/lib/db", () => ({
 	getUserAssets: vi.fn(),
 }));
 
-vi.mock("../../../src/lib/providers/price-fetcher", () => ({
+vi.mock("../../../src/lib/vendors/price-fetcher", () => ({
 	fetchAssetPrices: vi.fn(),
 	getCurrentMarketSession: vi.fn().mockResolvedValue("regular"),
 }));
 
 import { createUserService, getUserAssets } from "../../../src/lib/db";
 import { createSupabaseServerClient } from "../../../src/lib/db/supabase";
-import { fetchAssetPrices } from "../../../src/lib/providers/price-fetcher";
+import { fetchAssetPrices } from "../../../src/lib/vendors/price-fetcher";
 
 const mockCreateSupabaseServerClient = vi.mocked(createSupabaseServerClient);
 const mockCreateUserService = vi.mocked(createUserService);

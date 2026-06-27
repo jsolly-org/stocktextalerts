@@ -4,7 +4,7 @@ vi.mock("../../../src/lib/runtime/mode", () => ({
 	isTest: () => false,
 }));
 
-vi.mock("../../../src/lib/providers/massive", () => ({
+vi.mock("../../../src/lib/vendors/massive", () => ({
 	fetchIntradayBars: vi.fn(),
 	fetchDailyCloses: vi.fn(),
 	fetchPrevDayBar: vi.fn(),
@@ -14,8 +14,8 @@ vi.mock("../../../src/lib/providers/massive", () => ({
 	US_MARKET_TIMEZONE: "America/New_York",
 }));
 
-import { fetchIntradayBars } from "../../../src/lib/providers/massive";
-import { fetchIntradaySparklines } from "../../../src/lib/providers/price-fetcher";
+import { fetchIntradayBars } from "../../../src/lib/vendors/massive";
+import { fetchIntradaySparklines } from "../../../src/lib/vendors/price-fetcher";
 
 describe("A subscriber in early pre-market receives a notification before any 5-minute bar has closed", () => {
 	afterEach(() => {

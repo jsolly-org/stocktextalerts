@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { generatePriceAlertSummary } from "../../../src/lib/market-notifications/grok-summary";
-import { generateNewsWithGrok, generateRumorsWithGrok } from "../../../src/lib/providers/grok";
+import { generateNewsWithGrok, generateRumorsWithGrok } from "../../../src/lib/vendors/grok";
 
 vi.mock("node:timers/promises", () => ({
 	setTimeout: vi.fn().mockResolvedValue(undefined),

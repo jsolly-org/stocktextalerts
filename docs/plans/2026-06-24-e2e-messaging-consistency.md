@@ -97,7 +97,7 @@ stop re-sending after a max attempt count (tombstone + error log on exhaustion).
 - Migrations: T4 (`price_targets` columns) — local file only; prod apply rides the pre-push
   `supabase db push`. Bumped `app_metadata.schema_version` + `EXPECTED_DB_SCHEMA_VERSION` + regen
   types. New columns inherit table grants (no privilege-contract change).
-- Live-affecting: touches `providers/`, notification content, and delivery paths → after deploy,
+- Live-affecting: touches `vendors/`, notification content, and delivery paths → after deploy,
   invoke `stocktextalerts-live-provider-check` and confirm no alarm.
 
 ## Final dispositions (what shipped vs. deferred vs. surfaced)

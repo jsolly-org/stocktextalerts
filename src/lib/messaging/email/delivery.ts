@@ -1,5 +1,5 @@
 import type { AppSupabaseClient } from "../../db/supabase";
-import type { AssetPriceMap, MarketSession } from "../../providers/price-fetcher";
+import type { AssetPriceMap, MarketSession } from "../../vendors/price-fetcher";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { EmailFormatContext, EmailUser, ProcessingStats, UserAssetRow } from "../types";
 import { sendUserEmail } from "./index";

@@ -5,7 +5,7 @@ import {
 	isXUrl,
 	linkLabelFromUrl,
 	type XaiAnnotation,
-} from "../providers/grok";
+} from "../vendors/grok";
 
 const GROK_TIMEOUT_MS = 60_000;
 

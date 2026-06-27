@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PrefChannel } from "../../../src/lib/messaging/notification-prefs";
-import type { ExtendedAssetQuote } from "../../../src/lib/providers/price-fetcher";
+import type { ExtendedAssetQuote } from "../../../src/lib/vendors/price-fetcher";
 
 // Mock external dependencies
-vi.mock("../../../src/lib/providers/price-fetcher", () => ({
+vi.mock("../../../src/lib/vendors/price-fetcher", () => ({
 	getCurrentMarketSession: vi.fn(),
 	fetchExtendedQuotes: vi.fn(),
 }));
@@ -12,8 +12,8 @@ vi.mock("../../../src/lib/messaging/email/utils", () => ({
 	createEmailSender: () => vi.fn(async () => ({ success: true })),
 }));
 
-vi.mock("../../../src/lib/schedule/sms-sender", () => ({
-	createSmsSenderProvider: () => () => ({
+vi.mock("../../../src/lib/messaging/sms/sender-factory", () => ({
+	createSmsSenderFactory: () => () => ({
 		sender: vi.fn(async () => ({ success: true })),
 	}),
 }));
@@ -28,7 +28,7 @@ vi.mock("../../../src/lib/price-targets/delivery", () => ({
 
 import { deliverPriceTargetAlert } from "../../../src/lib/price-targets/delivery";
 import { processPriceTargets } from "../../../src/lib/price-targets/process";
-import { getCurrentMarketSession } from "../../../src/lib/providers/price-fetcher";
+import { getCurrentMarketSession } from "../../../src/lib/vendors/price-fetcher";
 
 const mockGetCurrentMarketSession = vi.mocked(getCurrentMarketSession);
 const mockDeliverPriceTargetAlert = vi.mocked(deliverPriceTargetAlert);

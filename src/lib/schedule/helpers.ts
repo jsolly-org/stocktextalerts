@@ -4,8 +4,8 @@ import type { AppSupabaseClient, createSupabaseAdminClient } from "../db/supabas
 import type { Logger } from "../logging";
 import { recordNotification } from "../messaging/shared";
 import type { UserAssetRow } from "../messaging/types";
-import { computeDeliveryRetryDelayMs } from "../providers/vendor-fault-tolerance";
 import { toIsoOrThrow } from "../time/format";
+import { computeDeliveryRetryDelayMs } from "../vendors/vendor-fault-tolerance";
 
 export const MAX_NOTIFICATION_RETRIES = 3;
 /** Number of users to process concurrently in scheduled-delivery jobs. */

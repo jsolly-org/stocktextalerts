@@ -32,9 +32,9 @@ vi.mock("../../../src/lib/asset-events/query", () => ({
 	fetchAssetEventsUsers: fetchAssetEventsUsersMock,
 }));
 
-vi.mock("../../../src/lib/providers/price-fetcher", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/providers/price-fetcher")>(
-		"../../../src/lib/providers/price-fetcher",
+vi.mock("../../../src/lib/vendors/price-fetcher", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/price-fetcher")>(
+		"../../../src/lib/vendors/price-fetcher",
 	);
 	return {
 		...actual,
@@ -107,8 +107,8 @@ vi.mock("../../../src/lib/messaging/email/utils", () => ({
 	createEmailSender: () => vi.fn(),
 }));
 
-vi.mock("../../../src/lib/schedule/sms-sender", () => ({
-	createSmsSenderProvider: () => () => ({ sender: "+15555550123" }),
+vi.mock("../../../src/lib/messaging/sms/sender-factory", () => ({
+	createSmsSenderFactory: () => () => ({ sender: "+15555550123" }),
 }));
 
 vi.mock("../../../src/lib/market-notifications/snapshot-store", () => ({

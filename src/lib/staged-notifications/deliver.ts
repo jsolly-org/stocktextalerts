@@ -34,19 +34,19 @@ import { deliveryResultToLogFields, recordNotification } from "../messaging/shar
 import { SMS_BODY_CHAR_BUDGET } from "../messaging/sms/block-packing";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padDailyDigestSmsSegmentBoundaries } from "../messaging/sms/segment-utils";
+import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
+import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { DeliveryResult, UserRecord } from "../messaging/types";
-import { computeDeliveryRetryDelayMs } from "../providers/vendor-fault-tolerance";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import {
 	claimNotification,
 	getMaxDailyDigestSlotAttempts,
 	updateScheduledNotificationRow,
 } from "../schedule/helpers";
-import type { SmsSenderProvider } from "../schedule/sms-sender";
-import type { TelegramSenderProvider } from "../schedule/telegram-sender";
 import { toIsoOrThrow } from "../time/format";
+import { computeDeliveryRetryDelayMs } from "../vendors/vendor-fault-tolerance";
 import {
 	deleteStagedNotification,
 	fetchDueStagedNotifications,
@@ -110,8 +110,8 @@ export async function deliverStagedNotifications(options: {
 	logger: Logger;
 	currentTime: DateTime;
 	sendEmail: EmailSender;
-	getSmsSender: SmsSenderProvider;
-	getTelegramSender: TelegramSenderProvider;
+	getSmsSender: SmsSenderFactory;
+	getTelegramSender: TelegramSenderFactory;
 }): Promise<{
 	stats: ScheduledNotificationTotals;
 	deliveredUserTypes: Set<string>;
@@ -324,8 +324,8 @@ async function deliverStagedDaily(options: {
 	logger: Logger;
 	currentTime: DateTime;
 	sendEmail: EmailSender;
-	getSmsSender: SmsSenderProvider;
-	getTelegramSender: TelegramSenderProvider;
+	getSmsSender: SmsSenderFactory;
+	getTelegramSender: TelegramSenderFactory;
 	deliveredUserTypes: Set<string>;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {

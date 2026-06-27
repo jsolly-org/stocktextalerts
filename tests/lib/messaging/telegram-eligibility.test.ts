@@ -5,7 +5,7 @@ import {
 	shouldSendTelegram,
 	type TelegramPrefRow,
 } from "../../../src/lib/messaging/telegram/eligibility";
-import { createTelegramSenderProvider } from "../../../src/lib/schedule/telegram-sender";
+import { createTelegramSenderFactory } from "../../../src/lib/messaging/telegram/sender-factory";
 
 const digestPrefs: TelegramPrefRow[] = [
 	{ notification_type: "daily_digest", content: "prices", channel: "telegram", enabled: true },
@@ -53,7 +53,7 @@ describe("Telegram delivery eligibility", () => {
 
 describe("Telegram sender provider gate", () => {
 	it("in test mode the provider returns the deterministic mock, never the real bot", async () => {
-		const { sender } = createTelegramSenderProvider()();
+		const { sender } = createTelegramSenderFactory()();
 		const result = await sender({ chatId: 8675309, text: "AAPL daily digest: up 1.2%" });
 		expect(result).toMatchObject({ success: true, messageSid: "mock" });
 	});

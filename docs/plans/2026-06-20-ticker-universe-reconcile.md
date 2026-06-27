@@ -11,7 +11,7 @@ Built and verified locally: `check:ts` (0 errors), `check:biome` (clean), `check
 
 Files: migration `supabase/migrations/20260620165957_add_assets_reference_columns.sql`
 (`reference_updated_utc` + `composite_figi` + `GRANT INSERT … service_role`, schema_version bump);
-`src/lib/providers/massive.ts` (`fetchActiveTickers`, `fetchTickerDetail`, `ActiveTicker`);
+`src/lib/vendors/massive.ts` (`fetchActiveTickers`, `fetchTickerDetail`, `ActiveTicker`);
 `src/lib/assets/universe-reconcile.ts`; `src/handlers/asset-maintenance.ts` (renamed, wired);
 full `asset-events`→`asset-maintenance` infra rename across `aws/template.yaml`, `aws/deploy-web.sh`,
 `aws/package.json`, `aws/sam-local.sh`, `docs/shared-infra.md`; `tests/helpers/constants.ts`
@@ -64,7 +64,7 @@ since then are invisible to users.
   rows. **This is the "notify + auto-remove" behavior we want for tracked symbols — keep it as-is.**
 - **Add-surface gating** (`src/pages/api/assets/update.ts:86`): already rejects symbols with
   `delisted_at` set.
-- **`fetchTickerReferences`** (`src/lib/providers/massive.ts`): strict `active:false` / `delisted_utc`
+- **`fetchTickerReferences`** (`src/lib/vendors/massive.ts`): strict `active:false` / `delisted_utc`
   detection with an injection seam for tests.
 - **`enqueueNewSymbolWarmup`** (`src/lib/vendor-backfill/queue.ts`): existing SQS path to warm a new
   symbol's price/OHLCV data. The reconcile feeds this for newly-discovered symbols.
@@ -206,7 +206,7 @@ grant on `assets`). Bump `app_metadata.schema_version` in SQL **and** `EXPECTED_
   `src/lib/assets/universe-reconcile.ts` exporting `runUniverseReconcile(deps)`, with injection seams
   (`fetchActiveTickers`, `fetchTickerDetail`) mirroring the delisting-sweep test pattern. The script
   can then re-use the same lib functions (DRY the two-pass fetch).
-- Add `fetchActiveTickers()` (paginated list) to `src/lib/providers/massive.ts` alongside the existing
+- Add `fetchActiveTickers()` (paginated list) to `src/lib/vendors/massive.ts` alongside the existing
   `fetchTickerReferences`.
 
 ## Risks / decisions
@@ -260,4 +260,4 @@ grant on `assets`). Bump `app_metadata.schema_version` in SQL **and** `EXPECTED_
 - Deep-research report (this session): Massive/Polygon `active`/`delisted_utc` semantics, nightly
   re-sync cadence, two-pass-fetch necessity, seed-file-as-prod-update anti-pattern.
 - Existing: `src/lib/assets/delisting-sweep.ts`, `src/handlers/asset-events.ts`,
-  `src/lib/vendor-backfill/queue.ts`, `scripts/db/fetch-us-assets.ts`, `src/lib/providers/massive.ts`.
+  `src/lib/vendor-backfill/queue.ts`, `scripts/db/fetch-us-assets.ts`, `src/lib/vendors/massive.ts`.

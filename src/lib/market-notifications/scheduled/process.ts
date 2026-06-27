@@ -9,11 +9,11 @@ import { buildMarketClosedBannerText } from "../../messaging/market-closure-bann
 import { anyFacetEnabled, isFacetEnabled } from "../../messaging/notification-prefs";
 import { recordNotification } from "../../messaging/shared";
 import { shouldSendSms } from "../../messaging/sms";
+import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
 import type { SparklineMap } from "../../messaging/sparkline";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
+import type { TelegramSenderFactory } from "../../messaging/telegram/sender-factory";
 import type { UserRecord } from "../../messaging/types";
-import type { AssetPriceMap, MarketSession } from "../../providers/price-fetcher";
-import { fetchIntradaySparklines, NO_SESSION_TRADE } from "../../providers/price-fetcher";
 import type {
 	DeliveryMethod,
 	ScheduledNotificationTotals,
@@ -21,12 +21,12 @@ import type {
 	UserAssetsMap,
 } from "../../schedule/helpers";
 import { loadUserAssets } from "../../schedule/helpers";
-import type { SmsSenderProvider } from "../../schedule/sms-sender";
-import type { TelegramSenderProvider } from "../../schedule/telegram-sender";
 import { isOutsideMarketHours, userLocalToEtMinute } from "../../time/format";
 import type { MarketClosureInfo } from "../../time/market-calendar";
 import { getUsMarketClosureInfoForInstant } from "../../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../../time/scheduled-times";
+import type { AssetPriceMap, MarketSession } from "../../vendors/price-fetcher";
+import { fetchIntradaySparklines, NO_SESSION_TRADE } from "../../vendors/price-fetcher";
 import {
 	processMarketScheduledEmailDelivery,
 	processMarketScheduledSmsDelivery,
@@ -43,8 +43,8 @@ export async function processMarketScheduledUser(options: {
 	logger: Logger;
 	currentTime: DateTime;
 	sendEmail: EmailSender;
-	getSmsSender: SmsSenderProvider;
-	getTelegramSender: TelegramSenderProvider;
+	getSmsSender: SmsSenderFactory;
+	getTelegramSender: TelegramSenderFactory;
 	priceMap: AssetPriceMap;
 	/** Symbols Massive recognized but had no live trade in the current session.
 	 *  The renderer emits "no pre-market trades" / "no after-hours trades" for

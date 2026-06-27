@@ -8,12 +8,12 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { rootLogger } from "../../../src/lib/logging";
-import { computeDeliveryRetryDelayMs } from "../../../src/lib/providers/vendor-fault-tolerance";
 import {
 	batchLoadUserAssets,
 	claimNotification,
 	MAX_NOTIFICATION_RETRIES,
 } from "../../../src/lib/schedule/helpers";
+import { computeDeliveryRetryDelayMs } from "../../../src/lib/vendors/vendor-fault-tolerance";
 import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";

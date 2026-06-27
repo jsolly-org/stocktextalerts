@@ -1,4 +1,4 @@
-import type { ExtendedAssetQuote } from "../providers/price-fetcher";
+import type { ExtendedAssetQuote } from "../vendors/price-fetcher";
 import type { AssetSnapshot } from "./snapshot-store";
 
 /* =============

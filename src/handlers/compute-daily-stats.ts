@@ -8,9 +8,9 @@ import {
 	getBenchmarkCacheSymbols,
 	storeDailyCloseRows,
 } from "../lib/market-notifications/price-history-cache";
-import { fetchDailyOHLCV } from "../lib/providers/massive";
 import { runLambda } from "../lib/run-lambda";
 import { enqueueDailyCloseBackfill } from "../lib/vendor-backfill/queue";
+import { fetchDailyOHLCV } from "../lib/vendors/massive";
 
 /** Batch size for Massive API calls to stay under ~100 req/s. */
 const BATCH_SIZE = 50;

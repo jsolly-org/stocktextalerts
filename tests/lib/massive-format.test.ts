@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatAssetEventsSection } from "../../src/lib/providers/massive";
+import { formatAssetEventsSection } from "../../src/lib/vendors/massive";
 
 describe("formatAssetEventsSection", () => {
 	it("formats earnings for SMS as compact one-liners", () => {

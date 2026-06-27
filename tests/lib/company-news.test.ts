@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchCompanyNews } from "../../src/lib/providers/company-news";
+import { fetchCompanyNews } from "../../src/lib/vendors/company-news";
 import {
 	recordOptionalVendorFailure,
 	resetOptionalVendorCircuitsForTests,
-} from "../../src/lib/providers/vendor-fault-tolerance";
+} from "../../src/lib/vendors/vendor-fault-tolerance";
 
 // Mock retry delays so error/retry tests don't wait real seconds
 vi.mock("node:timers/promises", () => ({

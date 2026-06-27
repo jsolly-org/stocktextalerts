@@ -1251,7 +1251,7 @@ async function fetchTickerReference(symbol: string): Promise<TickerReferenceStat
  *
  * Returns one status per input symbol; order is not guaranteed.
  * Mirrors the worker-pool pattern used by `fetchSparklines` in
- * `src/lib/providers/price-fetcher.ts`.
+ * `src/lib/vendors/price-fetcher.ts`.
  */
 export async function fetchTickerReferences(
 	symbols: string[],

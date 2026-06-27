@@ -20,7 +20,7 @@ import type {
 	TelegramMessage,
 	TelegramSender,
 } from "../../../../src/lib/messaging/telegram/sender";
-import type { ExtendedAssetQuote } from "../../../../src/lib/providers/price-fetcher";
+import type { ExtendedAssetQuote } from "../../../../src/lib/vendors/price-fetcher";
 import { makePrefRows } from "../../../helpers/user-record-fixture";
 
 type RecordedInsert = { table: string; row: Record<string, unknown> };

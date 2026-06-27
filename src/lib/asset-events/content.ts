@@ -2,9 +2,9 @@ import { DateTime } from "luxon";
 import type { Logger } from "../logging";
 import { isFacetEnabled } from "../messaging/notification-prefs";
 import type { UserRecord } from "../messaging/types";
-import { formatAnalystSection, formatInsiderSection } from "../providers/finnhub";
-import { formatAssetEventsSection } from "../providers/massive";
 import type { SupabaseAdminClient } from "../schedule/helpers";
+import { formatAnalystSection, formatInsiderSection } from "../vendors/finnhub";
+import { formatAssetEventsSection } from "../vendors/massive";
 import { loadStoredFinnhubExtras } from "./enrichment-store";
 
 type DeliveryChannel = "email" | "sms";

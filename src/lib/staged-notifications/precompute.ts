@@ -17,10 +17,10 @@ import { fetchUpcomingDailyDigestUsers } from "../daily-digest/query-upcoming";
 import type { Logger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
 import { createLogoCache } from "../messaging/logo-fetcher";
-import { getCurrentMarketSession } from "../providers/price-fetcher";
+import { createSmsSenderFactory } from "../messaging/sms/sender-factory";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
-import { createSmsSenderProvider } from "../schedule/sms-sender";
 import { toIsoOrThrow } from "../time/format";
+import { getCurrentMarketSession } from "../vendors/price-fetcher";
 
 /** Pre-compute window in seconds (look ahead this far). */
 const PRECOMPUTE_WINDOW_SECONDS = 30;
@@ -93,7 +93,7 @@ export async function precomputeDailyDigest(options: {
 	// land on different market dates.
 	const marketOpen = options.marketOpen ?? (await getCurrentMarketSession()) === "regular";
 	const sendEmail = createEmailSender();
-	const getSmsSender = createSmsSenderProvider();
+	const getSmsSender = createSmsSenderFactory();
 	// One logo cache for the whole precompute fan-out so a symbol's logo is resolved once.
 	const logoCache = createLogoCache();
 

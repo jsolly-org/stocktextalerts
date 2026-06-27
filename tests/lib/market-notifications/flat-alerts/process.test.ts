@@ -6,7 +6,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EmailSender } from "../../../../src/lib/messaging/email/utils";
 import type { SmsSender } from "../../../../src/lib/messaging/sms/twilio-utils";
-import type { ExtendedAssetQuote } from "../../../../src/lib/providers/price-fetcher";
+import type { ExtendedAssetQuote } from "../../../../src/lib/vendors/price-fetcher";
 import { adminClient } from "../../../helpers/test-env";
 import { createTestUser, setTestUserPrefs } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
@@ -15,9 +15,9 @@ import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
  * Mocks: only external providers + the email sender.
  * Supabase stays real so RPC/DB semantics are tested end-to-end.
  * ============= */
-vi.mock("../../../../src/lib/providers/massive", async () => {
-	const actual = await vi.importActual<typeof import("../../../../src/lib/providers/massive")>(
-		"../../../../src/lib/providers/massive",
+vi.mock("../../../../src/lib/vendors/massive", async () => {
+	const actual = await vi.importActual<typeof import("../../../../src/lib/vendors/massive")>(
+		"../../../../src/lib/vendors/massive",
 	);
 	return {
 		...actual,
@@ -31,10 +31,10 @@ vi.mock("../../../../src/lib/providers/massive", async () => {
 	};
 });
 
-vi.mock("../../../../src/lib/providers/price-fetcher", async () => {
-	const actual = await vi.importActual<
-		typeof import("../../../../src/lib/providers/price-fetcher")
-	>("../../../../src/lib/providers/price-fetcher");
+vi.mock("../../../../src/lib/vendors/price-fetcher", async () => {
+	const actual = await vi.importActual<typeof import("../../../../src/lib/vendors/price-fetcher")>(
+		"../../../../src/lib/vendors/price-fetcher",
+	);
 	return {
 		...actual,
 		fetchSparklines: vi.fn(async (symbols: string[]) => {
@@ -63,8 +63,8 @@ vi.mock("../../../../src/lib/messaging/email/utils", async () => {
 });
 
 const mockSmsSender = vi.fn<SmsSender>(async () => ({ success: true }));
-vi.mock("../../../../src/lib/schedule/sms-sender", () => ({
-	createSmsSenderProvider: () => () => ({ sender: mockSmsSender }),
+vi.mock("../../../../src/lib/messaging/sms/sender-factory", () => ({
+	createSmsSenderFactory: () => () => ({ sender: mockSmsSender }),
 }));
 
 import { processFlatPriceAlerts } from "../../../../src/lib/market-notifications/flat-alerts/process";
@@ -400,7 +400,7 @@ describe("processFlatPriceAlerts", () => {
 		await enableFlatAlerts(testUser.id);
 
 		// Simulate a transient Massive 5xx during market hours
-		const { fetchIntradayBars } = await import("../../../../src/lib/providers/massive");
+		const { fetchIntradayBars } = await import("../../../../src/lib/vendors/massive");
 		vi.mocked(fetchIntradayBars).mockRejectedValueOnce(new Error("Massive 502 bad gateway"));
 
 		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);

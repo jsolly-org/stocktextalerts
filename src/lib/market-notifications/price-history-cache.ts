@@ -3,10 +3,10 @@ import { US_MARKET_TIMEZONE } from "../constants";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
 import { downsampleEvenly, type SparklineData, toSparkline } from "../messaging/sparkline";
-import type { DailyOHLCVBar } from "../providers/massive";
-import type { ExtendedQuoteMap } from "../providers/price-fetcher";
-import { SECTOR_ETF_MAP } from "../providers/sector-mapping";
 import type { SupabaseAdminClient } from "../schedule/helpers";
+import type { DailyOHLCVBar } from "../vendors/massive";
+import type { ExtendedQuoteMap } from "../vendors/price-fetcher";
+import { SECTOR_ETF_MAP } from "../vendors/sector-mapping";
 
 const MINUTE_RETENTION_HOURS = 36;
 const DAILY_RETENTION_DAYS = 30;

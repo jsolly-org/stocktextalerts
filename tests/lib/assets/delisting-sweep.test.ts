@@ -10,10 +10,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runDelistingSweep } from "../../../src/lib/assets/delisting-sweep";
 import { rootLogger } from "../../../src/lib/logging";
 import type { EmailRequest, EmailSender } from "../../../src/lib/messaging/email/utils";
+import type { SmsSenderFactory } from "../../../src/lib/messaging/sms/sender-factory";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { DeliveryResult } from "../../../src/lib/messaging/types";
-import type { TickerReferenceStatus } from "../../../src/lib/providers/massive";
-import type { SmsSenderProvider } from "../../../src/lib/schedule/sms-sender";
+import type { TickerReferenceStatus } from "../../../src/lib/vendors/massive";
 import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
@@ -74,7 +74,7 @@ function makeFakeEmailSender(): {
 }
 
 function makeFakeSmsSender(): {
-	provider: SmsSenderProvider;
+	provider: SmsSenderFactory;
 	captured: CapturedSms[];
 	setResult(result: DeliveryResult): void;
 } {
@@ -87,7 +87,7 @@ function makeFakeSmsSender(): {
 		captured.push({ to: request.to, body: request.body });
 		return nextResult;
 	};
-	const provider: SmsSenderProvider = () => ({ sender });
+	const provider: SmsSenderFactory = () => ({ sender });
 	return {
 		captured,
 		provider,

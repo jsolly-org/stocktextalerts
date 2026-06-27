@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { computeAnomalyScore } from "../../../src/lib/market-notifications/anomaly-detection";
 import type { AssetSnapshot } from "../../../src/lib/market-notifications/snapshot-store";
-import type { ExtendedAssetQuote } from "../../../src/lib/providers/price-fetcher";
+import type { ExtendedAssetQuote } from "../../../src/lib/vendors/price-fetcher";
 
 /** Defaults modeled on AAPL trading at ~$187 on a typical low-volatility day. */
 function makeQuote(overrides: Partial<ExtendedAssetQuote> = {}): ExtendedAssetQuote {

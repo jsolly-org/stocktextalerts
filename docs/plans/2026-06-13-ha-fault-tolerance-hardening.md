@@ -26,7 +26,7 @@ Findings → tasks:
 | 5 | Approval lookup hits DB on every page load, no cache | Task 6 | 3 |
 | 7 | No reserved concurrency on high-fan-out Lambdas | Task 7 | 3 |
 
-**Design decision (retry mechanism):** The codebase already hand-rolls explicit retry loops for outbound vendor HTTP (Massive/Finnhub/Grok in `src/lib/providers/`). Messaging is also outbound vendor HTTP, so Task 1 follows that house pattern with one shared `withDeliveryRetry` wrapper rather than each SDK's native retry. Per-attempt timeouts are added at the SDK seam (SES via `abortSignal`, Twilio via the client `timeout` option). Each SDK's own retry is disabled so retries aren't multiplied.
+**Design decision (retry mechanism):** The codebase already hand-rolls explicit retry loops for outbound vendor HTTP (Massive/Finnhub/Grok in `src/lib/vendors/`). Messaging is also outbound vendor HTTP, so Task 1 follows that house pattern with one shared `withDeliveryRetry` wrapper rather than each SDK's native retry. Per-attempt timeouts are added at the SDK seam (SES via `abortSignal`, Twilio via the client `timeout` option). Each SDK's own retry is disabled so retries aren't multiplied.
 
 **Note on SMS testability:** Per [twilio-utils.ts:49-54](../../../src/lib/messaging/sms/twilio-utils.ts), SMS has **no live test tier** and the production branch is gated off in tests (`isProduction()` → mock). The `withDeliveryRetry` helper is fully unit-tested in isolation (Task 1, Step 1-4); the Twilio *wiring* is verified by `check:ts` + build, not a unit test. This is called out so "tests pass" is not mistaken for "the Twilio retry path was exercised."
 
@@ -379,11 +379,11 @@ Create `tests/lib/schedule/market-session.test.ts`:
 ```ts
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../src/lib/providers/price-fetcher", () => ({
+vi.mock("../../../src/lib/vendors/price-fetcher", () => ({
  getCurrentMarketSession: vi.fn(),
 }));
 
-import { getCurrentMarketSession } from "../../../src/lib/providers/price-fetcher";
+import { getCurrentMarketSession } from "../../../src/lib/vendors/price-fetcher";
 import {
  __resetMarketSessionCacheForTests,
  resolveMarketSessionWithFallback,
@@ -439,7 +439,7 @@ Expected: FAIL — cannot find module `market-session`.
 Create `src/lib/schedule/market-session.ts`:
 
 ```ts
-import { type MarketSession, getCurrentMarketSession } from "../providers/price-fetcher";
+import { type MarketSession, getCurrentMarketSession } from "../vendors/price-fetcher";
 
 /**
  * Last successfully resolved market session. Persists across warm Lambda

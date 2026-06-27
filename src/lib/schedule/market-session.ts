@@ -1,4 +1,4 @@
-import { getCurrentMarketSession, type MarketSession } from "../providers/price-fetcher";
+import { getCurrentMarketSession, type MarketSession } from "../vendors/price-fetcher";
 
 /**
  * Last successfully resolved market session. Persists across warm Lambda

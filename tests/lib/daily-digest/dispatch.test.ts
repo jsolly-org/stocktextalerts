@@ -11,8 +11,8 @@ vi.mock("../../../src/lib/messaging/email/utils", () => ({
 	createEmailSender: () => vi.fn(),
 }));
 
-vi.mock("../../../src/lib/schedule/sms-sender", () => ({
-	createSmsSenderProvider: () => () => ({ sender: "+15555550123" }),
+vi.mock("../../../src/lib/messaging/sms/sender-factory", () => ({
+	createSmsSenderFactory: () => () => ({ sender: "+15555550123" }),
 }));
 
 const mockSupabaseUser = {

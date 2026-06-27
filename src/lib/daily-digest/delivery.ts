@@ -20,17 +20,17 @@ import type { SmsExtras } from "../messaging/sms/delivery";
 import { formatExtrasSection } from "../messaging/sms/formatting";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padDailyDigestSmsSegmentBoundaries } from "../messaging/sms/segment-utils";
+import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import type { SparklineData, SparklineMap } from "../messaging/sparkline";
 import { formatDailyDigestTelegram } from "../messaging/telegram/digest";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
+import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { DeliveryResult, UserAssetRow, UserRecord } from "../messaging/types";
-import type { AssetPriceMap } from "../providers/price-fetcher";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
-import type { SmsSenderProvider } from "../schedule/sms-sender";
-import type { TelegramSenderProvider } from "../schedule/telegram-sender";
 import type { MarketClosureInfo } from "../time/market-calendar";
+import type { AssetPriceMap } from "../vendors/price-fetcher";
 
 const TICKER_LINE_RE = /^[A-Z][A-Z0-9.-]{0,9}:\s/;
 const QUOTE_TIMESTAMP_FORMAT_BASE: Intl.DateTimeFormatOptions = {
@@ -568,7 +568,7 @@ export async function processDailyDigestSmsDelivery(options: {
 	sparklines?: SparklineMap;
 	marketOpen?: boolean;
 	marketClosureInfo?: MarketClosureInfo | null;
-	getSmsSender: SmsSenderProvider;
+	getSmsSender: SmsSenderFactory;
 	stats: ScheduledNotificationTotals;
 	/** Optional delay banner text for late notifications. */
 	delayBanner?: string | null;
@@ -609,7 +609,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		return;
 	}
 
-	let smsSenderResult: ReturnType<SmsSenderProvider>;
+	let smsSenderResult: ReturnType<SmsSenderFactory>;
 	try {
 		smsSenderResult = getSmsSender();
 	} catch (error) {
@@ -724,7 +724,7 @@ export async function processDailyDigestTelegramDelivery(options: {
 	/** Human date label in market tz, e.g. "Thu, Jun 19". */
 	dateLabel: string;
 	marketClosedBanner?: string | null;
-	getTelegramSender: TelegramSenderProvider;
+	getTelegramSender: TelegramSenderFactory;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
 	const {
@@ -766,7 +766,7 @@ export async function processDailyDigestTelegramDelivery(options: {
 		return;
 	}
 
-	let telegramSenderResult: ReturnType<TelegramSenderProvider>;
+	let telegramSenderResult: ReturnType<TelegramSenderFactory>;
 	try {
 		telegramSenderResult = getTelegramSender();
 	} catch (error) {

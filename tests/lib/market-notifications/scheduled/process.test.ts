@@ -27,8 +27,8 @@ vi.mock("../../../../src/lib/schedule/helpers", async () => {
 	};
 });
 
-vi.mock("../../../../src/lib/providers/price-fetcher", async () => {
-	const actual = await vi.importActual("../../../../src/lib/providers/price-fetcher");
+vi.mock("../../../../src/lib/vendors/price-fetcher", async () => {
+	const actual = await vi.importActual("../../../../src/lib/vendors/price-fetcher");
 	return {
 		...actual,
 		fetchIntradaySparklines: vi.fn(async () => new Map()),

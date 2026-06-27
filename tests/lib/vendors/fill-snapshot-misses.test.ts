@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fillSnapshotMissesWithPrevDayBar } from "../../../src/lib/providers/price-fetcher";
+import { fillSnapshotMissesWithPrevDayBar } from "../../../src/lib/vendors/price-fetcher";
 import { expectConsoleError } from "../../setup";
 
-vi.mock("../../../src/lib/providers/massive", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/providers/massive")>(
-		"../../../src/lib/providers/massive",
+vi.mock("../../../src/lib/vendors/massive", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/massive")>(
+		"../../../src/lib/vendors/massive",
 	);
 	return {
 		...actual,
@@ -12,7 +12,7 @@ vi.mock("../../../src/lib/providers/massive", async () => {
 	};
 });
 
-const { fetchPrevDayBar } = await import("../../../src/lib/providers/massive");
+const { fetchPrevDayBar } = await import("../../../src/lib/vendors/massive");
 const fetchPrevDayBarMock = vi.mocked(fetchPrevDayBar);
 
 afterEach(() => {

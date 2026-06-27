@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reserveFlatPriceAlert } from "../../../src/lib/market-notifications/flat-alerts/state";
 import { processPriceAlerts } from "../../../src/lib/market-notifications/process";
 import { reserveCooldownSlot } from "../../../src/lib/market-notifications/users";
-import type { ExtendedAssetQuote } from "../../../src/lib/providers/price-fetcher";
 import type { SupabaseAdminClient } from "../../../src/lib/schedule/helpers";
+import type { ExtendedAssetQuote } from "../../../src/lib/vendors/price-fetcher";
 import { adminClient } from "../../helpers/test-env";
 import {
 	createTestUser,
@@ -29,9 +29,9 @@ vi.mock("../../../src/lib/market-notifications/anomaly-detection", async () => {
 	};
 });
 
-vi.mock("../../../src/lib/providers/price-fetcher", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/providers/price-fetcher")>(
-		"../../../src/lib/providers/price-fetcher",
+vi.mock("../../../src/lib/vendors/price-fetcher", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/price-fetcher")>(
+		"../../../src/lib/vendors/price-fetcher",
 	);
 	return {
 		...actual,
@@ -49,8 +49,8 @@ vi.mock("../../../src/lib/messaging/email/utils", async () => {
 	};
 });
 
-vi.mock("../../../src/lib/schedule/sms-sender", () => ({
-	createSmsSenderProvider: () => () => ({ sender: mocks.sendSms }),
+vi.mock("../../../src/lib/messaging/sms/sender-factory", () => ({
+	createSmsSenderFactory: () => () => ({ sender: mocks.sendSms }),
 }));
 
 function failingRpcClient(message: string): SupabaseAdminClient {

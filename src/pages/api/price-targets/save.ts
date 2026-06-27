@@ -5,7 +5,7 @@ import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
-import { fetchAssetPrices, getCurrentMarketSession } from "../../../lib/providers/price-fetcher";
+import { fetchAssetPrices, getCurrentMarketSession } from "../../../lib/vendors/price-fetcher";
 
 /**
  * POST /api/price-targets/save

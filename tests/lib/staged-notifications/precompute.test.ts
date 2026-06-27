@@ -40,9 +40,9 @@ vi.mock("../../../src/lib/daily-digest/query-upcoming", () => ({
 	fetchUpcomingDailyDigestUsers: fetchUpcomingDailyDigestUsersMock,
 }));
 
-vi.mock("../../../src/lib/providers/price-fetcher", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/providers/price-fetcher")>(
-		"../../../src/lib/providers/price-fetcher",
+vi.mock("../../../src/lib/vendors/price-fetcher", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/price-fetcher")>(
+		"../../../src/lib/vendors/price-fetcher",
 	);
 	return {
 		...actual,

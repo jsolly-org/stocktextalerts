@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import { finnhubFetch } from "../../src/lib/providers/finnhub";
-import { fetchEarnings, resetEarningsCacheForTests } from "../../src/lib/providers/massive";
+import { finnhubFetch } from "../../src/lib/vendors/finnhub";
+import { fetchEarnings, resetEarningsCacheForTests } from "../../src/lib/vendors/massive";
 
 // Mock the network seam (massive.ts imports only finnhubFetch from this module);
 // fetchEarnings' cache wraps the real parsing in massive.ts.
-vi.mock("../../src/lib/providers/finnhub", () => ({ finnhubFetch: vi.fn() }));
+vi.mock("../../src/lib/vendors/finnhub", () => ({ finnhubFetch: vi.fn() }));
 
 const mockFinnhubFetch = finnhubFetch as unknown as Mock;
 

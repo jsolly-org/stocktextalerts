@@ -26,10 +26,10 @@ import { createTestUser, setTestUserPrefs } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 import { expectConsoleError } from "../../../setup";
 
-vi.mock("../../../../src/lib/providers/price-fetcher", async () => {
-	const actual = await vi.importActual<
-		typeof import("../../../../src/lib/providers/price-fetcher")
-	>("../../../../src/lib/providers/price-fetcher");
+vi.mock("../../../../src/lib/vendors/price-fetcher", async () => {
+	const actual = await vi.importActual<typeof import("../../../../src/lib/vendors/price-fetcher")>(
+		"../../../../src/lib/vendors/price-fetcher",
+	);
 	return {
 		...actual,
 		fetchIntradaySparklines: vi.fn(async () => new Map()),

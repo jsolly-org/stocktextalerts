@@ -13,13 +13,13 @@ import {
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
+import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { formatAssetEventsTelegram } from "../messaging/telegram/asset-events";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
+import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { UserRecord } from "../messaging/types";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
-import type { SmsSenderProvider } from "../schedule/sms-sender";
-import type { TelegramSenderProvider } from "../schedule/telegram-sender";
 import type { MarketClosureInfo } from "../time/market-calendar";
 
 /* =============
@@ -330,7 +330,7 @@ export async function processAssetEventsSmsDelivery(options: {
 	analystSection: string | null;
 	insiderSection: string | null;
 	marketClosureInfo?: MarketClosureInfo | null;
-	getSmsSender: SmsSenderProvider;
+	getSmsSender: SmsSenderFactory;
 	stats: ScheduledNotificationTotals;
 	/** Optional delay banner text for late notifications. */
 	delayBanner?: string | null;
@@ -373,7 +373,7 @@ export async function processAssetEventsSmsDelivery(options: {
 		return;
 	}
 
-	let smsSenderResult: ReturnType<SmsSenderProvider>;
+	let smsSenderResult: ReturnType<SmsSenderFactory>;
 	try {
 		smsSenderResult = getSmsSender();
 	} catch (error) {
@@ -468,7 +468,7 @@ export async function processAssetEventsTelegramDelivery(options: {
 	insiderSection: string | null;
 	delayBanner?: string | null;
 	marketClosureInfo?: MarketClosureInfo | null;
-	getTelegramSender: TelegramSenderProvider;
+	getTelegramSender: TelegramSenderFactory;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
 	const {
@@ -510,7 +510,7 @@ export async function processAssetEventsTelegramDelivery(options: {
 		return;
 	}
 
-	let telegramSenderResult: ReturnType<TelegramSenderProvider>;
+	let telegramSenderResult: ReturnType<TelegramSenderFactory>;
 	try {
 		telegramSenderResult = getTelegramSender();
 	} catch (error) {

@@ -7,9 +7,9 @@ import {
 import {
 	fetchInsiderTransactions,
 	fetchRecommendationTrends,
-} from "../../../src/lib/providers/finnhub";
+} from "../../../src/lib/vendors/finnhub";
 
-vi.mock("../../../src/lib/providers/finnhub", () => ({
+vi.mock("../../../src/lib/vendors/finnhub", () => ({
 	fetchRecommendationTrends: vi.fn(),
 	fetchInsiderTransactions: vi.fn(),
 }));

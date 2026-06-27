@@ -8,19 +8,19 @@ import { rootLogger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
 import { createLogoCache } from "../messaging/logo-fetcher";
 import { isFacetEnabled } from "../messaging/notification-prefs";
+import { createSmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
-import { fetchIntradayBars, type IntradayCandle } from "../providers/massive";
+import { createTelegramSenderFactory } from "../messaging/telegram/sender-factory";
+import type { SupabaseAdminClient } from "../schedule/helpers";
+import { fetchIntradayBars, type IntradayCandle } from "../vendors/massive";
 import {
 	type ExtendedAssetQuote,
 	type ExtendedQuoteMap,
 	fetchExtendedQuotes,
 	getCurrentMarketSession,
 	type MarketSession,
-} from "../providers/price-fetcher";
-import { SECTOR_ETF_MAP } from "../providers/sector-mapping";
-import type { SupabaseAdminClient } from "../schedule/helpers";
-import { createSmsSenderProvider } from "../schedule/sms-sender";
-import { createTelegramSenderProvider } from "../schedule/telegram-sender";
+} from "../vendors/price-fetcher";
+import { SECTOR_ETF_MAP } from "../vendors/sector-mapping";
 import { getAnomalyThreshold } from "./alert-profile";
 import { computeAnomalyScore } from "./anomaly-detection";
 import { fetchDailyStats } from "./daily-stats";
@@ -341,9 +341,9 @@ export async function processPriceAlerts(options: {
 	}
 
 	const sendEmail = createEmailSender();
-	const getSmsSender = createSmsSenderProvider();
+	const getSmsSender = createSmsSenderFactory();
 	let smsSender: ReturnType<typeof getSmsSender>["sender"] | null = null;
-	const getTelegramSender = createTelegramSenderProvider();
+	const getTelegramSender = createTelegramSenderFactory();
 	let telegramSender: ReturnType<typeof getTelegramSender>["sender"] | null = null;
 	const logoCache = createLogoCache();
 

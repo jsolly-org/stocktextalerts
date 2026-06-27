@@ -1,5 +1,5 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
-import type { AssetPriceMap } from "../../providers/price-fetcher";
+import type { AssetPriceMap } from "../../vendors/price-fetcher";
 import { formatSignedChangePercent, formatUsdPrice } from "../asset-formatting";
 import { TELEGRAM_FOOTER } from "../footer";
 import type { SmsExtras } from "../sms/delivery";

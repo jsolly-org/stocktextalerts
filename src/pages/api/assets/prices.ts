@@ -3,7 +3,7 @@ import { jsonResponse } from "../../../lib/api/json-response";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
-import { fetchExtendedQuotes, getCurrentMarketSession } from "../../../lib/providers/price-fetcher";
+import { fetchExtendedQuotes, getCurrentMarketSession } from "../../../lib/vendors/price-fetcher";
 
 /**
  * GET /api/assets/prices

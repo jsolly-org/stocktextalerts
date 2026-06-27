@@ -3,8 +3,8 @@ import { jsonResponse } from "../../../lib/api/json-response";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
-import { fetchSparklines } from "../../../lib/providers/price-fetcher";
 import { isValidAssetSymbol } from "../../../lib/validation";
+import { fetchSparklines } from "../../../lib/vendors/price-fetcher";
 
 /**
  * GET /api/assets/sparklines

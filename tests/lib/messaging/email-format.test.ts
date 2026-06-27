@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { formatEmailMessage } from "../../../src/lib/messaging/email/utils";
 import type { UserAssetRow } from "../../../src/lib/messaging/types";
-import type { AssetPriceMap } from "../../../src/lib/providers/price-fetcher";
+import type { AssetPriceMap } from "../../../src/lib/vendors/price-fetcher";
 
 describe("Email scheduled update includes asset price data.", () => {
 	const testUser = { id: "test-user-id", email: "test@example.com" };

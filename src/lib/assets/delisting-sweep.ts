@@ -9,16 +9,16 @@ import type { EmailSender } from "../messaging/email/utils";
 import { deliveryResultToLogFields } from "../messaging/shared";
 import { isSmsChannelUsable, sendUserSms } from "../messaging/sms";
 import { formatDelistingSms } from "../messaging/sms/delisting";
-import { fetchTickerReferences, type TickerReferenceStatus } from "../providers/massive";
+import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import type { SupabaseAdminClient } from "../schedule/helpers";
-import type { SmsSenderProvider } from "../schedule/sms-sender";
+import { fetchTickerReferences, type TickerReferenceStatus } from "../vendors/massive";
 
 /** Dependencies injected into `runDelistingSweep`. */
 interface DelistingSweepDeps {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	sendEmail: EmailSender;
-	getSmsSender: SmsSenderProvider;
+	getSmsSender: SmsSenderFactory;
 	/**
 	 * Injection seam for tests — defaults to `fetchTickerReferences` from
 	 * the Massive provider. Tests pass a fake that returns pre-canned

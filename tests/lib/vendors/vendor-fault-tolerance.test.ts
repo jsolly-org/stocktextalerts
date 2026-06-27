@@ -8,7 +8,7 @@ import {
 	recordOptionalVendorSuccess,
 	resetOptionalVendorCircuitsForTests,
 	withOptionalVendorBudget,
-} from "../../../src/lib/providers/vendor-fault-tolerance";
+} from "../../../src/lib/vendors/vendor-fault-tolerance";
 
 describe("vendor-fault-tolerance", () => {
 	afterEach(() => {

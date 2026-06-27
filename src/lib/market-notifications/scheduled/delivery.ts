@@ -4,16 +4,16 @@ import { processEmailUpdate } from "../../messaging/email/delivery";
 import type { EmailSender } from "../../messaging/email/utils";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
 import { processSmsUpdate } from "../../messaging/sms/delivery";
+import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
 import type { SparklineData } from "../../messaging/sparkline";
 import { formatMarketScheduledTelegram } from "../../messaging/telegram/market-scheduled";
 import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
+import type { TelegramSenderFactory } from "../../messaging/telegram/sender-factory";
 import type { UserAssetRow, UserRecord } from "../../messaging/types";
-import type { AssetPriceMap, MarketSession } from "../../providers/price-fetcher";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../../schedule/helpers";
 import { claimNotification, updateScheduledNotificationRow } from "../../schedule/helpers";
-import type { SmsSenderProvider } from "../../schedule/sms-sender";
-import type { TelegramSenderProvider } from "../../schedule/telegram-sender";
 import type { MarketClosureInfo } from "../../time/market-calendar";
+import type { AssetPriceMap, MarketSession } from "../../vendors/price-fetcher";
 
 /**
  * Deliver a scheduled market asset update via email and record the result.
@@ -137,7 +137,7 @@ export async function processMarketScheduledSmsDelivery(options: {
 	scheduledMinutes: number;
 	userAssets: UserAssetRow[];
 	assetsList: string;
-	getSmsSender: SmsSenderProvider;
+	getSmsSender: SmsSenderFactory;
 	marketSession: MarketSession;
 	marketClosureInfo?: MarketClosureInfo | null;
 	stats: ScheduledNotificationTotals;
@@ -180,7 +180,7 @@ export async function processMarketScheduledSmsDelivery(options: {
 		return;
 	}
 
-	let smsSenderResult: ReturnType<SmsSenderProvider>;
+	let smsSenderResult: ReturnType<SmsSenderFactory>;
 	try {
 		smsSenderResult = getSmsSender();
 	} catch (error) {
@@ -277,7 +277,7 @@ export async function processMarketScheduledTelegramDelivery(options: {
 	sessionLabel?: string | null;
 	delayBanner?: string | null;
 	marketClosedBanner?: string | null;
-	getTelegramSender: TelegramSenderProvider;
+	getTelegramSender: TelegramSenderFactory;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
 	const {
@@ -317,7 +317,7 @@ export async function processMarketScheduledTelegramDelivery(options: {
 		return;
 	}
 
-	let telegramSenderResult: ReturnType<TelegramSenderProvider>;
+	let telegramSenderResult: ReturnType<TelegramSenderFactory>;
 	try {
 		telegramSenderResult = getTelegramSender();
 	} catch (error) {

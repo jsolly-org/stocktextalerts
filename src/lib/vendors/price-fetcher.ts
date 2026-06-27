@@ -23,7 +23,7 @@ import {
 	marketDataFetch,
 } from "./massive";
 
-// Re-exported so messaging-layer consumers don't reach into `providers/massive`
+// Re-exported so messaging-layer consumers don't reach into `vendors/massive`
 // directly — `price-fetcher` is the public abstraction over the snapshot API.
 export { NO_SESSION_TRADE, type NoSessionTrade } from "./massive";
 

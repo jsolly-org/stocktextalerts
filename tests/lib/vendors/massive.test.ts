@@ -3,7 +3,7 @@ import {
 	extractIntradayOHLCV,
 	extractOHLCVFromBars,
 	fetchPrevDayBar,
-} from "../../../src/lib/providers/massive";
+} from "../../../src/lib/vendors/massive";
 
 describe("Massive OHLCV bar extraction", () => {
 	it("extracts full OHLCV bars from a valid aggregates response", () => {

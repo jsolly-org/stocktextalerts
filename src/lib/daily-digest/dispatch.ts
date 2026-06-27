@@ -3,13 +3,13 @@ import { createSupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { createEmailSender, type EmailSender } from "../messaging/email/utils";
 import type { LogoCache } from "../messaging/logo-fetcher";
+import { createSmsSenderFactory, type SmsSenderFactory } from "../messaging/sms/sender-factory";
+import {
+	createTelegramSenderFactory,
+	type TelegramSenderFactory,
+} from "../messaging/telegram/sender-factory";
 import type { UserRecord } from "../messaging/types";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
-import { createSmsSenderProvider, type SmsSenderProvider } from "../schedule/sms-sender";
-import {
-	createTelegramSenderProvider,
-	type TelegramSenderProvider,
-} from "../schedule/telegram-sender";
 import type { MarketClosureInfo } from "../time/market-calendar";
 import { processDailyDigestUser } from "./process";
 import { fetchOneDailyDigestUser } from "./query";
@@ -43,9 +43,9 @@ export async function dispatchDailyDigestUser(options: {
 	/** Shared email sender from the cron run (reuses SES setup). */
 	sendEmail?: EmailSender;
 	/** Shared SMS provider from the cron run (reuses Twilio client cache). */
-	getSmsSender?: SmsSenderProvider;
+	getSmsSender?: SmsSenderFactory;
 	/** Shared Telegram provider from the cron run (reuses bot/sender cache). */
-	getTelegramSender?: TelegramSenderProvider;
+	getTelegramSender?: TelegramSenderFactory;
 	/** Shared per-pass logo cache so a symbol's logo is resolved once per pass, not per user. */
 	logoCache?: LogoCache;
 }): Promise<ScheduledNotificationTotals> {
@@ -74,8 +74,8 @@ export async function dispatchDailyDigestUser(options: {
 
 		const supabase = supabaseOption ?? createSupabaseAdminClient();
 		const sendEmail = sendEmailOption ?? createEmailSender();
-		const getSmsSender = getSmsSenderOption ?? createSmsSenderProvider();
-		const getTelegramSender = getTelegramSenderOption ?? createTelegramSenderProvider();
+		const getSmsSender = getSmsSenderOption ?? createSmsSenderFactory();
+		const getTelegramSender = getTelegramSenderOption ?? createTelegramSenderFactory();
 
 		// Reuse the UserRecord (with prefs) the scheduler already loaded when provided;
 		// only fall back to a per-user fetch on the standalone-invoke path, via the same

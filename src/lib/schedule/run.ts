@@ -50,19 +50,21 @@ import { fetchMarketScheduledUsers } from "../market-notifications/scheduled/que
 import { purgeOldAssetSnapshots } from "../market-notifications/snapshot-store";
 import { createEmailSender } from "../messaging/email/utils";
 import { createLogoCache, type LogoCache } from "../messaging/logo-fetcher";
+import { createSmsSenderFactory } from "../messaging/sms/sender-factory";
+import { createTelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import { type PriceTargetTotals, processPriceTargets } from "../price-targets/process";
+import { deliverStagedNotifications } from "../staged-notifications/deliver";
+import { precomputeDailyDigest } from "../staged-notifications/precompute";
+import { toIsoOrThrow } from "../time/format";
+import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
+import { enqueuePriceHistoryStoreRetry } from "../vendor-backfill/queue";
 import {
 	type AssetPriceMap,
 	type ExtendedQuoteMap,
 	fetchAssetPricesWithSessionState,
 	fetchExtendedQuotes,
 	type MarketSession,
-} from "../providers/price-fetcher";
-import { deliverStagedNotifications } from "../staged-notifications/deliver";
-import { precomputeDailyDigest } from "../staged-notifications/precompute";
-import { toIsoOrThrow } from "../time/format";
-import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
-import { enqueuePriceHistoryStoreRetry } from "../vendor-backfill/queue";
+} from "../vendors/price-fetcher";
 import {
 	batchLoadUserAssets,
 	type ScheduledNotificationTotals,
@@ -71,8 +73,6 @@ import {
 	type UserAssetsMap,
 } from "./helpers";
 import { resolveMarketSessionWithFallback } from "./market-session";
-import { createSmsSenderProvider } from "./sms-sender";
-import { createTelegramSenderProvider } from "./telegram-sender";
 
 /** Daily fan-out batch size for dispatching digest processing. */
 const DAILY_DISPATCH_BATCH_SIZE = (() => {
@@ -158,8 +158,8 @@ async function runPass(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	sendEmail: ReturnType<typeof createEmailSender>;
-	getSmsSender: ReturnType<typeof createSmsSenderProvider>;
-	getTelegramSender: ReturnType<typeof createTelegramSenderProvider>;
+	getSmsSender: ReturnType<typeof createSmsSenderFactory>;
+	getTelegramSender: ReturnType<typeof createTelegramSenderFactory>;
 	marketSession: MarketSession;
 	schedulerQuoteCache: SchedulerQuoteCache;
 	/** Per-invocation logo cache shared across both passes + all users (resolve each
@@ -647,8 +647,8 @@ export async function runScheduledNotifications(options: {
 	}
 
 	const sendEmail = createEmailSender();
-	const getSmsSender = createSmsSenderProvider();
-	const getTelegramSender = createTelegramSenderProvider();
+	const getSmsSender = createSmsSenderFactory();
+	const getTelegramSender = createTelegramSenderFactory();
 	// Seed from the captured (superset) map so fallback passes reuse the watched-symbol
 	// quotes the price-history capture already fetched, instead of re-fetching them.
 	const schedulerQuoteCache = createSchedulerQuoteCache(capturedQuoteMap);

@@ -3,13 +3,13 @@ import type { Logger } from "../logging";
 import { shouldSendSms } from "../messaging/sms/index";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { UserRecord } from "../messaging/types";
-import { computeDeliveryRetryDelayMs } from "../providers/vendor-fault-tolerance";
 import {
 	getMaxDailyDigestSlotAttempts,
 	MAX_NOTIFICATION_RETRIES,
 	type SupabaseAdminClient,
 } from "../schedule/helpers";
 import { toIsoOrThrow } from "../time/format";
+import { computeDeliveryRetryDelayMs } from "../vendors/vendor-fault-tolerance";
 
 type ChannelStatus = "sent" | "failed" | "sending" | "missing";
 

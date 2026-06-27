@@ -3,9 +3,9 @@ import { HttpError } from "grammy";
 import { createLogger, type Logger } from "../lib/logging";
 import { checkTelegramLive } from "../lib/messaging/telegram/health";
 import { createTelegramBot, readTelegramBotToken } from "../lib/messaging/telegram/sender";
-import { fetchDailyCloses, fetchEarnings, fetchPrevClose } from "../lib/providers/massive";
-import { fetchAssetPrices, getCurrentMarketSession } from "../lib/providers/price-fetcher";
 import { runLambda } from "../lib/run-lambda";
+import { fetchDailyCloses, fetchEarnings, fetchPrevClose } from "../lib/vendors/massive";
+import { fetchAssetPrices, getCurrentMarketSession } from "../lib/vendors/price-fetcher";
 
 /**
  * Scheduled live data-provider health check (Massive + Finnhub + Telegram).

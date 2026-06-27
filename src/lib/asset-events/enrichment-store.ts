@@ -2,14 +2,14 @@ import { setTimeout as realDelay } from "node:timers/promises";
 import { DateTime } from "luxon";
 import type { Logger } from "../logging";
 import { payloadLogFields, preparePayloadForLog } from "../logging/log-payload";
+import type { SupabaseAdminClient } from "../schedule/helpers";
 import {
 	fetchInsiderTransactions,
 	fetchRecommendationTrends,
 	type InsiderTransaction,
 	type RecommendationTrend,
-} from "../providers/finnhub";
-import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "../providers/vendor-fault-tolerance";
-import type { SupabaseAdminClient } from "../schedule/helpers";
+} from "../vendors/finnhub";
+import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "../vendors/vendor-fault-tolerance";
 
 /** Analyst rows older than this are treated as stale at send time. */
 export const ANALYST_FRESHNESS_MS = 36 * 60 * 60 * 1000;
