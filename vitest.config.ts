@@ -1,11 +1,7 @@
 import { getViteConfig } from "astro/config";
 import { loadEnv } from "vite";
 import type {} from "vitest/config";
-
-// Force NODE_ENV=test so Vitest runs in test mode even when the shell
-// inherits NODE_ENV=production. Vitest's own injection is `??=`-style and
-// won't overwrite an inherited value — see tests/run-vitest.ts.
-process.env.NODE_ENV = "test";
+import { normalizeDirectVitestProcessEnv } from "./tests/helpers/test-process-env";
 
 // Load .env / .env.local into process.env so tests work regardless of
 // invocation method (npm test, npx vitest, IDE test runner, etc.).
@@ -15,8 +11,8 @@ for (const [key, value] of Object.entries(env)) {
 		process.env[key] = value;
 	}
 }
-// CI writes this into .env.local for E2E/build; Vitest mocks vendor HTTP instead.
-delete process.env.SKIP_VENDOR_HTTP_IN_TEST;
+// After .env merge: strip SMTP host + vendor skip flag (see tests/run-vitest.ts).
+normalizeDirectVitestProcessEnv();
 
 export default getViteConfig(
 	{
@@ -25,6 +21,9 @@ export default getViteConfig(
 			include: ["tests/**/*.test.ts"],
 			// Run test files sequentially; they share Supabase state and can race otherwise.
 			fileParallelism: false,
+			sequence: {
+				concurrent: false,
+			},
 			// Setup runs schema checks and seed preload; allow time.
 			hookTimeout: 60000,
 			testTimeout: 30000,

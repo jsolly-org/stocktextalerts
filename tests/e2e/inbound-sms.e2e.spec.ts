@@ -29,10 +29,7 @@ test.describe("inbound SMS webhook", () => {
 			}
 			const inboundUserPhone = `${data.phone_country_code}${data.phone_number}`;
 
-			const authToken = process.env.TWILIO_AUTH_TOKEN;
-			if (!authToken) {
-				throw new Error("TWILIO_AUTH_TOKEN is required for inbound signature");
-			}
+			const authToken = process.env.TWILIO_AUTH_TOKEN ?? "stubaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 			const webhookOrigin = (baseURL ?? "http://localhost:4322").replace(/\/+$/, "");
 			const signatureUrl = `${webhookOrigin}/api/messaging/inbound`;

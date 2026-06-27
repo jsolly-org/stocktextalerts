@@ -13,8 +13,8 @@ export default defineConfig({
 		command: "MODE=test npm run dev -- --port 4322",
 		url: "http://localhost:4322/",
 		timeout: 120 * 1000,
-		// Use 4322 to avoid clashing with default Astro dev (4321). Reuse server on 4322 when present.
-		reuseExistingServer: true,
+		// Use 4322 to avoid clashing with default Astro dev (4321). Reuse locally only.
+		reuseExistingServer: !process.env.CI,
 		env: {
 			// CI uses placeholder API keys; avoid vendor retry storms during E2E (fetch.ts).
 			SKIP_VENDOR_HTTP_IN_TEST: "1",
@@ -28,6 +28,8 @@ export default defineConfig({
 			// it stays correct if the shared port is ever changed.
 			EMAIL_SMTP_PORT: process.env.EMAIL_SMTP_PORT ?? "1025",
 			SITE_URL: "http://localhost:4322",
+			// Inbound SMS webhook signature validation (tests/e2e/inbound-sms.e2e.spec.ts).
+			TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN ?? "stubaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		},
 	},
 });

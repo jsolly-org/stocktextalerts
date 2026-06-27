@@ -67,6 +67,12 @@ vi.mock("../../../../src/lib/messaging/sms/sender-factory", () => ({
 	createSmsSenderFactory: () => () => ({ sender: mockSmsSender }),
 }));
 
+vi.mock("../../../../src/lib/messaging/logo-fetcher", () => ({
+	createLogoCache: vi.fn(() => ({})),
+	fetchLogoBase64: vi.fn(async () => null),
+	renderLogoImg: vi.fn(() => ""),
+}));
+
 import { processFlatPriceAlerts } from "../../../../src/lib/market-notifications/flat-alerts/process";
 
 function makeQuote(overrides: Partial<ExtendedAssetQuote>): ExtendedAssetQuote {

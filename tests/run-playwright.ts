@@ -1,6 +1,11 @@
 #!/usr/bin/env npx tsx
 import { spawnSync } from "node:child_process";
-import { acquireTestLockWithRetry, formatContentionMessage, TestLockHeldError } from "./lock";
+import {
+	acquireTestLockWithRetry,
+	formatContentionMessage,
+	releaseTestLock,
+	TestLockHeldError,
+} from "./lock";
 
 async function main() {
 	try {
@@ -13,13 +18,19 @@ async function main() {
 		throw err;
 	}
 
-	const child = spawnSync("./node_modules/.bin/playwright", ["test", ...process.argv.slice(2)], {
-		stdio: "inherit",
-		env: process.env,
-		shell: process.platform === "win32",
-	});
+	let exitCode = 1;
+	try {
+		const child = spawnSync("./node_modules/.bin/playwright", ["test", ...process.argv.slice(2)], {
+			stdio: "inherit",
+			env: process.env,
+			shell: process.platform === "win32",
+		});
+		exitCode = typeof child.status === "number" ? child.status : 1;
+	} finally {
+		releaseTestLock();
+	}
 
-	process.exit(typeof child.status === "number" ? child.status : 1);
+	process.exit(exitCode);
 }
 
 main().catch((err) => {
