@@ -1,11 +1,13 @@
 # Vendor Capability Split Plan
 
 ## Goal
+
 Disruptively reorganize `src/lib/vendors` so it contains provider-specific adapter code only. Capabilities such as prices, company news, asset events, backfill, Grok summaries, retry policy, and sector mapping should live in domain folders under `src/lib`.
 
 This is an internal breaking rewrite: old module paths should disappear, consumers should move to final capability imports, and the result should be easier to reason about than today’s mixed vendor bucket.
 
 ## Assumptions
+
 - Module paths and exported symbol locations may change freely.
 - Runtime behavior, SQS message schema, Lambda handlers, AWS resource names, and live-provider semantics should remain unchanged unless a small cleanup is needed to make the new boundary coherent.
 - Do not add compatibility barrels or old-path re-export shims.
@@ -13,6 +15,7 @@ This is an internal breaking rewrite: old module paths should disappear, consume
 - Application code imports capability modules, not provider modules, except for live-provider checks, DB scripts, and provider-specific tests.
 
 ## Boundary Rules
+
 - `src/lib/vendors/**` may depend on shared infra (`db/env`, logging, vendor HTTP policy) and vendor-local helpers only.
 - `src/lib/vendors/**` must not import from capability folders such as `market-data`, `asset-events`, `daily-digest`, `messaging`, `backfill`, or `market-notifications`.
 - Capability modules may import vendor adapters and compose multiple vendors behind domain names.
@@ -28,6 +31,7 @@ flowchart TD
 ## Target Shape
 
 Provider adapters:
+
 - `src/lib/vendors/massive/client.ts`: `marketDataFetch` and Massive auth/retry mechanics.
 - `src/lib/vendors/massive/aggregates.ts`: bars, daily closes, OHLCV, intraday candles, previous close/bar parsing.
 - `src/lib/vendors/massive/snapshot.ts`: snapshot quote parsing and `NO_SESSION_TRADE`.
@@ -41,6 +45,7 @@ Provider adapters:
 - `src/lib/vendors/grok/client.ts`: xAI/Grok Responses API transport only.
 
 Capability/domain modules:
+
 - `src/lib/market-data/types.ts`: `MarketSession`, `AssetPriceMap`, `ExtendedQuoteMap`, `ExtendedAssetQuote`, `NoSessionTrade`.
 - `src/lib/market-data/session.ts`: `parseMarketSession`, `getCurrentMarketSession`.
 - `src/lib/market-data/prices.ts`: `fetchAssetPrices`, `fetchAssetPricesWithSessionState`, `fetchExtendedQuotes`, `fillSnapshotMissesWithPrevDayBar`.
@@ -100,6 +105,7 @@ Build the new shape directly and remove old files as their consumers move. The p
    - Treat any remaining application import from `src/lib/vendors/**` as suspicious unless it is truly provider-facing.
 
 ## Validation
+
 Run targeted checks after each phase, then broader checks at the end. Adjust test paths as files move.
 
 - `npm run check:ts`
@@ -110,6 +116,7 @@ Run targeted checks after each phase, then broader checks at the end. Adjust tes
 - Final smoke: `npm run check:biome`, `npm run check:ts`, and the relevant full `npm test` subset if local Supabase is healthy.
 
 ## Risks
+
 - `price-fetcher` has the largest consumer fan-out and several global test mocks; replace it in one focused phase rather than dragging a compatibility module forward.
 - `massive.ts`, `finnhub.ts`, and `company-news.ts` currently form a dependency chain. Splitting clients first prevents circular imports from moving into the new structure.
 - `marketDataFetch` is used by `scripts/db/fetch-us-assets.ts` and `time/market-calendar.ts`; those should import the Massive client directly, while product features should prefer capability modules.
