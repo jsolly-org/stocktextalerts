@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.unmock("../../../../src/lib/messaging/email/dispatch-client");
+
 import { verifyEmailDispatchSignature } from "../../../../src/lib/messaging/email/dispatch-auth";
 import {
 	EMAIL_DISPATCH_SIGNATURE_HEADER,
