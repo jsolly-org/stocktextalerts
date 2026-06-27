@@ -1,4 +1,4 @@
-import { marketDataFetch } from "../vendors/massive/client";
+import { marketDataFetch } from "../vendors/massive";
 import type { MarketSession, NoSessionTrade } from "./types";
 import { NO_SESSION_TRADE } from "./types";
 

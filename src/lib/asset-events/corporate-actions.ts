@@ -1,4 +1,4 @@
-import { marketDataFetch } from "../vendors/massive/client";
+import { marketDataFetch } from "../vendors/massive";
 import type { DividendEvent, IpoEvent, ProviderResult, SplitEvent } from "./types";
 
 /** Fetch all ex-dividend events for a date range (market-wide). */

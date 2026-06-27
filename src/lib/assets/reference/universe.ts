@@ -1,6 +1,6 @@
 import { rootLogger } from "../../logging";
 import { shouldSkipVendorHttpInTestMode } from "../../vendors/fetch";
-import { marketDataFetch } from "../../vendors/massive/client";
+import { marketDataFetch } from "../../vendors/massive";
 import type { ActiveTicker } from "./types";
 
 export type { ActiveTicker };

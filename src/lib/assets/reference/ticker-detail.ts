@@ -1,4 +1,4 @@
-import { marketDataFetch } from "../../vendors/massive/client";
+import { marketDataFetch } from "../../vendors/massive";
 import { sicCodeToSector } from "../sector-mapping";
 
 const MASSIVE_TICKERS_PATH_PREFIX = "/v3/reference/tickers";

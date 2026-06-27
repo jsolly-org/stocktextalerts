@@ -5,7 +5,7 @@ vi.unmock("../../../src/lib/market-data/session");
 
 const marketDataFetchMock = vi.hoisted(() => vi.fn());
 
-vi.mock("../../../src/lib/vendors/massive/client", () => ({
+vi.mock("../../../src/lib/vendors/massive", () => ({
 	marketDataFetch: marketDataFetchMock,
 }));
 
