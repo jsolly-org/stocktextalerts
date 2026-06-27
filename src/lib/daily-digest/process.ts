@@ -26,6 +26,13 @@ import { upsertStagedNotification } from "../staged-notifications/db";
 import type { StagedDailyData } from "../staged-notifications/types";
 import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
+import {
+	assertIsoDateString,
+	assertYearMonthString,
+	type IsoDateString,
+	type MinuteOfDay,
+	type ScheduledSlotKey,
+} from "../types";
 import { buildNewsContextForGrok, fetchFinnhubExtras } from "../vendors/finnhub";
 import type { GrokSectionResult } from "../vendors/grok";
 import { generateNewsWithGrok, generateRumorsWithGrok } from "../vendors/grok";
@@ -39,13 +46,6 @@ import {
 	type MarketSession,
 } from "../vendors/price-fetcher";
 import { withOptionalVendorBudget } from "../vendors/vendor-fault-tolerance";
-import {
-	assertIsoDateString,
-	assertYearMonthString,
-	type IsoDateString,
-	type MinuteOfDay,
-	type ScheduledSlotKey,
-} from "../types";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsMessageBodies,
