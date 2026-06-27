@@ -1,13 +1,22 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../src/lib/vendors/price-fetcher", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/price-fetcher")>(
-		"../../../src/lib/vendors/price-fetcher",
+vi.mock("../../../src/lib/market-data/session", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/session")>(
+		"../../../src/lib/market-data/session",
 	);
 	return {
 		...actual,
 		getCurrentMarketSession: vi.fn().mockResolvedValue("regular"),
+	};
+});
+
+vi.mock("../../../src/lib/market-data/prices", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/prices")>(
+		"../../../src/lib/market-data/prices",
+	);
+	return {
+		...actual,
 		fetchExtendedQuotes: vi.fn(
 			async (symbols: string[]) =>
 				new Map(

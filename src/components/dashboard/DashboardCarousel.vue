@@ -47,11 +47,13 @@ import CalendarDaysIcon from "../../icons/calendar-days.svg?component";
 import ChartBarIcon from "../../icons/chart-bar.svg?component";
 import NewspaperIcon from "../../icons/newspaper.svg?component";
 import PresentationChartLineIcon from "../../icons/presentation-chart-line.svg?component";
-import { getScrollBehavior } from "../../lib/accessibility";
 import {
 	DASHBOARD_HASH_TO_TAB_INDEX,
 	DASHBOARD_TAB_INDEX_TO_HASH,
 } from "../../lib/constants";
+
+const scrollBehavior = (): ScrollBehavior =>
+	window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 
 interface Tab {
 	id: string;
@@ -95,7 +97,7 @@ function scrollToCard(index: number) {
 	activeIndex.value = index;
 	track.scrollTo({
 		left: card.offsetLeft,
-		behavior: getScrollBehavior(),
+		behavior: scrollBehavior(),
 	});
 
 	// Persist active tab in the URL so pull-to-refresh restores the same tab.
@@ -233,7 +235,7 @@ function scrollToHashTarget(hash: string, cardIndex: number) {
 		const offset = elRect.top - scrollerRect.top + scroller.scrollTop;
 		scroller.scrollTo({
 			top: Math.max(0, offset - scroller.clientHeight / 2 + elRect.height / 2),
-			behavior: getScrollBehavior(),
+			behavior: scrollBehavior(),
 		});
 	};
 
@@ -307,7 +309,7 @@ function syncToHash() {
 	} else {
 		const el = document.getElementById(hash);
 		if (el) {
-			el.scrollIntoView({ behavior: getScrollBehavior(), block: "center" });
+			el.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
 		}
 	}
 }
@@ -335,7 +337,7 @@ onMounted(() => {
 				nextTick(() => {
 					const el = document.getElementById(hash);
 					if (el) {
-						el.scrollIntoView({ behavior: getScrollBehavior(), block: "center" });
+						el.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
 					}
 				});
 			}

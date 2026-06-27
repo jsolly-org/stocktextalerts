@@ -26,9 +26,9 @@ import { createTestUser, setTestUserPrefs } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 import { expectConsoleError } from "../../../setup";
 
-vi.mock("../../../../src/lib/vendors/price-fetcher", async () => {
-	const actual = await vi.importActual<typeof import("../../../../src/lib/vendors/price-fetcher")>(
-		"../../../../src/lib/vendors/price-fetcher",
+vi.mock("../../../../src/lib/market-data/sparklines", async () => {
+	const actual = await vi.importActual<typeof import("../../../../src/lib/market-data/sparklines")>(
+		"../../../../src/lib/market-data/sparklines",
 	);
 	return {
 		...actual,

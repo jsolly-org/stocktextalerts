@@ -30,7 +30,7 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
 
-// Mock price-fetcher so a deterministic quote is returned without a live call.
+// Mock market-data so a deterministic quote is returned without a live call.
 const {
 	fetchAssetPricesWithSessionStateMock,
 	getCurrentMarketSessionMock,
@@ -43,14 +43,32 @@ const {
 	fetchSparklinesMock: vi.fn(),
 }));
 
-vi.mock("../../../src/lib/vendors/price-fetcher", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/price-fetcher")>(
-		"../../../src/lib/vendors/price-fetcher",
+vi.mock("../../../src/lib/market-data/session", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/session")>(
+		"../../../src/lib/market-data/session",
+	);
+	return {
+		...actual,
+		getCurrentMarketSession: getCurrentMarketSessionMock,
+	};
+});
+
+vi.mock("../../../src/lib/market-data/prices", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/prices")>(
+		"../../../src/lib/market-data/prices",
 	);
 	return {
 		...actual,
 		fetchAssetPricesWithSessionState: fetchAssetPricesWithSessionStateMock,
-		getCurrentMarketSession: getCurrentMarketSessionMock,
+	};
+});
+
+vi.mock("../../../src/lib/market-data/sparklines", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/sparklines")>(
+		"../../../src/lib/market-data/sparklines",
+	);
+	return {
+		...actual,
 		fetchIntradaySparklines: fetchIntradaySparklinesMock,
 		fetchSparklines: fetchSparklinesMock,
 	};
@@ -64,17 +82,9 @@ getCurrentMarketSessionMock.mockResolvedValue("regular");
 fetchIntradaySparklinesMock.mockResolvedValue(new Map());
 fetchSparklinesMock.mockResolvedValue(new Map());
 
-// Mock Massive top-movers to avoid the live call (not exercised here, but the
-// process module imports it).
-vi.mock("../../../src/lib/vendors/massive", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/massive")>(
-		"../../../src/lib/vendors/massive",
-	);
-	return {
-		...actual,
-		fetchTopMovers: vi.fn().mockResolvedValue([]),
-	};
-});
+vi.mock("../../../src/lib/vendors/massive/movers", () => ({
+	fetchTopMovers: vi.fn().mockResolvedValue([]),
+}));
 
 describe("Telegram daily digest dispatch", () => {
 	it("A Telegram-linked user with the daily-digest prices facet receives a Telegram digest.", async () => {

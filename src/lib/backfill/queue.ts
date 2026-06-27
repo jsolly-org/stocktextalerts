@@ -11,8 +11,8 @@ import {
 	storePriceHistoryRows,
 } from "../market-notifications/price-history-cache";
 import type { SupabaseAdminClient } from "../schedule/helpers";
-import { fetchDailyOHLCV } from "../vendors/massive";
-import { computeDeliveryRetryDelayMs } from "../vendors/vendor-fault-tolerance";
+import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
+import { fetchDailyOHLCV } from "../vendors/massive/aggregates";
 
 /** Max SQS receive attempts before redrive to poison DLQ (matches template maxReceiveCount). */
 export const VENDOR_BACKFILL_MAX_ATTEMPTS = 5;

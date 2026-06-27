@@ -6,7 +6,7 @@ import { recordNotification } from "../messaging/shared";
 import type { UserAssetRow } from "../messaging/types";
 import { toIsoOrThrow } from "../time/format";
 import type { ScheduledSlotKey } from "../types";
-import { computeDeliveryRetryDelayMs } from "../vendors/vendor-fault-tolerance";
+import { computeDeliveryRetryDelayMs } from "./retry-delays";
 
 export const MAX_NOTIFICATION_RETRIES = 3;
 /** Number of users to process concurrently in scheduled-delivery jobs. */

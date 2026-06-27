@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ExtendedAssetQuote } from "../../../src/lib/market-data/types";
 import { reserveFlatPriceAlert } from "../../../src/lib/market-notifications/flat-alerts/state";
 import { processPriceAlerts } from "../../../src/lib/market-notifications/process";
 import { reserveCooldownSlot } from "../../../src/lib/market-notifications/users";
 import type { SupabaseAdminClient } from "../../../src/lib/schedule/helpers";
-import type { ExtendedAssetQuote } from "../../../src/lib/vendors/price-fetcher";
 import { adminClient } from "../../helpers/test-env";
 import {
 	createTestUser,
@@ -29,9 +29,9 @@ vi.mock("../../../src/lib/market-notifications/anomaly-detection", async () => {
 	};
 });
 
-vi.mock("../../../src/lib/vendors/price-fetcher", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/price-fetcher")>(
-		"../../../src/lib/vendors/price-fetcher",
+vi.mock("../../../src/lib/market-data/prices", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/prices")>(
+		"../../../src/lib/market-data/prices",
 	);
 	return {
 		...actual,

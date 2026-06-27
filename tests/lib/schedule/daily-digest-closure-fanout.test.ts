@@ -32,14 +32,23 @@ vi.mock("../../../src/lib/asset-events/query", () => ({
 	fetchAssetEventsUsers: fetchAssetEventsUsersMock,
 }));
 
-vi.mock("../../../src/lib/vendors/price-fetcher", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/price-fetcher")>(
-		"../../../src/lib/vendors/price-fetcher",
+vi.mock("../../../src/lib/market-data/session", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/session")>(
+		"../../../src/lib/market-data/session",
+	);
+	return {
+		...actual,
+		getCurrentMarketSession: getCurrentMarketSessionMock,
+	};
+});
+
+vi.mock("../../../src/lib/market-data/prices", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/prices")>(
+		"../../../src/lib/market-data/prices",
 	);
 	return {
 		...actual,
 		fetchAssetPricesWithSessionState: fetchAssetPricesWithSessionStateMock,
-		getCurrentMarketSession: getCurrentMarketSessionMock,
 	};
 });
 

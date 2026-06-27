@@ -9,6 +9,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../../src/lib/db/supabase";
+import type { ExtendedAssetQuote } from "../../../../src/lib/market-data/types";
 import {
 	deliverFlatPriceAlert,
 	type FlatPriceAlertDeliveryStats,
@@ -20,7 +21,6 @@ import type {
 	TelegramMessage,
 	TelegramSender,
 } from "../../../../src/lib/messaging/telegram/sender";
-import type { ExtendedAssetQuote } from "../../../../src/lib/vendors/price-fetcher";
 import { makePrefRows } from "../../../helpers/user-record-fixture";
 
 type RecordedInsert = { table: string; row: Record<string, unknown> };

@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	extractIntradayOHLCV,
 	extractOHLCVFromBars,
-	fetchPrevDayBar,
-} from "../../../src/lib/vendors/massive";
+} from "../../../src/lib/vendors/massive/aggregates";
+import { fetchPrevDayBar } from "../../../src/lib/vendors/massive/snapshot";
 
 describe("Massive OHLCV bar extraction", () => {
 	it("extracts full OHLCV bars from a valid aggregates response", () => {

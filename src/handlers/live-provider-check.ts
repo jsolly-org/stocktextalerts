@@ -1,11 +1,13 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { HttpError } from "grammy";
 import { createLogger, type Logger } from "../lib/logging";
+import { fetchAssetPrices } from "../lib/market-data/prices";
+import { getCurrentMarketSession } from "../lib/market-data/session";
 import { checkTelegramLive } from "../lib/messaging/telegram/health";
 import { createTelegramBot, readTelegramBotToken } from "../lib/messaging/telegram/sender";
 import { runLambda } from "../lib/run-lambda";
-import { fetchDailyCloses, fetchEarnings, fetchPrevClose } from "../lib/vendors/massive";
-import { fetchAssetPrices, getCurrentMarketSession } from "../lib/vendors/price-fetcher";
+import { fetchEarnings } from "../lib/vendors/finnhub/earnings";
+import { fetchDailyCloses, fetchPrevClose } from "../lib/vendors/massive/aggregates";
 
 /**
  * Scheduled live data-provider health check (Massive + Finnhub + Telegram).

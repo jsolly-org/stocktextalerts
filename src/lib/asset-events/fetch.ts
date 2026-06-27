@@ -1,7 +1,7 @@
 import type { Logger } from "../logging";
 import type { SupabaseAdminClient } from "../schedule/helpers";
-import type { ProviderResult } from "../vendors/massive";
-import { fetchDividends, fetchEarnings, fetchIpos, fetchSplits } from "../vendors/massive";
+import type { ProviderResult } from "./providers";
+import { fetchDividends, fetchEarnings, fetchIpos, fetchSplits } from "./providers";
 
 /** Number of weeks to retain in the asset_events / market_events tables. */
 const RETENTION_WEEKS = 4;

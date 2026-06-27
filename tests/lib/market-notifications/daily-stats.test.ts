@@ -4,7 +4,7 @@ import {
 	computeATR,
 	type DailyOHLCVBar,
 } from "../../../src/lib/market-notifications/daily-stats";
-import { extractOHLCVFromBars } from "../../../src/lib/vendors/massive";
+import { extractOHLCVFromBars } from "../../../src/lib/vendors/massive/aggregates";
 
 function makeBar(overrides: Partial<DailyOHLCVBar> = {}): DailyOHLCVBar {
 	return {

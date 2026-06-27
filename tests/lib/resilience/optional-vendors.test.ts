@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-	computeDeliveryRetryDelayMs,
 	getAndResetOptionalVendorSkipCount,
 	isOptionalVendorUnavailable,
 	noteOptionalVendorSkip,
@@ -8,20 +7,12 @@ import {
 	recordOptionalVendorSuccess,
 	resetOptionalVendorCircuitsForTests,
 	withOptionalVendorBudget,
-} from "../../../src/lib/vendors/vendor-fault-tolerance";
+} from "../../../src/lib/resilience/optional-vendors";
 
-describe("vendor-fault-tolerance", () => {
+describe("fault-tolerance", () => {
 	afterEach(() => {
 		resetOptionalVendorCircuitsForTests();
 		vi.useRealTimers();
-	});
-
-	it("computeDeliveryRetryDelayMs uses 5m, 15m, 30m, then 60m cap", () => {
-		expect(computeDeliveryRetryDelayMs(1)).toBe(5 * 60 * 1000);
-		expect(computeDeliveryRetryDelayMs(2)).toBe(15 * 60 * 1000);
-		expect(computeDeliveryRetryDelayMs(3)).toBe(30 * 60 * 1000);
-		expect(computeDeliveryRetryDelayMs(4)).toBe(60 * 60 * 1000);
-		expect(computeDeliveryRetryDelayMs(99)).toBe(60 * 60 * 1000);
 	});
 
 	it("withOptionalVendorBudget returns ok when fn finishes within budget", async () => {

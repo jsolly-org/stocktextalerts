@@ -95,13 +95,22 @@ vi.mock("../src/lib/auth/sms-verification", async (importOriginal) => {
 	};
 });
 
-vi.mock("../src/lib/vendors/price-fetcher", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("../src/lib/vendors/price-fetcher")>();
-	const { testFetchIntradaySparklines, testFetchSparklines, testGetCurrentMarketSession } =
-		await import("./helpers/price-fetcher-doubles");
+vi.mock("../src/lib/market-data/session", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../src/lib/market-data/session")>();
+	const { testGetCurrentMarketSession } = await import("./helpers/price-fetcher-doubles");
 	return {
 		...actual,
 		getCurrentMarketSession: testGetCurrentMarketSession,
+	};
+});
+
+vi.mock("../src/lib/market-data/sparklines", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../src/lib/market-data/sparklines")>();
+	const { testFetchIntradaySparklines, testFetchSparklines } = await import(
+		"./helpers/price-fetcher-doubles"
+	);
+	return {
+		...actual,
 		fetchSparklines: testFetchSparklines,
 		fetchIntradaySparklines: testFetchIntradaySparklines,
 	};
@@ -112,7 +121,7 @@ vi.mock("../src/lib/vendors/price-fetcher", async (importOriginal) => {
 // the scheduled `live-provider-check` Lambda (src/handlers/live-provider-check.ts),
 // not by the local test suite.
 //
-// Outbound email/SMS/Telegram/Verify and default price-fetcher session/sparkline
+// Outbound email/SMS/Telegram/Verify and default market-data session/sparkline
 // stubs are wired via vi.mock above (tests/helpers/*-doubles.ts). Tests that
 // need the real factory can vi.importActual or override the mock per file.
 // Mailpit email tests opt in by setting EMAIL_SMTP_HOST (see run-vitest.ts).

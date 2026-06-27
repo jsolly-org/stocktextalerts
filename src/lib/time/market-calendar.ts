@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../constants";
-import { marketDataFetch } from "../vendors/massive";
+import { marketDataFetch } from "../vendors/massive/client";
 
 export type MarketClosureReason = "weekend" | "holiday" | "half-day-after-close";
 

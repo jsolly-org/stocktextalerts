@@ -1,11 +1,10 @@
-import { readEnv } from "../db/env";
-import { rootLogger } from "../logging";
 import {
 	applyAnnotationsInline,
 	isXUrl,
 	linkLabelFromUrl,
 	type XaiAnnotation,
-} from "../vendors/grok";
+} from "../ai/grok-citations";
+import { fetchGrokResponseOnce, type GrokResponsesResponse } from "../vendors/grok/client";
 
 const GROK_TIMEOUT_MS = 60_000;
 
@@ -38,29 +37,7 @@ function normalizeHttpUrl(raw: string): string | null {
 	}
 }
 
-// xAI Responses API types (minimal subset for price alert parsing)
-type XaiOutputContentPart = {
-	type?: string;
-	text?: string;
-	annotations?: XaiAnnotation[];
-};
-
-type XaiOutputItem = {
-	type?: string;
-	content?: XaiOutputContentPart[];
-};
-
-type ResponsesResponse = {
-	output?: XaiOutputItem[];
-};
-
-/**
- * Extract the summary text and up to 3 unique links from a Grok Responses API payload.
- *
- * Uses the same `applyAnnotationsInline` pipeline as the daily digest so that
- * citation references become inline markdown links (e.g. `[[Reuters]](url)`).
- */
-function parseGrokPriceAlertResponse(data: ResponsesResponse): PriceAlertGrokResult | null {
+function parseGrokPriceAlertResponse(data: GrokResponsesResponse): PriceAlertGrokResult | null {
 	let summaryText: string | null = null;
 	let summaryAnnotations: XaiAnnotation[] = [];
 	const seenUrls = new Set<string>();
@@ -76,11 +53,16 @@ function parseGrokPriceAlertResponse(data: ResponsesResponse): PriceAlertGrokRes
 			) {
 				if (!summaryText) {
 					summaryText = part.text.trim();
-					summaryAnnotations = part.annotations ?? [];
+					summaryAnnotations = Array.isArray(part.annotations)
+						? (part.annotations as XaiAnnotation[])
+						: [];
 				}
 
 				// Extract links from annotations for plaintext/SMS fallback
-				for (const ann of part.annotations ?? []) {
+				const annotations = Array.isArray(part.annotations)
+					? (part.annotations as XaiAnnotation[])
+					: [];
+				for (const ann of annotations) {
 					const normalizedUrl =
 						typeof ann.url === "string" ? normalizeHttpUrl(ann.url.trim()) : null;
 					if (!normalizedUrl || seenUrls.has(normalizedUrl)) {
@@ -163,15 +145,6 @@ export async function generatePriceAlertSummary(options: {
 	priceContext: string;
 	signalContext: string;
 }): Promise<PriceAlertGrokResult | null> {
-	const apiKey = readEnv("XAI_API_KEY");
-	if (!apiKey) {
-		rootLogger.warn("XAI_API_KEY is not set; skipping Grok price alert summary", {
-			symbol: options.symbol,
-			reason: "missing_api_key",
-		});
-		return null;
-	}
-
 	const prompt =
 		`${options.symbol}: ${options.priceContext}. ` +
 		`Signals: ${options.signalContext}.\n\n` +
@@ -180,62 +153,24 @@ export async function generatePriceAlertSummary(options: {
 		"Do not give investment advice. " +
 		"Include up to 3 of the most relevant source links (news articles or X posts).";
 
-	try {
-		const response = await fetch("https://api.x.ai/v1/responses", {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${apiKey}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				model: "grok-4.20-non-reasoning",
-				instructions:
-					"You write brief, neutral asset price alert summaries with source links. No buy/sell advice. " +
-					"Output plain text only — no markdown formatting (no **bold**, no *italic*).",
-				input: prompt,
-				temperature: 0.3,
-				max_output_tokens: 400,
-				tools: [{ type: "web_search" }, { type: "x_search" }],
-			}),
-			signal: AbortSignal.timeout(GROK_TIMEOUT_MS),
-		});
+	const data = await fetchGrokResponseOnce({
+		requestBody: {
+			model: "grok-4.20-non-reasoning",
+			instructions:
+				"You write brief, neutral asset price alert summaries with source links. No buy/sell advice. " +
+				"Output plain text only — no markdown formatting (no **bold**, no *italic*).",
+			input: prompt,
+			temperature: 0.3,
+			max_output_tokens: 400,
+			tools: [{ type: "web_search" }, { type: "x_search" }],
+		},
+		logContext: {
+			symbol: options.symbol,
+			action: "grok_price_alert",
+		},
+		timeoutMs: GROK_TIMEOUT_MS,
+	});
+	if (!data) return null;
 
-		if (!response.ok) {
-			const context = {
-				symbol: options.symbol,
-				status: response.status,
-			};
-			// 429 is an expected rejection (info). Everything else terminates
-			// this single-attempt call with no retry, so it's either upstream
-			// outage (5xx) or misconfiguration (4xx) — both error-level so
-			// Grok failures surface via ErrorLogAlarm rather than silently
-			// stripping AI summaries from price alerts.
-			if (response.status === 429) {
-				rootLogger.info("Grok price alert summary rate limited", context);
-			} else {
-				rootLogger.error(
-					"Grok price alert summary failed",
-					context,
-					new Error(`Grok HTTP ${response.status}`),
-				);
-			}
-			return null;
-		}
-
-		const data = (await response.json()) as ResponsesResponse;
-		return parseGrokPriceAlertResponse(data);
-	} catch (error) {
-		const isTimeout = error instanceof Error && error.name === "TimeoutError";
-		// Single attempt with no retry — log at error so Grok unreachability
-		// surfaces rather than silently stripping summaries.
-		rootLogger.error(
-			"Grok price alert summary error",
-			{
-				symbol: options.symbol,
-				reason: isTimeout ? "timeout" : "request_failed",
-			},
-			error,
-		);
-		return null;
-	}
+	return parseGrokPriceAlertResponse(data);
 }

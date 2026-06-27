@@ -13,12 +13,12 @@ import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import nodemailer, { type Transporter } from "nodemailer";
 import { readEnv, requireEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
+import type { AssetPriceMap, MarketSession } from "../../market-data/types";
+import { NO_SESSION_TRADE } from "../../market-data/types";
 import {
 	buildSessionFirstLine,
 	buildSessionFirstLineHtml,
 } from "../../market-notifications/scheduled/session-label";
-import type { AssetPriceMap, MarketSession } from "../../vendors/price-fetcher";
-import { NO_SESSION_TRADE } from "../../vendors/price-fetcher";
 import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
 import { withDeliveryRetry } from "../delivery-retry";
 import { NOT_FINANCIAL_ADVICE } from "../footer";

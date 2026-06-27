@@ -211,7 +211,6 @@ import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import ClockIcon from "../../../icons/clock.svg?component";
 import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
-import { getScrollBehavior } from "../../../lib/accessibility";
 import {
 	DASHBOARD_ASSET_EVENTS_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
@@ -584,7 +583,13 @@ const nextAssetEventsDeliveryText = computed(() => {
 
 function scrollToDailyNotifications() {
 	const el = document.getElementById(DASHBOARD_SECTION_IDS.dailyNotifications);
-	if (el) el.scrollIntoView({ behavior: getScrollBehavior() });
+	if (el) {
+		el.scrollIntoView({
+			behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+				? "auto"
+				: "smooth",
+		});
+	}
 }
 
 const isHydrated = useHydrated();

@@ -5,7 +5,7 @@ import {
 	handleVendorBackfillBatch,
 	parseVendorBackfillMessage,
 	VENDOR_BACKFILL_MAX_ATTEMPTS,
-} from "../../../src/lib/vendor-backfill/queue";
+} from "../../../src/lib/backfill/queue";
 
 vi.mock("../../../src/lib/asset-events/fetch", () => ({
 	fetchAndStoreAssetEvents: vi.fn(),

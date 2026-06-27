@@ -13,7 +13,7 @@ import type { EmailRequest, EmailSender } from "../../../src/lib/messaging/email
 import type { SmsSenderFactory } from "../../../src/lib/messaging/sms/sender-factory";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { DeliveryResult } from "../../../src/lib/messaging/types";
-import type { TickerReferenceStatus } from "../../../src/lib/vendors/massive";
+import type { TickerReferenceStatus } from "../../../src/lib/vendors/massive/reference";
 import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";

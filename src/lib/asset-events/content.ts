@@ -3,9 +3,8 @@ import type { Logger } from "../logging";
 import { isFacetEnabled } from "../messaging/notification-prefs";
 import type { UserRecord } from "../messaging/types";
 import type { SupabaseAdminClient } from "../schedule/helpers";
-import { formatAnalystSection, formatInsiderSection } from "../vendors/finnhub";
-import { formatAssetEventsSection } from "../vendors/massive";
 import { loadStoredFinnhubExtras } from "./enrichment-store";
+import { formatAnalystSection, formatAssetEventsSection, formatInsiderSection } from "./format";
 
 type DeliveryChannel = "email" | "sms";
 

@@ -1,8 +1,8 @@
 import type { Context, SQSBatchResponse, SQSEvent } from "aws-lambda";
+import { handleVendorBackfillBatch } from "../lib/backfill/queue";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
 import { runLambda } from "../lib/run-lambda";
-import { handleVendorBackfillBatch } from "../lib/vendor-backfill/queue";
 
 export async function handler(event: SQSEvent, context: Context): Promise<SQSBatchResponse> {
 	return runLambda(context, async () => {

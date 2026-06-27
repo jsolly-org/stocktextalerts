@@ -1,22 +1,12 @@
-import { marketDataFetch } from "./massive";
 import {
 	COMPANY_NEWS_REQUEST_TIMEOUT_MS,
 	isOptionalVendorUnavailable,
 	noteOptionalVendorSkip,
 	recordOptionalVendorFailure,
 	recordOptionalVendorSuccess,
-} from "./vendor-fault-tolerance";
-
-/** Minimal company-news item fields used in digests/sections. */
-export interface CompanyNewsItem {
-	headline: string;
-	summary: string;
-	datetime: number;
-	url: string;
-	source: string;
-	/** Ticker symbols associated with this article (from API). */
-	tickers: string[];
-}
+} from "../resilience/optional-vendors";
+import { marketDataFetch } from "../vendors/massive/client";
+import type { CompanyNewsItem } from "./types";
 
 /**
  * Maximum number of tickers an article can be tagged with before we consider

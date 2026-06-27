@@ -5,12 +5,12 @@ import type { AssetEventProvider } from "../lib/asset-events/fetch";
 import { fetchAndStoreAssetEvents } from "../lib/asset-events/fetch";
 import { runDelistingSweep } from "../lib/assets/delisting-sweep";
 import { runUniverseReconcile } from "../lib/assets/universe-reconcile";
+import { enqueueAssetEventsIngestRetry } from "../lib/backfill/queue";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
 import { createEmailSender } from "../lib/messaging/email/utils";
 import { createSmsSenderFactory } from "../lib/messaging/sms/sender-factory";
 import { runLambda } from "../lib/run-lambda";
-import { enqueueAssetEventsIngestRetry } from "../lib/vendor-backfill/queue";
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
 	return runLambda(context, async () => {

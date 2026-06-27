@@ -16,14 +16,14 @@ Approx universe size: ~5,257 CS + ~378 ADRC = ~5,635 stocks; ~5,021 ETFs.
 
 Free tier only. Used for:
 
-- **Earnings calendar** (`/calendar/earnings` via `fetchFinnhubEarnings` in `src/lib/vendors/massive.ts`, because Massive's earnings endpoint isn't entitled on our plan).
+- **Earnings calendar** (`/calendar/earnings` via `fetchEarnings` in `src/lib/vendors/finnhub/earnings.ts`, because Massive's earnings endpoint isn't entitled on our plan).
 - **Analyst recommendations + insider transactions** (persisted during the daily asset-events ingest; read at send time from `asset_analyst_consensus` / `asset_insider_transactions`).
 
 **Never used for live quotes** — the quote path is Massive-only, falling back to prev-day bars for snapshot misses.
 
 ## Vendor fault tolerance
 
-Scheduled notifications treat third-party calls in three tiers. Implementation lives in `src/lib/vendors/vendor-fault-tolerance.ts`, `src/lib/vendors/vendor-fetch.ts`, and `src/lib/schedule/helpers.ts`.
+Scheduled notifications treat third-party calls in three tiers. Implementation lives in `src/lib/resilience/optional-vendors.ts`, `src/lib/vendors/fetch.ts`, and `src/lib/schedule/retry-delays.ts`.
 
 ### Critical (must succeed or retry with backoff)
 

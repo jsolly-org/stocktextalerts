@@ -40,16 +40,34 @@ vi.mock("../../../src/lib/daily-digest/query-upcoming", () => ({
 	fetchUpcomingDailyDigestUsers: fetchUpcomingDailyDigestUsersMock,
 }));
 
-vi.mock("../../../src/lib/vendors/price-fetcher", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/price-fetcher")>(
-		"../../../src/lib/vendors/price-fetcher",
+vi.mock("../../../src/lib/market-data/session", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/session")>(
+		"../../../src/lib/market-data/session",
+	);
+	return {
+		...actual,
+		getCurrentMarketSession: getCurrentMarketSessionMock,
+	};
+});
+
+vi.mock("../../../src/lib/market-data/prices", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/prices")>(
+		"../../../src/lib/market-data/prices",
 	);
 	return {
 		...actual,
 		fetchAssetPricesWithSessionState: fetchAssetPricesWithSessionStateMock,
+	};
+});
+
+vi.mock("../../../src/lib/market-data/sparklines", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/sparklines")>(
+		"../../../src/lib/market-data/sparklines",
+	);
+	return {
+		...actual,
 		fetchIntradaySparklines: fetchIntradaySparklinesMock,
 		fetchSparklines: fetchSparklinesMock,
-		getCurrentMarketSession: getCurrentMarketSessionMock,
 	};
 });
 

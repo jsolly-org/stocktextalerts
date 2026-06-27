@@ -1,17 +1,12 @@
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.unmock("../../../src/lib/vendors/price-fetcher");
+vi.unmock("../../../src/lib/market-data/session");
 
 const marketDataFetchMock = vi.hoisted(() => vi.fn());
 
-vi.mock("../../../src/lib/vendors/massive", () => ({
+vi.mock("../../../src/lib/vendors/massive/client", () => ({
 	marketDataFetch: marketDataFetchMock,
-	// `getCurrentMarketSession` only uses marketDataFetch from this module;
-	// the others stay un-stubbed (unused in this file's import graph).
-	fetchDailyCloses: vi.fn(),
-	fetchPrevDayBar: vi.fn(),
-	fetchSnapshotQuotes: vi.fn(),
 }));
 
 const isTestMock = vi.hoisted(() => vi.fn(() => false));
@@ -19,10 +14,10 @@ vi.mock("../../../src/lib/runtime/mode", () => ({
 	isTest: isTestMock,
 }));
 
-type PriceFetcher = typeof import("../../../src/lib/vendors/price-fetcher");
+type MarketDataSession = typeof import("../../../src/lib/market-data/session");
 
 describe("getCurrentMarketSession — calendar-aware half-day override", () => {
-	let priceFetcher: PriceFetcher;
+	let marketDataSession: MarketDataSession;
 	let now: DateTime;
 
 	beforeEach(async () => {
@@ -31,7 +26,7 @@ describe("getCurrentMarketSession — calendar-aware half-day override", () => {
 		// the module graph so each test gets a fresh cache + fresh DateTime.utc().
 		vi.resetModules();
 		vi.useFakeTimers();
-		priceFetcher = await import("../../../src/lib/vendors/price-fetcher");
+		marketDataSession = await import("../../../src/lib/market-data/session");
 	});
 	afterEach(() => {
 		vi.useRealTimers();
@@ -64,7 +59,7 @@ describe("getCurrentMarketSession — calendar-aware half-day override", () => {
 			throw new Error(`unexpected path ${path}`);
 		});
 
-		const session = await priceFetcher.getCurrentMarketSession();
+		const session = await marketDataSession.getCurrentMarketSession();
 		expect(session).toBe("closed");
 	});
 
@@ -92,7 +87,7 @@ describe("getCurrentMarketSession — calendar-aware half-day override", () => {
 			throw new Error(`unexpected path ${path}`);
 		});
 
-		const session = await priceFetcher.getCurrentMarketSession();
+		const session = await marketDataSession.getCurrentMarketSession();
 		expect(session).toBe("regular");
 	});
 
@@ -111,7 +106,7 @@ describe("getCurrentMarketSession — calendar-aware half-day override", () => {
 			throw new Error(`unexpected path ${path}`);
 		});
 
-		const session = await priceFetcher.getCurrentMarketSession();
+		const session = await marketDataSession.getCurrentMarketSession();
 		expect(session).toBe("after");
 	});
 });

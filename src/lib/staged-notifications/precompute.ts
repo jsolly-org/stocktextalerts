@@ -15,12 +15,12 @@ import type { DateTime } from "luxon";
 import { dispatchDailyDigestUser } from "../daily-digest/dispatch";
 import { fetchUpcomingDailyDigestUsers } from "../daily-digest/query-upcoming";
 import type { Logger } from "../logging";
+import { getCurrentMarketSession } from "../market-data/session";
 import { createEmailSender } from "../messaging/email/utils";
 import { createLogoCache } from "../messaging/logo-fetcher";
 import { createSmsSenderFactory } from "../messaging/sms/sender-factory";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { toIsoOrThrow } from "../time/format";
-import { getCurrentMarketSession } from "../vendors/price-fetcher";
 
 /** Pre-compute window in seconds (look ahead this far). */
 const PRECOMPUTE_WINDOW_SECONDS = 30;

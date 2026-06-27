@@ -132,23 +132,5 @@ export async function withOptionalVendorBudget<T>(
 /** Per-user total budget for Massive company-news fetches in one digest run. */
 export const COMPANY_NEWS_USER_BUDGET_MS = 8_000;
 
-/** Shorter per-request timeout for optional company-news (critical paths use vendor-fetch default). */
+/** Shorter per-request timeout for optional company-news (critical paths use fetch default). */
 export const COMPANY_NEWS_REQUEST_TIMEOUT_MS = 8_000;
-
-/** Exponential backoff delays (ms) for delivery/processing retries after failure. */
-const DELIVERY_RETRY_DELAYS_MS = [
-	5 * 60 * 1000,
-	15 * 60 * 1000,
-	30 * 60 * 1000,
-	60 * 60 * 1000,
-] as const;
-
-/**
- * Delay before the next retry attempt.
- * `attemptCount` is the number of failed attempts so far (1-based after first failure).
- */
-export function computeDeliveryRetryDelayMs(attemptCount: number): number {
-	if (attemptCount <= 0) return DELIVERY_RETRY_DELAYS_MS[0];
-	const index = Math.min(attemptCount - 1, DELIVERY_RETRY_DELAYS_MS.length - 1);
-	return DELIVERY_RETRY_DELAYS_MS[index] ?? DELIVERY_RETRY_DELAYS_MS.at(-1) ?? 60 * 60 * 1000;
-}

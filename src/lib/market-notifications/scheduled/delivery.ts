@@ -1,5 +1,6 @@
 import type { Logger } from "../../logging";
 import { createErrorForLogging, extractErrorMessage } from "../../logging/errors";
+import type { AssetPriceMap, MarketSession } from "../../market-data/types";
 import { processEmailUpdate } from "../../messaging/email/delivery";
 import type { EmailSender } from "../../messaging/email/utils";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
@@ -14,7 +15,6 @@ import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../../sch
 import { claimNotification, updateScheduledNotificationRow } from "../../schedule/helpers";
 import type { MarketClosureInfo } from "../../time/market-calendar";
 import type { IsoDateString, MinuteOfDay } from "../../types";
-import type { AssetPriceMap, MarketSession } from "../../vendors/price-fetcher";
 
 /**
  * Deliver a scheduled market asset update via email and record the result.

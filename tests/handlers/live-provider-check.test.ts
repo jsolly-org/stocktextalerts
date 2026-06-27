@@ -4,13 +4,17 @@ import { expectConsoleError } from "../setup";
 
 // The handler is thin orchestration over the real provider clients; mock those
 // so we can assert the pass/fail aggregation + paging behavior deterministically.
-vi.mock("../../src/lib/vendors/massive", () => ({
+vi.mock("../../src/lib/vendors/massive/aggregates", () => ({
 	fetchPrevClose: vi.fn(),
 	fetchDailyCloses: vi.fn(),
+}));
+vi.mock("../../src/lib/vendors/finnhub/earnings", () => ({
 	fetchEarnings: vi.fn(),
 }));
-vi.mock("../../src/lib/vendors/price-fetcher", () => ({
+vi.mock("../../src/lib/market-data/prices", () => ({
 	fetchAssetPrices: vi.fn(),
+}));
+vi.mock("../../src/lib/market-data/session", () => ({
 	getCurrentMarketSession: vi.fn(),
 }));
 // The telegram:get-me check hits the real Bot API (getMe/getWebhookInfo); stub the
@@ -24,9 +28,11 @@ vi.mock("../../src/lib/messaging/telegram/sender", () => ({
 }));
 
 import { handler } from "../../src/handlers/live-provider-check";
+import { fetchAssetPrices } from "../../src/lib/market-data/prices";
+import { getCurrentMarketSession } from "../../src/lib/market-data/session";
 import { checkTelegramLive } from "../../src/lib/messaging/telegram/health";
-import { fetchDailyCloses, fetchEarnings, fetchPrevClose } from "../../src/lib/vendors/massive";
-import { fetchAssetPrices, getCurrentMarketSession } from "../../src/lib/vendors/price-fetcher";
+import { fetchEarnings } from "../../src/lib/vendors/finnhub/earnings";
+import { fetchDailyCloses, fetchPrevClose } from "../../src/lib/vendors/massive/aggregates";
 
 const event = { id: "evt-1", time: "2026-06-13T16:00:00Z" } as ScheduledEvent;
 const context = { awsRequestId: "test-request-id" } as Context;

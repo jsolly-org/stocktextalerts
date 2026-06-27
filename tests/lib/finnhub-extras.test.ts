@@ -1,18 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { CompanyNewsItem } from "../../src/lib/vendors/company-news";
+import { formatAnalystSection, formatInsiderSection } from "../../src/lib/asset-events/format";
+import type { CompanyNewsItem } from "../../src/lib/company-news/types";
 import {
 	buildNewsContextForGrok,
 	fetchFinnhubExtras,
-	formatAnalystSection,
-	formatInsiderSection,
-	type InsiderTransaction,
-	type RecommendationTrend,
-} from "../../src/lib/vendors/finnhub";
+} from "../../src/lib/daily-digest/finnhub-extras";
 import {
 	isOptionalVendorUnavailable,
 	recordOptionalVendorFailure,
 	resetOptionalVendorCircuitsForTests,
-} from "../../src/lib/vendors/vendor-fault-tolerance";
+} from "../../src/lib/resilience/optional-vendors";
+import type { RecommendationTrend } from "../../src/lib/vendors/finnhub/analyst";
+import type { InsiderTransaction } from "../../src/lib/vendors/finnhub/insider";
 
 describe("buildNewsContextForGrok formats Finnhub headlines into a Grok context string.", () => {
 	it("Builds context lines from multiple tickers with headlines.", () => {

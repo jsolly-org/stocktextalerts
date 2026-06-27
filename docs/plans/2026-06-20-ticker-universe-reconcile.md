@@ -66,7 +66,7 @@ since then are invisible to users.
   `delisted_at` set.
 - **`fetchTickerReferences`** (`src/lib/vendors/massive.ts`): strict `active:false` / `delisted_utc`
   detection with an injection seam for tests.
-- **`enqueueNewSymbolWarmup`** (`src/lib/vendor-backfill/queue.ts`): existing SQS path to warm a new
+- **`enqueueNewSymbolWarmup`** (`src/lib/backfill/queue.ts`): existing SQS path to warm a new
   symbol's price/OHLCV data. The reconcile feeds this for newly-discovered symbols.
 
 ### Acceptance
@@ -260,4 +260,4 @@ grant on `assets`). Bump `app_metadata.schema_version` in SQL **and** `EXPECTED_
 - Deep-research report (this session): Massive/Polygon `active`/`delisted_utc` semantics, nightly
   re-sync cadence, two-pass-fetch necessity, seed-file-as-prod-update anti-pattern.
 - Existing: `src/lib/assets/delisting-sweep.ts`, `src/handlers/asset-events.ts`,
-  `src/lib/vendor-backfill/queue.ts`, `scripts/db/fetch-us-assets.ts`, `src/lib/vendors/massive.ts`.
+  `src/lib/backfill/queue.ts`, `scripts/db/fetch-us-assets.ts`, `src/lib/vendors/massive.ts`.

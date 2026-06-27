@@ -6,6 +6,10 @@ import {
 import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
 import type { Logger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
+import { fetchAssetPricesWithSessionState } from "../market-data/prices";
+import { getCurrentMarketSession } from "../market-data/session";
+import { fetchIntradaySparklines, fetchSparklines } from "../market-data/sparklines";
+import type { AssetPriceMap, MarketSession } from "../market-data/types";
 import { formatSignedChangePercent, formatUsdPrice } from "../messaging/asset-formatting";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/delay-banner";
 import type { EmailSender } from "../messaging/email/utils";
@@ -20,6 +24,7 @@ import { formatDailyDigestTelegram } from "../messaging/telegram/digest";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { UserRecord } from "../messaging/types";
+import { withOptionalVendorBudget } from "../resilience/optional-vendors";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
 import { upsertStagedNotification } from "../staged-notifications/db";
@@ -33,19 +38,7 @@ import {
 	type MinuteOfDay,
 	type ScheduledSlotKey,
 } from "../types";
-import { buildNewsContextForGrok, fetchFinnhubExtras } from "../vendors/finnhub";
-import type { GrokSectionResult } from "../vendors/grok";
-import { generateNewsWithGrok, generateRumorsWithGrok } from "../vendors/grok";
-import { fetchTopMovers, type TopMover } from "../vendors/massive";
-import {
-	type AssetPriceMap,
-	fetchAssetPricesWithSessionState,
-	fetchIntradaySparklines,
-	fetchSparklines,
-	getCurrentMarketSession,
-	type MarketSession,
-} from "../vendors/price-fetcher";
-import { withOptionalVendorBudget } from "../vendors/vendor-fault-tolerance";
+import { fetchTopMovers, type TopMover } from "../vendors/massive/movers";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsMessageBodies,
@@ -54,6 +47,9 @@ import {
 	processDailyDigestSmsDelivery,
 	processDailyDigestTelegramDelivery,
 } from "./delivery";
+import { buildNewsContextForGrok, fetchFinnhubExtras } from "./finnhub-extras";
+import type { GrokSectionResult } from "./grok-sections";
+import { generateNewsWithGrok, generateRumorsWithGrok } from "./grok-sections";
 import { updateUserDailyDigestNextSendAt } from "./next-send-at";
 import {
 	deferDailyDigestProcessingRetry,

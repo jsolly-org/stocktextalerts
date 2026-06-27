@@ -11,7 +11,7 @@ import { isSmsChannelUsable, sendUserSms } from "../messaging/sms";
 import { formatDelistingSms } from "../messaging/sms/delisting";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import type { SupabaseAdminClient } from "../schedule/helpers";
-import { fetchTickerReferences, type TickerReferenceStatus } from "../vendors/massive";
+import { fetchTickerReferences, type TickerReferenceStatus } from "../vendors/massive/reference";
 
 /** Dependencies injected into `runDelistingSweep`. */
 interface DelistingSweepDeps {

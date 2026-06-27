@@ -1,6 +1,6 @@
+import type { ExtendedAssetQuote } from "../market-data/types";
 import { formatUsdPrice } from "../messaging/asset-formatting";
-import type { IntradayCandle } from "../vendors/massive";
-import type { ExtendedAssetQuote } from "../vendors/price-fetcher";
+import type { IntradayCandle } from "../vendors/massive/aggregates";
 import { generatePriceAlertSummary, type PriceAlertGrokResult } from "./grok-summary";
 
 /** Alert enriched with Grok-sourced context and intraday closing prices for sparkline rendering. */

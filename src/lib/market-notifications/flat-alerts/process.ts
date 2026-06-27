@@ -1,6 +1,8 @@
 import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import { createLogger } from "../../logging";
+import { fetchSparklines } from "../../market-data/sparklines";
+import type { ExtendedQuoteMap } from "../../market-data/types";
 import { createEmailSender } from "../../messaging/email/utils";
 import { createLogoCache } from "../../messaging/logo-fetcher";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
@@ -9,8 +11,7 @@ import type { SparklineData } from "../../messaging/sparkline";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import { createTelegramSenderFactory } from "../../messaging/telegram/sender-factory";
 import type { SupabaseAdminClient } from "../../schedule/helpers";
-import { fetchIntradayBars, type IntradayBarsResult } from "../../vendors/massive";
-import { type ExtendedQuoteMap, fetchSparklines } from "../../vendors/price-fetcher";
+import { fetchIntradayBars, type IntradayBarsResult } from "../../vendors/massive/aggregates";
 import { FLAT_PRICE_ALERT_THRESHOLD_PERCENT } from "./constants";
 import { deliverFlatPriceAlert, type FlatPriceAlertDeliveryStats } from "./delivery";
 import {

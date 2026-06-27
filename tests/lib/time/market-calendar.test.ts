@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const marketDataFetchMock = vi.hoisted(() => vi.fn());
 
-vi.mock("../../../src/lib/vendors/massive", () => ({
+vi.mock("../../../src/lib/vendors/massive/client", () => ({
 	marketDataFetch: marketDataFetchMock,
 }));
 

@@ -1,6 +1,7 @@
 import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
+import type { ExtendedAssetQuote } from "../../market-data/types";
 import { escapeHtml, formatUsdPrice, getChangeColor } from "../../messaging/asset-formatting";
 import { sendUserEmail } from "../../messaging/email/index";
 import { renderIntradaySparklineImg } from "../../messaging/email/intraday-sparkline";
@@ -25,8 +26,7 @@ import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/tel
 import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../../messaging/telegram/price-alert";
 import type { TelegramSender } from "../../messaging/telegram/sender";
-import type { IntradayBarsResult } from "../../vendors/massive";
-import type { ExtendedAssetQuote } from "../../vendors/price-fetcher";
+import type { IntradayBarsResult } from "../../vendors/massive/aggregates";
 import type { EnrichedAlert } from "../enrichment";
 import type { FlatPriceAlertUser } from "./users";
 

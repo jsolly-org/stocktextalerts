@@ -45,9 +45,9 @@ import {
 	getMaxDailyDigestSlotAttempts,
 	updateScheduledNotificationRow,
 } from "../schedule/helpers";
+import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
 import { toIsoOrThrow } from "../time/format";
 import type { IsoDateString, MinuteOfDay } from "../types";
-import { computeDeliveryRetryDelayMs } from "../vendors/vendor-fault-tolerance";
 import {
 	deleteStagedNotification,
 	fetchDueStagedNotifications,

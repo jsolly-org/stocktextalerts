@@ -32,9 +32,12 @@ import { setTimeout as realDelay } from "node:timers/promises";
 import { DateTime } from "luxon";
 import { processAssetEventsUser } from "../asset-events/process";
 import { fetchAssetEventsUsers } from "../asset-events/query";
+import { enqueuePriceHistoryStoreRetry } from "../backfill/queue";
 import { dispatchDailyDigestUser } from "../daily-digest/dispatch";
 import { fetchDailyDigestUsers } from "../daily-digest/query";
 import type { Logger } from "../logging";
+import { fetchAssetPricesWithSessionState, fetchExtendedQuotes } from "../market-data/prices";
+import type { AssetPriceMap, ExtendedQuoteMap, MarketSession } from "../market-data/types";
 import {
 	type FlatPriceAlertTotals,
 	processFlatPriceAlerts,
@@ -57,14 +60,6 @@ import { deliverStagedNotifications } from "../staged-notifications/deliver";
 import { precomputeDailyDigest } from "../staged-notifications/precompute";
 import { toIsoOrThrow } from "../time/format";
 import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
-import { enqueuePriceHistoryStoreRetry } from "../vendor-backfill/queue";
-import {
-	type AssetPriceMap,
-	type ExtendedQuoteMap,
-	fetchAssetPricesWithSessionState,
-	fetchExtendedQuotes,
-	type MarketSession,
-} from "../vendors/price-fetcher";
 import {
 	batchLoadUserAssets,
 	type ScheduledNotificationTotals,

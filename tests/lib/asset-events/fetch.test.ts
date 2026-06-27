@@ -5,9 +5,9 @@ import {
 	fetchEarnings,
 	fetchIpos,
 	fetchSplits,
-} from "../../../src/lib/vendors/massive";
+} from "../../../src/lib/asset-events/providers";
 
-vi.mock("../../../src/lib/vendors/massive", () => ({
+vi.mock("../../../src/lib/asset-events/providers", () => ({
 	fetchEarnings: vi.fn(),
 	fetchDividends: vi.fn(),
 	fetchSplits: vi.fn(),

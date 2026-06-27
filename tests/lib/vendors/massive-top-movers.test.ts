@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchTopMovers } from "../../../src/lib/vendors/massive";
+import { fetchTopMovers } from "../../../src/lib/vendors/massive/movers";
 
 // Mock retry delays so error/retry paths don't wait real seconds.
 vi.mock("node:timers/promises", () => ({

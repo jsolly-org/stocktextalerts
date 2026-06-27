@@ -7,6 +7,7 @@ import {
 	processDailyDigestSmsDelivery,
 } from "../../src/lib/daily-digest/delivery";
 import type { Logger } from "../../src/lib/logging";
+import type { AssetPriceMap } from "../../src/lib/market-data/types";
 import type { SmsExtras } from "../../src/lib/messaging/sms/delivery";
 import {
 	finalizeSmsBodyForUcs2Segments,
@@ -21,7 +22,6 @@ import type {
 	SupabaseAdminClient,
 } from "../../src/lib/schedule/helpers";
 import { assertIsoDateString, assertMinuteOfDay } from "../../src/lib/types";
-import type { AssetPriceMap } from "../../src/lib/vendors/price-fetcher";
 import { makePrefRows } from "../helpers/user-record-fixture";
 
 describe("Daily digest email prices", () => {

@@ -9,9 +9,9 @@ import {
 	MAX_NOTIFICATION_RETRIES,
 	type SupabaseAdminClient,
 } from "../schedule/helpers";
+import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
 import { toIsoOrThrow } from "../time/format";
 import type { ScheduledSlotKey } from "../types";
-import { computeDeliveryRetryDelayMs } from "../vendors/vendor-fault-tolerance";
 
 /** True when every enabled delivery channel for this digest slot is sent or retries are exhausted. */
 export async function shouldAdvanceDailyDigestSchedule(

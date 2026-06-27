@@ -9,13 +9,22 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
 
-vi.mock("../../../src/lib/vendors/price-fetcher", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/price-fetcher")>(
-		"../../../src/lib/vendors/price-fetcher",
+vi.mock("../../../src/lib/market-data/session", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/session")>(
+		"../../../src/lib/market-data/session",
 	);
 	return {
 		...actual,
 		getCurrentMarketSession: vi.fn().mockResolvedValue("regular"),
+	};
+});
+
+vi.mock("../../../src/lib/market-data/prices", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/prices")>(
+		"../../../src/lib/market-data/prices",
+	);
+	return {
+		...actual,
 		fetchAssetPricesWithSessionState: vi.fn(async (symbols: string[]) => ({
 			prices: new Map(
 				symbols.map((s) => [s, { price: 150.0, changePercent: 1.25, prevClose: 148.5 }]),
@@ -40,6 +49,15 @@ vi.mock("../../../src/lib/vendors/price-fetcher", async () => {
 					]),
 				),
 		),
+	};
+});
+
+vi.mock("../../../src/lib/market-data/sparklines", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/sparklines")>(
+		"../../../src/lib/market-data/sparklines",
+	);
+	return {
+		...actual,
 		fetchSparklines: vi.fn(async () => new Map()),
 		fetchIntradaySparklines: vi.fn(async () => new Map()),
 	};

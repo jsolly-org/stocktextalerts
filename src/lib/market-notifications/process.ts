@@ -1,10 +1,14 @@
 import { DateTime } from "luxon";
+import { SECTOR_ETF_MAP } from "../assets/sector-mapping";
 import {
 	US_MARKET_CLOSE_EASTERN_MINUTES,
 	US_MARKET_OPEN_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,
 } from "../constants";
 import { rootLogger } from "../logging";
+import { fetchExtendedQuotes } from "../market-data/prices";
+import { getCurrentMarketSession } from "../market-data/session";
+import type { ExtendedAssetQuote, ExtendedQuoteMap, MarketSession } from "../market-data/types";
 import { createEmailSender } from "../messaging/email/utils";
 import { createLogoCache } from "../messaging/logo-fetcher";
 import { isFacetEnabled } from "../messaging/notification-prefs";
@@ -12,15 +16,7 @@ import { createSmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { createTelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { SupabaseAdminClient } from "../schedule/helpers";
-import { fetchIntradayBars, type IntradayCandle } from "../vendors/massive";
-import {
-	type ExtendedAssetQuote,
-	type ExtendedQuoteMap,
-	fetchExtendedQuotes,
-	getCurrentMarketSession,
-	type MarketSession,
-} from "../vendors/price-fetcher";
-import { SECTOR_ETF_MAP } from "../vendors/sector-mapping";
+import { fetchIntradayBars, type IntradayCandle } from "../vendors/massive/aggregates";
 import { getAnomalyThreshold } from "./alert-profile";
 import { computeAnomalyScore } from "./anomaly-detection";
 import { fetchDailyStats } from "./daily-stats";

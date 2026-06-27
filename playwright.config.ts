@@ -16,7 +16,7 @@ export default defineConfig({
 		// Use 4322 to avoid clashing with default Astro dev (4321). Reuse server on 4322 when present.
 		reuseExistingServer: true,
 		env: {
-			// CI uses placeholder API keys; avoid vendor retry storms during E2E (vendor-fetch.ts).
+			// CI uses placeholder API keys; avoid vendor retry storms during E2E (fetch.ts).
 			SKIP_VENDOR_HTTP_IN_TEST: "1",
 			// Deterministic admin allowlist for tests/e2e/admin-users.e2e.spec.ts,
 			// independent of whatever .env.local / CI static vars contain.

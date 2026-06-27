@@ -14,7 +14,6 @@ import {
 	MAX_NOTIFICATION_RETRIES,
 } from "../../../src/lib/schedule/helpers";
 import { assertIsoDateString, assertMinuteOfDay } from "../../../src/lib/types";
-import { computeDeliveryRetryDelayMs } from "../../../src/lib/vendors/vendor-fault-tolerance";
 import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
@@ -102,15 +101,6 @@ describe("claimNotification surfaces the claim RPC's post-claim attempt_count", 
 			.eq("scheduled_minutes", 540)
 			.eq("channel", "email");
 		expect((await claimNotification(base)).status).toBe("retries_exhausted");
-	});
-});
-
-describe("computeDeliveryRetryDelayMs", () => {
-	it("returns exponential backoff steps capped at 60 minutes", () => {
-		expect(computeDeliveryRetryDelayMs(1)).toBe(5 * 60 * 1000);
-		expect(computeDeliveryRetryDelayMs(2)).toBe(15 * 60 * 1000);
-		expect(computeDeliveryRetryDelayMs(3)).toBe(30 * 60 * 1000);
-		expect(computeDeliveryRetryDelayMs(4)).toBe(60 * 60 * 1000);
 	});
 });
 

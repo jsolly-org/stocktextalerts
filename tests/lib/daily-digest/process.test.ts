@@ -25,7 +25,7 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
 
-// Mock price-fetcher (a per-call mock lets each test return the prices it expects).
+// Mock market-data (a per-call mock lets each test return the prices it expects).
 // Mocks must be created via vi.hoisted so the vi.mock factory below — which is
 // hoisted to the top of the module — can reference them.
 const {
@@ -40,14 +40,32 @@ const {
 	fetchSparklinesMock: vi.fn(),
 }));
 
-vi.mock("../../../src/lib/vendors/price-fetcher", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/price-fetcher")>(
-		"../../../src/lib/vendors/price-fetcher",
+vi.mock("../../../src/lib/market-data/session", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/session")>(
+		"../../../src/lib/market-data/session",
+	);
+	return {
+		...actual,
+		getCurrentMarketSession: getCurrentMarketSessionMock,
+	};
+});
+
+vi.mock("../../../src/lib/market-data/prices", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/prices")>(
+		"../../../src/lib/market-data/prices",
 	);
 	return {
 		...actual,
 		fetchAssetPricesWithSessionState: fetchAssetPricesWithSessionStateMock,
-		getCurrentMarketSession: getCurrentMarketSessionMock,
+	};
+});
+
+vi.mock("../../../src/lib/market-data/sparklines", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/sparklines")>(
+		"../../../src/lib/market-data/sparklines",
+	);
+	return {
+		...actual,
 		fetchIntradaySparklines: fetchIntradaySparklinesMock,
 		fetchSparklines: fetchSparklinesMock,
 	};
@@ -64,10 +82,10 @@ fetchSparklinesMock.mockResolvedValue(new Map());
 
 const fetchFinnhubExtrasMock = vi.hoisted(() => vi.fn());
 
-vi.mock("../../../src/lib/vendors/finnhub", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/finnhub")>(
-		"../../../src/lib/vendors/finnhub",
-	);
+vi.mock("../../../src/lib/daily-digest/finnhub-extras", async () => {
+	const actual = await vi.importActual<
+		typeof import("../../../src/lib/daily-digest/finnhub-extras")
+	>("../../../src/lib/daily-digest/finnhub-extras");
 	return {
 		...actual,
 		fetchFinnhubExtras: fetchFinnhubExtrasMock,
@@ -81,16 +99,9 @@ fetchFinnhubExtrasMock.mockResolvedValue({
 	analystFetchSucceeded: false,
 });
 
-// Mock Massive top-movers to avoid the live call.
-vi.mock("../../../src/lib/vendors/massive", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/massive")>(
-		"../../../src/lib/vendors/massive",
-	);
-	return {
-		...actual,
-		fetchTopMovers: vi.fn().mockResolvedValue([]),
-	};
-});
+vi.mock("../../../src/lib/vendors/massive/movers", () => ({
+	fetchTopMovers: vi.fn().mockResolvedValue([]),
+}));
 
 describe("Daily digest process scenarios", () => {
 	it("User with no tracked assets and no digest or asset-events options is skipped and next_send_at is advanced.", async () => {

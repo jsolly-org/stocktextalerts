@@ -1,5 +1,5 @@
+import type { NoSessionTrade } from "../market-data/types";
 import type { ActiveMarketSession } from "../market-notifications/scheduled/session-label";
-import type { NoSessionTrade } from "../vendors/price-fetcher";
 import { EMAIL_SPARKLINE_LABEL, SMS_SPARKLINE_LABEL, type SparklineData } from "./sparkline";
 import { toSvgSparklineImg } from "./svg-sparkline";
 import type { EmailFormatContext } from "./types";

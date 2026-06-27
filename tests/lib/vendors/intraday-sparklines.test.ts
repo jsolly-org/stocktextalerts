@@ -1,26 +1,21 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-vi.unmock("../../../src/lib/vendors/price-fetcher");
+vi.unmock("../../../src/lib/market-data/sparklines");
 
-vi.mock("../../../src/lib/vendors/massive", () => ({
+vi.mock("../../../src/lib/vendors/massive/aggregates", () => ({
 	fetchIntradayBars: vi.fn(),
 	fetchDailyCloses: vi.fn(),
-	fetchPrevDayBar: vi.fn(),
-	fetchSnapshotQuotes: vi.fn(),
-	marketDataFetch: vi.fn(),
-	NO_SESSION_TRADE: "no_session_trade",
-	US_MARKET_TIMEZONE: "America/New_York",
 }));
 
-import { fetchIntradayBars } from "../../../src/lib/vendors/massive";
+import { fetchIntradayBars } from "../../../src/lib/vendors/massive/aggregates";
 
-type PriceFetcher = typeof import("../../../src/lib/vendors/price-fetcher");
+type MarketDataSparklines = typeof import("../../../src/lib/market-data/sparklines");
 
 describe("A subscriber in early pre-market receives a notification before any 5-minute bar has closed", () => {
-	let fetchIntradaySparklines: PriceFetcher["fetchIntradaySparklines"];
+	let fetchIntradaySparklines: MarketDataSparklines["fetchIntradaySparklines"];
 
 	beforeAll(async () => {
-		({ fetchIntradaySparklines } = await import("../../../src/lib/vendors/price-fetcher"));
+		({ fetchIntradaySparklines } = await import("../../../src/lib/market-data/sparklines"));
 	});
 
 	afterEach(() => {
@@ -93,10 +88,10 @@ describe("A subscriber in early pre-market receives a notification before any 5-
 });
 
 describe("Pre-market snapshot quote is fresher than the latest 5-minute aggregate bar", () => {
-	let fetchIntradaySparklines: PriceFetcher["fetchIntradaySparklines"];
+	let fetchIntradaySparklines: MarketDataSparklines["fetchIntradaySparklines"];
 
 	beforeAll(async () => {
-		({ fetchIntradaySparklines } = await import("../../../src/lib/vendors/price-fetcher"));
+		({ fetchIntradaySparklines } = await import("../../../src/lib/market-data/sparklines"));
 	});
 
 	afterEach(() => {

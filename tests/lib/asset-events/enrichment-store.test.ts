@@ -4,13 +4,13 @@ import {
 	fetchAndStoreFinnhubEnrichment,
 	loadStoredFinnhubExtras,
 } from "../../../src/lib/asset-events/enrichment-store";
-import {
-	fetchInsiderTransactions,
-	fetchRecommendationTrends,
-} from "../../../src/lib/vendors/finnhub";
+import { fetchRecommendationTrends } from "../../../src/lib/vendors/finnhub/analyst";
+import { fetchInsiderTransactions } from "../../../src/lib/vendors/finnhub/insider";
 
-vi.mock("../../../src/lib/vendors/finnhub", () => ({
+vi.mock("../../../src/lib/vendors/finnhub/analyst", () => ({
 	fetchRecommendationTrends: vi.fn(),
+}));
+vi.mock("../../../src/lib/vendors/finnhub/insider", () => ({
 	fetchInsiderTransactions: vi.fn(),
 }));
 

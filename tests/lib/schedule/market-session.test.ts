@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../src/lib/vendors/price-fetcher", () => ({
+vi.mock("../../../src/lib/market-data/session", () => ({
 	getCurrentMarketSession: vi.fn(),
 }));
 
+import { getCurrentMarketSession } from "../../../src/lib/market-data/session";
 import {
 	__resetMarketSessionCacheForTests,
 	resolveMarketSessionWithFallback,
 } from "../../../src/lib/schedule/market-session";
-import { getCurrentMarketSession } from "../../../src/lib/vendors/price-fetcher";
 
 const mockGet = vi.mocked(getCurrentMarketSession);
 

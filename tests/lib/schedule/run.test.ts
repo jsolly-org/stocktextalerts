@@ -17,13 +17,22 @@ const { getCurrentMarketSessionMock } = vi.hoisted(() => ({
 	getCurrentMarketSessionMock: vi.fn(),
 }));
 
-vi.mock("../../../src/lib/vendors/price-fetcher", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/vendors/price-fetcher")>(
-		"../../../src/lib/vendors/price-fetcher",
+vi.mock("../../../src/lib/market-data/session", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/session")>(
+		"../../../src/lib/market-data/session",
 	);
 	return {
 		...actual,
 		getCurrentMarketSession: getCurrentMarketSessionMock,
+	};
+});
+
+vi.mock("../../../src/lib/market-data/prices", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/prices")>(
+		"../../../src/lib/market-data/prices",
+	);
+	return {
+		...actual,
 		// Synthetic happy-path quotes for run-test scenarios (these tests
 		// assert on session-aware labeling/headers, not on the Massive call
 		// itself). Only the functions run.ts actually calls are mocked —
@@ -53,6 +62,15 @@ vi.mock("../../../src/lib/vendors/price-fetcher", async () => {
 					]),
 				),
 		),
+	};
+});
+
+vi.mock("../../../src/lib/market-data/sparklines", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/sparklines")>(
+		"../../../src/lib/market-data/sparklines",
+	);
+	return {
+		...actual,
 		// Deterministic intraday sparkline so the prev-close-anchored headline
 		// change-% (the sparkline's first->last delta) is stable. Endpoints
 		// 148.5 -> 150 = +1.01%, matching the mocked prevClose/price above.

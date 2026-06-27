@@ -1,5 +1,8 @@
 import type { PriceTargetDirection } from "../db";
 import { rootLogger } from "../logging";
+import { fetchExtendedQuotes } from "../market-data/prices";
+import { getCurrentMarketSession } from "../market-data/session";
+import type { ExtendedQuoteMap, MarketSession } from "../market-data/types";
 import { isEmailChannelUsable } from "../messaging/email/eligibility";
 import { createEmailSender } from "../messaging/email/utils";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
@@ -10,13 +13,7 @@ import { createSmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable, shouldSendTelegram } from "../messaging/telegram/eligibility";
 import { createTelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { SupabaseAdminClient } from "../schedule/helpers";
-import {
-	type ExtendedQuoteMap,
-	fetchExtendedQuotes,
-	getCurrentMarketSession,
-	type MarketSession,
-} from "../vendors/price-fetcher";
-import { computeDeliveryRetryDelayMs } from "../vendors/vendor-fault-tolerance";
+import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
 import {
 	deliverPriceTargetAlert,
 	type PriceTargetDeliveryOutcome,

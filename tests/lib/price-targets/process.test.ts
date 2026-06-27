@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ExtendedAssetQuote } from "../../../src/lib/market-data/types";
 import type { PrefChannel } from "../../../src/lib/messaging/notification-prefs";
-import type { ExtendedAssetQuote } from "../../../src/lib/vendors/price-fetcher";
 
 // Mock external dependencies
-vi.mock("../../../src/lib/vendors/price-fetcher", () => ({
+vi.mock("../../../src/lib/market-data/session", () => ({
 	getCurrentMarketSession: vi.fn(),
+}));
+vi.mock("../../../src/lib/market-data/prices", () => ({
 	fetchExtendedQuotes: vi.fn(),
 }));
 
@@ -26,9 +28,9 @@ vi.mock("../../../src/lib/price-targets/delivery", () => ({
 	})),
 }));
 
+import { getCurrentMarketSession } from "../../../src/lib/market-data/session";
 import { deliverPriceTargetAlert } from "../../../src/lib/price-targets/delivery";
 import { processPriceTargets } from "../../../src/lib/price-targets/process";
-import { getCurrentMarketSession } from "../../../src/lib/vendors/price-fetcher";
 
 const mockGetCurrentMarketSession = vi.mocked(getCurrentMarketSession);
 const mockDeliverPriceTargetAlert = vi.mocked(deliverPriceTargetAlert);

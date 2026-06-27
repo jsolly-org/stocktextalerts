@@ -1,8 +1,8 @@
 import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
+import type { MarketSession } from "../../market-data/types";
 import { buildSessionFirstLine } from "../../market-notifications/scheduled/session-label";
 import type { MarketClosureInfo } from "../../time/market-calendar";
-import type { MarketSession } from "../../vendors/price-fetcher";
 import { NO_TRACKED_ASSETS_MESSAGE } from "../asset-formatting";
 import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../footer";
 import { buildMarketClosedBannerText } from "../market-closure-banner";

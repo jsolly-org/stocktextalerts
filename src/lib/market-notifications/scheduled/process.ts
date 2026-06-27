@@ -1,6 +1,9 @@
 import { DateTime } from "luxon";
 import type { Logger } from "../../logging";
 import { createErrorForLogging, extractErrorMessage } from "../../logging/errors";
+import { fetchIntradaySparklines } from "../../market-data/sparklines";
+import type { AssetPriceMap, MarketSession } from "../../market-data/types";
+import { NO_SESSION_TRADE } from "../../market-data/types";
 import { formatAssetsTextList } from "../../messaging/asset-formatting";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../../messaging/delay-banner";
 import type { EmailSender } from "../../messaging/email/utils";
@@ -26,8 +29,6 @@ import type { MarketClosureInfo } from "../../time/market-calendar";
 import { getUsMarketClosureInfoForInstant } from "../../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../../time/scheduled-times";
 import { assertIsoDateString } from "../../types";
-import type { AssetPriceMap, MarketSession } from "../../vendors/price-fetcher";
-import { fetchIntradaySparklines, NO_SESSION_TRADE } from "../../vendors/price-fetcher";
 import {
 	processMarketScheduledEmailDelivery,
 	processMarketScheduledSmsDelivery,

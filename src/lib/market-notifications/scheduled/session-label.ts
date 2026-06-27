@@ -1,6 +1,6 @@
+import type { MarketSession } from "../../market-data/types";
 import { escapeHtml } from "../../messaging/asset-formatting";
 import { formatMinutesAsLocalTime } from "../../time/format";
-import type { MarketSession } from "../../vendors/price-fetcher";
 
 /** Active market session for which a notification is delivered. Closed users
  * are skipped before the renderer is reached, so this type narrows accordingly. */

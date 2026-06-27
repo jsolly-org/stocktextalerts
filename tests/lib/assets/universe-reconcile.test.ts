@@ -18,7 +18,7 @@ import { Client } from "pg";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runUniverseReconcile } from "../../../src/lib/assets/universe-reconcile";
 import { rootLogger } from "../../../src/lib/logging";
-import type { ActiveTicker } from "../../../src/lib/vendors/massive";
+import type { ActiveTicker } from "../../../src/lib/vendors/massive/reference";
 import { deleteAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";

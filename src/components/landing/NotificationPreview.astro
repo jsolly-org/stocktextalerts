@@ -314,8 +314,6 @@ import phoneFrameLight from "../../assets/phone-frame.svg?url";
 </style>
 
 <script>
-  import { prefersReducedMotion } from "../../lib/accessibility";
-
   function initIphoneMessageAnimation() {
     const containerId = 'iphone-animation-demo';
     const container = document.getElementById(containerId);
@@ -329,7 +327,7 @@ import phoneFrameLight from "../../assets/phone-frame.svg?url";
     const scrollContainer: HTMLElement = maybeScrollContainer;
 
     // Respect prefers-reduced-motion
-    if (prefersReducedMotion()) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       messages.forEach((msg) => {
         if (!(msg instanceof HTMLElement)) return;
         msg.style.display = 'block';

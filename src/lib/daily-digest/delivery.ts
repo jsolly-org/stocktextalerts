@@ -3,6 +3,7 @@ import { US_MARKET_TIMEZONE } from "../constants";
 import { getSiteUrl } from "../db/env";
 import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
+import type { AssetPriceMap } from "../market-data/types";
 import { formatAssetsHtmlList, formatAssetTextLine } from "../messaging/asset-formatting";
 import { renderEmailSection } from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
@@ -31,7 +32,6 @@ import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedu
 import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
 import type { MarketClosureInfo } from "../time/market-calendar";
 import type { IsoDateString, MinuteOfDay } from "../types";
-import type { AssetPriceMap } from "../vendors/price-fetcher";
 
 const TICKER_LINE_RE = /^[A-Z][A-Z0-9.-]{0,9}:\s/;
 const QUOTE_TIMESTAMP_FORMAT_BASE: Intl.DateTimeFormatOptions = {
