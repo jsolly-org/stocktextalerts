@@ -229,11 +229,10 @@ describe("A signed-in user requests an SMS verification code.", () => {
 		try {
 			const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
-			// NULL satisfies reserve_sms_verification's "never sent" path — avoids JS/DB clock
-			// boundary flakiness when subtracting cooldown offsets from Date.now().
+			// Well before any cooldown window — avoids JS/Postgres clock boundary races.
 			const { error: clearSentAtError } = await adminClient
 				.from("users")
-				.update({ verification_sent_at: null })
+				.update({ verification_sent_at: "2000-01-01T00:00:00.000Z" })
 				.eq("id", testUser.id);
 			expect(clearSentAtError).toBeNull();
 

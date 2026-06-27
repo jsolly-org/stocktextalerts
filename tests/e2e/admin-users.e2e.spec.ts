@@ -98,19 +98,22 @@ test.describe("admin pending-user approval", () => {
 		if (context) await context.close();
 	});
 
-	test("a non-admin signed-in user is forbidden from /admin/users", async () => {
+	test("a non-admin signed-in user is forbidden from /admin/users", async ({ browser }) => {
 		const nonAdmin = await createTestUser({
 			email: `not-admin-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			approved: true,
 		});
+		const nonAdminContext = await browser.newContext();
+		const nonAdminPage = await nonAdminContext.newPage();
 		try {
-			await signIn(page, nonAdmin.email, TEST_PASSWORD);
-			const response = await page.goto("/admin/users");
+			await signIn(nonAdminPage, nonAdmin.email, TEST_PASSWORD);
+			const response = await nonAdminPage.goto("/admin/users");
 			expect(response?.status()).toBe(403);
-			await expect(page).toHaveURL(/\/admin\/users$/, { timeout: 5_000 });
+			await expect(nonAdminPage).toHaveURL(/\/admin\/users$/, { timeout: 5_000 });
 		} finally {
+			await nonAdminContext.close();
 			await cleanupTestUser(nonAdmin.id);
 		}
 	});
@@ -144,6 +147,6 @@ test.describe("admin pending-user approval", () => {
 		const message = await waitForMailpitMessageTo(pendingEmail, { timeoutMs: 15_000 });
 		expect(message.subject).toContain("Your StockTextAlerts account is approved");
 		expect(message.text).toContain("Your StockTextAlerts account has been approved.");
-		expect(message.text).toContain("http://localhost:4322/auth/signin");
+		expect(message.text).toContain(`${new URL(page.url()).origin}/auth/signin`);
 	});
 });

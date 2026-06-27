@@ -44,17 +44,28 @@ test.describe("notification toggle race", () => {
 			// instead queued saves and left the first request running, so this
 			// scenario is what distinguishes the sequencer's behavior.
 			let callIndex = 0;
+			let releaseFirstNotifResponse!: () => void;
+			const holdFirstNotifResponse = new Promise<void>((resolve) => {
+				releaseFirstNotifResponse = resolve;
+			});
 			await session.page.route(`**${NOTIFICATION_PREFERENCES_UPDATE_URL}`, async (route) => {
 				callIndex += 1;
 				if (callIndex === 1) {
-					await new Promise((resolve) => setTimeout(resolve, 2000));
+					await holdFirstNotifResponse;
+					try {
+						await route.continue();
+					} catch {
+						// Superseded first save — route may already be aborted.
+					}
+					return;
+				}
+				if (callIndex === 2) {
+					releaseFirstNotifResponse();
 				}
 				try {
 					await route.continue();
 				} catch {
-					// A superseded first save is aborted client-side, so its route can
-					// no longer be continued — swallow that. The abort itself is
-					// asserted below via `firstRequest.failure()`.
+					// Superseded save — route may already be aborted.
 				}
 			});
 
@@ -90,10 +101,12 @@ test.describe("notification toggle race", () => {
 			// queue never aborts, so this assertion fails on the old code.
 			expect(firstRequest.failure()).not.toBeNull();
 
-			// Give any late first-save settling a window to (incorrectly) touch the UI.
-			await session.page.waitForTimeout(500);
-			await expect(emailSwitch).toHaveAttribute("aria-checked", "false");
-			await expect(smsSwitch).toHaveAttribute("aria-checked", "true");
+			await expect
+				.poll(async () => ({
+					email: await emailSwitch.getAttribute("aria-checked"),
+					sms: await smsSwitch.getAttribute("aria-checked"),
+				}))
+				.toEqual({ email: "false", sms: "true" });
 
 			// The persisted row agrees with the last write across both fields.
 			await expect

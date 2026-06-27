@@ -16,7 +16,8 @@ const sharedUse: PlaywrightTestConfig["use"] = {
 
 export const sharedDefaults = {
 	workers: 1,
-	retries: process.env.CI ? 2 : 0,
+	// Global retries mask serial-suite state bugs; routes.e2e.spec.ts opts in locally.
+	retries: 0,
 	outputDir: ".playwright-mcp/cli",
 	use: sharedUse,
 } satisfies Pick<PlaywrightTestConfig, "workers" | "retries" | "outputDir" | "use">;

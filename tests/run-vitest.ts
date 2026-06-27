@@ -1,6 +1,12 @@
 #!/usr/bin/env npx tsx
 import { spawnSync } from "node:child_process";
-import { acquireTestLockWithRetry, formatContentionMessage, TestLockHeldError } from "./lock";
+import { normalizeDirectVitestProcessEnv } from "./helpers/test-process-env";
+import {
+	acquireTestLockWithRetry,
+	formatContentionMessage,
+	releaseTestLock,
+	TestLockHeldError,
+} from "./lock";
 
 /**
  * Ensure Vitest runs without watch mode unless explicitly set.
@@ -21,10 +27,7 @@ function ensureNoWatch(vitestArgs: string[]): string[] {
  * - exits with the child process status code
  */
 async function main() {
-	// Force NODE_ENV=test regardless of what the shell inherits. Vitest only
-	// sets NODE_ENV via `??=` — it won't overwrite an inherited
-	// `NODE_ENV=production` from the shell.
-	process.env.NODE_ENV = "test";
+	normalizeDirectVitestProcessEnv();
 
 	try {
 		await acquireTestLockWithRetry("vitest");
@@ -37,34 +40,21 @@ async function main() {
 	}
 
 	const vitestArgs = process.argv.slice(2);
-
-	// Strip EMAIL_SMTP_HOST even if it's set in `.env.local` (where it exists
-	// so `astro dev` can render emails into Mailpit locally). Leaving it set in
-	// unit tests would make `createEmailSender` return a real nodemailer
-	// transport that tries to open a TCP connection inside a fake-timer
-	// sandbox — which deadlocks because SMTP connect-timeouts are
-	// setTimeout-based. EMAIL_SMTP_PORT is left intact (1025 on the shared local
-	// stack) so tests that explicitly opt into SMTP (e.g. sender-gates) reach the
-	// correct Mailpit port.
-	process.env.EMAIL_SMTP_HOST = "";
-
-	// CI sets SKIP_VENDOR_HTTP_IN_TEST for E2E/build (dummy API keys). Vitest
-	// unit tests mock global fetch instead — leaving the flag set makes
-	// marketDataFetch/finnhubFetch return null before fetch runs.
-	delete process.env.SKIP_VENDOR_HTTP_IN_TEST;
-
 	const args = ensureNoWatch(vitestArgs);
 
-	const child = spawnSync("./node_modules/.bin/vitest", args, {
-		stdio: "inherit",
-		env: process.env,
-		shell: process.platform === "win32",
-	});
-
-	if (typeof child.status === "number") {
-		process.exit(child.status);
+	let exitCode = 1;
+	try {
+		const child = spawnSync("./node_modules/.bin/vitest", args, {
+			stdio: "inherit",
+			env: process.env,
+			shell: process.platform === "win32",
+		});
+		exitCode = typeof child.status === "number" ? child.status : 1;
+	} finally {
+		releaseTestLock();
 	}
-	process.exit(1);
+
+	process.exit(exitCode);
 }
 
 main().catch((err) => {

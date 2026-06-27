@@ -10,6 +10,7 @@ import {
 	PRESERVED_TEST_EMAIL,
 	PRESERVED_USER_ID,
 } from "./helpers/constants";
+import { resetTestEnvStubs, restoreBaselineTestEnvStubs } from "./helpers/env-stubs";
 import { shutdownHttpTestServer } from "./helpers/http/server";
 import { adminClient } from "./helpers/test-env";
 import { cleanupTestUser } from "./helpers/test-user";
@@ -124,44 +125,10 @@ vi.mock("../src/lib/market-data/sparklines", async (importOriginal) => {
 // Outbound email/SMS/Telegram/Verify and default market-data session/sparkline
 // stubs are wired via vi.mock above (tests/helpers/*-doubles.ts). Tests that
 // need the real factory can vi.importActual or override the mock per file.
-// Mailpit email tests opt in by setting EMAIL_SMTP_HOST (see run-vitest.ts).
 // Data-provider stubs set a dummy API key so requireEnv() doesn't throw.
 // Actual HTTP calls are prevented by fetch mocks or module-level mocks in
 // individual test files.
-vi.stubEnv("MASSIVE_API_KEY", "test-massive-key");
-vi.stubEnv("FINNHUB_API_KEY", "test-finnhub-key");
-vi.stubEnv("XAI_API_KEY", "");
-
-// Provide a valid UNSUBSCRIBE_TOKEN_SECRET for tests that generate unsubscribe tokens
-if (
-	!process.env.UNSUBSCRIBE_TOKEN_SECRET ||
-	process.env.UNSUBSCRIBE_TOKEN_SECRET.trim().length < 12
-) {
-	vi.stubEnv("UNSUBSCRIBE_TOKEN_SECRET", "test-unsubscribe-secret");
-}
-
-// Telegram linking-token + webhook secrets. These live only in the Lambda/Vercel
-// runtime in production; tests stub deterministic values so the deep-link token
-// HMAC and the webhook secret check run without real credentials. Forced
-// unconditionally (like the data-provider keys above): a real value in a synced
-// `.env.local` must NOT leak into the suite — the webhook tests send the stub
-// secret as the header, so a real TELEGRAM_WEBHOOK_SECRET would 401 every request,
-// and real credentials must never reach the test path (cf. the 2026-04-11 incident).
-vi.stubEnv("TELEGRAM_LINK_TOKEN_SECRET", "test-telegram-link-token-secret");
-vi.stubEnv("TELEGRAM_WEBHOOK_SECRET", "test-telegram-webhook-secret");
-vi.stubEnv("TELEGRAM_BOT_USERNAME", "StockTextAlertsTestBot");
-vi.stubEnv("TELEGRAM_BOT_TOKEN", "123456:test-telegram-bot-token");
-
-// Twilio sender credentials (Restricted API key path). Production values live in
-// the Lambda runtime; tests stub Twilio's magic test identifiers so
-// readTwilioSenderConfig() succeeds without a synced `.env.local`. Forced
-// unconditionally — real credentials must never reach the test path (cf. the
-// 2026-04-11 incident). Outbound sends are stubbed via vi.mock in this file.
-vi.stubEnv("TWILIO_ACCOUNT_SID", "ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-vi.stubEnv("TWILIO_API_KEY_SID", "SKaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-vi.stubEnv("TWILIO_API_KEY_SECRET", "stubaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-vi.stubEnv("TWILIO_PHONE_NUMBER", "+15005550006");
-vi.stubEnv("TWILIO_VERIFY_SERVICE_SID", "VAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+restoreBaselineTestEnvStubs();
 
 function getDatabaseUrl(): string {
 	const databaseUrl = process.env.DATABASE_URL;
@@ -329,6 +296,7 @@ afterEach(async () => {
 	for (const userId of userIds) {
 		await cleanupTestUser(userId);
 	}
+	resetTestEnvStubs();
 });
 
 export const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});

@@ -100,7 +100,7 @@ test("registration approval workflow sends admin and user emails", async ({ brow
 			"New StockTextAlerts registration pending approval",
 		);
 		expect(adminNotification.text).toContain(userEmail);
-		expect(adminNotification.text).toContain("http://localhost:4322/admin/users");
+		expect(adminNotification.text).toContain(`${baseOrigin}/admin/users`);
 
 		await userPage.goto(rewriteLinkOrigin(confirmationLink, baseOrigin));
 		await expect(userPage.getByRole("button", { name: "Verify my email" })).toBeVisible();
@@ -133,7 +133,7 @@ test("registration approval workflow sends admin and user emails", async ({ brow
 		const approvalEmail = await waitForMailpitMessageTo(userEmail, { timeoutMs: 15_000 });
 		expect(approvalEmail.subject).toContain("Your StockTextAlerts account is approved");
 		expect(approvalEmail.text).toContain("Your StockTextAlerts account has been approved.");
-		expect(approvalEmail.text).toContain("http://localhost:4322/auth/signin");
+		expect(approvalEmail.text).toContain(`${baseOrigin}/auth/signin`);
 
 		const approvedUser = await getUserRowByEmail(userEmail);
 		expect(approvedUser.approved_at).toBeTruthy();

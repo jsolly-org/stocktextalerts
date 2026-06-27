@@ -42,6 +42,10 @@ vi.mock("../../../src/lib/asset-events/schedule-state", () => ({
 	shouldAdvanceAssetEventsSchedule: vi.fn().mockResolvedValue(true),
 }));
 
+vi.mock("../../../src/lib/asset-events/next-send-at", () => ({
+	updateUserAssetEventsNextSendAt: vi.fn().mockResolvedValue(undefined),
+}));
+
 import type { UserRecord } from "../../../src/lib/messaging/types";
 import { makePrefRows, makeUserRecord } from "../../helpers/user-record-fixture";
 

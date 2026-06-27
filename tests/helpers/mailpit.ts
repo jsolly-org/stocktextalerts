@@ -7,7 +7,7 @@
  * deriving it keeps the helper correct if the shared port is ever changed.
  *
  * Mailpit is the only approved destination for test email delivery —
- * tests never hit real SES. See `docs/testing.md`. Routing
+ * tests never hit real SES. See `tests/README.md`. Routing
  * to Mailpit is unlocked by setting `EMAIL_SMTP_HOST=localhost` in the
  * test environment (the E2E/Playwright web server and `astro dev` set it;
  * the vitest unit suite strips it via `tests/run-vitest.ts` to stay on the

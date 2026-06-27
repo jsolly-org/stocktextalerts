@@ -17,6 +17,9 @@ export async function expectCurrentPath(
 
 async function fillEmailInput(page: Page, email: string): Promise<void> {
 	const emailInput = page.locator("#email");
+	await emailInput.waitFor({ state: "visible", timeout: 15_000 });
+	// Sign-in is server-rendered Astro (no Vue hydration). Poll until fill sticks —
+	// covers rare dev-server races without requiring [data-hydrated] on this page.
 	await expect
 		.poll(
 			async () => {

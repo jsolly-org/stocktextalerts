@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import {
-	purgeOldAssetSnapshots,
-	RETENTION_MINUTES,
-} from "../../../src/lib/market-notifications/snapshot-store";
+import { purgeOldAssetSnapshots } from "../../../src/lib/market-notifications/snapshot-store";
 import { getAssetData } from "../../helpers/asset-data";
 import { upsertAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";
@@ -29,12 +26,9 @@ describe("snapshot-store purge", () => {
 				.eq("symbol", asset.symbol);
 			expect(cleanupError).toBeNull();
 
-			// Insert snapshots: one recent, one older than retention
-			const now = new Date();
-			const recentCapturedAt = now.toISOString();
-			const staleCapturedAt = new Date(
-				now.getTime() - (RETENTION_MINUTES * 2 + 60) * 60 * 1000,
-			).toISOString();
+			// Fixed timestamps — purge RPC uses Postgres NOW(), not JS Date.
+			const recentCapturedAt = "2099-06-01T12:00:00.000Z";
+			const staleCapturedAt = "2000-01-01T00:00:00.000Z";
 
 			const { data: insertedRows, error: insertError } = await adminClient
 				.from("asset_snapshots")
@@ -67,10 +61,15 @@ describe("snapshot-store purge", () => {
 			expect(insertError).toBeNull();
 			expect(insertedRows).toHaveLength(2);
 
-			const staleRow = insertedRows?.find(
-				(row) => new Date(row.captured_at).getTime() === new Date(staleCapturedAt).getTime(),
+			// Postgres may normalize timestamptz formatting on read; sort by epoch instead.
+			const sortedByCapturedAt = [...insertedRows!].sort(
+				(a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime(),
 			);
-			expect(staleRow).toBeDefined();
+			expect(sortedByCapturedAt).toHaveLength(2);
+			const staleRow = sortedByCapturedAt[0]!;
+			const recentRow = sortedByCapturedAt[1]!;
+			expect(new Date(staleRow.captured_at).getTime()).toBe(new Date(staleCapturedAt).getTime());
+			expect(new Date(recentRow.captured_at).getTime()).toBe(new Date(recentCapturedAt).getTime());
 
 			const purged = await purgeOldAssetSnapshots(adminClient);
 			expect(purged).toBeGreaterThanOrEqual(1);
@@ -85,15 +84,12 @@ describe("snapshot-store purge", () => {
 
 			expect(selectError).toBeNull();
 			expect(remaining).toHaveLength(1);
-			expect(remaining?.[0]?.symbol).toBe(asset.symbol);
-			expect(new Date(remaining?.[0]?.captured_at ?? 0).getTime()).toBeGreaterThanOrEqual(
+			const remainingRow = remaining![0]!;
+			expect(remainingRow.id).toBe(recentRow.id);
+			expect(remainingRow.symbol).toBe(asset.symbol);
+			expect(new Date(remainingRow.captured_at).getTime()).toBe(
 				new Date(recentCapturedAt).getTime(),
 			);
-			expect(remaining?.[0]?.id).not.toBe(staleRow?.id);
-			const retentionCutoffIso = new Date(
-				now.getTime() - RETENTION_MINUTES * 60 * 1000,
-			).toISOString();
-			expect(remaining?.[0]?.captured_at >= retentionCutoffIso).toBe(true);
 		} finally {
 			// Clean up test data
 			await adminClient.from("asset_snapshots").delete().eq("symbol", asset.symbol);

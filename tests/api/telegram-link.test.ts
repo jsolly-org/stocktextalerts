@@ -60,7 +60,10 @@ describe("A signed-in user starts linking their Telegram account.", () => {
 		if (!row) throw new Error("expected token row");
 		expect(row.user_id).toBe(testUser.id);
 		expect(row.consumed_at).toBeNull();
-		expect(new Date(row.expires_at).getTime()).toBeGreaterThan(Date.now());
+		const expiresMs = new Date(row.expires_at).getTime();
+		const linkTokenTtlMs = 10 * 60 * 1000;
+		expect(expiresMs).toBeGreaterThan(Date.now() - 1_000);
+		expect(expiresMs).toBeLessThanOrEqual(Date.now() + linkTokenTtlMs + 5_000);
 	});
 
 	it("rejects an unauthenticated request with 401 and persists no token.", async () => {

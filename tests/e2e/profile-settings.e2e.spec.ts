@@ -83,17 +83,28 @@ test.describe("profile settings", () => {
 			// serialized saves and left the first request running, so this scenario is
 			// what distinguishes the sequencer's behavior.
 			let callIndex = 0;
+			let releaseFirstTimezoneResponse!: () => void;
+			const holdFirstTimezoneResponse = new Promise<void>((resolve) => {
+				releaseFirstTimezoneResponse = resolve;
+			});
 			await session.page.route("**/api/profile/timezone", async (route) => {
 				callIndex += 1;
 				if (callIndex === 1) {
-					await new Promise((resolve) => setTimeout(resolve, 1500));
+					await holdFirstTimezoneResponse;
+					try {
+						await route.continue();
+					} catch {
+						// Superseded first save — route may already be aborted.
+					}
+					return;
+				}
+				if (callIndex === 2) {
+					releaseFirstTimezoneResponse();
 				}
 				try {
 					await route.continue();
 				} catch {
-					// A superseded first save is aborted client-side, so its route can
-					// no longer be continued — swallow that. The abort itself is
-					// asserted below via `firstRequest.failure()`.
+					// Superseded save — route may already be aborted.
 				}
 			});
 
@@ -119,9 +130,9 @@ test.describe("profile settings", () => {
 			// queue never aborts, so this assertion fails on the old code.
 			expect(firstRequest.failure()).not.toBeNull();
 
-			// Give any late first-save settling a window to (incorrectly) touch the UI.
-			await session.page.waitForTimeout(500);
-			await expect(timezoneSelect).toHaveValue(secondTarget);
+			await expect
+				.poll(async () => timezoneSelect.inputValue(), { timeout: 5_000 })
+				.toBe(secondTarget);
 
 			// …and the persisted value agrees after a reload.
 			await session.page.unroute("**/api/profile/timezone");
@@ -231,11 +242,9 @@ test.describe("profile settings", () => {
 			// aborted by save #2 and its failure is ignored. The release is ordered
 			// after save #2's success, so the settle below is bounded, not a race.
 			releaseFirstSave();
-			await session.page.waitForTimeout(500);
-
-			// The switch must reflect the user's last intent (OFF), not save #1's
-			// superseded, late-failing ON.
-			await expect(timeSwitch).toHaveAttribute("aria-checked", "false");
+			await expect
+				.poll(async () => timeSwitch.getAttribute("aria-checked"), { timeout: 5_000 })
+				.toBe("false");
 
 			// …and the persisted value agrees after a reload.
 			await session.page.unroute("**/api/profile/time-format");
@@ -289,11 +298,18 @@ test.describe("profile settings", () => {
 				timeSwitch.click(), // -> ON (save fails)
 			]);
 
-			// Settle window for any (buggy) phantom resave triggered by the revert.
-			await session.page.waitForTimeout(500);
+			await expect
+				.poll(
+					async () => {
+						if (postCount !== 1) return false;
+						// Settle window for any (buggy) phantom resave after the failed save.
+						await new Promise((resolve) => setTimeout(resolve, 500));
+						return postCount === 1;
+					},
+					{ timeout: 5_000 },
+				)
+				.toBe(true);
 
-			// Exactly one POST: the revert must not re-enter the save path.
-			expect(postCount).toBe(1);
 			// The switch reverted to its confirmed value, the error is surfaced, and
 			// no false success message replaced it.
 			await expect(timeSwitch).toHaveAttribute("aria-checked", "false");
