@@ -1,4 +1,4 @@
-import { marketDataFetch } from "../vendors/massive/client";
+import { marketDataFetch } from "../vendors/massive";
 import type { TopMover } from "./types";
 
 export type { TopMover };

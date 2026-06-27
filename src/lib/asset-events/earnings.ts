@@ -1,4 +1,4 @@
-import { finnhubFetch } from "../vendors/finnhub/client";
+import { finnhubFetch } from "../vendors/finnhub";
 import type { EarningsEvent, ProviderResult } from "./types";
 
 async function fetchFinnhubEarnings(
