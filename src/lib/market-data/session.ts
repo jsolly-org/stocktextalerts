@@ -1,7 +1,7 @@
 import { DateTime } from "luxon";
 import { rootLogger } from "../logging";
 import { getUsMarketClosureInfoForInstant } from "../time/market-calendar";
-import { marketDataFetch } from "../vendors/massive/client";
+import { marketDataFetch } from "../vendors/massive";
 import type { MarketSession } from "./types";
 
 export function parseMarketSession(payload: unknown): MarketSession {

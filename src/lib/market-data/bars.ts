@@ -1,5 +1,5 @@
 import { US_MARKET_TIMEZONE } from "../constants";
-import { marketDataFetch } from "../vendors/massive/client";
+import { marketDataFetch } from "../vendors/massive";
 import type { DailyOHLCVBar, IntradayBarsResult, IntradayCandle } from "./types";
 
 export function extractClosesFromBars(payload: unknown): number[] | null {

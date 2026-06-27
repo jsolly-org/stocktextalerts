@@ -1,14 +1,14 @@
 import { setTimeout as realDelay } from "node:timers/promises";
-import { requireEnv } from "../../db/env";
-import { rootLogger } from "../../logging";
-import { createErrorForLogging } from "../../logging/errors";
-import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "../../resilience/optional-vendors";
+import { requireEnv } from "../db/env";
+import { rootLogger } from "../logging";
+import { createErrorForLogging } from "../logging/errors";
+import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "../resilience/optional-vendors";
 import {
 	VENDOR_FETCH_MAX_RETRIES as DEFAULT_MAX_RETRIES,
 	VENDOR_FETCH_REQUEST_TIMEOUT_MS as DEFAULT_REQUEST_TIMEOUT_MS,
 	VENDOR_FETCH_RETRY_DELAY_MS as RETRY_DELAY_MS,
 	shouldSkipVendorHttpInTestMode,
-} from "../fetch";
+} from "./fetch";
 
 const MASSIVE_BASE_URL = "https://api.massive.com";
 

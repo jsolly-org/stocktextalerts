@@ -1,4 +1,4 @@
-import { marketDataFetch } from "../../vendors/massive/client";
+import { marketDataFetch } from "../../vendors/massive";
 import type { TickerReferenceStatus } from "./types";
 
 async function fetchTickerReference(symbol: string): Promise<TickerReferenceStatus> {

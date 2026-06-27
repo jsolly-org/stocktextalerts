@@ -5,7 +5,7 @@ import {
 	recordOptionalVendorFailure,
 	recordOptionalVendorSuccess,
 } from "../resilience/optional-vendors";
-import { marketDataFetch } from "../vendors/massive/client";
+import { marketDataFetch } from "../vendors/massive";
 import type { CompanyNewsItem } from "./types";
 
 /**
