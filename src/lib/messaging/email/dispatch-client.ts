@@ -7,7 +7,7 @@ import {
 	EMAIL_DISPATCH_TIMESTAMP_HEADER,
 	type EmailDispatchResponse,
 } from "./dispatch-contract";
-import type { EmailRequest } from "./utils";
+import { createEmailSender, type EmailRequest } from "./utils";
 
 function isEmailDispatchResponse(value: unknown): value is EmailDispatchResponse {
 	if (typeof value !== "object" || value === null) return false;
@@ -24,6 +24,10 @@ export async function sendAppTransactionalEmail(
 	const dispatchSecret = readEnv("EMAIL_DISPATCH_SECRET");
 
 	if (!dispatchUrl || !dispatchSecret) {
+		const smtpHost = readEnv("EMAIL_SMTP_HOST");
+		if (smtpHost?.trim()) {
+			return createEmailSender()(request);
+		}
 		const missing = [
 			...(dispatchUrl ? [] : ["EMAIL_DISPATCH_URL"]),
 			...(dispatchSecret ? [] : ["EMAIL_DISPATCH_SECRET"]),

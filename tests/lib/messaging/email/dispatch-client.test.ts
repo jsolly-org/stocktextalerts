@@ -66,6 +66,7 @@ describe("sendAppTransactionalEmail", () => {
 
 	it("fails closed when dispatch env is missing.", async () => {
 		expectConsoleError("Email dispatch is not configured");
+		vi.stubEnv("EMAIL_SMTP_HOST", "");
 		const { sendAppTransactionalEmail } = await import(
 			"../../../../src/lib/messaging/email/dispatch-client"
 		);
