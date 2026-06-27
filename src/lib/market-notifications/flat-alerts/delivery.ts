@@ -1,8 +1,7 @@
 import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
-import type { IntradayBarsResult } from "../../market-data/types";
-import type { ExtendedAssetQuote } from "../../market-data/types";
+import type { ExtendedAssetQuote, IntradayBarsResult } from "../../market-data/types";
 import { escapeHtml, formatUsdPrice, getChangeColor } from "../../messaging/asset-formatting";
 import { sendUserEmail } from "../../messaging/email/index";
 import { renderIntradaySparklineImg } from "../../messaging/email/intraday-sparkline";

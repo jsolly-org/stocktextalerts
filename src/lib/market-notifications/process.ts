@@ -7,10 +7,14 @@ import {
 } from "../constants";
 import { rootLogger } from "../logging";
 import { fetchIntradayBars } from "../market-data/bars";
-import type { IntradayCandle } from "../market-data/types";
 import { fetchExtendedQuotes } from "../market-data/prices";
 import { getCurrentMarketSession } from "../market-data/session";
-import type { ExtendedAssetQuote, ExtendedQuoteMap, MarketSession } from "../market-data/types";
+import type {
+	ExtendedAssetQuote,
+	ExtendedQuoteMap,
+	IntradayCandle,
+	MarketSession,
+} from "../market-data/types";
 import { createEmailSender } from "../messaging/email/utils";
 import { createLogoCache } from "../messaging/logo-fetcher";
 import { isFacetEnabled } from "../messaging/notification-prefs";
