@@ -1,4 +1,4 @@
-import { readEnv } from "../db/env";
+import { readEnv } from "../../db/env";
 
 const ADMIN_EMAILS_ENV = "ADMIN_EMAILS";
 

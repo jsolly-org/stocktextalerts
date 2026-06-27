@@ -22,7 +22,9 @@ describe("sendUserApprovalEmail", () => {
 	it("sends a user-facing approval email with the sign-in link.", async () => {
 		vi.stubEnv("EMAIL_FROM", "StockTextAlerts <notify@example.com>");
 		const { getSiteUrl } = await import("../../../src/lib/db/env");
-		const { sendUserApprovalEmail } = await import("../../../src/lib/auth/approval-user-email");
+		const { sendUserApprovalEmail } = await import(
+			"../../../src/lib/auth/approval/user-approved-email"
+		);
 		const { createLogger } = await import("../../../src/lib/logging");
 
 		const result = await sendUserApprovalEmail(
@@ -53,7 +55,9 @@ describe("sendUserApprovalEmail", () => {
 			errorCode: "smtp_error",
 		});
 		vi.stubEnv("EMAIL_FROM", "StockTextAlerts <notify@example.com>");
-		const { sendUserApprovalEmail } = await import("../../../src/lib/auth/approval-user-email");
+		const { sendUserApprovalEmail } = await import(
+			"../../../src/lib/auth/approval/user-approved-email"
+		);
 		const { createLogger } = await import("../../../src/lib/logging");
 
 		const result = await sendUserApprovalEmail(

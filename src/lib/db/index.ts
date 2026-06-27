@@ -1,6 +1,6 @@
 import type { AstroCookies } from "astro";
-import { isApprovedAtValue } from "../auth/approval";
-import { setAuthCookies } from "../auth/cookies";
+import { isApprovedAtValue } from "../auth/approval/status";
+import { setAuthCookies } from "../auth/session/cookies";
 import { rootLogger } from "../logging";
 import { type AssetType, assertAssetType } from "../types";
 import { getApprovalCached } from "./approval-cache";
