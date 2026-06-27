@@ -1,6 +1,8 @@
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.unmock("../../../src/lib/providers/price-fetcher");
+
 const marketDataFetchMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../../../src/lib/providers/massive", () => ({

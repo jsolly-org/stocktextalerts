@@ -22,13 +22,9 @@ vi.mock("../../../../src/lib/constants", async (importOriginal) => {
 	return { ...actual, REGISTRATION_ENABLED: true };
 });
 
-vi.mock("../../../../src/lib/messaging/email/utils", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("../../../../src/lib/messaging/email/utils")>();
-	return {
-		...actual,
-		createEmailSender: () => mockEmailSender,
-	};
-});
+vi.mock("../../../../src/lib/messaging/email/dispatch-client", () => ({
+	sendAppTransactionalEmail: (request: unknown, _logger: unknown) => mockEmailSender(request),
+}));
 
 function buildRegistrationPayload(
 	overrides: Partial<{

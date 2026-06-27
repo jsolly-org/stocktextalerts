@@ -172,7 +172,7 @@ describe("User input is validated against required data format rules.", () => {
 				"mutual_fund",
 			]),
 		).rejects.toMatchObject({
-			code: "23514",
+			code: "22P02",
 		});
 	});
 

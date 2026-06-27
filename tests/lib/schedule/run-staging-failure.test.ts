@@ -40,6 +40,8 @@ vi.mock("../../../src/lib/providers/price-fetcher", async () => {
 					]),
 				),
 		),
+		fetchSparklines: vi.fn(async () => new Map()),
+		fetchIntradaySparklines: vi.fn(async () => new Map()),
 	};
 });
 

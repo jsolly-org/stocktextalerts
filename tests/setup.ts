@@ -30,6 +30,26 @@ vi.mock("../src/lib/db/env", async (importOriginal) => {
 	};
 });
 
+vi.mock("../src/lib/messaging/email/dispatch-client", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("../src/lib/messaging/email/dispatch-client")>();
+	const { createTestEmailSender } = await import("./helpers/messaging-doubles");
+	const testSend = createTestEmailSender();
+	return {
+		...actual,
+		sendAppTransactionalEmail: async (
+			request: Parameters<typeof actual.sendAppTransactionalEmail>[0],
+			logger: Parameters<typeof actual.sendAppTransactionalEmail>[1],
+		) => {
+			const dispatchUrl = process.env.EMAIL_DISPATCH_URL?.trim();
+			if (dispatchUrl) {
+				return actual.sendAppTransactionalEmail(request, logger);
+			}
+			return testSend(request);
+		},
+	};
+});
+
 vi.mock("../src/lib/messaging/email/utils", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("../src/lib/messaging/email/utils")>();
 	const { createTestEmailSender } = await import("./helpers/messaging-doubles");

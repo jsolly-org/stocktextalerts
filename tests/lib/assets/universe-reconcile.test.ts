@@ -70,7 +70,7 @@ async function seedAssets(records: SeedAsset[]): Promise<void> {
 			`
 				INSERT INTO public.assets
 					(symbol, name, type, delisted_at, sector, icon_url, reference_updated_utc, composite_figi)
-				SELECT symbol, name, type, delisted_at, sector, icon_url, reference_updated_utc, composite_figi
+				SELECT symbol, name, type::public.asset_type, delisted_at, sector, icon_url, reference_updated_utc, composite_figi
 				FROM jsonb_to_recordset($1::jsonb) AS r(
 					symbol text, name text, type text, delisted_at timestamptz,
 					sector text, icon_url text, reference_updated_utc timestamptz, composite_figi text
