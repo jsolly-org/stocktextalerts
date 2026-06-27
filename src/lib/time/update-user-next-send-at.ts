@@ -5,6 +5,33 @@ import type { SupabaseAdminClient } from "../schedule/helpers";
 import { userLocalToEtMinute } from "./format";
 import { calculateNextSendAt } from "./scheduled-times";
 
+type SingleTimeNextSendAtColumn = "asset_events_next_send_at" | "daily_digest_next_send_at";
+
+/** Persist a precomputed next_send_at ISO (or clear the column when null). */
+export async function persistUserNextSendAtColumn(options: {
+	userId: string;
+	supabase: SupabaseAdminClient;
+	logger: Logger;
+	column: SingleTimeNextSendAtColumn;
+	nextSendAtIso: string | null;
+}): Promise<void> {
+	const { userId, supabase, logger, column, nextSendAtIso } = options;
+
+	const update =
+		column === "asset_events_next_send_at"
+			? { asset_events_next_send_at: nextSendAtIso }
+			: { daily_digest_next_send_at: nextSendAtIso };
+	const { error } = await supabase.from("users").update(update).eq("id", userId);
+
+	if (error) {
+		logger.error(
+			nextSendAtIso ? `Failed to update users.${column}` : `Failed to clear users.${column}`,
+			{ userId, [column]: nextSendAtIso },
+			error,
+		);
+	}
+}
+
 /**
  * Recompute and persist a user's single-time next_send_at column.
  *
@@ -31,32 +58,24 @@ export async function updateUserNextSendAtSingleTime(options: {
 
 	const localMinutes = getLocalMinutes(user);
 	if (localMinutes === null) {
-		const clearUpdate =
-			column === "asset_events_next_send_at"
-				? { asset_events_next_send_at: null }
-				: { daily_digest_next_send_at: null };
-		const { error } = await supabase.from("users").update(clearUpdate).eq("id", user.id);
-		if (error) {
-			logger.error(`Failed to clear users.${column}`, { userId: user.id }, error);
-		}
-		return;
+		return persistUserNextSendAtColumn({
+			userId: user.id,
+			supabase,
+			logger,
+			column,
+			nextSendAtIso: null,
+		});
 	}
 
 	const etMinutes = userLocalToEtMinute(localMinutes, user.timezone);
 	const nextSendAt = calculateNextSendAt(etMinutes, currentTime);
 	const nextSendAtIso = nextSendAt?.toISO() ?? null;
 
-	const setUpdate =
-		column === "asset_events_next_send_at"
-			? { asset_events_next_send_at: nextSendAtIso }
-			: { daily_digest_next_send_at: nextSendAtIso };
-	const { error } = await supabase.from("users").update(setUpdate).eq("id", user.id);
-
-	if (error) {
-		logger.error(
-			nextSendAtIso ? `Failed to update users.${column}` : `Failed to clear users.${column}`,
-			{ userId: user.id, [column]: nextSendAtIso },
-			error,
-		);
-	}
+	return persistUserNextSendAtColumn({
+		userId: user.id,
+		supabase,
+		logger,
+		column,
+		nextSendAtIso,
+	});
 }

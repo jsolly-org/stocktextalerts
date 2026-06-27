@@ -3,9 +3,8 @@ import type { Logger } from "../logging";
 import { anyFacetEnabled } from "../messaging/notification-prefs";
 import type { UserRecord } from "../messaging/types";
 import type { SupabaseAdminClient } from "../schedule/helpers";
-import { updateUserNextSendAtSingleTime } from "../time/update-user-next-send-at";
-
-const DEFAULT_DELIVERY_MINUTES = 540; // 9:00 AM
+import { persistUserNextSendAtColumn } from "../time/update-user-next-send-at";
+import { calculateAssetEventsNextSendAtIso } from "./scheduling-helpers";
 
 /**
  * Recompute and persist `users.asset_events_next_send_at` for a user.
@@ -26,10 +25,19 @@ export async function updateUserAssetEventsNextSendAt(options: {
 		anyFacetEnabled(prefs, "asset_events", "sms") ||
 		anyFacetEnabled(prefs, "asset_events", "telegram");
 
-	return updateUserNextSendAtSingleTime({
-		...options,
+	const nextSendAtIso = hasAssetEventsOption
+		? calculateAssetEventsNextSendAtIso({
+				dailyDigestTime: options.user.daily_digest_time,
+				timezone: options.user.timezone,
+				now: options.currentTime,
+			})
+		: null;
+
+	return persistUserNextSendAtColumn({
+		userId: options.user.id,
+		supabase: options.supabase,
+		logger: options.logger,
 		column: "asset_events_next_send_at",
-		getLocalMinutes: (user) =>
-			hasAssetEventsOption ? (user.daily_digest_time ?? DEFAULT_DELIVERY_MINUTES) : null,
+		nextSendAtIso,
 	});
 }

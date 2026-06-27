@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { computeAssetEventsNextSendAt } from "../../../src/lib/asset-events/scheduling-helpers";
+import {
+	calculateAssetEventsNextSendAtIso,
+	computeAssetEventsNextSendAt,
+	DEFAULT_ASSET_EVENTS_DELIVERY_MINUTES,
+} from "../../../src/lib/asset-events/scheduling-helpers";
 import type { User, UserUpdateInput } from "../../../src/lib/db";
+import { DateTime } from "luxon";
 
 function makeUser(overrides: Partial<User> = {}): User {
 	return {
@@ -11,6 +16,33 @@ function makeUser(overrides: Partial<User> = {}): User {
 		...overrides,
 	} as unknown as User;
 }
+
+describe("calculateAssetEventsNextSendAtIso", () => {
+	it("Uses daily_digest_time when set.", () => {
+		const iso = calculateAssetEventsNextSendAtIso({
+			dailyDigestTime: 1020,
+			timezone: "America/New_York",
+			now: DateTime.fromISO("2026-01-14T12:00:00.000Z", { zone: "utc" }),
+		});
+
+		expect(iso).toBeTruthy();
+	});
+
+	it("Falls back to the default delivery minute when daily_digest_time is null.", () => {
+		const withDefault = calculateAssetEventsNextSendAtIso({
+			dailyDigestTime: null,
+			timezone: "America/New_York",
+			now: DateTime.fromISO("2026-01-14T12:00:00.000Z", { zone: "utc" }),
+		});
+		const explicitDefault = calculateAssetEventsNextSendAtIso({
+			dailyDigestTime: DEFAULT_ASSET_EVENTS_DELIVERY_MINUTES,
+			timezone: "America/New_York",
+			now: DateTime.fromISO("2026-01-14T12:00:00.000Z", { zone: "utc" }),
+		});
+
+		expect(withDefault).toBe(explicitDefault);
+	});
+});
 
 // asset-events per-option preferences now live in notification_preferences, so the
 // scheduler is field-agnostic: the caller resolves "any asset-events facet enabled"

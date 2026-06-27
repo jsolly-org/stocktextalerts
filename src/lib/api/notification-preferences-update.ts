@@ -1,5 +1,8 @@
 import { DateTime } from "luxon";
-import { computeAssetEventsNextSendAt } from "../asset-events/scheduling-helpers";
+import {
+	calculateAssetEventsNextSendAtIso,
+	computeAssetEventsNextSendAt,
+} from "../asset-events/scheduling-helpers";
 import { type AlertMoveSize, omitUndefined, type User, type UserUpdateInput } from "../db";
 import type { Logger } from "../logging";
 import { userLocalToEtMinute } from "../time/format";
@@ -310,10 +313,11 @@ export function computeTimezoneUpdatePayload(
 	}
 
 	if (hasAnyAssetEvents) {
-		const baseLocal = dbUser.daily_digest_time ?? 540;
-		const etMinutes = userLocalToEtMinute(baseLocal, newTimezone);
-		const nextUtc = calculateNextSendAt(etMinutes, DateTime.utc());
-		payload.asset_events_next_send_at = nextUtc?.toISO() ?? null;
+		payload.asset_events_next_send_at = calculateAssetEventsNextSendAtIso({
+			dailyDigestTime: dbUser.daily_digest_time,
+			timezone: newTimezone,
+			now: DateTime.utc(),
+		});
 	}
 
 	return payload;
