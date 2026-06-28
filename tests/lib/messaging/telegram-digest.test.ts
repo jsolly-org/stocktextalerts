@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AssetPriceMap } from "../../../src/lib/market-data/types";
-import { formatDailyDigestTelegram } from "../../../src/lib/messaging/telegram/digest";
+import { formatDailyDigestTelegram } from "../../../src/lib/messaging/notifications/daily-digest";
 
 describe("Telegram daily digest formatting", () => {
 	it("renders a multi-asset digest with entities, color dots, and a disclaimer", () => {

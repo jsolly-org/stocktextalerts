@@ -14,11 +14,11 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 }));
 
 import type { Logger } from "../../../src/lib/logging";
+import { createEmailSender, type EmailSender } from "../../../src/lib/messaging/email/utils";
 import {
 	buildDelayBannerText,
 	prependDelayBannerToSms,
-} from "../../../src/lib/messaging/delay-banner";
-import { createEmailSender, type EmailSender } from "../../../src/lib/messaging/email/utils";
+} from "../../../src/lib/messaging/parts/delay";
 import { findUrls, spanStraddlesBoundary } from "../../../src/lib/messaging/sms/segment-utils";
 import {
 	createSmsSenderFactory,

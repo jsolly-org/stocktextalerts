@@ -8,14 +8,14 @@ import {
 } from "../../src/lib/daily-digest/delivery";
 import type { Logger } from "../../src/lib/logging";
 import type { AssetPriceMap } from "../../src/lib/market-data/types";
-import type { SmsExtras } from "../../src/lib/messaging/sms/delivery";
+import type { SparklineData } from "../../src/lib/messaging/parts/charts/sparkline";
+import type { NotificationExtras } from "../../src/lib/messaging/parts/extras";
 import {
 	finalizeSmsBodyForUcs2Segments,
 	findDailyDigestProtectedSpans,
 	spanStraddlesBoundary,
 } from "../../src/lib/messaging/sms/segment-utils";
 import type { SmsSender } from "../../src/lib/messaging/sms/twilio-utils";
-import type { SparklineData } from "../../src/lib/messaging/sparkline";
 import type { UserAssetRow, UserRecord } from "../../src/lib/messaging/types";
 import type {
 	ScheduledNotificationTotals,
@@ -30,7 +30,7 @@ describe("Daily digest email prices", () => {
 		{ symbol: "AAPL", name: "Apple Inc" },
 		{ symbol: "MSFT", name: "Microsoft Corp" },
 	];
-	const extras: SmsExtras = {
+	const extras: NotificationExtras = {
 		news: null,
 		rumors: null,
 		analyst: null,

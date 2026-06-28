@@ -1,9 +1,10 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import type { AssetPriceMap, MarketSession } from "../../market-data/types";
+import { formatMarketScheduledEmail } from "../notifications/market-scheduled";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { EmailFormatContext, EmailUser, ProcessingStats, UserAssetRow } from "../types";
 import { sendUserEmail } from "./index";
-import { type EmailSender, formatEmailMessage } from "./utils";
+import type { EmailSender } from "./utils";
 
 /**
  * Format + send a scheduled email update for a user, then record the delivery outcome.
@@ -24,7 +25,7 @@ export async function processEmailUpdate(
 	},
 	noSessionTrade?: Set<string>,
 ): Promise<ProcessingStats> {
-	const message = formatEmailMessage(
+	const message = formatMarketScheduledEmail(
 		user,
 		userAssets,
 		assetsList,

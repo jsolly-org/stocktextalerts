@@ -1,8 +1,8 @@
 import { getSiteUrl } from "../../db/env";
 import type { Logger } from "../../logging";
-import { escapeHtml } from "../../messaging/asset-formatting";
 import { sendAppTransactionalEmail } from "../../messaging/email/dispatch-client";
 import { renderEmailButton, renderEmailShell } from "../../messaging/email/layout";
+import { escapeHtml } from "../../messaging/parts/html-utils";
 import { getAdminEmails } from "./admin";
 
 type RegisteredUserProfile = {
