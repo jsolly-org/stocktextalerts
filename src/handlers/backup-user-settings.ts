@@ -4,7 +4,7 @@ import { emitHeartbeat, getConnectionString, putBackup } from "../lib/backup/sto
 import { requireEnv } from "../lib/db/env";
 import { createLogger } from "../lib/logging";
 import { createErrorForLogging } from "../lib/logging/errors";
-import { runLambda } from "../lib/run-lambda";
+import { runLambda } from "../lib/logging/request-context";
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
 	return runLambda(context, async () => {

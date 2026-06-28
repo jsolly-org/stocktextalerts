@@ -1,4 +1,4 @@
-import type { Database } from "../db/generated/database.types";
+import type { Database } from "../../db/generated/database.types";
 
 type ApprovedAt = Database["public"]["Tables"]["users"]["Row"]["approved_at"];
 

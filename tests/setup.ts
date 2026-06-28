@@ -10,7 +10,7 @@ import {
 	PRESERVED_TEST_EMAIL,
 	PRESERVED_USER_ID,
 } from "./helpers/constants";
-import { restoreBaselineTestEnvStubs } from "./helpers/env-stubs";
+import { resetTestEnvStubs, restoreBaselineTestEnvStubs } from "./helpers/env-stubs";
 import { shutdownHttpTestServer } from "./helpers/http/server";
 import { adminClient } from "./helpers/test-env";
 import { cleanupTestUser } from "./helpers/test-user";
@@ -296,7 +296,7 @@ afterEach(async () => {
 	for (const userId of userIds) {
 		await cleanupTestUser(userId);
 	}
-	restoreBaselineTestEnvStubs();
+	resetTestEnvStubs();
 });
 
 export const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});

@@ -298,7 +298,17 @@ test.describe("profile settings", () => {
 				timeSwitch.click(), // -> ON (save fails)
 			]);
 
-			await expect.poll(async () => postCount, { timeout: 5_000 }).toBe(1);
+			await expect
+				.poll(
+					async () => {
+						if (postCount !== 1) return false;
+						// Settle window for any (buggy) phantom resave after the failed save.
+						await new Promise((resolve) => setTimeout(resolve, 500));
+						return postCount === 1;
+					},
+					{ timeout: 5_000 },
+				)
+				.toBe(true);
 
 			// The switch reverted to its confirmed value, the error is surfaced, and
 			// no false success message replaced it.

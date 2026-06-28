@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { isUnauthorizedResponse, redirectToSignIn } from "../../../src/lib/auth/session-expired";
+import {
+	isUnauthorizedResponse,
+	redirectToSignIn,
+} from "../../../src/lib/auth/session/session-expired";
 
 describe("Session-expired helpers guide users back to sign-in safely.", () => {
 	const originalWindow = globalThis.window;
