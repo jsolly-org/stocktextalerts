@@ -91,6 +91,7 @@ vi.mock("../../../src/lib/market-data/sparklines", async () => {
 });
 
 import { runScheduledNotifications } from "../../../src/lib/schedule/run";
+import { __resetMarketSessionCacheForTests } from "../../../src/lib/schedule/market-session";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -124,6 +125,7 @@ async function fetchUserNextSendAt(userId: string): Promise<string | null> {
 
 describe("runScheduledNotifications: fallback pipeline", () => {
 	beforeEach(() => {
+		__resetMarketSessionCacheForTests();
 		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 		vi.stubEnv("SCHEDULE_PASS_DELAY_MS", "0");
 		// Default to a regular-hours session so callers that don't override
@@ -133,7 +135,10 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 	});
 
 	afterEach(() => {
-		vi.unstubAllEnvs();
+		// Do not call vi.unstubAllEnvs() — it strips global Twilio stubs from
+		// tests/setup.ts. Email-only cases never call getSmsSender(), so the first
+		// SMS test would fail on CI where .env.local lacks TWILIO_API_KEY_*.
+		// beforeEach re-stubs SMS_TEST_BEHAVIOR and SCHEDULE_PASS_DELAY_MS each test.
 	});
 
 	it("fallback still delivers when no staging row exists for the user", async () => {
