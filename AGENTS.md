@@ -1,3 +1,11 @@
+## Ship
+
+Ship profile: `aws-sam`
+
+**Post-push (step 12):** Production deploy is **GitHub-managed** — after push to `main`, CI then `.github/workflows/deploy.yml` runs migrations, Lambda updates, and the live-provider check. Babysit those workflows; local `npm run deploy:code` is break-glass only. Vercel deploys the web tier via Git integration — verify production if web paths changed. Run `npm run deploy:infra` manually (human MFA) when `aws/template.yaml` or `aws/deploy.sh` changes — never auto-run from `/ship`.
+
+Local gate before push: pre-push hook steps in `.git-hooks/pre-push` (lint/types/static; unit tests run in GitHub CI, not the hook).
+
 ## Commands
 
 ```bash
@@ -74,11 +82,11 @@ See `tests/README.md` for the production-credential gating model and Mailpit dev
 
 ## Supabase Migrations
 
-- **Local files are source of truth.** Create with `supabase migration new <name>`, write SQL, commit, merge. The post-push deploy (`npm run deploy:code` → `aws/deploy-web.sh`, run after the push lands) runs `supabase db push`.
-- **Apply migrations to production only via the deploy's `supabase db push`** (`npm run deploy:code`, post-push). Local-only paths: `supabase migration new <name>` then commit. (No MCP against prod, no manual `db push`, no dashboard DDL.)
+- **Local files are source of truth.** Create with `supabase migration new <name>`, write SQL, commit, merge. The GitHub production deploy workflow (`.github/workflows/deploy.yml` → `aws/deploy-web.sh --deploy-ci`) runs `supabase db push` after `main` CI passes.
+- **Apply migrations to production only via the GitHub deploy workflow's `supabase db push`**. Local-only paths: `supabase migration new <name>` then commit. (No MCP against prod, no manual `db push`, no dashboard DDL.)
 - After creating/modifying a migration: `npm run db:gen-types`.
 - **Regenerate `src/lib/db/generated/database.types.ts` via `npm run db:gen-types`** — it's overwritten on every run.
-- **Explicit grants required for functions, tables, and sequences.** `public` default privileges are empty in both local and production (parity established by `20260610182813_tighten_table_privileges`) — an object created without an explicit `GRANT` is usable by nobody but `postgres` (a missing function grant caused the duplicate-SMS incident). Every migration that creates a Data-API (`.rpc(...)`) function must include `GRANT EXECUTE ON FUNCTION ... TO <role>` (server-only → `service_role`; session-scoped → `authenticated`, `service_role`) and the function must be classified in `scripts/db/privilege-contract.ts`. Every migration that creates a table or sequence must grant exactly what code needs (server-only → `service_role`; session-visible → `authenticated`/`anon`). `npm run check:db-privileges` (in `db:reset` + the pre-push gate) and `npm run check:migration-grants` enforce the function side; `npm run audit:db-parity` diffs the full local permission structure against production (read-only). Test fixtures needing writes beyond prod grants use the `pg` client (`tests/helpers/asset-db.ts`), not `adminClient`. `supabase db diff` does not surface `ALTER DEFAULT PRIVILEGES`; review grants manually. See `docs/local-supabase.md` → "Function & table privilege parity".
+- **Explicit grants required for functions, tables, and sequences.** `public` default privileges are empty in both local and production (parity established by `20260610182813_tighten_table_privileges`) — an object created without an explicit `GRANT` is usable by nobody but `postgres` (a missing function grant caused the duplicate-SMS incident). Every migration that creates a Data-API (`.rpc(...)`) function must include `GRANT EXECUTE ON FUNCTION ... TO <role>` (server-only → `service_role`; session-scoped → `authenticated`, `service_role`) and the function must be classified in `scripts/db/privilege-contract.ts`. Every migration that creates a table or sequence must grant exactly what code needs (server-only → `service_role`; session-visible → `authenticated`/`anon`). `npm run check:db-privileges` (in `db:reset` + GitHub CI) and `npm run check:migration-grants` enforce the function side; `npm run audit:db-parity` diffs the full local permission structure against production (read-only). Test fixtures needing writes beyond prod grants use the `pg` client (`tests/helpers/asset-db.ts`), not `adminClient`. `supabase db diff` does not surface `ALTER DEFAULT PRIVILEGES`; review grants manually. See `docs/local-supabase.md` → "Function & table privilege parity".
 
 ### Production DB agent block (enforced)
 
@@ -86,7 +94,7 @@ Agents (Cursor, Claude Code, Codex) **must not** apply production Supabase schem
 
 **Never run or invoke:**
 
-- `supabase db push` (production apply happens only inside the post-push deploy `npm run deploy:code` → `aws/deploy-web.sh`, after the push lands — never run it by hand)
+- `supabase db push` (production apply happens only inside the GitHub production deploy workflow — never run it by hand)
 - `supabase migration repair` against linked/production (human runbook only — see `docs/incidents/2026-05-migration-squash.md`)
 - `psql` using production credentials for writes, DDL, migrations, repairs, or ad hoc data fixes (`DATABASE_URL_PROD`, `SUPABASE_URL_PROD`, project ref `japesagairjvvuebzpvr`, etc.)
 - Supabase MCP `apply_migration` against production
@@ -96,7 +104,7 @@ Agents (Cursor, Claude Code, Codex) **must not** apply production Supabase schem
 
 **Allowed production data fixes:** direct `UPDATE` / `INSERT` / `DELETE` only when the user explicitly approves the exact statement or well-scoped operation in the current conversation. Prefer a transaction, include a preflight `SELECT`, report affected row counts, and avoid broad predicates. Never use this path for schema changes or migration history changes.
 
-**Allowed agent workflow:** `supabase migration new <name>` → edit `supabase/migrations/*.sql` → `npm run db:reset` / `db:gen-types` → commit → push to `main` → `npm run deploy:code` (the post-push deploy runs `supabase db push`).
+**Allowed agent workflow:** `supabase migration new <name>` → edit `supabase/migrations/*.sql` → `npm run db:reset` / `db:gen-types` → commit → push PR → GitHub CI/merge queue when available → `main` CI → GitHub production deploy (the deploy workflow runs `supabase db push`).
 
 **Codex:** mark this repo as a **trusted** project so `.codex/config.toml` and `.codex/execpolicy.rules` load (see [Codex config basics](https://developers.openai.com/codex/config-basic)).
 
@@ -110,25 +118,30 @@ See `docs/local-supabase.md` for `db:bootstrap`, seed hardening, and Podman setu
 
 ## AWS / SAM Deploy
 
-Lambda **code** ships via **`npm run deploy:code`** (`aws/deploy-web.sh`, scoped `fleet-deploy` role) run **after the push lands** (by `/ship`, or by hand) — **not inside the pre-push hook**. The hook only GATES the landing; `deploy-web.sh` calls **`gate_require_landed`** and fails closed unless `HEAD == origin/main`, so a deploy can never ship code that hasn't landed (the 2026-06-24 concurrent-push race). A **full SAM deploy** is still required when changing `aws/template.yaml` or `aws/deploy.sh` (infra/config): run `npm run deploy:infra` manually with admin creds. Copy `aws/samconfig.toml.example` → gitignored `aws/samconfig.toml`; use `AWS_PROFILE` locally. Never commit personal/admin AWS profile names in tracked files (the shared fleet convention `fleet-deploy` is the documented exception).
+Lambda **code** ships via the GitHub production deploy workflow (`.github/workflows/deploy.yml` → `aws/deploy-web.sh --deploy-ci`) after the landed `main` commit passes CI. The local `npm run deploy:code` path remains break-glass only. A **full SAM deploy** is still required when changing `aws/template.yaml` or `aws/deploy.sh` (infra/config): run `npm run deploy:infra` manually with admin creds. Copy `aws/samconfig.toml.example` → gitignored `aws/samconfig.toml`; use `AWS_PROFILE` locally. Never commit personal/admin AWS profile names in tracked files (the shared fleet convention `fleet-deploy` is the documented exception).
 
 ### Post-deploy live verification (no local live-test tier)
 
-Provider keys live in the Lambda runtime (and `MASSIVE_API_KEY` also in Vercel, for the logo endpoint), so the local suite stubs every external call and cannot catch a real-API regression. After a push+deploy whose diff touched **live-affecting code** — `src/lib/vendors/`, the provider clients, response parsing, auth/scoping, retry/timeout, notification content built from live data, or the Telegram bot/token path — **manually invoke the scheduled `stocktextalerts-live-provider-check` Lambda** (`src/handlers/live-provider-check.ts`) with `aws lambda invoke` and confirm it succeeds (no thrown error / no `LiveProviderCheckFunctionErrorAlarm`). This Lambda also runs the **read-only Telegram token check** (`getMe()`/`getWebhookInfo()`, side-effect-free — never a send), so it doubles as the Telegram live-verification step. This is `/ship`'s post-deploy live-verification step for this repo. Run it during market hours when snapshot data is fresh. The `fleet-deploy` profile (`agent-deploy` role) is scoped to invoke `*-live-provider-check`, so an agent can run this directly — no admin step-up. Confirming a real Telegram message actually *lands* is a separate one-time manual `/start` E2E (a human-only real send, never automated).
+Provider keys live in the Lambda runtime (and `MASSIVE_API_KEY` also in Vercel, for the logo endpoint), so the local suite stubs every external call and cannot catch a real-API regression. The GitHub production deploy workflow invokes the scheduled `stocktextalerts-live-provider-check` Lambda (`src/handlers/live-provider-check.ts`) after every deploy and fails red on any thrown error. This Lambda also runs the **read-only Telegram token check** (`getMe()`/`getWebhookInfo()`, side-effect-free — never a send), so it doubles as the Telegram live-verification step. Manual on-demand invokes are still allowed for investigation with the scoped deploy role. Confirming a real Telegram message actually *lands* is a separate one-time manual `/start` E2E (a human-only real send, never automated).
 
 ## External APIs
 
 See `docs/external-apis.md` for Massive (prices/reference) and Finnhub (earnings calendar + extras).
 
-## CI on push to main (local pre-push gate)
+## CI (GitHub Actions + local pre-push gate)
 
-The pre-push hook (`.git-hooks/pre-push`, the committed gate) runs the full CI battery on push to `main` — **gate-only; it does not deploy**. The deploy is a separate post-landing step (`npm run deploy:code`, run by `/ship` after the push lands, or by hand). See `docs/prepush-gate.md` for the command list. The gate needs local Supabase up (`npm run db:start`).
+GitHub Actions runs the full test battery on PRs, merge queue entries if the feature becomes available, and `main` pushes (`.github/workflows/ci.yml`); auto-merge is enabled by `.github/workflows/auto-merge.yml` once required checks pass. Native GitHub Merge Queue is currently unavailable for this private GitHub Team repository (GitHub rejects the rule through API and the UI does not expose it). The production deploy workflow (`.github/workflows/deploy.yml`) runs after `main` CI succeeds. Vercel's GitHub integration owns the production web deploy; Actions owns Supabase migrations, Lambda code updates, and live-provider verification. See `docs/github-ci.md` for branch protection, environment secrets, and deploy setup.
 
-**The gate only runs on local pushes.** Server-side merges (GitHub UI merge button, Dependabot merges) bypass the CI gate, and nothing triggers the post-push `npm run deploy:code` — merge PRs locally and push (then deploy) instead. Cloud VMs have no deploy credentials: push feature branches only from cloud; pushes to `main` happen from a credentialed laptop.
+Because Vercel Git deployments start independently on `main` pushes, schema-affecting web changes must remain backward-compatible with the currently deployed database until the GitHub deploy workflow has applied migrations. Use the local break-glass `npm run deploy:code` path only when an explicitly ordered DB/Lambda/web release is required.
+
+The pre-push hook (`.git-hooks/pre-push`) runs lint/types/static checks locally — **not** unit or E2E tests, and **not** anything that needs local Supabase (Podman/Postgres). It does **not** deploy. Deploy is GitHub-managed after merge.
+
+**PRs should merge via GitHub** (CI + auto-merge + merge queue where available), not direct pushes to `main`. After merge, babysit GitHub CI/deploy plus the Vercel GitHub deployment and fix failures with a forward-fix PR.
 
 ## AWS IAM
 
 - `agent-deploy` — scoped deploy role (S3, CloudFront, ECR, `lambda:UpdateFunctionCode`, `cloudformation:DescribeStackResource`, plus `lambda:InvokeFunction` on `*-live-provider-check` only — for the post-deploy live check). Used locally via the `fleet-deploy` profile for code-only deploys. Defined fleet-wide in `shared-infra/aws/template.yaml`.
+- `github-actions-deploy` — scoped GitHub OIDC role for production code deploys from `birthmilk/stocktextalerts` on `main`. It reuses the code-only deploy policy and has no CloudFormation/SAM infra mutation permissions.
 - `stocktextalerts-crons-*` — SAM-managed Lambda execution roles (auto-created; SES send via execution role, not static keys)
 
 ## Tooling Setup
