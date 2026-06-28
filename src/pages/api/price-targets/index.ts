@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { jsonResponse } from "../../../lib/api/json-response";
+import type { ApiJsonBody } from "../../../lib/api/types";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
@@ -25,7 +25,9 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 		logger.info("Price targets fetch without authenticated user", {
 			reason: "unauthenticated",
 		});
-		return jsonResponse(401, { ok: false, message: "unauthorized" });
+		return Response.json({ ok: false, message: "unauthorized" } satisfies ApiJsonBody, {
+			status: 401,
+		});
 	}
 
 	try {
@@ -36,10 +38,13 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 
 		if (error) {
 			logger.error("Failed to fetch price targets", { userId: user.id }, error);
-			return jsonResponse(500, {
-				ok: false,
-				message: "fetch_failed",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "fetch_failed",
+				} satisfies ApiJsonBody,
+				{ status: 500 },
+			);
 		}
 
 		// Fetch current prices for tracked assets; on provider failure still return saved targets
@@ -66,6 +71,8 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 		return Response.json({ ok: true, targets: data ?? [], prices });
 	} catch (error) {
 		logger.error("Failed to fetch price targets", { userId: user.id }, error);
-		return jsonResponse(500, { ok: false, message: "fetch_failed" });
+		return Response.json({ ok: false, message: "fetch_failed" } satisfies ApiJsonBody, {
+			status: 500,
+		});
 	}
 };

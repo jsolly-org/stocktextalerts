@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { jsonResponse } from "../../../lib/api/json-response";
+import type { ApiJsonBody } from "../../../lib/api/types";
 import { mintLinkToken } from "../../../lib/auth/deep-link-token";
 import { createUserService } from "../../../lib/db";
 import { requireEnv } from "../../../lib/db/env";
@@ -34,7 +34,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		logger.info("Telegram link attempt without authenticated user", {
 			reason: "unauthenticated",
 		});
-		return jsonResponse(401, { ok: false, message: "unauthorized" });
+		return Response.json({ ok: false, message: "unauthorized" } satisfies ApiJsonBody, {
+			status: 401,
+		});
 	}
 
 	const { token, nonce, expiresAtMs } = mintLinkToken({
@@ -55,7 +57,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			{ userId: authUser.id },
 			createErrorForLogging(error),
 		);
-		return jsonResponse(500, { ok: false, message: "failed_to_create_link" });
+		return Response.json({ ok: false, message: "failed_to_create_link" } satisfies ApiJsonBody, {
+			status: 500,
+		});
 	}
 
 	// The server owns the link shape: the app deep link, the web client URL, and
@@ -68,12 +72,15 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 	logger.info("Minted Telegram link token", { userId: authUser.id });
 
-	return jsonResponse(200, {
-		ok: true,
-		message: "link_created",
-		deepLink,
-		webUrl,
-		botUsername,
-		startCommand,
-	});
+	return Response.json(
+		{
+			ok: true,
+			message: "link_created",
+			deepLink,
+			webUrl,
+			botUsername,
+			startCommand,
+		} satisfies ApiJsonBody,
+		{ status: 200 },
+	);
 };

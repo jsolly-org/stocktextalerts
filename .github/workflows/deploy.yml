@@ -38,6 +38,18 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
+      - name: Refuse stale deploy
+        if: github.event_name == 'workflow_run'
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1
+          tip="$(git rev-parse origin/main)"
+          ci_sha="${{ github.event.workflow_run.head_sha }}"
+          if [ "$tip" != "$ci_sha" ]; then
+            echo "CI passed for $ci_sha but main is now at $tip; refusing deploy."
+            exit 1
+          fi
+
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc

@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
-import { jsonResponse } from "../../../lib/api/json-response";
+import type { ApiJsonBody } from "../../../lib/api/types";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
@@ -32,13 +32,17 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		logger.info("Next-send-at request without authenticated user", {
 			reason: "unauthenticated",
 		});
-		return jsonResponse(401, { ok: false, message: "unauthorized" });
+		return Response.json({ ok: false, message: "unauthorized" } satisfies ApiJsonBody, {
+			status: 401,
+		});
 	}
 	let body: NextSendAtRequestBody;
 	try {
 		body = (await request.json()) as NextSendAtRequestBody;
 	} catch {
-		return jsonResponse(400, { ok: false, message: "invalid_form" });
+		return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 
 	const rawTimezone = typeof body.timezone === "string" ? body.timezone.trim() : "";
@@ -54,18 +58,23 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	}
 
 	if (!timezone || timeInputs.length === 0) {
-		return jsonResponse(200, {
-			ok: true,
-			message: "ok",
-			nextSendAtIso: null,
-			delayReasons: [],
-			dstShift: null,
-		});
+		return Response.json(
+			{
+				ok: true,
+				message: "ok",
+				nextSendAtIso: null,
+				delayReasons: [],
+				dstShift: null,
+			} satisfies ApiJsonBody,
+			{ status: 200 },
+		);
 	}
 
 	const parsedTimes = parseScheduledTimes(timeInputs);
 	if (!parsedTimes.ok || parsedTimes.times.length === 0) {
-		return jsonResponse(400, { ok: false, message: "invalid_form" });
+		return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 
 	// Form supplies user-local-minutes; storage and computation are ET-canonical.
@@ -76,12 +85,15 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			now: DateTime.utc(),
 		});
 
-	return jsonResponse(200, {
-		ok: true,
-		message: "ok",
-		nextSendAtIso: nextSendAt?.toISO() ?? null,
-		delayReasons,
-		holidayName,
-		dstShift,
-	});
+	return Response.json(
+		{
+			ok: true,
+			message: "ok",
+			nextSendAtIso: nextSendAt?.toISO() ?? null,
+			delayReasons,
+			holidayName,
+			dstShift,
+		} satisfies ApiJsonBody,
+		{ status: 200 },
+	);
 };

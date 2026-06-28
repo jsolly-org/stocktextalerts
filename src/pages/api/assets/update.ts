@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { jsonResponse } from "../../../lib/api/json-response";
+import type { ApiJsonBody } from "../../../lib/api/types";
 import { enqueueNewSymbolWarmup } from "../../../lib/backfill/queue";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import {
@@ -33,7 +33,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		logger.info("Tracked assets update attempt without authenticated user", {
 			reason: "unauthenticated",
 		});
-		return jsonResponse(401, { ok: false, message: "unauthorized" });
+		return Response.json({ ok: false, message: "unauthorized" } satisfies ApiJsonBody, {
+			status: 401,
+		});
 	}
 
 	let formData: FormData;
@@ -48,7 +50,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			},
 			createErrorForLogging(error),
 		);
-		return jsonResponse(400, { ok: false, message: "invalid_form" });
+		return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 	const parsed = parseWithSchema(formData, ASSETS_SCHEMA);
 
@@ -57,7 +61,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			userId: user.id,
 			errors: parsed.allErrors,
 		});
-		return jsonResponse(400, { ok: false, message: "invalid_form" });
+		return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 
 	const trackedSymbols = parsed.data.tracked_assets;
@@ -71,7 +77,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		logger.info("Tracked assets update rejected: invalid symbol format", {
 			userId: user.id,
 		});
-		return jsonResponse(400, { ok: false, message: "invalid_form" });
+		return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 
 	const uniqueSymbols = [...new Set(normalizedSymbols.filter(Boolean))];
@@ -80,7 +88,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			userId: user.id,
 			count: uniqueSymbols.length,
 		});
-		return jsonResponse(400, { ok: false, message: "assets_limit" });
+		return Response.json({ ok: false, message: "assets_limit" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 
 	// Reject any delisted symbols. The daily sweep populates assets.delisted_at;
@@ -99,10 +109,13 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				{ userId: user.id },
 				createErrorForLogging(delistedErr),
 			);
-			return jsonResponse(500, {
-				ok: false,
-				message: "failed_to_update_assets",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "failed_to_update_assets",
+				} satisfies ApiJsonBody,
+				{ status: 500 },
+			);
 		}
 
 		if (delistedRows && delistedRows.length > 0) {
@@ -111,11 +124,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				userId: user.id,
 				blocked,
 			});
-			return jsonResponse(400, {
-				ok: false,
-				message: "delisted_symbols",
-				blocked,
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "delisted_symbols",
+					blocked,
+				} satisfies ApiJsonBody,
+				{ status: 400 },
+			);
 		}
 	}
 
@@ -156,14 +172,20 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		}
 
 		if (isAssetsLimitError(error)) {
-			return jsonResponse(400, { ok: false, message: "assets_limit" });
+			return Response.json({ ok: false, message: "assets_limit" } satisfies ApiJsonBody, {
+				status: 400,
+			});
 		}
 
 		if (isAssetsWhitespaceError(error)) {
-			return jsonResponse(400, { ok: false, message: "invalid_form" });
+			return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+				status: 400,
+			});
 		}
 
-		return jsonResponse(500, { ok: false, message: "failed_to_update_assets" });
+		return Response.json({ ok: false, message: "failed_to_update_assets" } satisfies ApiJsonBody, {
+			status: 500,
+		});
 	}
 
 	const previousSymbolSet = new Set(previousSymbols);
@@ -184,5 +206,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		}
 	}
 
-	return jsonResponse(200, { ok: true, message: "assets_updated" });
+	return Response.json({ ok: true, message: "assets_updated" } satisfies ApiJsonBody, {
+		status: 200,
+	});
 };

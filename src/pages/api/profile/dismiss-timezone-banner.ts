@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { jsonResponse } from "../../../lib/api/json-response";
+import type { ApiJsonBody } from "../../../lib/api/types";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
@@ -22,7 +22,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			reason: "no_authenticated_user",
 			path: url.pathname,
 		});
-		return jsonResponse(401, { ok: false, message: "unauthorized" });
+		return Response.json({ ok: false, message: "unauthorized" } satisfies ApiJsonBody, {
+			status: 401,
+		});
 	}
 
 	try {
@@ -35,11 +37,16 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			{ userId: authUser.id },
 			createErrorForLogging(error),
 		);
-		return jsonResponse(500, {
-			ok: false,
-			message: "failed_to_dismiss_timezone_banner",
-		});
+		return Response.json(
+			{
+				ok: false,
+				message: "failed_to_dismiss_timezone_banner",
+			} satisfies ApiJsonBody,
+			{ status: 500 },
+		);
 	}
 
-	return jsonResponse(200, { ok: true, message: "timezone_banner_dismissed" });
+	return Response.json({ ok: true, message: "timezone_banner_dismissed" } satisfies ApiJsonBody, {
+		status: 200,
+	});
 };

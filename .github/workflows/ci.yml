@@ -9,16 +9,23 @@ on:
   workflow_dispatch:
 
 # PRs / merge queue: one active run per PR or merge entry (supersede cancels).
-# Main and other events: one group per commit SHA so rapid pushes run in parallel
-# (bounded by the org/repo Actions job concurrency limit, typically ~20 on Team).
+# Main pushes: one group so newer commits cancel stale in-flight runs (prevents an
+# older green CI from deploying after newer pushes failed).
+# Other events: one group per commit SHA.
 concurrency:
   group: >-
     ci-${{ github.workflow }}-${{
       github.event.pull_request.number
       || (github.event_name == 'merge_group' && github.event.merge_group.head_sha)
+      || (github.event_name == 'push' && github.ref == 'refs/heads/main' && 'main')
       || github.sha
     }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+  cancel-in-progress: >-
+    ${{
+      github.event_name == 'pull_request'
+      || github.event_name == 'merge_group'
+      || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    }}
 
 env:
   CI: true

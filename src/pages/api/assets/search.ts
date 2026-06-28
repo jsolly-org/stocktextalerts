@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { jsonResponse } from "../../../lib/api/json-response";
+import type { ApiJsonBody } from "../../../lib/api/types";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
@@ -52,17 +52,23 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 	const userService = createUserService(supabase, cookies);
 	const user = await userService.getCurrentUser();
 	if (!user) {
-		return jsonResponse(401, { ok: false, message: "unauthorized" });
+		return Response.json({ ok: false, message: "unauthorized" } satisfies ApiJsonBody, {
+			status: 401,
+		});
 	}
 
 	const query = url.searchParams.get("q")?.trim() ?? "";
 	/** Limit query length to reduce ILIKE load and prevent abuse. */
 	const MAX_QUERY_LENGTH = 100;
 	if (query.length < 1) {
-		return jsonResponse(200, { ok: true, message: "ok", results: [] });
+		return Response.json({ ok: true, message: "ok", results: [] } satisfies ApiJsonBody, {
+			status: 200,
+		});
 	}
 	if (query.length > MAX_QUERY_LENGTH) {
-		return jsonResponse(400, { ok: false, message: "query_too_long" });
+		return Response.json({ ok: false, message: "query_too_long" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 
 	const limitParam = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
@@ -100,10 +106,13 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 
 		if (error) {
 			logger.error("Asset search query failed", { userId: user.id, query }, error);
-			return jsonResponse(500, {
-				ok: false,
-				message: "search_failed",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "search_failed",
+				} satisfies ApiJsonBody,
+				{ status: 500 },
+			);
 		}
 
 		const candidates = data ?? [];
@@ -128,9 +137,13 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 				icon_url: row.icon_url,
 			}));
 
-		return jsonResponse(200, { ok: true, message: "ok", results });
+		return Response.json({ ok: true, message: "ok", results } satisfies ApiJsonBody, {
+			status: 200,
+		});
 	} catch (error) {
 		logger.error("Unexpected error in asset search", { userId: user.id, query }, error);
-		return jsonResponse(500, { ok: false, message: "search_failed" });
+		return Response.json({ ok: false, message: "search_failed" } satisfies ApiJsonBody, {
+			status: 500,
+		});
 	}
 };

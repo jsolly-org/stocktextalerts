@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
-import { jsonResponse } from "../../../lib/api/json-response";
 import { loadUserPreferenceRows } from "../../../lib/api/notification-preferences-channels";
 import { computeTimezoneUpdatePayload } from "../../../lib/api/notification-preferences-update";
+import type { ApiJsonBody } from "../../../lib/api/types";
 import { createUserService, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
@@ -23,7 +23,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		logger.info("Notification-preferences timezone update attempt without authenticated user", {
 			reason: "unauthenticated",
 		});
-		return jsonResponse(401, { ok: false, message: "unauthorized" });
+		return Response.json({ ok: false, message: "unauthorized" } satisfies ApiJsonBody, {
+			status: 401,
+		});
 	}
 
 	const formData = await request.formData();
@@ -36,7 +38,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			userId: authUser.id,
 			errors: parsed.allErrors,
 		});
-		return jsonResponse(400, { ok: false, message: "invalid_form" });
+		return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 
 	let dbUser: User | null;
@@ -48,14 +52,19 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			{ userId: authUser.id },
 			createErrorForLogging(error),
 		);
-		return jsonResponse(500, {
-			ok: false,
-			message: "failed_to_update_timezone",
-		});
+		return Response.json(
+			{
+				ok: false,
+				message: "failed_to_update_timezone",
+			} satisfies ApiJsonBody,
+			{ status: 500 },
+		);
 	}
 	if (!dbUser) {
 		logger.info("User not found for timezone update", { userId: authUser.id });
-		return jsonResponse(404, { ok: false, message: "user_not_found" });
+		return Response.json({ ok: false, message: "user_not_found" } satisfies ApiJsonBody, {
+			status: 404,
+		});
 	}
 
 	// Asset-events facets live in notification_preferences; resolve whether any
@@ -77,10 +86,13 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			},
 			createErrorForLogging(error),
 		);
-		return jsonResponse(500, {
-			ok: false,
-			message: "failed_to_update_timezone",
-		});
+		return Response.json(
+			{
+				ok: false,
+				message: "failed_to_update_timezone",
+			} satisfies ApiJsonBody,
+			{ status: 500 },
+		);
 	}
 
 	let updatedUser: User;
@@ -95,25 +107,33 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			},
 			createErrorForLogging(error),
 		);
-		return jsonResponse(500, {
-			ok: false,
-			message: "failed_to_update_timezone",
-		});
+		return Response.json(
+			{
+				ok: false,
+				message: "failed_to_update_timezone",
+			} satisfies ApiJsonBody,
+			{ status: 500 },
+		);
 	}
 	if (!updatedUser) {
 		logger.error("User update returned null", { userId: authUser.id });
-		return jsonResponse(404, { ok: false, message: "user_not_found" });
+		return Response.json({ ok: false, message: "user_not_found" } satisfies ApiJsonBody, {
+			status: 404,
+		});
 	}
 
-	return jsonResponse(200, {
-		ok: true,
-		message: "timezone_updated",
-		notificationPreferences: {
-			timezone: updatedUser.timezone,
-			market_scheduled_asset_price_next_send_at:
-				updatedUser.market_scheduled_asset_price_next_send_at,
-			daily_digest_next_send_at: updatedUser.daily_digest_next_send_at,
-			asset_events_next_send_at: updatedUser.asset_events_next_send_at,
-		},
-	});
+	return Response.json(
+		{
+			ok: true,
+			message: "timezone_updated",
+			notificationPreferences: {
+				timezone: updatedUser.timezone,
+				market_scheduled_asset_price_next_send_at:
+					updatedUser.market_scheduled_asset_price_next_send_at,
+				daily_digest_next_send_at: updatedUser.daily_digest_next_send_at,
+				asset_events_next_send_at: updatedUser.asset_events_next_send_at,
+			},
+		} satisfies ApiJsonBody,
+		{ status: 200 },
+	);
 };

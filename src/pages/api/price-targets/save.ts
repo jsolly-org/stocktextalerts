@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { jsonResponse } from "../../../lib/api/json-response";
+import type { ApiJsonBody } from "../../../lib/api/types";
 import { ASSET_SYMBOL_MAX_LENGTH } from "../../../lib/constants";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
@@ -29,18 +29,24 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		logger.info("Price target save attempt without authenticated user", {
 			reason: "unauthenticated",
 		});
-		return jsonResponse(401, { ok: false, message: "unauthorized" });
+		return Response.json({ ok: false, message: "unauthorized" } satisfies ApiJsonBody, {
+			status: 401,
+		});
 	}
 
 	let body: unknown;
 	try {
 		body = await request.json();
 	} catch {
-		return jsonResponse(400, { ok: false, message: "invalid_json" });
+		return Response.json({ ok: false, message: "invalid_json" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 
 	if (typeof body !== "object" || body === null) {
-		return jsonResponse(400, { ok: false, message: "invalid_body" });
+		return Response.json({ ok: false, message: "invalid_body" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 
 	const { symbol, target_price } = body as {
@@ -51,14 +57,20 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 	// Keep in sync with assets.symbol DB constraint and logo route validation.
 	if (!normalizedSymbol) {
-		return jsonResponse(400, { ok: false, message: "invalid_symbol" });
+		return Response.json({ ok: false, message: "invalid_symbol" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 	if (normalizedSymbol.length > ASSET_SYMBOL_MAX_LENGTH) {
-		return jsonResponse(400, { ok: false, message: "invalid_symbol" });
+		return Response.json({ ok: false, message: "invalid_symbol" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 	// Restrict to valid ticker characters (alphanumeric, dot, hyphen) to avoid injection edge cases.
 	if (!/^[A-Z0-9.-]+$/u.test(normalizedSymbol)) {
-		return jsonResponse(400, { ok: false, message: "invalid_symbol" });
+		return Response.json({ ok: false, message: "invalid_symbol" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 
 	// DELETE flow: null target_price removes the target
@@ -76,26 +88,35 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 					{ userId: user.id, symbol: normalizedSymbol },
 					error,
 				);
-				return jsonResponse(500, {
-					ok: false,
-					message: "failed_to_save",
-				});
+				return Response.json(
+					{
+						ok: false,
+						message: "failed_to_save",
+					} satisfies ApiJsonBody,
+					{ status: 500 },
+				);
 			}
 
-			return jsonResponse(200, { ok: true, message: "target_removed" });
+			return Response.json({ ok: true, message: "target_removed" } satisfies ApiJsonBody, {
+				status: 200,
+			});
 		} catch (error) {
 			logger.error(
 				"Failed to delete price target",
 				{ userId: user.id, symbol: normalizedSymbol },
 				createErrorForLogging(error),
 			);
-			return jsonResponse(500, { ok: false, message: "failed_to_save" });
+			return Response.json({ ok: false, message: "failed_to_save" } satisfies ApiJsonBody, {
+				status: 500,
+			});
 		}
 	}
 
 	// UPSERT flow: validate and save target
 	if (typeof target_price !== "number" || !Number.isFinite(target_price) || target_price <= 0) {
-		return jsonResponse(400, { ok: false, message: "invalid_target_price" });
+		return Response.json({ ok: false, message: "invalid_target_price" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 
 	try {
@@ -103,10 +124,13 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		const userAssets = await getUserAssets(supabase, user.id);
 		const watchlistSymbols = new Set(userAssets.map((a) => a.symbol));
 		if (!watchlistSymbols.has(normalizedSymbol)) {
-			return jsonResponse(400, {
-				ok: false,
-				message: "symbol_not_in_watchlist",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "symbol_not_in_watchlist",
+				} satisfies ApiJsonBody,
+				{ status: 400 },
+			);
 		}
 
 		// Fetch current price to infer direction
@@ -114,18 +138,24 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		const priceMap = await fetchAssetPrices([normalizedSymbol], session);
 		const currentQuote = priceMap.get(normalizedSymbol);
 		if (!currentQuote) {
-			return jsonResponse(400, {
-				ok: false,
-				message: "price_unavailable",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "price_unavailable",
+				} satisfies ApiJsonBody,
+				{ status: 400 },
+			);
 		}
 
 		const currentPrice = currentQuote.price;
 		if (target_price === currentPrice) {
-			return jsonResponse(400, {
-				ok: false,
-				message: "target_equals_current",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "target_equals_current",
+				} satisfies ApiJsonBody,
+				{ status: 400 },
+			);
 		}
 
 		const direction = target_price > currentPrice ? "above" : "below";
@@ -157,20 +187,27 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				{ userId: user.id, symbol: normalizedSymbol },
 				error,
 			);
-			return jsonResponse(500, { ok: false, message: "failed_to_save" });
+			return Response.json({ ok: false, message: "failed_to_save" } satisfies ApiJsonBody, {
+				status: 500,
+			});
 		}
 
-		return jsonResponse(200, {
-			ok: true,
-			message: "target_saved",
-			direction,
-		});
+		return Response.json(
+			{
+				ok: true,
+				message: "target_saved",
+				direction,
+			} satisfies ApiJsonBody,
+			{ status: 200 },
+		);
 	} catch (error) {
 		logger.error(
 			"Failed to save price target",
 			{ userId: user.id, symbol: normalizedSymbol },
 			createErrorForLogging(error),
 		);
-		return jsonResponse(500, { ok: false, message: "failed_to_save" });
+		return Response.json({ ok: false, message: "failed_to_save" } satisfies ApiJsonBody, {
+			status: 500,
+		});
 	}
 };
