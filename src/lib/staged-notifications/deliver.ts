@@ -21,15 +21,16 @@ import {
 import { updateUserDailyDigestNextSendAt } from "../daily-digest/next-send-at";
 import { shouldAdvanceDailyDigestSchedule } from "../daily-digest/schedule-state";
 import type { Logger } from "../logging";
+import { sendUserEmail } from "../messaging/email/index";
+import type { EmailSender } from "../messaging/email/utils";
+import { loadPrefsByUser } from "../messaging/load-prefs";
 import {
 	buildDelayBannerHtml,
 	buildDelayBannerText,
 	prependDelayBannerToEmail,
 	prependDelayBannerToSms,
-} from "../messaging/delay-banner";
-import { sendUserEmail } from "../messaging/email/index";
-import type { EmailSender } from "../messaging/email/utils";
-import { loadPrefsByUser } from "../messaging/load-prefs";
+	prependDelayBannerToTelegram,
+} from "../messaging/parts/delay";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { SMS_BODY_CHAR_BUDGET } from "../messaging/sms/block-packing";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
@@ -605,10 +606,18 @@ async function deliverStagedDaily(options: {
 		if (claim.status === "claimed") {
 			try {
 				const { sender } = getTelegramSender();
+				const telegramPayload =
+					dailyDelayText && stagedData.telegram
+						? prependDelayBannerToTelegram(
+								stagedData.telegram.text,
+								stagedData.telegram.entities,
+								dailyDelayText,
+							)
+						: stagedData.telegram;
 				const result = await sender({
 					chatId: user.telegram_chat_id,
-					text: stagedData.telegram.text,
-					entities: stagedData.telegram.entities,
+					text: telegramPayload.text,
+					entities: telegramPayload.entities,
 					// Routine scheduled digest — deliver silently like the live path.
 					disableNotification: true,
 				});

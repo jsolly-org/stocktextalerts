@@ -4,16 +4,17 @@ import { createErrorForLogging, extractErrorMessage } from "../../logging/errors
 import { fetchIntradaySparklines } from "../../market-data/sparklines";
 import type { AssetPriceMap, MarketSession } from "../../market-data/types";
 import { NO_SESSION_TRADE } from "../../market-data/types";
-import { formatAssetsTextList } from "../../messaging/asset-formatting";
-import { buildDelayBannerHtml, buildDelayBannerText } from "../../messaging/delay-banner";
 import type { EmailSender } from "../../messaging/email/utils";
 import { type LogoCache, safePrefetchLogos } from "../../messaging/logo-fetcher";
-import { buildMarketClosedBannerText } from "../../messaging/market-closure-banner";
 import { anyFacetEnabled, isFacetEnabled } from "../../messaging/notification-prefs";
+import { formatAssetsTextList } from "../../messaging/parts/asset-price-list";
+import type { SparklineMap } from "../../messaging/parts/charts/sparkline";
+import { buildDelayBannerHtml, buildDelayBannerText } from "../../messaging/parts/delay";
+import { buildMarketClosedBannerText } from "../../messaging/parts/market-closure";
+import { buildSessionFirstLine } from "../../messaging/parts/session-label";
 import { recordNotification } from "../../messaging/shared";
 import { shouldSendSms } from "../../messaging/sms";
 import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
-import type { SparklineMap } from "../../messaging/sparkline";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../../messaging/telegram/sender-factory";
 import type { UserRecord } from "../../messaging/types";
@@ -36,7 +37,6 @@ import {
 } from "./delivery";
 import { updateUserMarketScheduledNextSendAt } from "./next-send-at";
 import { shouldAdvanceMarketScheduledSchedule } from "./schedule-state";
-import { buildSessionFirstLine } from "./session-label";
 
 /** Process a single user's scheduled market asset update notification. */
 export async function processMarketScheduledUser(options: {

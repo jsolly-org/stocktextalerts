@@ -1,20 +1,15 @@
-import { getSiteUrl } from "../db/env";
 import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
-import { renderEmailSection } from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
-import { buildEmailUrls, renderEmailFooter } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
-import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../messaging/footer";
 import {
-	buildMarketClosedBannerHtml,
-	buildMarketClosedBannerText,
-} from "../messaging/market-closure-banner";
+	formatAssetEventsEmail,
+	formatAssetEventsSms,
+	formatAssetEventsTelegram,
+} from "../messaging/notifications/asset-events";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
-import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
-import { formatAssetEventsTelegram } from "../messaging/telegram/asset-events";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { UserRecord } from "../messaging/types";
@@ -22,188 +17,6 @@ import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedu
 import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
 import type { MarketClosureInfo } from "../time/market-calendar";
 import type { IsoDateString, MinuteOfDay } from "../types";
-
-/* =============
-SMS formatting
-============= */
-
-/** Build the SMS body for an asset-events digest. */
-function formatAssetEventsSmsMessage(options: {
-	earningsSection: string | null;
-	dividendsSection: string | null;
-	splitsSection: string | null;
-	iposSection: string | null;
-	analystSection: string | null;
-	insiderSection: string | null;
-	marketClosureInfo?: MarketClosureInfo | null;
-	/** Optional delay banner text (inserted after header when notification is late). */
-	delayBanner?: string | null;
-}): string {
-	const optOutSuffix = SMS_OPT_OUT;
-	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-
-	const parts: string[] = ["StockTextAlerts — Asset Events 🗓️"];
-
-	if (options.delayBanner) {
-		parts.push(options.delayBanner);
-	}
-
-	if (options.marketClosureInfo) {
-		parts.push(buildMarketClosedBannerText(options.marketClosureInfo, "events"));
-	}
-
-	if (options.earningsSection) {
-		parts.push(`📅 Earnings\n${options.earningsSection}`);
-	}
-	if (options.dividendsSection) {
-		parts.push(`💰 Ex-Dividend\n${options.dividendsSection}`);
-	}
-	if (options.splitsSection) {
-		parts.push(`✂️ Splits\n${options.splitsSection}`);
-	}
-	if (options.iposSection) {
-		parts.push(`🆕 Upcoming IPOs\n${options.iposSection}`);
-	}
-	if (options.insiderSection) {
-		parts.push(`🏦 Insider Trades\n${options.insiderSection}`);
-	}
-	if (options.analystSection) {
-		parts.push(`📊 Analyst Consensus (published monthly on the 1st)\n${options.analystSection}`);
-	}
-
-	parts.push(`Manage your notifications: ${dashboardUrl}`);
-	parts.push(optOutSuffix);
-	parts.push(NOT_FINANCIAL_ADVICE);
-
-	return padUrlsToSegmentBoundaries(parts.join("\n\n"));
-}
-
-/* =============
-Email formatting
-============= */
-
-/** Build the email payload (subject/text/html) for an asset-events digest. */
-function formatAssetEventsEmail(options: {
-	user: { id: string; email: string };
-	earningsSection: string | null;
-	dividendsSection: string | null;
-	splitsSection: string | null;
-	iposSection: string | null;
-	analystSection: string | null;
-	insiderSection: string | null;
-	marketClosureInfo?: MarketClosureInfo | null;
-	/** Optional delay banner (text for plain-text body, inserted after header). */
-	delayBannerText?: string | null;
-	/** Optional delay banner (HTML for rich email body). */
-	delayBannerHtml?: string | null;
-}): { subject: string; text: string; html: string } {
-	const urls = buildEmailUrls(options.user.id, options.user.email, "assetEvents");
-
-	const textParts: string[] = ["Asset Events"];
-
-	if (options.delayBannerText) {
-		textParts.push(options.delayBannerText);
-	}
-
-	if (options.marketClosureInfo) {
-		textParts.push(buildMarketClosedBannerText(options.marketClosureInfo, "events"));
-	}
-
-	if (options.earningsSection) {
-		textParts.push(`\n📅 Earnings\n${options.earningsSection}`);
-	}
-	if (options.dividendsSection) {
-		textParts.push(`\n💰 Ex-Dividend Dates\n${options.dividendsSection}`);
-	}
-	if (options.splitsSection) {
-		textParts.push(`\n✂️ Stock Splits\n${options.splitsSection}`);
-	}
-	if (options.iposSection) {
-		textParts.push(`\n🆕 Upcoming IPOs\n${options.iposSection}`);
-	}
-	if (options.insiderSection) {
-		textParts.push(`\n🏦 Insider Trades\n${options.insiderSection}`);
-	}
-	if (options.analystSection) {
-		textParts.push(
-			`\n📊 Analyst Consensus (published monthly on the 1st)\n${options.analystSection}`,
-		);
-	}
-	textParts.push(`\nManage your notifications: ${urls.dashboardUrl}`);
-	textParts.push(`Manage your delivery schedule: ${urls.scheduleUrl}`);
-	textParts.push(`Unsubscribe from all emails: ${urls.unsubscribeUrl}`);
-	textParts.push(NOT_FINANCIAL_ADVICE);
-
-	const subject = "Asset Events";
-	const text = textParts.join("\n");
-
-	const marketClosedHtml = options.marketClosureInfo
-		? buildMarketClosedBannerHtml(options.marketClosureInfo, "events")
-		: "";
-
-	let sectionsHtml = "";
-	if (options.earningsSection) {
-		sectionsHtml += renderEmailSection("📅", "Earnings", options.earningsSection, {
-			showFinnhubLogo: true,
-		});
-	}
-	if (options.dividendsSection) {
-		sectionsHtml += renderEmailSection("💰", "Ex-Dividend Dates", options.dividendsSection, {
-			showMassiveLogo: true,
-		});
-	}
-	if (options.splitsSection) {
-		sectionsHtml += renderEmailSection("✂️", "Stock Splits", options.splitsSection, {
-			showMassiveLogo: true,
-		});
-	}
-	if (options.iposSection) {
-		sectionsHtml += renderEmailSection("🆕", "Upcoming IPOs", options.iposSection, {
-			showMassiveLogo: true,
-		});
-	}
-	if (options.insiderSection) {
-		sectionsHtml += renderEmailSection("🏦", "Insider Trades", options.insiderSection, {
-			showFinnhubLogo: true,
-		});
-	}
-	if (options.analystSection) {
-		sectionsHtml += renderEmailSection(
-			"📊",
-			"Analyst Consensus (published monthly on the 1st)",
-			options.analystSection,
-			{ showFinnhubLogo: true },
-		);
-	}
-	const html = `
-<!DOCTYPE html>
-<html>
-<head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #111827; max-width: 600px; margin: 0 auto; padding: 20px;">
-	<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 8px 8px 0 0; text-align: center;">
-		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Asset Events</h1>
-	</div>
-	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		${options.delayBannerHtml || ""}
-		${marketClosedHtml}
-		<h2 style="margin: 0 0 8px; font-size: 18px;">Asset Events</h2>
-		<p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">Upcoming events for your tracked assets</p>
-		${sectionsHtml}
-		<div style="text-align: center; margin-top: 20px;">
-			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
-				Manage your notifications →
-			</a>
-		</div>
-		${renderEmailFooter(urls)}
-	</div>
-</body>
-</html>`;
-
-	return { subject, text, html };
-}
 
 /* =============
 Delivery: Email
@@ -400,7 +213,7 @@ export async function processAssetEventsSmsDelivery(options: {
 		return;
 	}
 
-	const smsMessage = formatAssetEventsSmsMessage({
+	const smsMessage = formatAssetEventsSms({
 		earningsSection,
 		dividendsSection,
 		splitsSection,

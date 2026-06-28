@@ -8,9 +8,17 @@ on:
     types: [checks_requested]
   workflow_dispatch:
 
+# PRs / merge queue: one active run per PR or merge entry (supersede cancels).
+# Main and other events: one group per commit SHA so rapid pushes run in parallel
+# (bounded by the org/repo Actions job concurrency limit, typically ~20 on Team).
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: >-
+    ci-${{ github.workflow }}-${{
+      github.event.pull_request.number
+      || (github.event_name == 'merge_group' && github.event.merge_group.head_sha)
+      || github.sha
+    }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
 
 env:
   CI: true
@@ -24,9 +32,9 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -35,7 +43,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: false
 
       - uses: aws-actions/setup-sam@v3
         with:
@@ -155,7 +165,7 @@ jobs:
           fi
 
       - id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -189,7 +199,7 @@ jobs:
 
       - name: Upload Playwright traces
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-traces
           path: .playwright-mcp/cli/

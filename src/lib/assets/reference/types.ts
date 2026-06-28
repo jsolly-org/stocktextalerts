@@ -1,5 +1,5 @@
 /** Authoritative delisting record for a single symbol. */
-export interface TickerReferenceResult {
+interface TickerReferenceResult {
 	symbol: string;
 	active: false;
 	delistedUtc: string;

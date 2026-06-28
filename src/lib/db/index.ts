@@ -1,13 +1,11 @@
 import type { AstroCookies } from "astro";
-import { isApprovedAtValue } from "../auth/approval";
-import { setAuthCookies } from "../auth/cookies";
+import { isApprovedAtValue } from "../auth/approval/status";
+import { setAuthCookies } from "../auth/session/cookies";
 import { rootLogger } from "../logging";
 import { type AssetType, assertAssetType } from "../types";
 import { getApprovalCached } from "./approval-cache";
 import type { Database } from "./generated/database.types";
 import type { AppSupabaseClient } from "./supabase";
-
-export type { AssetType } from "../types";
 
 /* =============
 Enum aliases (Postgres enums)
@@ -38,7 +36,7 @@ export type User = DbUserRow;
  *  and now live in notification_preferences. The dashboard augments the `users`
  *  row with these (reconstructed from the table) so the existing per-option Vue
  *  controls keep reading `user.<field>`. */
-export interface DashboardUserChannelPrefs {
+interface DashboardUserChannelPrefs {
 	daily_digest_include_prices_email: boolean;
 	daily_digest_include_prices_sms: boolean;
 	daily_digest_include_top_movers_email: boolean;

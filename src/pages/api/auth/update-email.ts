@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { enforceAuthRateLimit } from "../../../lib/auth/enforce-auth-rate-limit";
+import { enforceAuthRateLimit } from "../../../lib/auth/enforce-rate-limit";
 import { createUserService } from "../../../lib/db";
 import { getSiteUrl } from "../../../lib/db/env";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";

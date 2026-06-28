@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { escapeHtml } from "../asset-formatting";
+import { escapeHtml } from "../html-utils";
 
 /** A single intraday OHLC bar. `t` is ms since epoch. */
 export interface Candle {

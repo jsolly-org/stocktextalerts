@@ -1,7 +1,7 @@
 import type { Database } from "../db/generated/database.types";
 import type { MarketClosureInfo } from "../time/market-calendar";
 import type { PrefRow } from "./notification-prefs";
-import type { SparklineData } from "./sparkline";
+import type { SparklineData } from "./parts/charts/sparkline";
 
 /** Result of attempting to deliver a single notification (email or SMS). */
 export type DeliveryResult =
