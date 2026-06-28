@@ -8,9 +8,17 @@ on:
     types: [checks_requested]
   workflow_dispatch:
 
+# PRs / merge queue: one active run per PR or merge entry (supersede cancels).
+# Main and other events: one group per commit SHA so rapid pushes run in parallel
+# (bounded by the org/repo Actions job concurrency limit, typically ~20 on Team).
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: >-
+    ci-${{ github.workflow }}-${{
+      github.event.pull_request.number
+      || (github.event_name == 'merge_group' && github.event.merge_group.head_sha)
+      || github.sha
+    }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
 
 env:
   CI: true

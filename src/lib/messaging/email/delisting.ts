@@ -1,5 +1,5 @@
-import { escapeHtml } from "../asset-formatting";
-import { NOT_FINANCIAL_ADVICE } from "../footer";
+import { NOT_FINANCIAL_ADVICE } from "../parts/footer";
+import { escapeHtml } from "../parts/html-utils";
 import type { EmailUser } from "../types";
 import { buildEmailUrls, renderEmailFooter } from "./layout";
 

@@ -4,7 +4,7 @@ import {
 	NOT_FINANCIAL_ADVICE,
 	SMS_OPT_OUT,
 	TELEGRAM_FOOTER,
-} from "../../../src/lib/messaging/footer";
+} from "../../../src/lib/messaging/parts/footer";
 
 describe("Every channel's footer carries the disclaimer AND an opt-out path (fmt-4 contract)", () => {
 	it("The Telegram footer has both the disclaimer and the /stop opt-out hint", () => {
