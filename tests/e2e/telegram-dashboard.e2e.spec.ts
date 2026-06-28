@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs";
+import path from "node:path";
 import type { BrowserContext, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { rootLogger } from "../../src/lib/logging";
@@ -7,12 +9,13 @@ import { waitForAutosave } from "../helpers/e2e/dashboard";
 import { adminClient } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser, setTestUserPrefs } from "../helpers/test-user";
 
-// Absolute screenshot targets at the worktree root, so the calling agent can
-// read them off disk after the run.
-const WORKTREE_ROOT = "/Users/johnsolly/code/.worktrees/stocktextalerts/telegram-channel";
-const SCREENSHOT_CONNECT = `${WORKTREE_ROOT}/_ui-connect.png`;
-const SCREENSHOT_PANEL = `${WORKTREE_ROOT}/_ui-panel.png`;
-const SCREENSHOT_DROPDOWN = `${WORKTREE_ROOT}/_ui-dropdown.png`;
+// Screenshot targets under the repo-local Playwright artifact dir so local agents
+// and CI can both read them off disk after the run.
+const SCREENSHOT_DIR = path.join(process.cwd(), ".playwright-mcp/cli/telegram-dashboard-ui");
+mkdirSync(SCREENSHOT_DIR, { recursive: true });
+const SCREENSHOT_CONNECT = path.join(SCREENSHOT_DIR, "_ui-connect.png");
+const SCREENSHOT_PANEL = path.join(SCREENSHOT_DIR, "_ui-panel.png");
+const SCREENSHOT_DROPDOWN = path.join(SCREENSHOT_DIR, "_ui-dropdown.png");
 
 // A linked Telegram chat id (set by the bot /start webhook in production). Its
 // presence flips the Connect card to "Connected" and enables the Telegram option
