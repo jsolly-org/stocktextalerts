@@ -10,7 +10,6 @@ import {
 	padSpansToSegmentBoundaries,
 	padUrlsToSegmentBoundaries,
 	spanStraddlesBoundary,
-	urlStraddlesBoundary,
 } from "../../../../src/lib/messaging/sms/segment-utils";
 
 describe("findUrls", () => {
@@ -37,37 +36,31 @@ describe("findUrls", () => {
 });
 
 describe("spanStraddlesBoundary", () => {
-	it("matches urlStraddlesBoundary alias", () => {
-		expect(spanStraddlesBoundary(60, 80)).toBe(urlStraddlesBoundary(60, 80));
-	});
-
 	it("does not treat zero-length spans as straddling a segment", () => {
 		expect(spanStraddlesBoundary(0, 0)).toBe(false);
 		expect(spanStraddlesBoundary(SMS_UCS2_SEGMENT_SIZE, SMS_UCS2_SEGMENT_SIZE)).toBe(false);
 	});
-});
 
-describe("urlStraddlesBoundary", () => {
 	// UCS-2 segment size = 67
 
 	it("returns false when URL fits within one segment", () => {
 		// URL from position 0 to 20 — fits in segment 0
-		expect(urlStraddlesBoundary(0, 20)).toBe(false);
+		expect(spanStraddlesBoundary(0, 20)).toBe(false);
 	});
 
 	it("returns true when URL crosses a segment boundary", () => {
 		// URL from position 60 to 80 — crosses from segment 0 to segment 1
-		expect(urlStraddlesBoundary(60, 80)).toBe(true);
+		expect(spanStraddlesBoundary(60, 80)).toBe(true);
 	});
 
 	it("returns false when URL starts and ends exactly at segment boundary", () => {
 		// URL from 67 to 100 — both in segment 1
-		expect(urlStraddlesBoundary(67, 100)).toBe(false);
+		expect(spanStraddlesBoundary(67, 100)).toBe(false);
 	});
 
 	it("returns false when URL ends exactly at boundary", () => {
 		// URL from 50 to 67 — end-1=66, both in segment 0
-		expect(urlStraddlesBoundary(50, 67)).toBe(false);
+		expect(spanStraddlesBoundary(50, 67)).toBe(false);
 	});
 });
 

@@ -1,6 +1,6 @@
-import type { AppSupabaseClient } from "../db/supabase";
-import type { Logger } from "../logging";
-import { sendUserApprovalEmail } from "./approval-user-email";
+import type { AppSupabaseClient } from "../../db/supabase";
+import type { Logger } from "../../logging";
+import { sendUserApprovalEmail } from "./user-approved-email";
 
 type ApprovePendingUserOptions = {
 	adminSupabase: AppSupabaseClient;

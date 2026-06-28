@@ -1,11 +1,11 @@
 import type { APIRoute } from "astro";
-import { isUserApproved } from "../../../lib/auth/approval";
-import { setAuthCookies } from "../../../lib/auth/cookies";
+import { isUserApproved } from "../../../lib/auth/approval/status";
 import {
 	buildSigninRedirectUrl,
 	getPostSigninRedirect,
 	getSafeRedirectPath,
 } from "../../../lib/auth/redirects";
+import { setAuthCookies } from "../../../lib/auth/session/cookies";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";

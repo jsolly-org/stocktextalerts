@@ -1,7 +1,7 @@
 import { DASHBOARD_SECTION_HASHES } from "../../constants";
 import { getSiteUrl } from "../../db/env";
-import { escapeHtml } from "../asset-formatting";
-import { NOT_FINANCIAL_ADVICE } from "../footer";
+import { NOT_FINANCIAL_ADVICE } from "../parts/footer";
+import { escapeHtml } from "../parts/html-utils";
 import { createEmailUnsubscribeUrl } from "./unsubscribe";
 
 /** Precomputed URLs used in email templates (both raw and HTML-escaped). */

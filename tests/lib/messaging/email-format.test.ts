@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AssetPriceMap } from "../../../src/lib/market-data/types";
-import { formatEmailMessage } from "../../../src/lib/messaging/email/utils";
+import { formatMarketScheduledEmail } from "../../../src/lib/messaging/notifications/market-scheduled";
 import type { UserAssetRow } from "../../../src/lib/messaging/types";
 
 describe("Email scheduled update includes asset price data.", () => {
@@ -27,7 +27,7 @@ describe("Email scheduled update includes asset price data.", () => {
 		const assetsList =
 			"AAPL - Apple Inc. — $187.42 (+1.23%)\nMSFT - Microsoft Corporation — $412.10 (-0.31%)";
 
-		const { text, html } = formatEmailMessage(
+		const { text, html } = formatMarketScheduledEmail(
 			testUser,
 			testAssets,
 			assetsList,
@@ -56,7 +56,7 @@ describe("Email scheduled update includes asset price data.", () => {
 		// was clipped. Inherit the body's sans-serif at a smaller size so rows
 		// fit common mobile viewports.
 		const priceMap: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
-		const { html } = formatEmailMessage(
+		const { html } = formatMarketScheduledEmail(
 			testUser,
 			[testAssets[0]],
 			"AAPL — $187.42",
@@ -71,7 +71,7 @@ describe("Email scheduled update includes asset price data.", () => {
 		const priceMap: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 		const assetsList = "AAPL - Apple Inc. — $187.42 (+1.23%)";
 
-		const { text, html } = formatEmailMessage(
+		const { text, html } = formatMarketScheduledEmail(
 			testUser,
 			[testAssets[0]],
 			assetsList,
@@ -89,7 +89,7 @@ describe("Email scheduled update includes asset price data.", () => {
 		const priceMap: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 		const assetsList = "AAPL - Apple Inc. — $187.42 (+1.23%)";
 
-		const { text, html } = formatEmailMessage(
+		const { text, html } = formatMarketScheduledEmail(
 			testUser,
 			[testAssets[0]],
 			assetsList,
@@ -108,7 +108,13 @@ describe("Email scheduled update includes asset price data.", () => {
 		]);
 		const assetsList = "AAPL - Apple Inc. — $187.42 (+1.23%)\nMSFT - Microsoft Corporation";
 
-		const { html } = formatEmailMessage(testUser, testAssets, assetsList, priceMap, "regular");
+		const { html } = formatMarketScheduledEmail(
+			testUser,
+			testAssets,
+			assetsList,
+			priceMap,
+			"regular",
+		);
 
 		// AAPL has price in HTML
 		expect(html).toContain("$187.42");
@@ -132,9 +138,16 @@ describe("Email scheduled update includes asset price data.", () => {
 				? '<img src="data:image/png;base64,aapllogo" alt="" width="20" height="20" />'
 				: undefined;
 
-		const { html } = formatEmailMessage(testUser, testAssets, assetsList, priceMap, "regular", {
-			getLogoHtml,
-		});
+		const { html } = formatMarketScheduledEmail(
+			testUser,
+			testAssets,
+			assetsList,
+			priceMap,
+			"regular",
+			{
+				getLogoHtml,
+			},
+		);
 
 		expect(html).toContain("base64,aapllogo");
 		// Logo lives in the cell immediately before the AAPL ticker cell.
@@ -157,7 +170,13 @@ describe("Email scheduled update includes asset price data.", () => {
 		const assetsList =
 			"SPY - SS SPDR S&P 500 ETF TRUST-US — $523.45 (+0.87%)\nQQQ - INVESCO QQQ TRUST SERIES 1 — $441.20 (-1.15%)";
 
-		const { text, html } = formatEmailMessage(testUser, etfAssets, assetsList, priceMap, "regular");
+		const { text, html } = formatMarketScheduledEmail(
+			testUser,
+			etfAssets,
+			assetsList,
+			priceMap,
+			"regular",
+		);
 
 		// Plain text includes ETF prices
 		expect(text).toContain("$523.45");

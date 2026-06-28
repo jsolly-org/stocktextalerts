@@ -33,7 +33,7 @@ describe("approvePendingUser", () => {
 			approved: false,
 		});
 		registerTestUserForCleanup(pendingUser.id);
-		const { approvePendingUser } = await import("../../../src/lib/auth/approve-user");
+		const { approvePendingUser } = await import("../../../src/lib/auth/approval/approve-user");
 		const { createLogger } = await import("../../../src/lib/logging");
 
 		const result = await approvePendingUser({
@@ -64,7 +64,7 @@ describe("approvePendingUser", () => {
 			approved: true,
 		});
 		registerTestUserForCleanup(approvedUser.id);
-		const { approvePendingUser } = await import("../../../src/lib/auth/approve-user");
+		const { approvePendingUser } = await import("../../../src/lib/auth/approval/approve-user");
 		const { createLogger } = await import("../../../src/lib/logging");
 
 		const result = await approvePendingUser({
@@ -93,7 +93,7 @@ describe("approvePendingUser", () => {
 			approved: false,
 		});
 		registerTestUserForCleanup(pendingUser.id);
-		const { approvePendingUser } = await import("../../../src/lib/auth/approve-user");
+		const { approvePendingUser } = await import("../../../src/lib/auth/approval/approve-user");
 		const { createLogger } = await import("../../../src/lib/logging");
 
 		const result = await approvePendingUser({
@@ -115,7 +115,7 @@ describe("approvePendingUser", () => {
 	});
 
 	it("returns not_found when the target user does not exist.", async () => {
-		const { approvePendingUser } = await import("../../../src/lib/auth/approve-user");
+		const { approvePendingUser } = await import("../../../src/lib/auth/approval/approve-user");
 		const { createLogger } = await import("../../../src/lib/logging");
 
 		const result = await approvePendingUser({

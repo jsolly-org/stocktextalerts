@@ -3,7 +3,7 @@ import {
 	getAdminEmails,
 	isApprovalAdminEmail,
 	parseAdminEmails,
-} from "../../../src/lib/auth/approval-admin";
+} from "../../../src/lib/auth/approval/admin";
 
 describe("approval admin allowlist", () => {
 	afterEach(() => {

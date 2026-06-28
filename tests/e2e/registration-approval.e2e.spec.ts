@@ -137,6 +137,7 @@ test("registration approval workflow sends admin and user emails", async ({ brow
 
 		const approvedUser = await getUserRowByEmail(userEmail);
 		expect(approvedUser.approved_at).toBeTruthy();
+		await waitForPasswordSignInReady(userEmail, TEST_PASSWORD);
 
 		const approvedSignInContext = await browser.newContext();
 		try {

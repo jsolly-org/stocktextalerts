@@ -4,7 +4,11 @@ import { US_MARKET_TIMEZONE } from "../constants";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
 import type { DailyOHLCVBar, ExtendedQuoteMap } from "../market-data/types";
-import { downsampleEvenly, type SparklineData, toSparkline } from "../messaging/sparkline";
+import {
+	downsampleEvenly,
+	type SparklineData,
+	toSparkline,
+} from "../messaging/parts/charts/sparkline";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 
 const MINUTE_RETENTION_HOURS = 36;

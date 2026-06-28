@@ -5,7 +5,7 @@ const { redirectToSignInMock } = vi.hoisted(() => ({
 	redirectToSignInMock: vi.fn(),
 }));
 
-vi.mock("../../../src/lib/auth/session-expired", () => ({
+vi.mock("../../../src/lib/auth/session/session-expired", () => ({
 	isUnauthorizedResponse: (response: Response) =>
 		response.status === 401 || response.status === 403,
 	redirectToSignIn: redirectToSignInMock,

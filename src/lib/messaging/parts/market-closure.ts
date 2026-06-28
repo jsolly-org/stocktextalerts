@@ -5,8 +5,8 @@
  * market-closed context, mirroring the daily digest banner style.
  */
 
-import type { MarketClosureInfo } from "../time/market-calendar";
-import { escapeHtml } from "./asset-formatting";
+import type { MarketClosureInfo } from "../../time/market-calendar";
+import { escapeHtml } from "./html-utils";
 
 /** Build a human-readable market closure label. */
 export function buildMarketClosureLabel(closureInfo: MarketClosureInfo): string {

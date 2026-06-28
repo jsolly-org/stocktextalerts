@@ -14,12 +14,12 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 }));
 
 import type { Logger } from "../../../src/lib/logging";
+import { createEmailSender, type EmailSender } from "../../../src/lib/messaging/email/utils";
 import {
 	buildDelayBannerText,
 	prependDelayBannerToSms,
-} from "../../../src/lib/messaging/delay-banner";
-import { createEmailSender, type EmailSender } from "../../../src/lib/messaging/email/utils";
-import { findUrls, urlStraddlesBoundary } from "../../../src/lib/messaging/sms/segment-utils";
+} from "../../../src/lib/messaging/parts/delay";
+import { findUrls, spanStraddlesBoundary } from "../../../src/lib/messaging/sms/segment-utils";
 import {
 	createSmsSenderFactory,
 	type SmsSenderFactory,
@@ -211,7 +211,7 @@ describe("deliverStagedNotifications", () => {
 			const message = `${prefix}${"A".repeat(fillerLength)}\n${urlPrefix}${url}`;
 			const delayed = prependDelayBannerToSms(message, banner);
 			const span = findUrls(delayed)[0];
-			if (span && urlStraddlesBoundary(span.start, span.end)) {
+			if (span && spanStraddlesBoundary(span.start, span.end)) {
 				return message;
 			}
 		}
@@ -406,7 +406,7 @@ describe("deliverStagedNotifications", () => {
 		const sentBody = smsSender.mock.calls[0]?.[0].body ?? "";
 		const span = findUrls(sentBody)[0];
 		expect(span).toBeDefined();
-		expect(urlStraddlesBoundary(span?.start ?? -1, span?.end ?? -1)).toBe(false);
+		expect(spanStraddlesBoundary(span?.start ?? -1, span?.end ?? -1)).toBe(false);
 	});
 
 	it("delivers an old-shape staged SMS row with one message", async () => {

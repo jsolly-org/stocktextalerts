@@ -29,7 +29,7 @@ export type AssetEventsContent = "calendar" | "ipo" | "analyst" | "insider";
 /** Facet-less notification types use empty content. */
 export type FacetlessContent = "";
 
-export type FacetlessNotificationType = Exclude<
+type FacetlessNotificationType = Exclude<
 	NotificationPreferenceType,
 	"daily_digest" | "asset_events"
 >;
@@ -39,17 +39,17 @@ type PrefRowBase = {
 	enabled: boolean;
 };
 
-export type DailyDigestPrefRow = PrefRowBase & {
+type DailyDigestPrefRow = PrefRowBase & {
 	notification_type: "daily_digest";
 	content: DailyDigestContent;
 };
 
-export type AssetEventsPrefRow = PrefRowBase & {
+type AssetEventsPrefRow = PrefRowBase & {
 	notification_type: "asset_events";
 	content: AssetEventsContent;
 };
 
-export type FacetlessPrefRow = PrefRowBase & {
+type FacetlessPrefRow = PrefRowBase & {
 	notification_type: FacetlessNotificationType;
 	content: FacetlessContent;
 };

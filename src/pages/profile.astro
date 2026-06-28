@@ -8,7 +8,7 @@ import TimeFormatSection from "../components/profile/TimeFormatSection.vue";
 import TimezoneSection from "../components/profile/TimezoneSection.vue";
 import StatusMessage from "../components/StatusMessage.astro";
 import Layout from "../layouts/Layout.astro";
-import { isUserApproved } from "../lib/auth/approval";
+import { isUserApproved } from "../lib/auth/approval/status";
 import { getAuthErrorMessage } from "../lib/auth/messages";
 import { buildSigninRedirectUrl } from "../lib/auth/redirects";
 import { formatMessage } from "../lib/constants";

@@ -247,11 +247,6 @@ export function spanStraddlesBoundary(start: number, end: number): boolean {
 	return segStart !== segEnd;
 }
 
-/** @deprecated Use spanStraddlesBoundary — kept for existing tests and imports. */
-export function urlStraddlesBoundary(start: number, end: number): boolean {
-	return spanStraddlesBoundary(start, end);
-}
-
 /**
  * Insert padding before spans that would straddle a UCS-2 segment boundary,
  * pushing them to the start of the next segment.
