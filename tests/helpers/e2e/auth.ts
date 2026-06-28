@@ -18,8 +18,7 @@ export async function expectCurrentPath(
 async function fillEmailInput(page: Page, email: string): Promise<void> {
 	const emailInput = page.locator("#email");
 	await emailInput.waitFor({ state: "visible", timeout: 15_000 });
-	// Sign-in is server-rendered Astro (no Vue hydration). Poll until fill sticks —
-	// covers rare dev-server races without requiring [data-hydrated] on this page.
+	// EmailInput is client:load Vue — poll until fill sticks after hydration.
 	await expect
 		.poll(
 			async () => {
@@ -39,12 +38,20 @@ export async function signIn(
 ): Promise<void> {
 	const expectedPath = options.expectedPath ?? "/dashboard";
 	const signInTimeout = process.env.CI ? 60_000 : 30_000;
-	await page.goto("/auth/signin");
+	// Fresh Playwright contexts often hit /auth/signin as their first navigation.
+	// Warm the dev server and let EmailInput (client:load) hydrate before submit —
+	// otherwise HTML5 validation can block the POST (see delivery-times.e2e.spec.ts).
+	const pageUrl = page.url();
+	if (pageUrl === "about:blank" || pageUrl === "") {
+		await page.goto("/", { waitUntil: "domcontentloaded", timeout: signInTimeout });
+	}
+	await page.goto("/auth/signin", { waitUntil: "networkidle", timeout: signInTimeout });
 	await expect(page.getByRole("button", { name: "Sign In" })).toBeEnabled({
 		timeout: signInTimeout,
 	});
 	await fillEmailInput(page, email);
 	await page.locator("#password").fill(password);
+	await expect(page.locator("#email")).toHaveValue(email, { timeout: 10_000 });
 	const signInResponse = page.waitForResponse(
 		(response) =>
 			response.request().method() === "POST" && response.url().includes("/api/auth/signin"),
