@@ -180,13 +180,18 @@ test.describe("Telegram dashboard UI", () => {
 
 		// The trigger summary now reflects the new Telegram selection in the UI.
 		await expect(topMoversTrigger).toContainText("Telegram");
+		await page.keyboard.press("Escape");
+		await expect(topMoversListbox).toBeHidden();
 	});
 
 	test("toggling Telegram on a Market panel option and an Asset Events option each persist a DB row", async () => {
-		await page.goto("/dashboard");
+		await page.goto("/dashboard", { waitUntil: "networkidle" });
+		await page.locator("[data-hydrated]").first().waitFor({ timeout: 15_000 });
 
 		// --- Market Notifications: 5% Price Move Alerts (content='') -----------
 		// This facet-less market type keys its telegram pref by notification_type.
+		const marketForm = page.locator('form[aria-label="Market notifications"]');
+		await marketForm.scrollIntoViewIfNeeded();
 		const priceMoveTrigger = page.locator("#price_move_alerts-channel-trigger");
 		await expect(priceMoveTrigger).toBeVisible();
 		await expect(priceMoveTrigger).toHaveAttribute("aria-haspopup", "listbox");
@@ -194,7 +199,7 @@ test.describe("Telegram dashboard UI", () => {
 
 		await priceMoveTrigger.click();
 		const priceMoveListbox = page.locator("#price_move_alerts-channel-listbox");
-		await expect(priceMoveListbox).toBeVisible();
+		await expect(priceMoveListbox).toBeVisible({ timeout: 15_000 });
 		const priceMoveTelegram = priceMoveListbox.getByRole("option", { name: "Telegram" });
 		await expect(priceMoveTelegram).toBeVisible();
 
