@@ -90,8 +90,8 @@ vi.mock("../../../src/lib/market-data/sparklines", async () => {
 	};
 });
 
-import { runScheduledNotifications } from "../../../src/lib/schedule/run";
 import { __resetMarketSessionCacheForTests } from "../../../src/lib/schedule/market-session";
+import { runScheduledNotifications } from "../../../src/lib/schedule/run";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
