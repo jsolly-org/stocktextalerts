@@ -1,15 +1,11 @@
-import { createSupabaseAdminClient } from "../../lib/db/supabase";
-import { rootLogger } from "../../lib/logging";
-
-export const prerender = false;
+import { createSupabaseAdminClient } from "../../src/lib/db/supabase";
+import { rootLogger } from "../../src/lib/logging";
 
 /**
- * Lightweight readiness probe. Pings Postgres via a cheap count against
- * app_metadata (a tiny, always-present key/value table). Returns 503 if the DB
- * is unreachable so synthetic monitoring can detect a Supabase outage instead of
- * waiting for a user to hit an authenticated page.
+ * Lightweight DB readiness probe for the test suite. Pings Postgres via a
+ * cheap count against app_metadata (a tiny, always-present key/value table).
  */
-export async function GET(): Promise<Response> {
+export async function checkDatabaseHealth(): Promise<Response> {
 	let db: "ok" | "error" = "ok";
 	try {
 		const { error } = await createSupabaseAdminClient()
