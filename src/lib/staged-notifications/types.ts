@@ -11,7 +11,7 @@ import type { IsoTimestampString, ScheduledSlotKey, YearMonthString } from "../t
 
 export type { StagedNotificationType };
 
-export interface StagedEmailContent {
+interface StagedEmailContent {
 	subject: string;
 	text: string;
 	html: string;
@@ -23,7 +23,7 @@ export type StagedSmsContent =
 	| { message: string };
 
 /** Fully-rendered Telegram message: plain text plus out-of-band parse-mode entities. */
-export interface StagedTelegramContent {
+interface StagedTelegramContent {
 	text: string;
 	entities: MessageEntity[];
 }
