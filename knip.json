@@ -11,12 +11,14 @@
 		"src/lib/db/generated/**"
 	],
 	"ignoreDependencies": [
+		"github-actionlint",
 		"lint-staged",
 		"squawk-cli",
 		"supabase",
 		"vercel"
 	],
 	"ignoreBinaries": [
+		"github-actionlint",
 		"mise",
 		"printf",
 		"uvx"

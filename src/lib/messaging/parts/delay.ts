@@ -6,8 +6,8 @@
  * that is prepended to the notification so the user knows it arrived late.
  */
 
-import { DateTime } from "luxon";
 import type { MessageEntity } from "grammy/types";
+import { DateTime } from "luxon";
 import { escapeHtml } from "./html-utils";
 
 /** Notifications delayed by less than this threshold are considered on-time. */
