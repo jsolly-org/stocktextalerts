@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Production deploy for stocktextalerts. The phase order is deliberate:
+# Production deploy for stocktextalerts. The irreversible phase order is deliberate:
 #   Phase 1  build the Lambda bundle  (offline, side-effect-free — esbuild via `sam build`)
 #   Phase 2  Supabase migrations      (ONE-WAY — guard hard)
 #   Phase 3  Lambda code update       (upload the Phase 1 bundle; code-only, scoped role)
-#   Phase 4  Vercel web deploy        (last — ships against the migrated DB + new Lambdas)
+#   Phase 4  local break-glass only: Vercel web deploy via CLI
 #
 # Build FIRST so a build failure aborts with prod UNTOUCHED. (2026-06-21 incident: a native
 # `.node` esbuild break in @resvg/resvg-js aborted the deploy AFTER `supabase db push` had already
@@ -11,14 +11,14 @@
 # before every reversible validation that can fail has passed. The build is offline, so it owes
 # nothing to the migration; reordering it ahead is free and removes the whole failure class.
 #
-# The WEB tier is deployed here via the pinned Vercel CLI because the Vercel↔GitHub git integration
-# is disconnected — the push is now the deploy trigger. The project link travels as non-secret env
-# vars (VERCEL_ORG_ID / VERCEL_PROJECT_ID) so the gitignored .vercel/ dir needn't exist in the
-# worktree.
+# The GitHub Actions deploy path does NOT deploy the web tier here. Vercel's GitHub integration owns
+# web deploys from main, while this script owns production Supabase migrations, Lambda code updates,
+# and live-provider verification. The local break-glass path still deploys Vercel via the pinned CLI
+# after migrations + Lambda updates.
 #
-# Runs from the pre-push hook (.git-hooks/pre-push) on push to main, and is also wired as
-# `npm run deploy:code` for manual use. NO CloudFormation/SAM infra changes happen here —
-# `aws lambda update-function-code` is code-only. Infra/template changes stay a manual
+# Runs from the GitHub production deploy workflow with --deploy-ci, and is also wired as
+# `npm run deploy:code` for local break-glass use. NO CloudFormation/SAM infra changes happen here
+# — `aws lambda update-function-code` is code-only. Infra/template changes stay a manual
 # `npm run deploy:infra` (full SAM, admin creds).
 #
 # Modes:
@@ -26,6 +26,9 @@
 #   --build      Phase 1 only — build the Lambda bundle. No AWS/DB/Vercel creds needed. The
 #                pre-push gate's fail-fast build check, also exposed as `npm run build:lambdas`.
 #   --preflight  validate deploy credentials only (AWS + prod DB + Vercel), then exit.
+#   --deploy-ci  production migration + Lambda deploy from GitHub Actions. Uses OIDC-provided AWS
+#                credentials and env-provided DATABASE_URL_PROD/PRODUCTION_SITE_URL. Vercel web
+#                deploys are handled by the Vercel GitHub integration.
 #
 # Credentials (gitignored .env.local; chmod 600):
 #   DATABASE_URL_PROD (full prod Postgres URL — migrations connect with it directly; no supabase
@@ -36,15 +39,24 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 ROOT="$REPO_ROOT"
+MODE="${1:-}"
+CI_DEPLOY=false
+[ "$MODE" = "--deploy-ci" ] && CI_DEPLOY=true
 
 # Shared fleet gate helpers (dotagents/gate/gate-lib.sh) — sourced the same way .git-hooks/pre-push
 # does, purely for gate_npm_ci below (sourcing has no side effects). gate_npm_ci resolves the repo
-# root from $PWD, which is REPO_ROOT after the cd above.
-# shellcheck source=/dev/null
-source "${DOTAGENTS_GATE_LIB:-$HOME/code/dotagents/gate/gate-lib.sh}" || {
+# root from $PWD, which is REPO_ROOT after the cd above. CI runners have no dotagents checkout;
+# --build/--deploy-ci there skip gate-lib (npm ci already ran in the workflow).
+_gate_lib="${DOTAGENTS_GATE_LIB:-$HOME/code/dotagents/gate/gate-lib.sh}"
+if [ -f "$_gate_lib" ]; then
+  # shellcheck source=/dev/null
+  source "$_gate_lib"
+elif [ "${CI:-}" = "true" ] && { [ "$MODE" = "--build" ] || [ "$CI_DEPLOY" = "true" ]; }; then
+  :
+else
   echo "✗ dotagents gate-lib not found (expected ~/code/dotagents/gate/gate-lib.sh) — re-run install-local-agent-runtime.sh." >&2
   exit 1
-}
+fi
 
 # Ground aws/sam to the repo-pinned versions (.mise.toml) — the pre-push hook runs
 # non-interactively, so the shell profile's mise activation isn't loaded. Guarded so a machine
@@ -60,6 +72,38 @@ export PATH="$REPO_ROOT/node_modules/.bin:$PATH"
 # Ground the SAM CLI: not an npm dep — fail loud if absent (rules/dependency-grounding.md).
 command -v sam >/dev/null 2>&1 || { echo "✗ sam CLI not found — brew install aws-sam-cli" >&2; exit 1; }
 
+if ! declare -F gate_lambda_tag_provenance >/dev/null 2>&1; then
+  gate_lambda_tag_provenance() { # <function-arn> <code-sha256> <commit>
+    aws lambda tag-resource \
+      --resource "$1" \
+      --tags "Deploy-Sha256=$2,Deploy-Commit=$3" >/dev/null
+  }
+fi
+
+deploy_vercel_production() {
+  if [ "$CI_DEPLOY" = "true" ]; then
+    echo "• Vercel web deploy handled by Vercel GitHub integration"
+    return
+  fi
+
+  if [ "$CI_DEPLOY" != "true" ] && declare -F gate_deploy_vercel >/dev/null 2>&1; then
+    gate_deploy_vercel team_T8yHg0aDz7nCbyBgJh5a2saR prj_wrSGjuWe4w82AdjlQAI3b60PSypJ
+    return
+  fi
+
+  : "${VERCEL_TOKEN:?set VERCEL_TOKEN for local Vercel CLI deploy fallback}"
+  : "${VERCEL_ORG_ID:?set VERCEL_ORG_ID for local Vercel CLI deploy fallback}"
+  : "${VERCEL_PROJECT_ID:?set VERCEL_PROJECT_ID for local Vercel CLI deploy fallback}"
+
+  local vercel="$REPO_ROOT/node_modules/.bin/vercel"
+  echo "• vercel pull --environment=production"
+  "$vercel" pull --yes --environment=production --token "$VERCEL_TOKEN"
+  echo "• vercel build --prod"
+  "$vercel" build --prod --yes --token "$VERCEL_TOKEN"
+  echo "• vercel deploy --prebuilt --prod"
+  "$vercel" deploy --prebuilt --prod --yes --token "$VERCEL_TOKEN"
+}
+
 # Build the Lambda bundle (esbuild via `sam build`, into aws/.aws-sam/build). Offline and
 # side-effect-free. Stamps the real release-id, builds, then ALWAYS restores the committed stub —
 # even when the build fails — so a broken build never leaves src/lib/logging/release-id.ts modified
@@ -72,7 +116,11 @@ build_lambdas() {
   # `npm run deploy:code` / `npm run build:lambdas` can run from a possibly-stale checkout (the read-only
   # `main` mirror is never npm ci'd in the worktree-first flow → reinstall). Runs before the tsx
   # steps so they too resolve from a fresh node_modules/.bin. Credential-free, so safe in --build.
-  gate_npm_ci --if-stale
+  if declare -F gate_npm_ci >/dev/null 2>&1; then
+    gate_npm_ci --if-stale
+  elif [ "${CI:-}" != "true" ]; then
+    npm ci
+  fi
   echo "• build Lambda bundle (sam build — esbuild)"
   tsx scripts/gen-release-id.ts
   local rc=0
@@ -88,7 +136,7 @@ build_lambdas() {
 # Offline bundle build. The pre-push gate runs this as a fast preflight so an esbuild break (the
 # resvg .node class) fails the push in seconds — before the test battery and, crucially, before the
 # deploy's one-way Supabase migration. Also `npm run build:lambdas` for a credential-free local check.
-if [ "${1:-}" = "--build" ]; then
+if [ "$MODE" = "--build" ]; then
   build_lambdas
   echo "✓ Lambda bundle builds"
   exit 0
@@ -98,7 +146,10 @@ fi
 # Allowlist-load ONLY the deploy creds from .env.local — never `set -a` the
 # whole file: the rest of it (prod service keys, Twilio, vendor keys) must not
 # reach the deploy's child processes (sam/zip/aws).
-DEPLOY_VARS=(DATABASE_URL_PROD AWS_PROFILE PRODUCTION_SITE_URL)
+DEPLOY_VARS=(DATABASE_URL_PROD PRODUCTION_SITE_URL)
+if [ "$CI_DEPLOY" != "true" ]; then
+  DEPLOY_VARS+=(AWS_PROFILE)
+fi
 if [ -f .env.local ]; then
   for _var in "${DEPLOY_VARS[@]}"; do
     if [ -z "${!_var:-}" ]; then
@@ -111,10 +162,17 @@ if [ -f .env.local ]; then
   done
 fi
 # Static AWS env keys outrank AWS_PROFILE in the CLI credential chain — never
-# let them leak into the scoped-role deploy.
-unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+# let them leak into the local scoped-role deploy. GitHub Actions intentionally
+# supplies short-lived AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_SESSION_TOKEN
+# after OIDC federation, so keep them for --deploy-ci.
+if [ "$CI_DEPLOY" != "true" ]; then
+  unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+fi
 : "${DATABASE_URL_PROD:?set DATABASE_URL_PROD in .env.local (full prod Postgres URL)}"
-: "${AWS_PROFILE:?set AWS_PROFILE in .env.local (scoped fleet-deploy profile)}"
+if [ "$CI_DEPLOY" != "true" ]; then
+  : "${AWS_PROFILE:?set AWS_PROFILE in .env.local (scoped fleet-deploy profile)}"
+fi
+: "${PRODUCTION_SITE_URL:?set PRODUCTION_SITE_URL in .env.local (canonical production URL for local vercel build)}"
 # Migrations must NOT run through the transaction-mode pooler (port 6543) —
 # DDL wants a session connection. Same pooler host serves session mode on 5432.
 DB_URL="${DATABASE_URL_PROD/:6543\//:5432/}"
@@ -134,7 +192,7 @@ command -v supabase >/dev/null 2>&1 || { echo "✗ supabase CLI missing — run 
 #     before Phase 2's one-way `supabase db push`.
 #   - Vercel: `vercel whoami` → catches a logged-out CLI now, before Phase 2 migrates prod, so the
 #     web deploy (Phase 4, after the one-way migration) can't be what fails.
-if [ "${1:-}" = "--preflight" ]; then
+if [ "$MODE" = "--preflight" ]; then
   if ! aws sts get-caller-identity >/dev/null 2>&1; then
     echo "✗ AWS credentials for profile '$AWS_PROFILE' do not resolve (likely an expired SSO token)." >&2
     echo "  Refresh your SSO session and retry the push, e.g.:  aws sso login --sso-session <your-session>" >&2
@@ -160,7 +218,11 @@ echo "▶ stocktextalerts production deploy"
 # landed tip — so this deploy can never ship the local tree before the ref lands (the 2026-06-24
 # concurrent-push race) or a stale checkout. Runs only in the full deploy (--build/--preflight exit
 # above) and BEFORE the one-way Phase 2 migration.
-gate_require_landed main
+if [ "$CI_DEPLOY" = "true" ]; then
+  echo "• CI deploy mode — landed-ref guard is enforced by GitHub main-branch workflow triggers"
+else
+  gate_require_landed main
+fi
 
 phase="init"
 trap 'echo "✗ deploy failed during: $phase — completed phases remain LIVE (no rollback). Fix and re-run: npm run deploy:code" >&2' ERR
@@ -214,7 +276,11 @@ supabase db push --include-all --yes --db-url "$DB_URL"
 # --- Phase 3: Lambda code update (code-only, scoped role) ---
 # Uploads the bundle built in Phase 1 — no rebuild here.
 phase="lambda code update"
-echo "• deploy Lambda code  (AWS_PROFILE=$AWS_PROFILE)"
+if [ "$CI_DEPLOY" = "true" ]; then
+  echo "• deploy Lambda code  (GitHub Actions OIDC)"
+else
+  echo "• deploy Lambda code  (AWS_PROFILE=$AWS_PROFILE)"
+fi
 build="aws/.aws-sam/build"
 # The git commit this deploy built from — stamped on each function as the Deploy-Commit tag (with
 # AWS's CodeSha256 as Deploy-Sha256) for CodeSha256-based drift detection (scripts/check-deploy-drift.ts).
@@ -247,13 +313,17 @@ deploy_code VendorBackfillFunction stocktextalerts-vendor-backfill
 deploy_code LiveProviderCheckFunction stocktextalerts-live-provider-check
 deploy_code BackupUserSettingsFunction stocktextalerts-backup-user-settings
 
-# --- Phase 4: Vercel web deploy (local build via gate_deploy_vercel, prebuilt upload) ---
-# Last, so the web tier ships against the freshly migrated DB + updated Lambdas.
+# --- Phase 4: Vercel web deploy / Git integration handoff --------------------------------------
+# Local break-glass deploys ship Vercel last, against the freshly migrated DB + updated Lambdas.
+# GitHub Actions relies on the connected Vercel GitHub integration instead of a VERCEL_TOKEN secret.
 # Link via non-secret env vars (the gitignored .vercel/ may be absent in a worktree).
-: "${PRODUCTION_SITE_URL:?set PRODUCTION_SITE_URL in .env.local (canonical production URL for local vercel build)}"
 export VERCEL_PROJECT_PRODUCTION_URL="${PRODUCTION_SITE_URL#https://}"
 export VERCEL_PROJECT_PRODUCTION_URL="${VERCEL_PROJECT_PRODUCTION_URL#http://}"
 phase="vercel web deploy"
-gate_deploy_vercel team_T8yHg0aDz7nCbyBgJh5a2saR prj_wrSGjuWe4w82AdjlQAI3b60PSypJ
+deploy_vercel_production
 
-echo "✓ stocktextalerts production deploy complete (Supabase + Lambda + Vercel web)"
+if [ "$CI_DEPLOY" = "true" ]; then
+  echo "✓ stocktextalerts production deploy complete (Supabase + Lambda; Vercel via Git integration)"
+else
+  echo "✓ stocktextalerts production deploy complete (Supabase + Lambda + Vercel web)"
+fi
