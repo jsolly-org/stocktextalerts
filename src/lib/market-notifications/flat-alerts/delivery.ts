@@ -2,26 +2,26 @@ import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import type { ExtendedAssetQuote, IntradayBarsResult } from "../../market-data/types";
-import { escapeHtml, formatUsdPrice, getChangeColor } from "../../messaging/asset-formatting";
 import { sendUserEmail } from "../../messaging/email/index";
-import { renderIntradaySparklineImg } from "../../messaging/email/intraday-sparkline";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
 import type { EmailSender } from "../../messaging/email/utils";
-import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../../messaging/footer";
 import { type createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
-import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
-import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
-import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
-import type { SmsSender } from "../../messaging/sms/twilio-utils";
+import { escapeHtml, formatUsdPrice, getChangeColor } from "../../messaging/parts/asset-price-list";
+import { renderIntradaySparklineImg } from "../../messaging/parts/charts/intraday-sparkline";
 import {
 	downsampleEvenly,
 	EMAIL_SPARKLINE_LABEL,
 	SMS_SPARKLINE_LABEL,
 	type SparklineData,
 	toSparkline,
-} from "../../messaging/sparkline";
-import { toSvgSparklineImg } from "../../messaging/svg-sparkline";
+} from "../../messaging/parts/charts/sparkline";
+import { toSvgSparklineImg } from "../../messaging/parts/charts/svg-sparkline";
+import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../../messaging/parts/footer";
+import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
+import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
+import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
+import type { SmsSender } from "../../messaging/sms/twilio-utils";
 import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../../messaging/telegram/price-alert";

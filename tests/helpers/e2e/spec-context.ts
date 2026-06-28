@@ -4,7 +4,7 @@ import { expectCurrentPath } from "./auth";
 import type { ApprovedE2eUser } from "./fixtures";
 import { buildAuthStorageState } from "./storage-state";
 
-export type E2eSignedInSession = {
+type E2eSignedInSession = {
 	page: Page;
 	baseOrigin: string;
 	cleanup: () => Promise<void>;

@@ -3,11 +3,11 @@ import { createErrorForLogging, extractErrorMessage } from "../../logging/errors
 import type { AssetPriceMap, MarketSession } from "../../market-data/types";
 import { processEmailUpdate } from "../../messaging/email/delivery";
 import type { EmailSender } from "../../messaging/email/utils";
+import { formatMarketScheduledTelegram } from "../../messaging/notifications/market-scheduled";
+import type { SparklineData } from "../../messaging/parts/charts/sparkline";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
 import { processSmsUpdate } from "../../messaging/sms/delivery";
 import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
-import type { SparklineData } from "../../messaging/sparkline";
-import { formatMarketScheduledTelegram } from "../../messaging/telegram/market-scheduled";
 import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../../messaging/telegram/sender-factory";
 import type { UserAssetRow, UserRecord } from "../../messaging/types";

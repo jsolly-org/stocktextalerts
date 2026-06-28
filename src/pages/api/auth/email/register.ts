@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { APIContext } from "astro";
-import { sendRegistrationAdminEmail } from "../../../../lib/auth/registration-admin-email";
+import { sendRegistrationAdminEmail } from "../../../../lib/auth/approval/registration-admin-email";
 import { MIN_PASSWORD_LENGTH, REGISTRATION_ENABLED } from "../../../../lib/constants";
 import { getSiteUrl } from "../../../../lib/db/env";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../../lib/db/supabase";

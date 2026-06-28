@@ -7,8 +7,8 @@ import type { ExtendedQuoteMap, IntradayBarsResult } from "../../market-data/typ
 import { createEmailSender } from "../../messaging/email/utils";
 import { createLogoCache } from "../../messaging/logo-fetcher";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
+import type { SparklineData } from "../../messaging/parts/charts/sparkline";
 import { createSmsSenderFactory } from "../../messaging/sms/sender-factory";
-import type { SparklineData } from "../../messaging/sparkline";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import { createTelegramSenderFactory } from "../../messaging/telegram/sender-factory";
 import type { SupabaseAdminClient } from "../../schedule/helpers";

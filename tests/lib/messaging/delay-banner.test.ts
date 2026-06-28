@@ -7,7 +7,7 @@ import {
 	getDelayMinutes,
 	prependDelayBannerToEmail,
 	prependDelayBannerToSms,
-} from "../../../src/lib/messaging/delay-banner";
+} from "../../../src/lib/messaging/parts/delay";
 
 const BASE_TIME = DateTime.fromISO("2026-03-26T14:00:00Z", { zone: "utc" });
 

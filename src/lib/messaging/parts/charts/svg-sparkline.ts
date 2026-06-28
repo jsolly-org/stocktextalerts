@@ -1,4 +1,4 @@
-import { escapeHtml } from "./asset-formatting";
+import { escapeHtml } from "../html-utils";
 
 /** A time label to render on the sparkline's x-axis. */
 export interface SparklineTimeLabel {

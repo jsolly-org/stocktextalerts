@@ -11,17 +11,17 @@ import { fetchAssetPricesWithSessionState } from "../market-data/prices";
 import { getCurrentMarketSession } from "../market-data/session";
 import { fetchIntradaySparklines, fetchSparklines } from "../market-data/sparklines";
 import type { AssetPriceMap, MarketSession } from "../market-data/types";
-import { formatSignedChangePercent, formatUsdPrice } from "../messaging/asset-formatting";
-import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/delay-banner";
 import type { EmailSender } from "../messaging/email/utils";
 import { type LogoCache, safePrefetchLogos } from "../messaging/logo-fetcher";
-import { buildMarketClosedBannerText } from "../messaging/market-closure-banner";
 import { anyFacetEnabled, enabledFacets, isFacetEnabled } from "../messaging/notification-prefs";
+import { formatDailyDigestTelegram } from "../messaging/notifications/daily-digest";
+import { formatSignedChangePercent, formatUsdPrice } from "../messaging/parts/asset-price-list";
+import type { SparklineMap } from "../messaging/parts/charts/sparkline";
+import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/parts/delay";
+import type { NotificationExtras } from "../messaging/parts/extras";
+import { buildMarketClosedBannerText } from "../messaging/parts/market-closure";
 import { shouldSendSms } from "../messaging/sms";
-import type { SmsExtras } from "../messaging/sms/delivery";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
-import type { SparklineMap } from "../messaging/sparkline";
-import { formatDailyDigestTelegram } from "../messaging/telegram/digest";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { UserRecord } from "../messaging/types";
@@ -628,7 +628,7 @@ export async function processDailyDigestUser(options: {
 		/* =============
 		Build extras per channel
 		============= */
-		const buildExtras = (channel: "email" | "sms"): SmsExtras => {
+		const buildExtras = (channel: "email" | "sms"): NotificationExtras => {
 			const isSms = channel === "sms";
 			const wantsTopMoversForChannel = isSms ? wantsTopMoversSms : wantsTopMoversEmail;
 			return {
@@ -648,7 +648,7 @@ export async function processDailyDigestUser(options: {
 		// for Telegram). Grok news/rumors are intentionally omitted on Telegram —
 		// see the dispatch wiring note. Reuses the rich (email-style) topMovers
 		// section already fetched above.
-		const telegramExtras: SmsExtras | null = telegramEnabled
+		const telegramExtras: NotificationExtras | null = telegramEnabled
 			? {
 					news: null,
 					rumors: null,
@@ -786,6 +786,8 @@ export async function processDailyDigestUser(options: {
 							dateLabel: telegramDateLabel,
 							delayBanner: delayBannerText,
 							marketClosedBanner: telegramMarketBanner,
+							sparklines,
+							marketOpen,
 						})
 					: null;
 			const telegramContent = telegramFormatted
@@ -877,7 +879,10 @@ export async function processDailyDigestUser(options: {
 				assetPrices: telegramPriceMap,
 				extras: telegramExtras,
 				dateLabel: telegramDateLabel,
+				delayBanner: delayBannerText,
 				marketClosedBanner: telegramMarketBanner,
+				sparklines,
+				marketOpen,
 				getTelegramSender,
 				stats,
 			});
