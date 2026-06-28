@@ -35,14 +35,13 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Checkout dotagents (strict TS baseline)
-        uses: actions/checkout@v7
-        with:
-          repository: jsolly/dotagents
-          ref: main
-          path: ../dotagents
-          sparse-checkout: |
-            tsconfig
-          sparse-checkout-cone-mode: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse \
+            "https://x-access-token:${GH_TOKEN}@github.com/jsolly/dotagents.git" \
+            ../dotagents
+          git -C ../dotagents sparse-checkout set tsconfig
 
       - uses: actions/setup-node@v6
         with:
