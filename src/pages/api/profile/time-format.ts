@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { jsonResponse } from "../../../lib/api/json-response";
+import type { ApiJsonBody } from "../../../lib/api/types";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
@@ -25,7 +25,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		logger.info("Time-format update attempt without authenticated user", {
 			reason: "unauthenticated",
 		});
-		return jsonResponse(401, { ok: false, message: "unauthorized" });
+		return Response.json({ ok: false, message: "unauthorized" } satisfies ApiJsonBody, {
+			status: 401,
+		});
 	}
 
 	let formData: FormData;
@@ -40,7 +42,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			},
 			error,
 		);
-		return jsonResponse(400, { ok: false, message: "invalid_form" });
+		return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 
 	const parsed = parseWithSchema(formData, TIME_FORMAT_SCHEMA);
@@ -50,7 +54,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			userId: user.id,
 			errors: parsed.allErrors,
 		});
-		return jsonResponse(400, { ok: false, message: "invalid_form" });
+		return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 
 	try {
@@ -63,26 +69,33 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			logger.info("Time-format update rejected due to empty update payload", {
 				userId: user.id,
 			});
-			return jsonResponse(400, { ok: false, message: "invalid_form" });
+			return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+				status: 400,
+			});
 		}
 
 		const updatedUser = await userService.update(user.id, updates);
 		if (!updatedUser) {
 			logger.error("User update returned null", { userId: user.id });
-			return jsonResponse(404, { ok: false, message: "user_not_found" });
+			return Response.json({ ok: false, message: "user_not_found" } satisfies ApiJsonBody, {
+				status: 404,
+			});
 		}
 
-		return jsonResponse(200, {
-			ok: true,
-			message: "settings_updated",
-			use_24_hour_time: updatedUser.use_24_hour_time,
-		});
+		return Response.json(
+			{
+				ok: true,
+				message: "settings_updated",
+				use_24_hour_time: updatedUser.use_24_hour_time,
+			} satisfies ApiJsonBody,
+			{ status: 200 },
+		);
 	} catch (error) {
 		logger.error("Failed to update time-format", { userId: user.id }, createErrorForLogging(error));
 
-		return jsonResponse(500, {
-			ok: false,
-			message: "failed_to_update_settings",
-		});
+		return Response.json(
+			{ ok: false, message: "failed_to_update_settings" } satisfies ApiJsonBody,
+			{ status: 500 },
+		);
 	}
 };

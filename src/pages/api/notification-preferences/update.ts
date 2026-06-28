@@ -1,5 +1,4 @@
 import type { APIRoute } from "astro";
-import { jsonResponse } from "../../../lib/api/json-response";
 import {
 	buildChannelPreferenceSnapshot,
 	loadUserPreferenceRows,
@@ -9,6 +8,7 @@ import {
 	ASSET_EVENTS_SCHEDULE_FIELDS,
 	buildNotificationPreferencesUpdatePayload,
 } from "../../../lib/api/notification-preferences-update";
+import type { ApiJsonBody } from "../../../lib/api/types";
 import { createUserService, type User } from "../../../lib/db";
 import { Constants } from "../../../lib/db/generated/database.types";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
@@ -111,7 +111,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		logger.info("Notification-preferences update attempt without authenticated user", {
 			reason: "unauthenticated",
 		});
-		return jsonResponse(401, { ok: false, message: "unauthorized" });
+		return Response.json({ ok: false, message: "unauthorized" } satisfies ApiJsonBody, {
+			status: 401,
+		});
 	}
 
 	let formData: FormData;
@@ -126,7 +128,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			},
 			error,
 		);
-		return jsonResponse(400, { ok: false, message: "invalid_form" });
+		return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 	const rawTimesValue = formData.get("market_scheduled_asset_price_times");
 	const parsed = parseWithSchema(formData, NOTIFICATION_PREFERENCES_SCHEMA);
@@ -136,7 +140,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			userId: user.id,
 			errors: parsed.allErrors,
 		});
-		return jsonResponse(400, { ok: false, message: "invalid_form" });
+		return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 
 	let parsedMarketScheduledAssetPriceTimes: number[] | undefined;
@@ -147,7 +153,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				userId: user.id,
 				reason: result.reason,
 			});
-			return jsonResponse(400, { ok: false, message: "invalid_form" });
+			return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+				status: 400,
+			});
 		}
 		parsedMarketScheduledAssetPriceTimes = result.times;
 	}
@@ -163,16 +171,21 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			},
 			error,
 		);
-		return jsonResponse(500, {
-			ok: false,
-			message: "failed_to_update_settings",
-		});
+		return Response.json(
+			{
+				ok: false,
+				message: "failed_to_update_settings",
+			} satisfies ApiJsonBody,
+			{ status: 500 },
+		);
 	}
 	if (!dbUser) {
 		logger.info("User not found for notification-preferences update", {
 			userId: user.id,
 		});
-		return jsonResponse(404, { ok: false, message: "user_not_found" });
+		return Response.json({ ok: false, message: "user_not_found" } satisfies ApiJsonBody, {
+			status: 404,
+		});
 	}
 
 	// Validate scheduled times are within the extended-hours notification window (4:30 AM – 7:30 PM ET)
@@ -187,7 +200,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				invalidTime,
 				timezone: tz,
 			});
-			return jsonResponse(400, { ok: false, message: "invalid_form" });
+			return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+				status: 400,
+			});
 		}
 	}
 
@@ -199,7 +214,10 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		existingPrefs = await loadUserPreferenceRows(supabase, user.id);
 	} catch (error) {
 		logger.error("Failed to load existing notification preferences", { userId: user.id }, error);
-		return jsonResponse(500, { ok: false, message: "failed_to_update_settings" });
+		return Response.json(
+			{ ok: false, message: "failed_to_update_settings" } satisfies ApiJsonBody,
+			{ status: 500 },
+		);
 	}
 
 	// Resolve the post-update asset-events email/sms enabled state by merging the
@@ -254,7 +272,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			},
 			error,
 		);
-		return jsonResponse(400, { ok: false, message: "invalid_form" });
+		return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+			status: 400,
+		});
 	}
 
 	try {
@@ -265,7 +285,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			logger.info("sms_notifications_enabled rejected: user is sms_opted_out", {
 				userId: user.id,
 			});
-			return jsonResponse(400, { ok: false, message: "sms_opted_out" });
+			return Response.json({ ok: false, message: "sms_opted_out" } satisfies ApiJsonBody, {
+				status: 400,
+			});
 		}
 
 		// An SMS include field is being newly enabled when the form submits it as true
@@ -290,13 +312,17 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			logger.info("SMS enable rejected: user is sms_opted_out", {
 				userId: user.id,
 			});
-			return jsonResponse(400, { ok: false, message: "sms_opted_out" });
+			return Response.json({ ok: false, message: "sms_opted_out" } satisfies ApiJsonBody, {
+				status: 400,
+			});
 		}
 		if (enablesAnySmsIncludeField && (!dbUser.phone_country_code || !dbUser.phone_number)) {
 			logger.info("SMS notification-preferences enabled without phone number", {
 				userId: user.id,
 			});
-			return jsonResponse(400, { ok: false, message: "phone_not_set" });
+			return Response.json({ ok: false, message: "phone_not_set" } satisfies ApiJsonBody, {
+				status: 400,
+			});
 		}
 
 		// A facet-only submission carries no `users`-column changes, so the payload
@@ -308,7 +334,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				: await userService.update(user.id, safeNotificationPreferenceUpdates);
 		if (!updatedUser) {
 			logger.error("User update returned null", { userId: user.id });
-			return jsonResponse(404, { ok: false, message: "user_not_found" });
+			return Response.json({ ok: false, message: "user_not_found" } satisfies ApiJsonBody, {
+				status: 404,
+			});
 		}
 
 		// Persist every submitted channel facet (email/sms/telegram alike) to
@@ -325,28 +353,31 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		// Rebuild the per-option snapshot from the table (post-write) for the UI.
 		const updatedPrefs = await loadUserPreferenceRows(supabase, user.id);
 
-		return jsonResponse(200, {
-			ok: true,
-			message: "settings_updated",
-			notificationPreferences: {
-				market_scheduled_asset_price_enabled: updatedUser.market_scheduled_asset_price_enabled,
-				email_notifications_enabled: updatedUser.email_notifications_enabled,
-				sms_notifications_enabled: updatedUser.sms_notifications_enabled,
-				sms_opted_out: updatedUser.sms_opted_out,
-				phone_verified: updatedUser.phone_verified,
-				timezone: updatedUser.timezone,
-				market_scheduled_asset_price_times: updatedUser.market_scheduled_asset_price_times,
-				daily_digest_time: updatedUser.daily_digest_time,
-				daily_digest_next_send_at: updatedUser.daily_digest_next_send_at,
-				market_scheduled_asset_price_next_send_at:
-					updatedUser.market_scheduled_asset_price_next_send_at,
-				dismiss_timezone_mismatch_prompts: updatedUser.dismiss_timezone_mismatch_prompts,
-				asset_events_next_send_at: updatedUser.asset_events_next_send_at,
-				market_asset_price_alerts_enabled: updatedUser.market_asset_price_alerts_enabled,
-				market_asset_price_alert_move_size: updatedUser.market_asset_price_alert_move_size,
-				...buildChannelPreferenceSnapshot(updatedPrefs),
-			},
-		});
+		return Response.json(
+			{
+				ok: true,
+				message: "settings_updated",
+				notificationPreferences: {
+					market_scheduled_asset_price_enabled: updatedUser.market_scheduled_asset_price_enabled,
+					email_notifications_enabled: updatedUser.email_notifications_enabled,
+					sms_notifications_enabled: updatedUser.sms_notifications_enabled,
+					sms_opted_out: updatedUser.sms_opted_out,
+					phone_verified: updatedUser.phone_verified,
+					timezone: updatedUser.timezone,
+					market_scheduled_asset_price_times: updatedUser.market_scheduled_asset_price_times,
+					daily_digest_time: updatedUser.daily_digest_time,
+					daily_digest_next_send_at: updatedUser.daily_digest_next_send_at,
+					market_scheduled_asset_price_next_send_at:
+						updatedUser.market_scheduled_asset_price_next_send_at,
+					dismiss_timezone_mismatch_prompts: updatedUser.dismiss_timezone_mismatch_prompts,
+					asset_events_next_send_at: updatedUser.asset_events_next_send_at,
+					market_asset_price_alerts_enabled: updatedUser.market_asset_price_alerts_enabled,
+					market_asset_price_alert_move_size: updatedUser.market_asset_price_alert_move_size,
+					...buildChannelPreferenceSnapshot(updatedPrefs),
+				},
+			} satisfies ApiJsonBody,
+			{ status: 200 },
+		);
 	} catch (error) {
 		logger.error(
 			"Failed to update notification-preferences",
@@ -357,9 +388,12 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			createErrorForLogging(error),
 		);
 
-		return jsonResponse(500, {
-			ok: false,
-			message: "failed_to_update_settings",
-		});
+		return Response.json(
+			{
+				ok: false,
+				message: "failed_to_update_settings",
+			} satisfies ApiJsonBody,
+			{ status: 500 },
+		);
 	}
 };

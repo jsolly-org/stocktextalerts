@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { jsonResponse } from "../../../../lib/api/json-response";
+import type { ApiJsonBody } from "../../../../lib/api/types";
 import { sendVerification } from "../../../../lib/auth/sms-verification";
 import { VERIFICATION_RESEND_COOLDOWN_MS } from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
@@ -29,11 +29,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		logger.info("SMS verification send attempt without authenticated user", {
 			reason: "unauthenticated",
 		});
-		return jsonResponse(401, {
-			ok: false,
-			message: "unauthorized",
-			tone: "error",
-		});
+		return Response.json(
+			{
+				ok: false,
+				message: "unauthorized",
+				tone: "error",
+			} satisfies ApiJsonBody,
+			{ status: 401 },
+		);
 	}
 
 	try {
@@ -49,11 +52,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			logger.info("SMS verification form rejected due to invalid fields", {
 				errors: parsed.allErrors,
 			});
-			return jsonResponse(400, {
-				ok: false,
-				message: "invalid_form",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "invalid_form",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 400 },
+			);
 		}
 
 		// Normalize phone inputs: the external auth/storage service controls its own
@@ -66,11 +72,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			logger.info("SMS verification rejected due to invalid phone format", {
 				userId: user.id,
 			});
-			return jsonResponse(400, {
-				ok: false,
-				message: "invalid_phone_format",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "invalid_phone_format",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 400 },
+			);
 		}
 
 		const normalizedCountryCode = `+${rawCountryCode.replace(/^\+/, "").replace(/\D/g, "")}`;
@@ -83,11 +92,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			logger.info("SMS verification rejected due to invalid phone format", {
 				userId: user.id,
 			});
-			return jsonResponse(400, {
-				ok: false,
-				message: "invalid_phone_format",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "invalid_phone_format",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 400 },
+			);
 		}
 
 		const dbUser = await userService.getById(user.id);
@@ -96,22 +108,28 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				userId: user.id,
 				endpoint: "sms/send-verification",
 			});
-			return jsonResponse(404, {
-				ok: false,
-				message: "user_not_found",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "user_not_found",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 404 },
+			);
 		}
 
 		if (dbUser.sms_opted_out) {
 			logger.info("SMS verification blocked: user has opted out of SMS", {
 				userId: user.id,
 			});
-			return jsonResponse(400, {
-				ok: false,
-				message: "sms_opted_out",
-				tone: "warning",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "sms_opted_out",
+					tone: "warning",
+				} satisfies ApiJsonBody,
+				{ status: 400 },
+			);
 		}
 
 		const previousVerificationSentAt = dbUser.verification_sent_at ?? null;
@@ -132,11 +150,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				sentAt: dbUser.verification_sent_at ?? null,
 				cooldownMs: VERIFICATION_RESEND_COOLDOWN_MS,
 			});
-			return jsonResponse(429, {
-				ok: false,
-				message: "verification_recently_sent",
-				tone: "warning",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "verification_recently_sent",
+					tone: "warning",
+				} satisfies ApiJsonBody,
+				{ status: 429 },
+			);
 		}
 
 		if (reserved !== true) {
@@ -144,11 +165,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				userId: user.id,
 				reserved,
 			});
-			return jsonResponse(500, {
-				ok: false,
-				message: "server_error",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "server_error",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 500 },
+			);
 		}
 
 		const dbUserAfterReserve = await userService.getById(user.id);
@@ -157,11 +181,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				userId: user.id,
 				endpoint: "sms/send-verification",
 			});
-			return jsonResponse(500, {
-				ok: false,
-				message: "server_error",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "server_error",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 500 },
+			);
 		}
 
 		const reservedVerificationSentAt = dbUserAfterReserve.verification_sent_at;
@@ -170,11 +197,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			logger.error("SMS verification reservation succeeded but verification_sent_at was not set", {
 				userId: user.id,
 			});
-			return jsonResponse(500, {
-				ok: false,
-				message: "server_error",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "server_error",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 500 },
+			);
 		}
 
 		const result = await sendVerification(fullPhone);
@@ -203,24 +233,33 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 			const sendError = new Error(result.error ?? "Failed to send verification");
 			logger.error("SMS verification failed", { userId: user.id }, sendError);
-			return jsonResponse(500, {
-				ok: false,
-				message: "verification_failed",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "verification_failed",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 500 },
+			);
 		}
 
-		return jsonResponse(200, {
-			ok: true,
-			message: "verification_sent",
-			tone: "success",
-		});
+		return Response.json(
+			{
+				ok: true,
+				message: "verification_sent",
+				tone: "success",
+			} satisfies ApiJsonBody,
+			{ status: 200 },
+		);
 	} catch (error) {
 		logger.error("Send verification error", { userId: user.id }, error);
-		return jsonResponse(500, {
-			ok: false,
-			message: "server_error",
-			tone: "error",
-		});
+		return Response.json(
+			{
+				ok: false,
+				message: "server_error",
+				tone: "error",
+			} satisfies ApiJsonBody,
+			{ status: 500 },
+		);
 	}
 };

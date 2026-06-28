@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { jsonResponse } from "../../../../lib/api/json-response";
+import type { ApiJsonBody } from "../../../../lib/api/types";
 import { checkVerification } from "../../../../lib/auth/sms-verification";
 import { VERIFICATION_EXPIRATION_MS } from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
@@ -30,11 +30,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		logger.info("SMS verification attempt without authenticated user", {
 			reason: "unauthenticated",
 		});
-		return jsonResponse(401, {
-			ok: false,
-			message: "unauthorized",
-			tone: "error",
-		});
+		return Response.json(
+			{
+				ok: false,
+				message: "unauthorized",
+				tone: "error",
+			} satisfies ApiJsonBody,
+			{ status: 401 },
+		);
 	}
 
 	try {
@@ -48,11 +51,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			logger.info("SMS verification code form rejected due to invalid fields", {
 				errors: parsed.allErrors,
 			});
-			return jsonResponse(400, {
-				ok: false,
-				message: "invalid_form",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "invalid_form",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 400 },
+			);
 		}
 
 		const code = parsed.data.code;
@@ -63,32 +69,41 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				userId: user.id,
 				endpoint: "sms/verify-code",
 			});
-			return jsonResponse(404, {
-				ok: false,
-				message: "user_not_found",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "user_not_found",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 404 },
+			);
 		}
 		if (!userData.phone_country_code || !userData.phone_number) {
 			logger.info("SMS verification requested but phone details missing", {
 				userId: user.id,
 			});
-			return jsonResponse(400, {
-				ok: false,
-				message: "phone_not_set",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "phone_not_set",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 400 },
+			);
 		}
 
 		if (!userData.verification_sent_at) {
 			logger.info("SMS verification attempted without prior code request", {
 				userId: user.id,
 			});
-			return jsonResponse(400, {
-				ok: false,
-				message: "no_code_requested",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "no_code_requested",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 400 },
+			);
 		}
 
 		// Check if verification code has expired.
@@ -99,11 +114,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				userId: user.id,
 				sentAt: userData.verification_sent_at,
 			});
-			return jsonResponse(400, {
-				ok: false,
-				message: "code_expired",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "code_expired",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 400 },
+			);
 		}
 
 		// Rate limit verification attempts to prevent brute force attacks
@@ -124,22 +142,28 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				{ userId: user.id },
 				rateLimitError,
 			);
-			return jsonResponse(500, {
-				ok: false,
-				message: "server_error",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "server_error",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 500 },
+			);
 		}
 
 		if (rateLimitAllowed === false) {
 			logger.info("User rate-limited for SMS verification attempts", {
 				userId: user.id,
 			});
-			return jsonResponse(429, {
-				ok: false,
-				message: "verification_rate_limited",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "verification_rate_limited",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 429 },
+			);
 		}
 
 		if (rateLimitAllowed !== true) {
@@ -147,11 +171,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				userId: user.id,
 				rateLimitAllowed,
 			});
-			return jsonResponse(500, {
-				ok: false,
-				message: "server_error",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "server_error",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 500 },
+			);
 		}
 
 		const fullPhone = `${userData.phone_country_code}${userData.phone_number}`;
@@ -159,11 +186,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 		if (!result.success) {
 			logger.info("Verification failed", { error: result.error });
-			return jsonResponse(400, {
-				ok: false,
-				message: "invalid_code",
-				tone: "error",
-			});
+			return Response.json(
+				{
+					ok: false,
+					message: "invalid_code",
+					tone: "error",
+				} satisfies ApiJsonBody,
+				{ status: 400 },
+			);
 		}
 
 		const updates = {
@@ -173,17 +203,23 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		};
 		await userService.update(user.id, updates);
 
-		return jsonResponse(200, {
-			ok: true,
-			message: "phone_verified",
-			tone: "success",
-		});
+		return Response.json(
+			{
+				ok: true,
+				message: "phone_verified",
+				tone: "success",
+			} satisfies ApiJsonBody,
+			{ status: 200 },
+		);
 	} catch (error) {
 		logger.error("Verify code error", { userId: user.id, action: "verify_sms_code" }, error);
-		return jsonResponse(500, {
-			ok: false,
-			message: "server_error",
-			tone: "error",
-		});
+		return Response.json(
+			{
+				ok: false,
+				message: "server_error",
+				tone: "error",
+			} satisfies ApiJsonBody,
+			{ status: 500 },
+		);
 	}
 };
