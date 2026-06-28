@@ -1,0 +1,191 @@
+name: CI
+
+on:
+  pull_request:
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  DOCKER_HOST: unix:///var/run/docker.sock
+  DEFAULT_PASSWORD: ci-local-seed-password
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - uses: astral-sh/setup-uv@v5
+
+      - uses: aws-actions/setup-sam@v3
+        with:
+          use-installer: true
+
+      - uses: supabase/setup-cli@v2
+        with:
+          version: latest
+          github-token: ${{ github.token }}
+
+      - name: Run Biome
+        run: npx --no-install biome ci . --error-on-warnings
+
+      - name: Lint YAML
+        run: npm run check:yaml
+
+      - name: Deep type check
+        run: npm run check:ts
+
+      - name: Knip (unused code)
+        run: npm run check:knip
+
+      - name: Squawk migrations
+        run: npm run check:sql
+
+      - name: Deploy function coverage
+        run: npm run check:deploy-functions
+
+      - name: Check migration grants (static)
+        run: npm run check:migration-grants
+
+      - name: Build Lambda bundle
+        run: bash aws/deploy-web.sh --build
+
+      - name: Prepare .env.local
+        run: |
+          cp env.example .env.local
+          {
+            echo "DEFAULT_PASSWORD=${DEFAULT_PASSWORD}"
+            echo "UNSUBSCRIBE_TOKEN_SECRET=ci-unsubscribe-secret-min-12-chars"
+            echo "VERCEL_URL=http://localhost:4322"
+            echo "TWILIO_ACCOUNT_SID=AC00000000000000000000000000000000"
+            echo "TWILIO_AUTH_TOKEN=ci-twilio-auth-token"
+            echo "TWILIO_PHONE_NUMBER=+15555550100"
+            echo "TWILIO_VERIFY_SERVICE_SID=VA00000000000000000000000000000000"
+            echo "EMAIL_FROM=ci@example.com"
+            echo "MASSIVE_API_KEY=ci-massive-api-key"
+            echo "FINNHUB_API_KEY=ci-finnhub-api-key"
+            echo "EMAIL_SMTP_HOST=localhost"
+            echo "EMAIL_SMTP_PORT=1025"
+          } >> .env.local
+
+      - name: Start Supabase
+        run: npm run db:start
+
+      - name: Load Supabase env
+        run: |
+          supabase status -o json > /tmp/sb-status.json
+          DB_VARS=$(jq -r '
+            "SUPABASE_URL=\(.API_URL // "")",
+            "SUPABASE_PUBLISHABLE_KEY=\(.ANON_KEY // "")",
+            "SUPABASE_SECRET_KEY=\(.SERVICE_ROLE_KEY // "")",
+            "DATABASE_URL=\(.DB_URL // "")"
+          ' /tmp/sb-status.json)
+          INVALID_DB_VARS=0
+          declare -A DB_VARS_SEEN_KEYS=()
+          while IFS= read -r LINE; do
+            [[ -z "$LINE" ]] && continue
+            if [[ "$LINE" != *"="* ]]; then
+              echo "Error: Supabase env var line is malformed: $LINE" >&2
+              INVALID_DB_VARS=1
+              continue
+            fi
+            KEY="${LINE%%=*}"
+            VALUE="${LINE#*=}"
+            DB_VARS_SEEN_KEYS["$KEY"]=1
+            VALUE_TRIMMED="${VALUE//[[:space:]]/}"
+            if [[ -z "$VALUE_TRIMMED" || "$VALUE" == "null" ]]; then
+              echo "Error: Supabase status did not provide a valid value for $KEY." >&2
+              INVALID_DB_VARS=1
+            fi
+          done <<< "$DB_VARS"
+          for KEY in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY DATABASE_URL; do
+            if [[ -z "${DB_VARS_SEEN_KEYS[$KEY]:-}" ]]; then
+              echo "Error: Supabase env var $KEY was not produced." >&2
+              INVALID_DB_VARS=1
+            fi
+          done
+          if [[ "$INVALID_DB_VARS" -ne 0 ]]; then
+            exit 1
+          fi
+          while IFS= read -r LINE; do
+            [[ -z "$LINE" ]] && continue
+            KEY="${LINE%%=*}"
+            VALUE="${LINE#*=}"
+            if grep -q "^${KEY}=" .env.local; then
+              sed -i "s|^${KEY}=.*|${KEY}=${VALUE}|" .env.local
+            else
+              echo "${KEY}=${VALUE}" >> .env.local
+            fi
+            echo "${KEY}=${VALUE}" >> "$GITHUB_ENV"
+          done <<< "$DB_VARS"
+          echo "DEFAULT_PASSWORD=${DEFAULT_PASSWORD}" >> "$GITHUB_ENV"
+
+      - name: Reset database
+        run: npm run db:reset
+
+      - name: Verify generated types are checked in
+        run: |
+          if ! git diff --ignore-space-at-eol --exit-code --quiet src/lib/db/generated/database.types.ts; then
+            echo "Detected uncommitted changes to database.types.ts after db:reset."
+            git diff src/lib/db/generated/database.types.ts
+            exit 1
+          fi
+
+      - id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
+      - name: Install Playwright
+        run: |
+          if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
+            npx playwright install-deps chromium
+          else
+            npx playwright install --with-deps chromium
+          fi
+
+      - name: DB doctor
+        run: npm run db:doctor
+
+      - name: Check DB privileges
+        run: npm run check:db-privileges
+
+      - name: Unit tests
+        run: npm test
+
+      - name: E2E tests
+        run: npm run test:e2e
+
+      - name: Build application
+        run: npm run build
+        env:
+          SKIP_VENDOR_HTTP_IN_TEST: "1"
+
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: .playwright-mcp/cli/
+          if-no-files-found: ignore
