@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { polygonUpdatedNs } from "../../helpers/market-data";
 import { fetchTopMovers } from "../../../src/lib/market-data/movers";
 
 // Mock retry delays so error/retry paths don't wait real seconds.
@@ -14,7 +15,7 @@ function snapshotResponse(
 			tickers: tickers.map((t) => ({
 				ticker: t.ticker,
 				todaysChangePerc: t.changePercent,
-				updated: 1_775_862_307_752_249_000,
+				updated: polygonUpdatedNs(1_775_862_308),
 				day: { o: t.close, h: t.close, l: t.close, c: t.close, v: 1_000_000 },
 				prevDay: { c: t.close / (1 + t.changePercent / 100) },
 			})),

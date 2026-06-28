@@ -30,13 +30,14 @@ const recentSendTimestamps: number[] = [];
 
 /** Serialize check/wait/push so concurrent waiters don't all proceed after the same delay and exceed the limit. */
 let mutexPromise = Promise.resolve<void>(undefined);
-function acquireMutex(): Promise<() => void> {
+async function acquireMutex(): Promise<() => void> {
 	const prev = mutexPromise;
 	let release!: () => void;
 	mutexPromise = new Promise<void>((r) => {
 		release = r;
 	});
-	return prev.then(() => release);
+	await prev;
+	return release;
 }
 
 async function waitForRateLimit(): Promise<void> {

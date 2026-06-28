@@ -4,8 +4,7 @@
 		"target": "ES2024",
 		"lib": ["ES2024"],
 		"module": "Preserve",
-		"types": ["node", "aws-lambda"],
-		"noFallthroughCasesInSwitch": true
+		"types": ["node", "aws-lambda"]
 	},
 	"include": ["../src/handlers/**/*.ts"]
 }

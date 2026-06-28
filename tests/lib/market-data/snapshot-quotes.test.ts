@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { polygonUpdatedNs } from "../../helpers/market-data";
 import { fetchSnapshotQuotes } from "../../../src/lib/market-data/quotes";
 
 // Mock retry delays so error/retry paths don't wait real seconds.
@@ -37,7 +38,7 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 				{
 					ticker: "RTX",
 					todaysChangePerc: -0.1817252541314062,
-					updated: 1778495760000000000,
+					updated: polygonUpdatedNs(1_778_495_760),
 					day: { o: 0, h: 0, l: 0, c: 0, v: 0 },
 					min: { c: 175.77 },
 					prevDay: { o: 176.22, h: 177.09, l: 174.6, c: 176.09, v: 6277446 },
@@ -45,7 +46,7 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 				{
 					ticker: "PLTR",
 					todaysChangePerc: -1.843251088534122,
-					updated: 1778496660000000000,
+					updated: polygonUpdatedNs(1_778_496_660),
 					day: { o: 0, h: 0, l: 0, c: 0, v: 0 },
 					min: { c: 135.26 },
 					prevDay: { o: 135.865, h: 137.88, l: 133.02, c: 137.8, v: 41745393 },
@@ -79,7 +80,7 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 					ticker: "BAH",
 					todaysChangePerc: 0.8177570093457884,
 					todaysChange: 0.63,
-					updated: 1_778_486_450_150_750_000,
+					updated: polygonUpdatedNs(1_778_486_450),
 					day: { o: 0, h: 0, l: 0, c: 0, v: 0 },
 					min: { c: 0 },
 					prevDay: { o: 76.23, h: 77.14, l: 74.88, c: 77.04, v: 1253720 },
@@ -136,7 +137,7 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 				{
 					ticker: "MSFT",
 					todaysChangePerc: 1.0,
-					updated: 1_778_530_000_000_000_000,
+					updated: polygonUpdatedNs(1_778_530_000),
 					day: { o: 396, h: 416, l: 395, c: 415.2, v: 25_000_000 },
 					min: { c: 416.5 },
 					prevDay: { o: 410, h: 412, l: 408, c: 411.2, v: 30_000_000 },
@@ -158,7 +159,7 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 				{
 					ticker: "SAIC",
 					todaysChangePerc: 0.5,
-					updated: 1_778_530_000_000_000_000,
+					updated: polygonUpdatedNs(1_778_530_000),
 					day: { o: 92, h: 94, l: 91, c: 93.93, v: 477144 },
 					min: { c: 0 },
 					prevDay: { o: 92.5, h: 93.5, l: 91.2, c: 93.46, v: 500000 },
@@ -183,7 +184,7 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 				{
 					ticker: "SPY",
 					todaysChangePerc: 0.5,
-					updated: 1778500000000000000,
+					updated: polygonUpdatedNs(1_778_500_000),
 					day: { o: 497.5, h: 501.25, l: 497.0, c: 500.5, v: 50_000_000 },
 					min: { c: 500.4 },
 					prevDay: { o: 496.0, h: 499.0, l: 495.5, c: 498.0, v: 60_000_000 },
@@ -213,7 +214,7 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 				{
 					ticker: "LDOS",
 					todaysChangePerc: -0.06,
-					updated: 1_781_188_800_000_000_000,
+					updated: polygonUpdatedNs(1_781_188_800),
 					day: { o: 121.8, h: 122.3, l: 121.4, c: 122.24, v: 350_000 },
 					min: { c: 122.24 },
 					prevDay: { o: 122.1, h: 122.6, l: 121.3, c: 121.69, v: 1_100_000 },
@@ -237,7 +238,7 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 				{
 					ticker: "NEWIPO",
 					todaysChangePerc: 3.2,
-					updated: 1_781_188_800_000_000_000,
+					updated: polygonUpdatedNs(1_781_188_800),
 					day: { o: 24, h: 26, l: 23.5, c: 25.8, v: 9_000_000 },
 					min: { c: 25.8 },
 					prevDay: { o: 0, h: 0, l: 0, c: 0, v: 0 },
@@ -261,7 +262,7 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 			snapshotResponse([
 				{
 					ticker: "WEIRD",
-					updated: 1_781_188_800_000_000_000,
+					updated: polygonUpdatedNs(1_781_188_800),
 					day: { o: 12, h: 12.5, l: 11.8, c: 12.1, v: 4000 },
 					min: { c: 12.1 },
 					prevDay: { o: 0, h: 0, l: 0, c: 0, v: 0 },
@@ -285,7 +286,7 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 				{
 					ticker: "AAPL",
 					todaysChangePerc: 0,
-					updated: 1_778_300_000_000_000_000,
+					updated: polygonUpdatedNs(1_778_300_000),
 					day: { o: 178, h: 180, l: 177, c: 179.5, v: 50_000_000 },
 					min: { c: 179.8 },
 					prevDay: { o: 176, h: 178, l: 175, c: 177, v: 60_000_000 },
@@ -329,7 +330,7 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 					{
 						ticker: "AAA",
 						todaysChangePerc: 1.2,
-						updated: 1778500000000000000,
+						updated: polygonUpdatedNs(1_778_500_000),
 						day: { o: 10, h: 11, l: 9.5, c: 10.5, v: 1000 },
 						min: { c: 10.5 },
 						prevDay: { o: 9.8, h: 10.2, l: 9.5, c: 10, v: 900 },

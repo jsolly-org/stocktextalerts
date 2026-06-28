@@ -28,8 +28,7 @@ export function runWithRequestContext<T>(requestId: string, fn: () => T): T {
  * one place and a newly-added handler can't silently forget it. Import only in
  * Lambda handlers — never in browser bundles.
  */
-export function runLambda<T>(context: Context, fn: () => Promise<T>): Promise<T> {
-	return loadSecretsIntoEnv(STOCKTEXTALERTS_SECRET_NAMES).then(() =>
-		runWithRequestContext(context.awsRequestId, fn),
-	);
+export async function runLambda<T>(context: Context, fn: () => Promise<T>): Promise<T> {
+	await loadSecretsIntoEnv(STOCKTEXTALERTS_SECRET_NAMES);
+	return runWithRequestContext(context.awsRequestId, fn);
 }

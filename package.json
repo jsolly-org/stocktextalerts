@@ -23,7 +23,7 @@
 		"test:e2e": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-playwright.ts",
 		"test:e2e:preview": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-playwright.ts --config playwright.preview.config.ts",
 		"test:all": "npm run test && npm run test:e2e",
-		"check:ts": "astro check",
+		"check:ts": "astro check --minimumSeverity warning --minimumFailingSeverity warning",
 		"check:biome": "biome check --write --no-errors-on-unmatched",
 		"check:knip": "knip",
 		"check:md": "markdownlint-cli2 \"**/*.md\"",
