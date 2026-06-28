@@ -256,9 +256,13 @@ npm run test:e2e
 
 For local development, run `npm run db:reset` before `npm run test` to ensure your Supabase DB matches the current migrations and seed data.
 
-### CI on push to main (local pre-push gate)
+### CI (GitHub Actions + local pre-push gate)
 
-The pre-push hook (`.git-hooks/pre-push`, the committed gate) runs the full CI battery on push to `main` — biome, yaml, types, markdown, knip, SQL/squawk, migration grants, db privileges, unit + E2E — **gate-only; it does not deploy**. The deploy is a separate post-landing step (`npm run deploy:code` → `aws/deploy-web.sh`), run by `/ship` after the push lands or by hand; it calls `gate_require_landed` so it never ships code that isn't on `origin/main`. See [docs/prepush-gate.md](docs/prepush-gate.md) for the command list (the gate needs local Supabase up: `npm run db:start`).
+**GitHub Actions** runs the full test battery on every PR: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (Biome, YAML, types, Knip, SQL/squawk, migration grants, Lambda bundle build, local Supabase, unit + E2E, build). [`.github/workflows/auto-merge.yml`](.github/workflows/auto-merge.yml) enables squash auto-merge on non-draft PRs once required checks pass.
+
+The **local pre-push hook** (`.git-hooks/pre-push`) runs lint, types, and static checks only — no local Supabase, no unit/E2E. See [docs/github-ci.md](docs/github-ci.md) for the full command split and branch protection setup.
+
+Deploy remains a **post-merge** step: `npm run deploy:code` → `aws/deploy-web.sh`, run by `/ship` after the PR lands or by hand; it calls `gate_require_landed` so it never ships code that isn't on `origin/main`.
 
 ### Live provider validation
 
