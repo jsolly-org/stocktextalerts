@@ -1,3 +1,11 @@
+## Ship
+
+Ship profile: `aws-sam`
+
+**Post-push (step 12):** Production deploy is **GitHub-managed** — after push to `main`, CI then `.github/workflows/deploy.yml` runs migrations, Lambda updates, and the live-provider check. Babysit those workflows; local `npm run deploy:code` is break-glass only. Vercel deploys the web tier via Git integration — verify production if web paths changed. Run `npm run deploy:infra` manually (human MFA) when `aws/template.yaml` or `aws/deploy.sh` changes — never auto-run from `/ship`.
+
+Local gate before push: pre-push hook steps in `.git-hooks/pre-push` (lint/types/static; unit tests run in GitHub CI, not the hook).
+
 ## Commands
 
 ```bash
