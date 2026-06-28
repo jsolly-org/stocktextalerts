@@ -4,7 +4,7 @@ import {
 	type SparklineMap,
 	type SparklineWindow,
 	toSparkline,
-} from "../../src/lib/messaging/sparkline";
+} from "../../src/lib/messaging/parts/charts/sparkline";
 
 function isFinitePositive(v: unknown): v is number {
 	return typeof v === "number" && Number.isFinite(v) && v > 0;

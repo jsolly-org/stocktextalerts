@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
-import { isApprovalAdminEmail } from "../../../../lib/auth/approval-admin";
-import { approvePendingUser } from "../../../../lib/auth/approve-user";
+import { isApprovalAdminEmail } from "../../../../lib/auth/approval/admin";
+import { approvePendingUser } from "../../../../lib/auth/approval/approve-user";
 import { buildSigninRedirectUrl } from "../../../../lib/auth/redirects";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../../lib/db/supabase";

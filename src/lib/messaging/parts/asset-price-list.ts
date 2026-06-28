@@ -1,8 +1,10 @@
-import type { NoSessionTrade } from "../market-data/types";
-import type { ActiveMarketSession } from "../market-notifications/scheduled/session-label";
-import { EMAIL_SPARKLINE_LABEL, SMS_SPARKLINE_LABEL, type SparklineData } from "./sparkline";
-import { toSvgSparklineImg } from "./svg-sparkline";
-import type { EmailFormatContext } from "./types";
+import { FormattedString, fmt } from "@grammyjs/parse-mode";
+import type { AssetPriceMap, NoSessionTrade } from "../../market-data/types";
+import type { EmailFormatContext } from "../types";
+import { EMAIL_SPARKLINE_LABEL, SMS_SPARKLINE_LABEL, type SparklineData } from "./charts/sparkline";
+import { toSvgSparklineImg } from "./charts/svg-sparkline";
+import { escapeHtml, getSafeHrefUrl } from "./html-utils";
+import type { ActiveMarketSession } from "./session-label";
 
 export type AssetPrice = {
 	price: number;
@@ -26,24 +28,7 @@ type AssetWithName = { symbol: string; name: string };
 
 export const NO_TRACKED_ASSETS_MESSAGE = "You don't have any tracked assets";
 
-// Only allows http: and https: schemes to prevent javascript:, data:, and similar XSS.
-export function getSafeHrefUrl(url: string): string | null {
-	if (typeof url !== "string" || url.trim() === "") return null;
-	const trimmed = url.trim().toLowerCase();
-	if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
-		return url.trim();
-	}
-	return null;
-}
-
-export function escapeHtml(value: string): string {
-	return value
-		.replaceAll("&", "&amp;")
-		.replaceAll("<", "&lt;")
-		.replaceAll(">", "&gt;")
-		.replaceAll('"', "&quot;")
-		.replaceAll("'", "&#39;");
-}
+export { escapeHtml, getSafeHrefUrl };
 
 /** Canonical USD price rendering, shared across every channel: thousands separators +
  *  2 decimals ("$1,234.56"). Use everywhere a price is shown so SMS/email/Telegram/alerts
@@ -57,6 +42,14 @@ export function formatUsdPrice(price: number): string {
 export function formatSignedChangePercent(changePercent: number): string {
 	const sign = changePercent >= 0 ? "+" : "";
 	return `${sign}${changePercent.toFixed(2)}%`;
+}
+
+const UP = "🟢";
+const DOWN = "🔴";
+const FLAT = "⚪️";
+
+function directionDot(changePercent: number): string {
+	return changePercent > 0 ? UP : changePercent < 0 ? DOWN : FLAT;
 }
 
 function formatAssetPriceText(
@@ -145,14 +138,7 @@ function resolveDisplayChangePercent(price: AssetPrice, sparkline?: SparklineDat
 const ROW_CELL = "padding: 4px 0; vertical-align: middle;";
 const NOWRAP_CELL = `${ROW_CELL} white-space: nowrap;`;
 const NUM_CELL = `${NOWRAP_CELL} font-variant-numeric: tabular-nums;`;
-// Light divider between asset blocks. Applied to every cell of an asset's
-// last row so the rule is unbroken across nowrap and colspan'd cells; the
-// table's `border-collapse: collapse` keeps it a single 1px line.
 const ROW_DIVIDER = "border-bottom: 1px solid #e5e7eb;";
-// Five price-columns: logo · ticker · dash · price · change. Sparklines render
-// on a second `<tr>` directly under the price line (colspan'd across price +
-// change cells) so the chart sits right next to its ticker on mobile clients
-// instead of competing with nowrap cells for column width.
 const ASSET_ROW_COLS = 5;
 
 export function formatAssetHtmlLine(
@@ -172,10 +158,6 @@ export function formatAssetHtmlLine(
 				: price === "no_session_trade" && marketSession === "after"
 					? "no after-hours trades"
 					: "price unavailable";
-		// Keep dash in its own column so the row aligns with priced rows; the
-		// remaining cells (price + change) collapse into one labelled span.
-		// The no-trade row is the only row for this asset, so it carries the
-		// inter-asset divider.
 		const labelSpan = ASSET_ROW_COLS - 3;
 		const logo = `<td style="${NOWRAP_CELL} padding-right: 4px; ${ROW_DIVIDER}">${logoHtml ?? ""}</td>`;
 		const ticker = `<td style="${NOWRAP_CELL} font-weight: 700; ${ROW_DIVIDER}">${symbol}</td>`;
@@ -184,9 +166,6 @@ export function formatAssetHtmlLine(
 		return `<tr>${logo}${ticker}${dash}${labelCell}</tr>`;
 	}
 
-	// Priced asset: a price row followed (when sparkline data exists) by a
-	// trend row. The divider goes on whichever of the two is the asset's last
-	// row so adjacent assets get one visible 1px line between them.
 	const priceStr = escapeHtml(formatUsdPrice(price.price));
 	const displayChangePercent = resolveDisplayChangePercent(price, sparkline);
 	const displayColor = getChangeColor(displayChangePercent);
@@ -211,12 +190,6 @@ export function formatAssetHtmlLine(
 		return priceRow;
 	}
 
-	// Sparkline lives on its own `<tr>` directly beneath the price line so the
-	// chart is unambiguously associated with its ticker on narrow viewports
-	// (iOS Mail, Fastmail's message column) where a same-row sparkline drifts
-	// off to the right and the label-to-ticker mapping breaks down. Two empty
-	// leading cells indent the chart so it sits under the dash/price columns,
-	// visibly nested beneath its ticker rather than as a separate paragraph.
 	const label = sparkline.cacheAsOfLabel ?? EMAIL_SPARKLINE_LABEL[sparkline.window];
 	const altText = `${label} price trend`;
 	const trendLabel = `<span style="color: #6b7280; font-size: 11px; padding-right: 6px;">${escapeHtml(`${label}:`)}</span>`;
@@ -282,10 +255,33 @@ export function formatAssetsHtmlList(
 		})
 		.join("");
 
-	// `max-width: 100%` keeps the table inside the email body on narrow
-	// viewports without forcing it to expand on wide ones (width: 100% pulled
-	// the price and change% columns apart on desktop, leaving a confusing gap).
-	// Sparklines stack on their own row beneath each price line, so the table
-	// no longer carries cells wide enough to overflow the wrapper.
 	return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; max-width: 100%;">${rows}</table>`;
+}
+
+/** Append Telegram-native asset price lines to an existing FormattedString message. */
+export function appendTelegramAssetPriceLines(options: {
+	msg: FormattedString;
+	userAssets: Array<{ symbol: string }>;
+	assetPrices: AssetPriceMap;
+	getSparkline?: (symbol: string) => SparklineData | null | undefined;
+	showChangePercent?: (symbol: string) => boolean;
+}): FormattedString {
+	let { msg } = options;
+	for (const asset of options.userAssets) {
+		const quote = options.assetPrices.get(asset.symbol);
+		if (!quote) {
+			msg = fmt`${msg}\n${asset.symbol} — price unavailable`;
+			continue;
+		}
+		const sparkline = options.getSparkline?.(asset.symbol);
+		const showChange = options.showChangePercent?.(asset.symbol) ?? true;
+		const changePercent =
+			showChange && quote
+				? resolveDisplayChangePercent(quote, sparkline ?? null)
+				: quote.changePercent;
+		const dot = directionDot(changePercent);
+		const changeSuffix = showChange ? `  (${formatSignedChangePercent(changePercent)})` : "";
+		msg = fmt`${msg}\n${dot} ${FormattedString.bold(asset.symbol)}  ${formatUsdPrice(quote.price)}${changeSuffix}`;
+	}
+	return msg;
 }

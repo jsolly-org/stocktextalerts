@@ -1,8 +1,8 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
+import { runLambda } from "../lib/logging/request-context";
 import { getAndResetOptionalVendorSkipCount } from "../lib/resilience/optional-vendors";
-import { runLambda } from "../lib/run-lambda";
 import { runScheduledNotifications } from "../lib/schedule/run";
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {

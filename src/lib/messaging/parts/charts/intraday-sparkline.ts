@@ -1,7 +1,7 @@
 import { DateTime } from "luxon";
-import { US_MARKET_OPEN_EASTERN_MINUTES, US_MARKET_TIMEZONE } from "../../constants";
-import { getChangeColor } from "../asset-formatting";
-import { type SparklineTimeLabel, toSvgSparklineImg } from "../svg-sparkline";
+import { US_MARKET_OPEN_EASTERN_MINUTES, US_MARKET_TIMEZONE } from "../../../constants";
+import { getChangeColor } from "../asset-price-list";
+import { type SparklineTimeLabel, toSvgSparklineImg } from "./svg-sparkline";
 
 /** Format minutes-from-midnight as compact time for sparkline axis labels.
  *  12h: "9:30a", "2p", "12:45p"   24h: "9:30", "14:00", "12:45" */

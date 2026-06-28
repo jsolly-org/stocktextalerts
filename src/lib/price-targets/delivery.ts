@@ -2,14 +2,14 @@ import { getSiteUrl } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import type { EnrichedAlert } from "../market-notifications/enrichment";
-import { escapeHtml, formatUsdPrice } from "../messaging/asset-formatting";
 import { isEmailChannelUsable } from "../messaging/email/eligibility";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
-import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../messaging/footer";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
 import { isFacetEnabled } from "../messaging/notification-prefs";
+import { escapeHtml, formatUsdPrice } from "../messaging/parts/asset-price-list";
+import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../messaging/parts/footer";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { isSmsChannelUsable, sendUserSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
@@ -33,7 +33,7 @@ export interface PriceTargetDeliveryStats {
 
 /** Outcome of one channel in a single delivery round. `skipped` means the channel
  *  was not attempted (not wanted, not usable, or already delivered on a prior round). */
-export type PriceTargetChannelOutcome = "sent" | "failed" | "skipped";
+type PriceTargetChannelOutcome = "sent" | "failed" | "skipped";
 
 /** Per-channel outcome of one `deliverPriceTargetAlert` round. The caller uses this
  *  to decide when every *required* channel has reached a terminal (sent) state. */
