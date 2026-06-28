@@ -4,3 +4,7 @@ updates:
     directory: /
     schedule:
       interval: daily
+    ignore:
+      # @astrojs/node 11+ targets Astro 7; stay on 10.x until an Astro 7 migration.
+      - dependency-name: "@astrojs/node"
+        update-types: ["version-update:semver-major"]
