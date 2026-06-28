@@ -1,6 +1,6 @@
 # GitHub CI
 
-<!-- ci-smoke: trivial marker for auto-merge integration test (2026-06-28) -->
+<!-- ci-smoke: gate-lib fix verified 2026-06-28 -->
 
 StockTextAlerts uses **GitHub Actions** for the full test battery and **native GitHub auto-merge** for landing PRs. The local pre-push hook runs the cheap checks only; unit tests and E2E run in CI.
 
