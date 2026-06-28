@@ -1,7 +1,7 @@
 {
 	"extends": [
 		"./node_modules/astro/tsconfigs/strict.json",
-		"../dotagents/tsconfig/strict-astro.json"
+		"./tsconfig/strict-astro.baseline.json"
 	],
 	"include": [
 		".astro/types.d.ts",
