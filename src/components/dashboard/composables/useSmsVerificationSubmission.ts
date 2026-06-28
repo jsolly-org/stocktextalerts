@@ -1,5 +1,8 @@
 import { nextTick, ref } from "vue";
-import { isUnauthorizedResponse, redirectToSignIn } from "../../../lib/auth/session-expired";
+import {
+	isUnauthorizedResponse,
+	redirectToSignIn,
+} from "../../../lib/auth/session/session-expired";
 import { DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID, type FlashTone } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 

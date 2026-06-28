@@ -2,7 +2,7 @@
 import Navigation from "../../components/Navigation.astro";
 import StatusMessage from "../../components/StatusMessage.astro";
 import Layout from "../../layouts/Layout.astro";
-import { isApprovalAdminEmail } from "../../lib/auth/approval-admin";
+import { isApprovalAdminEmail } from "../../lib/auth/approval/admin";
 import { buildSigninRedirectUrl } from "../../lib/auth/redirects";
 import { createUserService } from "../../lib/db";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../lib/db/supabase";

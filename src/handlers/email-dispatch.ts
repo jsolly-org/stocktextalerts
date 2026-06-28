@@ -3,7 +3,7 @@ import type {
 	APIGatewayProxyStructuredResultV2,
 	Context,
 } from "aws-lambda";
-import { parseAdminEmails } from "../lib/auth/approval-admin";
+import { parseAdminEmails } from "../lib/auth/approval/admin";
 import { readEnv, requireEnv } from "../lib/db/env";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
