@@ -1,6 +1,9 @@
 import { onBeforeUnmount, type Ref, ref, watch } from "vue";
 import { createSaveSequencer, type SequencedResult } from "../../../lib/async/save-sequencer";
-import { isUnauthorizedResponse, redirectToSignIn } from "../../../lib/auth/session-expired";
+import {
+	isUnauthorizedResponse,
+	redirectToSignIn,
+} from "../../../lib/auth/session/session-expired";
 import { formatMessage } from "../../../lib/constants";
 import { rootLogger } from "../../../lib/logging";
 

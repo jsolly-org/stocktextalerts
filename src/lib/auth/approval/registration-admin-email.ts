@@ -1,9 +1,9 @@
-import { getSiteUrl } from "../db/env";
-import type { Logger } from "../logging";
-import { sendAppTransactionalEmail } from "../messaging/email/dispatch-client";
-import { renderEmailButton, renderEmailShell } from "../messaging/email/layout";
-import { escapeHtml } from "../messaging/parts/asset-price-list";
-import { getAdminEmails } from "./approval-admin";
+import { getSiteUrl } from "../../db/env";
+import type { Logger } from "../../logging";
+import { sendAppTransactionalEmail } from "../../messaging/email/dispatch-client";
+import { renderEmailButton, renderEmailShell } from "../../messaging/email/layout";
+import { escapeHtml } from "../../messaging/parts/html-utils";
+import { getAdminEmails } from "./admin";
 
 type RegisteredUserProfile = {
 	id: string;
