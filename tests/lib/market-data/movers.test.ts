@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { polygonUpdatedNs } from "../../helpers/market-data";
 import { fetchTopMovers } from "../../../src/lib/market-data/movers";
+import { polygonUpdatedNs } from "../../helpers/market-data";
 
 // Mock retry delays so error/retry paths don't wait real seconds.
 vi.mock("node:timers/promises", () => ({
