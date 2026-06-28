@@ -1,4 +1,4 @@
-import { isUnauthorizedResponse, redirectToSignIn } from "../auth/session-expired";
+import { isUnauthorizedResponse, redirectToSignIn } from "../auth/session/session-expired";
 import type { NotificationPreferencesSnapshot } from "../db";
 import { rootLogger } from "../logging";
 

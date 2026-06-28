@@ -13,30 +13,23 @@ import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import nodemailer, { type Transporter } from "nodemailer";
 import { readEnv, requireEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
-import type { AssetPriceMap, MarketSession } from "../../market-data/types";
-import { NO_SESSION_TRADE } from "../../market-data/types";
-import {
-	buildSessionFirstLine,
-	buildSessionFirstLineHtml,
-} from "../../market-notifications/scheduled/session-label";
-import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
 import { withDeliveryRetry } from "../delivery-retry";
-import { NOT_FINANCIAL_ADVICE } from "../footer";
-import { buildMarketClosedBannerHtml, buildMarketClosedBannerText } from "../market-closure-banner";
-import type { DeliveryResult, EmailFormatContext, EmailUser, UserAssetRow } from "../types";
+import { escapeHtml } from "../parts/html-utils";
+import type { DeliveryResult } from "../types";
 
 const EMAIL_MAX_PER_SECOND = 14;
 const recentSendTimestamps: number[] = [];
 
 /** Serialize check/wait/push so concurrent waiters don't all proceed after the same delay and exceed the limit. */
 let mutexPromise = Promise.resolve<void>(undefined);
-function acquireMutex(): Promise<() => void> {
+async function acquireMutex(): Promise<() => void> {
 	const prev = mutexPromise;
 	let release!: () => void;
 	mutexPromise = new Promise<void>((r) => {
 		release = r;
 	});
-	return prev.then(() => release);
+	await prev;
+	return release;
 }
 
 async function waitForRateLimit(): Promise<void> {
@@ -66,8 +59,6 @@ async function waitForRateLimit(): Promise<void> {
 		if (shouldWait) await realDelay(waitMs);
 	}
 }
-
-import { buildEmailUrls, renderEmailFooter } from "./layout";
 
 export interface EmailRequest {
 	to: string;
@@ -183,134 +174,4 @@ function createSmtpSender(options: {
 			};
 		}
 	};
-}
-
-/** Build the plaintext + HTML email body for a scheduled asset update. */
-export function formatEmailMessage(
-	user: EmailUser,
-	userAssets: UserAssetRow[],
-	assetsList: string,
-	priceMap: AssetPriceMap,
-	marketSession: MarketSession,
-	context?: EmailFormatContext,
-	/** Optional delay banners for late notifications. */
-	delayBanners?: {
-		text?: string | null;
-		html?: string | null;
-	},
-	/** Session-aware first body line metadata (pre/regular/after/closed). */
-	sessionFirstLine?: {
-		scheduledEtMinutes: number;
-		is24: boolean;
-	},
-	/** Symbols Massive recognized with no live trade in this session — render as
-	 *  "no pre-market trades" / "no after-hours trades" instead of "price unavailable". */
-	noSessionTrade?: Set<string>,
-): { text: string; html: string } {
-	const { getSparkline, marketClosureInfo, getLogoHtml } = context ?? {};
-	const marketOpen = marketSession !== "closed";
-	const urls = buildEmailUrls(user.id, user.email, "marketNotifications");
-	const textFooter = `\n\nManage your delivery schedule: ${urls.scheduleUrl}\nUnsubscribe from all emails: ${urls.unsubscribeUrl}\n${NOT_FINANCIAL_ADVICE}`;
-	// The HTML footer is the shared canonical renderer (F2) — same one delisting / daily-digest /
-	// asset-events / price-targets emails use, so the scheduled email no longer forks its own copy.
-	const htmlFooter = renderEmailFooter(urls);
-
-	if (userAssets.length === 0) {
-		const text = `You don't have any tracked assets yet.\n\nVisit your dashboard to add assets to track: ${urls.dashboardUrl}${textFooter}`;
-		const html = `
-<!DOCTYPE html>
-<html>
-<head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-	<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 8px 8px 0 0; text-align: center;">
-		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Scheduled Price Update</h1>
-	</div>
-	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Get Started Tracking Assets</h2>
-		<p style="color: #4b5563; font-size: 16px; margin-bottom: 30px;">
-			You don't have any tracked assets yet. Start tracking your favorite assets to receive regular updates!
-		</p>
-		<div style="text-align: center; margin: 40px 0;">
-			<a href="${urls.escapedDashboardUrl}" style="display: inline-block; background: #667eea; color: white; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 600; font-size: 16px; transition: background 0.2s;">
-				Add Assets to Track →
-			</a>
-		</div>
-		<p style="color: #6b7280; font-size: 14px; margin-top: 30px; padding-top: 30px; border-top: 1px solid #e5e7eb;">
-			Once you add assets to your dashboard, you'll receive regular updates about them during your configured notification window.
-		</p>
-		${htmlFooter}
-	</div>
-</body>
-</html>`;
-		return { text, html };
-	}
-
-	const delayText = delayBanners?.text ? `\n${delayBanners.text}\n` : "";
-	const marketDisclaimer = marketOpen
-		? ""
-		: `\n${buildMarketClosedBannerText(marketClosureInfo ?? null)}\n`;
-	// Session-first-line is only rendered for active sessions. `marketOpen`
-	// narrows `marketSession` to ActiveMarketSession (excludes "closed").
-	const sessionFirstLineText =
-		sessionFirstLine && marketOpen
-			? `${buildSessionFirstLine(
-					marketSession,
-					sessionFirstLine.scheduledEtMinutes,
-					sessionFirstLine.is24,
-				)}\n\n`
-			: "";
-	const sessionFirstLineHtml =
-		sessionFirstLine && marketOpen
-			? buildSessionFirstLineHtml(
-					marketSession,
-					sessionFirstLine.scheduledEtMinutes,
-					sessionFirstLine.is24,
-				)
-			: "";
-
-	const text = `${sessionFirstLineText}Your tracked assets:\n${delayText}${marketDisclaimer}${assetsList}${textFooter}`;
-	const getPriceForHtml = (symbol: string) =>
-		noSessionTrade?.has(symbol) ? NO_SESSION_TRADE : (priceMap.get(symbol) ?? undefined);
-	const escapedAssetsListHtml = formatAssetsHtmlList(userAssets, getPriceForHtml, {
-		getSparkline,
-		getLogoHtml,
-		showChangePercent: marketSession !== "closed",
-		marketSession: marketOpen ? marketSession : undefined,
-	});
-	const marketClosedBannerHtml = marketOpen
-		? ""
-		: buildMarketClosedBannerHtml(marketClosureInfo ?? null);
-	const html = `
-<!DOCTYPE html>
-<html>
-<head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-	<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 8px 8px 0 0; text-align: center;">
-		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Scheduled Price Update</h1>
-	</div>
-	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		${sessionFirstLineHtml}
-		${delayBanners?.html || ""}
-		${marketClosedBannerHtml}
-		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Your Scheduled Price Notification</h2>
-		<div style="background: #f9fafb; padding: 20px; border-radius: 6px; margin-bottom: 30px; color: #1f2937; font-size: 14px;">
-			${escapedAssetsListHtml}
-		</div>
-		<div style="text-align: center; margin-top: 30px;">
-			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
-				Manage your notifications →
-			</a>
-		</div>
-		${htmlFooter}
-	</div>
-</body>
-</html>`;
-
-	return { text, html };
 }

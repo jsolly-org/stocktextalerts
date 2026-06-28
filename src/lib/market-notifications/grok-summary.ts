@@ -9,7 +9,7 @@ import { fetchGrokResponseOnce, type GrokResponsesResponse } from "../vendors/gr
 const GROK_TIMEOUT_MS = 60_000;
 
 /** A single link returned by Grok for a price alert. */
-export interface PriceAlertLink {
+interface PriceAlertLink {
 	url: string;
 	title: string;
 	source: string;

@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { getAssetData } from "../asset-data";
 import { upsertAssets } from "../asset-db";
@@ -106,4 +106,27 @@ export async function waitForEmailNotificationsEnabled(
 			},
 		)
 		.toBe(expectedValue);
+}
+
+/** Open a dashboard ChannelMultiSelect and return its listbox (retries through hydration races). */
+export async function openChannelMultiselect(
+	page: Page,
+	idPrefix: string,
+	timeoutMs = 15_000,
+): Promise<Locator> {
+	const trigger = page.locator(`#${idPrefix}-channel-trigger`);
+	const listbox = page.locator(`#${idPrefix}-channel-listbox`);
+	await expect(trigger).toBeVisible({ timeout: timeoutMs });
+	await trigger.scrollIntoViewIfNeeded();
+	await page.locator("[data-hydrated]").first().waitFor({ state: "attached", timeout: timeoutMs });
+
+	await expect(async () => {
+		if (!(await listbox.isVisible())) {
+			await trigger.click();
+		}
+		await expect(listbox).toBeVisible({ timeout: 2_000 });
+		await expect(trigger).toHaveAttribute("aria-expanded", "true");
+	}).toPass({ timeout: timeoutMs });
+
+	return listbox;
 }

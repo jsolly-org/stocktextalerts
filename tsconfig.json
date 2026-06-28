@@ -15,6 +15,11 @@
 				"name": "@astrojs/ts-plugin"
 			}
 		],
-		"noUncheckedIndexedAccess": true
+		"noUncheckedIndexedAccess": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"allowUnreachableCode": false,
+		"allowUnusedLabels": false
 	}
 }

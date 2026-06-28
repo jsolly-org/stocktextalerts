@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
-import { clearAuthCookies } from "../../../lib/auth/cookies";
 import { deleteUserAccount } from "../../../lib/auth/delete-account";
-import { enforceAuthRateLimit } from "../../../lib/auth/enforce-auth-rate-limit";
+import { enforceAuthRateLimit } from "../../../lib/auth/enforce-rate-limit";
+import { clearAuthCookies } from "../../../lib/auth/session/cookies";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";

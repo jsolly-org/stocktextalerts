@@ -3,7 +3,7 @@
 import DashboardPanels from "../components/dashboard/DashboardPanels.vue";
 import Navigation from "../components/Navigation.astro";
 import Layout from "../layouts/Layout.astro";
-import { isUserApproved } from "../lib/auth/approval";
+import { isUserApproved } from "../lib/auth/approval/status";
 import { buildSigninRedirectUrl } from "../lib/auth/redirects";
 import { createUserService, getUserAssets } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";

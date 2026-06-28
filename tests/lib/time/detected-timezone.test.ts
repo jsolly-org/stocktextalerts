@@ -46,7 +46,7 @@ describe("Register timezone selector uses browser-detected timezone when availab
 
 		vi.spyOn(DateTime, "local").mockReturnValue({
 			zoneName: "America/Chicago",
-		} as unknown as DateTime);
+		} as unknown as DateTime<true>);
 
 		setupDetectedTimezoneOption({ defaultTimezone: "America/New_York" });
 
@@ -74,7 +74,7 @@ describe("Register timezone selector uses browser-detected timezone when availab
 
 		vi.spyOn(DateTime, "local").mockReturnValue({
 			zoneName: "Europe/Berlin",
-		} as unknown as DateTime);
+		} as unknown as DateTime<true>);
 
 		setupDetectedTimezoneOption({ defaultTimezone: "America/New_York" });
 
@@ -103,7 +103,7 @@ describe("Register timezone selector uses browser-detected timezone when availab
 
 		vi.spyOn(DateTime, "local").mockReturnValue({
 			zoneName: "America/New_York",
-		} as unknown as DateTime);
+		} as unknown as DateTime<true>);
 
 		setupDetectedTimezoneOption({ defaultTimezone: "America/New_York" });
 
