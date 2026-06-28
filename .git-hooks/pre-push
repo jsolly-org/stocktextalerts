@@ -36,6 +36,7 @@ run_step "lambda bundle build — catches an esbuild break before prod is touche
 # --- Quality gate (local — no Podman/Postgres; see docs/github-ci.md) ---
 run_step "biome ci"               npx --no-install biome ci . --error-on-warnings
 run_step "yaml lint"              npm run check:yaml
+run_step "actionlint"             npm run check:actions
 run_step "astro check (types)"    npm run check:ts
 run_step "knip (unused code)"     npm run check:knip
 run_step "squawk migrations"      npm run check:sql
