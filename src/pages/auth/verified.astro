@@ -7,7 +7,7 @@ import {
 	isConsumedEmailOtpError,
 	verifySupabaseOtp,
 } from "../../lib/auth/supabase-otp";
-import { clearAuthCookies } from "../../lib/auth/cookies";
+import { clearAuthCookies } from "../../lib/auth/session/cookies";
 import { createUserService } from "../../lib/db";
 import {
 	createSupabaseAdminClient,

@@ -56,7 +56,7 @@ import { updateProfileTimezone } from "../../lib/api/profile";
 import {
 	isUnauthorizedResponse,
 	redirectToSignIn,
-} from "../../lib/auth/session-expired";
+} from "../../lib/auth/session/session-expired";
 import type { NotificationPreferencesSnapshot } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
 import StatusMessage from "../StatusMessage.vue";

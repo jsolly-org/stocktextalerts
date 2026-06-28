@@ -92,7 +92,7 @@ import { computed, ref } from "vue";
 import ExternalLinkIcon from "../../../icons/arrow-top-right-on-square.svg?component";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import CheckCircleIcon from "../../../icons/check-circle-20.svg?component";
-import { isUnauthorizedResponse, redirectToSignIn } from "../../../lib/auth/session-expired";
+import { isUnauthorizedResponse, redirectToSignIn } from "../../../lib/auth/session/session-expired";
 import { rootLogger } from "../../../lib/logging";
 import StatusMessage from "../../StatusMessage.vue";
 import { useDashboardUser } from "../composables/useDashboardUser";

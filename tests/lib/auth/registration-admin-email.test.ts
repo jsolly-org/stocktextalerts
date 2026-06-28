@@ -22,7 +22,7 @@ describe("sendRegistrationAdminEmail", () => {
 	it("sends one admin notification to each configured approval admin.", async () => {
 		vi.stubEnv("ADMIN_EMAILS", "admin@example.com, second@example.com");
 		const { sendRegistrationAdminEmail } = await import(
-			"../../../src/lib/auth/registration-admin-email"
+			"../../../src/lib/auth/approval/registration-admin-email"
 		);
 		const { createLogger } = await import("../../../src/lib/logging");
 
@@ -55,7 +55,7 @@ describe("sendRegistrationAdminEmail", () => {
 		expectConsoleError("Skipping registration admin email because no admin emails are configured");
 		vi.stubEnv("ADMIN_EMAILS", "");
 		const { sendRegistrationAdminEmail } = await import(
-			"../../../src/lib/auth/registration-admin-email"
+			"../../../src/lib/auth/approval/registration-admin-email"
 		);
 		const { createLogger } = await import("../../../src/lib/logging");
 
@@ -78,7 +78,7 @@ describe("sendRegistrationAdminEmail", () => {
 				errorCode: "smtp_error",
 			});
 		const { sendRegistrationAdminEmail } = await import(
-			"../../../src/lib/auth/registration-admin-email"
+			"../../../src/lib/auth/approval/registration-admin-email"
 		);
 		const { createLogger } = await import("../../../src/lib/logging");
 
