@@ -167,7 +167,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - **Vercel (SSR + webhooks):** `TWILIO_*`, `UNSUBSCRIBE_TOKEN_SECRET` (must match Lambda — signs email unsubscribe links), `MASSIVE_API_KEY` (asset logo proxy), `ADMIN_EMAILS`, `EMAIL_DISPATCH_URL`, and `EMAIL_DISPATCH_SECRET`. App-triggered emails are dispatched to AWS Lambda via HMAC; outbound notification email/SMS is sent by **AWS Lambda**, not Vercel — do not add Lambda-only `FINNHUB_API_KEY`, `XAI_API_KEY`, `EMAIL_FROM`, or AWS access keys to Vercel.
 - **AWS Lambda (SAM deploy from `.env.local` via `aws/sam-params.sh`):** Supabase prod keys, Twilio, `UNSUBSCRIBE_TOKEN_SECRET`, Massive, Finnhub, optional `XAI_API_KEY`. `EmailFrom` is **not** passed on the CLI — the template defaults to SSM `/stocktextalerts/email-from`. SES auth is the Lambda execution role, not static `AWS_*` keys.
 - **Local-only values:** `DATABASE_URL` and `DEFAULT_PASSWORD` are for local Supabase + seed generation and should not be added to Vercel.
-- **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD` (full prod Postgres URL — migrations connect with it directly) and `AWS_PROFILE` (= `fleet-deploy`, the scoped assume-role profile). The post-push deploy (`npm run deploy:code` → `aws/deploy-web.sh`) reads these and deploys the Vercel web tier in Phase 4 via the pinned CLI (`gate_deploy_vercel`).
+- **GitHub production deploy creds:** `DATABASE_URL_PROD` lives in the GitHub `Production` environment; AWS uses the OIDC `github-actions-deploy` role. Vercel production web deploys are handled by the Vercel GitHub integration, not a GitHub Actions `VERCEL_TOKEN`. Local `.env.local` deploy creds remain only for break-glass `npm run deploy:code`.
 - **Live provider keys** (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`): SAM parameters in gitignored `.env.local` (via `aws/sam-params.sh`), consumed by the runtime Lambdas and the scheduled `stocktextalerts-live-provider-check` Lambda (weekday mid-session live vendor health check). Failures fire `stocktextalerts-live-provider-check-lambda-errors` → **shared-infra** (SES email).
 
 ### 4. Generate Seed File
@@ -256,15 +256,21 @@ npm run test:e2e
 
 For local development, run `npm run db:reset` before `npm run test` to ensure your Supabase DB matches the current migrations and seed data.
 
-### CI on push to main (local pre-push gate)
+### CI (GitHub Actions + local pre-push gate)
 
-The pre-push hook (`.git-hooks/pre-push`, the committed gate) runs the full CI battery on push to `main` — biome, yaml, types, markdown, knip, SQL/squawk, migration grants, db privileges, unit + E2E — **gate-only; it does not deploy**. The deploy is a separate post-landing step (`npm run deploy:code` → `aws/deploy-web.sh`), run by `/ship` after the push lands or by hand; it calls `gate_require_landed` so it never ships code that isn't on `origin/main`. See [docs/prepush-gate.md](docs/prepush-gate.md) for the command list (the gate needs local Supabase up: `npm run db:start`).
+**GitHub Actions** runs the full test battery on every PR, merge queue entry if the feature becomes available, and `main` push: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (Biome, YAML, actionlint, types, Knip, SQL/squawk, migration grants, Lambda bundle build, local Supabase, unit + E2E, build). [`.github/workflows/auto-merge.yml`](.github/workflows/auto-merge.yml) enables squash auto-merge on non-draft PRs once required checks pass. [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) deploys production after `main` CI passes.
+
+The **local pre-push hook** (`.git-hooks/pre-push`) runs lint, types, and static checks only — no local Supabase, no unit/E2E, no deploy credentials. See [docs/github-ci.md](docs/github-ci.md) for the full command split, branch protection, production environment secrets, and deploy setup.
+
+Deploy is **GitHub-managed** after merge: Vercel's GitHub integration deploys the web tier from `main`, and after `main` CI passes the production deploy workflow runs `aws/deploy-web.sh --deploy-ci`, applies Supabase migrations, updates Lambda code, and invokes the live-provider check. `npm run deploy:code` remains a local break-glass path.
+
+Because Vercel Git deployments start independently on `main` pushes, schema-affecting web changes should stay backward-compatible with the currently deployed database until the GitHub deploy workflow has applied migrations. Use the local break-glass deploy only when an explicitly ordered DB/Lambda/web release is required.
 
 ### Live provider validation
 
 Vitest runs fully offline and stubs every external provider key (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`, `XAI_API_KEY`); Twilio and SES are always faked in tests. There is **no way to run live provider tests locally** — the provider keys live only in the Lambda runtime (SAM params).
 
-Real Massive/Finnhub round-trips are exercised in production by the scheduled `stocktextalerts-live-provider-check` Lambda ([src/handlers/live-provider-check.ts](src/handlers/live-provider-check.ts)), which throws on any failure and surfaces it through the standard Lambda error alarm. Invoke it on demand with `aws lambda invoke` to validate providers against the real APIs.
+Real Massive/Finnhub round-trips are exercised in production by the scheduled `stocktextalerts-live-provider-check` Lambda ([src/handlers/live-provider-check.ts](src/handlers/live-provider-check.ts)), which throws on any failure and surfaces it through the standard Lambda error alarm. The GitHub deploy workflow invokes it after every production deploy; invoke it on demand with `aws lambda invoke` only for investigation.
 
 ## Usage
 
@@ -332,7 +338,7 @@ SES notification sending runs on Lambda (`EMAIL_FROM` from SSM `/stocktextalerts
 
 ### 1a. Deploy creds and live provider keys
 
-- **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD`, `AWS_PROFILE=fleet-deploy`. Read by the post-push deploy (`npm run deploy:code` → `aws/deploy-web.sh`), including the Vercel web deploy in Phase 4.
+- **GitHub deploy creds:** `DATABASE_URL_PROD` lives in the GitHub `Production` environment; non-secret deploy variables live there too (`AWS_DEPLOY_ROLE_ARN`, `AWS_REGION`, `PRODUCTION_SITE_URL`). Vercel web deploys use the connected Vercel GitHub integration, so Actions does not need `VERCEL_TOKEN`, `VERCEL_ORG_ID`, or `VERCEL_PROJECT_ID`. Local `.env.local` deploy creds remain for break-glass `npm run deploy:code`.
 - **Live provider keys** (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`): SAM params (gitignored `.env.local`), used by the runtime + `stocktextalerts-live-provider-check` Lambdas.
 
 ### 2. Deploy
@@ -366,7 +372,7 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 
 **Local testing:** `cd aws && npm run local:test-all` builds and invokes all three functions locally via `sam local invoke` (requires Podman or Docker — SAM CLI uses `DOCKER_HOST`). To test a single function: `npm run local:schedule`, `npm run local:asset-maintenance`, or `npm run local:daily-stats`. Run `npm run local:gen-env` first to generate `env.json` from `.env.local` with per-function env var scoping.
 
-**Deploying:** push to `main` (the pre-push gate lands the commit), then `npm run deploy:code` (`aws/deploy-web.sh`), run by `/ship` after the push lands or by hand: Supabase migrations → Lambda code via `update-function-code` (code-only, under the scoped `fleet-deploy` role) → Vercel web via `gate_deploy_vercel`. The deploy calls `gate_require_landed` and fails closed unless `HEAD == origin/main`, so it never ships code that hasn't landed. **A full SAM deploy (`npm run deploy:infra`) is still required whenever `aws/template.yaml` or `aws/deploy.sh` changes** (infrastructure/config) — that stays a manual admin step, not part of the hook.
+**Deploying:** merge through GitHub. Vercel's GitHub integration deploys the web tier from the landed `main` commit. After that commit passes CI, `.github/workflows/deploy.yml` runs Supabase migrations → Lambda code via `update-function-code` (code-only, under the scoped GitHub OIDC deploy role) → live-provider check. **A full SAM deploy (`npm run deploy:infra`) is still required whenever `aws/template.yaml` or `aws/deploy.sh` changes** (infrastructure/config) — that stays a manual admin step, not part of the GitHub code deploy.
 
 ## Project Structure
 
