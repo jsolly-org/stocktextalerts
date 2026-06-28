@@ -1,5 +1,8 @@
 {
-	"extends": "./node_modules/astro/tsconfigs/strict.json",
+	"extends": [
+		"./node_modules/astro/tsconfigs/strict.json",
+		"../dotagents/tsconfig/strict-astro.json"
+	],
 	"include": [
 		".astro/types.d.ts",
 		"src/**/*",
@@ -14,12 +17,6 @@
 			{
 				"name": "@astrojs/ts-plugin"
 			}
-		],
-		"noUncheckedIndexedAccess": true,
-		"noImplicitReturns": true,
-		"noFallthroughCasesInSwitch": true,
-		"noImplicitOverride": true,
-		"allowUnreachableCode": false,
-		"allowUnusedLabels": false
+		]
 	}
 }
