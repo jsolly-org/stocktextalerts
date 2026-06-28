@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 import { rootLogger } from "../../src/lib/logging";
 import { TEST_PASSWORD } from "../helpers/constants";
 import { signIn } from "../helpers/e2e/auth";
-import { waitForAutosave } from "../helpers/e2e/dashboard";
+import { openChannelMultiselect, waitForAutosave } from "../helpers/e2e/dashboard";
 import { adminClient } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser, setTestUserPrefs } from "../helpers/test-user";
 
@@ -153,9 +153,7 @@ test.describe("Telegram dashboard UI", () => {
 		await digestForm.screenshot({ path: SCREENSHOT_PANEL });
 
 		// --- Open one multiselect and screenshot the open listbox --------------
-		await topMoversTrigger.click();
-		const topMoversListbox = page.locator("#daily_digest_include_top_movers-channel-listbox");
-		await expect(topMoversListbox).toBeVisible();
+		const topMoversListbox = await openChannelMultiselect(page, "daily_digest_include_top_movers");
 		await expect(topMoversListbox).toHaveAttribute("role", "listbox");
 		// All three channels render for prices/top_movers (Email, SMS, Telegram).
 		const telegramOption = topMoversListbox.getByRole("option", { name: "Telegram" });
@@ -180,21 +178,21 @@ test.describe("Telegram dashboard UI", () => {
 
 		// The trigger summary now reflects the new Telegram selection in the UI.
 		await expect(topMoversTrigger).toContainText("Telegram");
+		await page.keyboard.press("Escape");
+		await expect(topMoversListbox).toBeHidden();
 	});
 
 	test("toggling Telegram on a Market panel option and an Asset Events option each persist a DB row", async () => {
-		await page.goto("/dashboard");
+		await page.goto("/dashboard", { waitUntil: "networkidle" });
+		await page.locator("[data-hydrated]").first().waitFor({ state: "attached", timeout: 15_000 });
 
 		// --- Market Notifications: 5% Price Move Alerts (content='') -----------
 		// This facet-less market type keys its telegram pref by notification_type.
 		const priceMoveTrigger = page.locator("#price_move_alerts-channel-trigger");
 		await expect(priceMoveTrigger).toBeVisible();
 		await expect(priceMoveTrigger).toHaveAttribute("aria-haspopup", "listbox");
-		await priceMoveTrigger.scrollIntoViewIfNeeded();
 
-		await priceMoveTrigger.click();
-		const priceMoveListbox = page.locator("#price_move_alerts-channel-listbox");
-		await expect(priceMoveListbox).toBeVisible();
+		const priceMoveListbox = await openChannelMultiselect(page, "price_move_alerts");
 		const priceMoveTelegram = priceMoveListbox.getByRole("option", { name: "Telegram" });
 		await expect(priceMoveTelegram).toBeVisible();
 
@@ -212,11 +210,8 @@ test.describe("Telegram dashboard UI", () => {
 		// --- Asset Events: Calendar (content='calendar') -----------------------
 		const calendarTrigger = page.locator("#asset_events_calendar-channel-trigger");
 		await expect(calendarTrigger).toBeVisible();
-		await calendarTrigger.scrollIntoViewIfNeeded();
 
-		await calendarTrigger.click();
-		const calendarListbox = page.locator("#asset_events_calendar-channel-listbox");
-		await expect(calendarListbox).toBeVisible();
+		const calendarListbox = await openChannelMultiselect(page, "asset_events_calendar");
 		const calendarTelegram = calendarListbox.getByRole("option", { name: "Telegram" });
 		await expect(calendarTelegram).toBeVisible();
 

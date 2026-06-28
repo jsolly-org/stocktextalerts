@@ -15,7 +15,8 @@ export async function expectCurrentPath(
 		.toBe(expectedPath);
 }
 
-async function fillEmailInput(page: Page, email: string): Promise<void> {
+/** Fill a client:load EmailInput after Vue hydration (sign-in, forgot, register). */
+export async function fillEmailInput(page: Page, email: string): Promise<void> {
 	const emailInput = page.locator("#email");
 	await emailInput.waitFor({ state: "visible", timeout: 15_000 });
 	// EmailInput is client:load Vue — poll until fill sticks after hydration.

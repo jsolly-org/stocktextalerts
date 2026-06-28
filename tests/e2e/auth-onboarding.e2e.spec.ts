@@ -3,9 +3,10 @@ import { expect, test } from "@playwright/test";
 import { REGISTRATION_ENABLED } from "../../src/lib/constants";
 import { rootLogger } from "../../src/lib/logging";
 import { NEW_PASSWORD, TEST_PASSWORD } from "../helpers/constants";
-import { expectCurrentPath, signIn, signOut } from "../helpers/e2e/auth";
+import { expectCurrentPath, fillEmailInput, signIn, signOut } from "../helpers/e2e/auth";
 import { createApprovedE2eUser, openSignedInPage } from "../helpers/e2e/fixtures";
 import { extractLinks, rewriteLinkOrigin, waitForEmail } from "../helpers/e2e/mail";
+import { clearMailpit } from "../helpers/mailpit";
 import { adminClient } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../helpers/test-user";
 
@@ -111,9 +112,20 @@ test.describe("auth onboarding", () => {
 			await page.goto("/");
 			const baseOrigin = new URL(page.url()).origin;
 
-			await page.goto("/auth/forgot");
-			await page.locator("#email").fill(recoverEmail);
+			await clearMailpit();
+			await page.goto("/auth/forgot", { waitUntil: "networkidle" });
+			await fillEmailInput(page, recoverEmail);
+			const forgotResponse = page.waitForResponse(
+				(response) =>
+					response.request().method() === "POST" &&
+					response.url().includes("/api/auth/email/forgot-password"),
+				{ timeout: 60_000 },
+			);
 			await page.getByRole("button", { name: "Send Reset Link" }).click();
+			const response = await forgotResponse;
+			expect(response.status()).toBeGreaterThanOrEqual(300);
+			expect(response.status()).toBeLessThan(400);
+			await expect(page).toHaveURL(/\/auth\/forgot\?success=true/, { timeout: 15_000 });
 
 			const resetEmail = await waitForEmail(recoverEmail, "Reset your password", 60_000);
 			const recoveryLink = extractLinks(resetEmail).find(
