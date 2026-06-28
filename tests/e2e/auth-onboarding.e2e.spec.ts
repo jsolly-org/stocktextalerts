@@ -109,7 +109,7 @@ test.describe("auth onboarding", () => {
 		const page = await context.newPage();
 
 		try {
-			await page.goto("/");
+			await page.goto("/", { waitUntil: "domcontentloaded" });
 			const baseOrigin = new URL(page.url()).origin;
 
 			await clearMailpit();
@@ -122,9 +122,9 @@ test.describe("auth onboarding", () => {
 				{ timeout: 60_000 },
 			);
 			await page.getByRole("button", { name: "Send Reset Link" }).click();
-			const response = await forgotResponse;
-			expect(response.status()).toBeGreaterThanOrEqual(300);
-			expect(response.status()).toBeLessThan(400);
+			const forgotPost = await forgotResponse;
+			expect(forgotPost.status()).toBeGreaterThanOrEqual(300);
+			expect(forgotPost.status()).toBeLessThan(400);
 			await expect(page).toHaveURL(/\/auth\/forgot\?success=true/, { timeout: 15_000 });
 
 			const resetEmail = await waitForEmail(recoverEmail, "Reset your password", 60_000);

@@ -188,6 +188,8 @@ test.describe("Telegram dashboard UI", () => {
 
 		// --- Market Notifications: 5% Price Move Alerts (content='') -----------
 		// This facet-less market type keys its telegram pref by notification_type.
+		const marketForm = page.locator('form[aria-label="Market notifications"]');
+		await marketForm.scrollIntoViewIfNeeded();
 		const priceMoveTrigger = page.locator("#price_move_alerts-channel-trigger");
 		await expect(priceMoveTrigger).toBeVisible();
 		await expect(priceMoveTrigger).toHaveAttribute("aria-haspopup", "listbox");
