@@ -61,7 +61,11 @@ Because Vercel Git deployments start independently on `main` pushes, schema-affe
 
 ## Deploy after merge
 
-The deploy workflow runs automatically after `CI` succeeds on `main`:
+The deploy workflow is triggered when `CI` completes on `main`. Failed CI runs still enqueue a Deploy workflow run, but the `production` job is skipped. Successful CI on a **stale** commit (superseded by newer pushes) is blocked by a main-tip check in the deploy workflow.
+
+Main CI uses a single concurrency group with cancel-in-progress so rapid pushes on `main` cancel older in-flight runs instead of letting a slow green run deploy after newer failures.
+
+When CI succeeds for the current `main` tip:
 
 1. Vercel's GitHub integration deploys the web tier from the landed `main` commit.
 2. `aws/deploy-web.sh --deploy-ci` builds Lambda code, applies Supabase migrations, and updates existing Lambda code.
