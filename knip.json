@@ -5,6 +5,7 @@
 		"scripts/**/*.ts",
 		"tests/run-vitest.ts",
 		"tests/run-playwright.ts",
+		"tests/setup.ts",
 		"playwright.preview.config.ts"
 	],
 	"ignore": [
