@@ -1,8 +1,8 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import type { MessageEntity } from "grammy/types";
 import type { EnrichedAlert } from "../../market-notifications/enrichment";
-import { TELEGRAM_FOOTER } from "../footer";
-import { buildCandlestickSvg, type Candle, renderChartPng } from "./chart";
+import { buildCandlestickSvg, type Candle, renderChartPng } from "../parts/charts/candlestick";
+import { TELEGRAM_FOOTER } from "../parts/footer";
 
 /** Rendered Telegram price alert: entity-formatted caption/text + optional candlestick PNG. */
 export interface TelegramPriceAlert {

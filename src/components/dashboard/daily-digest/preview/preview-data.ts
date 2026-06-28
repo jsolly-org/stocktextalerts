@@ -8,8 +8,11 @@ export interface PreviewAsset {
 	sparklineValues?: number[];
 }
 
-import { type AssetPrice, formatAssetsTextList } from "../../../../lib/messaging/asset-formatting";
-import type { SparklineData } from "../../../../lib/messaging/sparkline";
+import {
+	type AssetPrice,
+	formatAssetsTextList,
+} from "../../../../lib/messaging/parts/asset-price-list";
+import type { SparklineData } from "../../../../lib/messaging/parts/charts/sparkline";
 
 /** Stable demo assets used to render previews without a live API call. */
 export const DEMO_ASSETS: PreviewAsset[] = [

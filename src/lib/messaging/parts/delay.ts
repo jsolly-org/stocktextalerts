@@ -7,7 +7,8 @@
  */
 
 import { DateTime } from "luxon";
-import { escapeHtml } from "./asset-formatting";
+import type { MessageEntity } from "grammy/types";
+import { escapeHtml } from "./html-utils";
 
 /** Notifications delayed by less than this threshold are considered on-time. */
 export const DELAY_THRESHOLD_MINUTES = 5;
@@ -111,4 +112,21 @@ export function prependDelayBannerToEmail(
 	}
 
 	return { text: newText, html: newHtml };
+}
+
+/** Prepend a delay banner to pre-rendered Telegram content (plain banner, shift entity offsets). */
+export function prependDelayBannerToTelegram(
+	text: string,
+	entities: MessageEntity[],
+	bannerText: string,
+): { text: string; entities: MessageEntity[] } {
+	const firstNewline = text.indexOf("\n\n");
+	const insertAt = firstNewline === -1 ? text.length : firstNewline;
+	const insertion = firstNewline === -1 ? `\n\n${bannerText}` : `\n${bannerText}`;
+	const shift = insertion.length;
+	const newText = `${text.slice(0, insertAt)}${insertion}${text.slice(insertAt)}`;
+	const newEntities = entities.map((entity) =>
+		entity.offset >= insertAt ? { ...entity, offset: entity.offset + shift } : entity,
+	);
+	return { text: newText, entities: newEntities };
 }

@@ -279,7 +279,7 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		// Even if min.c happens to carry a stale extended-hours bar from Friday
 		// night, the user expects to see the regular close, not an after-hours
 		// flicker. Pairs with the "Market Closed — Prices below reflect the last
-		// market close" banner in src/lib/messaging/market-closure-banner.ts.
+		// market close" banner in src/lib/messaging/parts/market-closure.ts.
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
 				{

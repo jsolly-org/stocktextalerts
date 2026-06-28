@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { clearAuthCookies } from "../../../lib/auth/cookies";
 import { getSafeRedirectPath } from "../../../lib/auth/redirects";
-import { escapeHtml } from "../../../lib/messaging/asset-formatting";
+import { escapeHtml } from "../../../lib/messaging/parts/asset-price-list";
 
 function getSafeNext(nextParam: string | null): string {
 	return getSafeRedirectPath(nextParam) ?? "/";

@@ -1,8 +1,8 @@
 import { DateTime } from "luxon";
 import type { Logger } from "../logging";
-import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/delay-banner";
 import type { EmailSender } from "../messaging/email/utils";
 import { anyFacetEnabled, enabledFacets } from "../messaging/notification-prefs";
+import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/parts/delay";
 import { shouldSendSms } from "../messaging/sms";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
