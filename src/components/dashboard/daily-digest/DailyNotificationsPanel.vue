@@ -500,12 +500,16 @@ const hasAnyAssetEventsOptionEnabled = computed(
 	() =>
 		user.value.asset_events_include_calendar_email ||
 		user.value.asset_events_include_calendar_sms ||
+		props.telegramPrefs.calendar === true ||
 		user.value.asset_events_include_ipo_email ||
 		user.value.asset_events_include_ipo_sms ||
+		props.telegramPrefs.ipo === true ||
 		user.value.asset_events_include_analyst_email ||
 		user.value.asset_events_include_analyst_sms ||
+		props.telegramPrefs.analyst === true ||
 		user.value.asset_events_include_insider_email ||
-		user.value.asset_events_include_insider_sms,
+		user.value.asset_events_include_insider_sms ||
+		props.telegramPrefs.insider === true,
 );
 
 /** Derive the current delivery time input from the shared user state (managed by NotificationChannelsPanel). */

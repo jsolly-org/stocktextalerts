@@ -1,3 +1,4 @@
+import { hasAnyDailyNotificationFacet } from "../daily-notification/eligibility";
 import {
 	DAILY_NOTIFICATION_USER_SELECT,
 	HAS_DELIVERY_CHANNEL_OR,
@@ -37,7 +38,10 @@ export async function fetchUpcomingDailyDigestUsers(options: {
 				options.supabase,
 				(data ?? []) as unknown as UserRecordWithoutPrefs[],
 			);
-			return { data: withPrefs as UserRecord[], error: null };
+			const filtered = (withPrefs as UserRecord[]).filter((user) =>
+				hasAnyDailyNotificationFacet(user.prefs),
+			);
+			return { data: filtered, error: null };
 		},
 	});
 }

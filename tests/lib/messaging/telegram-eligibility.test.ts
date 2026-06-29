@@ -7,10 +7,25 @@ import {
 import { createTelegramSenderFactory } from "../../../src/lib/messaging/telegram/sender-factory";
 
 const digestPrefs: PrefRow[] = [
-	{ notification_type: "daily_digest", content: "prices", channel: "telegram", enabled: true },
-	{ notification_type: "daily_digest", content: "news", channel: "telegram", enabled: false },
-	{ notification_type: "daily_digest", content: "top_movers", channel: "telegram", enabled: true },
-	{ notification_type: "asset_events", content: "calendar", channel: "telegram", enabled: true },
+	{
+		notification_type: "daily_notification",
+		content: "prices",
+		channel: "telegram",
+		enabled: true,
+	},
+	{ notification_type: "daily_notification", content: "news", channel: "telegram", enabled: false },
+	{
+		notification_type: "daily_notification",
+		content: "top_movers",
+		channel: "telegram",
+		enabled: true,
+	},
+	{
+		notification_type: "daily_notification",
+		content: "calendar",
+		channel: "telegram",
+		enabled: true,
+	},
 ];
 
 describe("Telegram delivery eligibility", () => {
@@ -33,20 +48,19 @@ describe("Telegram delivery eligibility", () => {
 	});
 
 	it("returns only the enabled facets for the requested notification type", () => {
-		const facets = enabledFacets(digestPrefs, "daily_digest", "telegram");
-		expect(facets).toEqual(new Set(["prices", "top_movers"]));
-		// 'news' is disabled and 'calendar' belongs to a different type — both excluded.
+		const facets = enabledFacets(digestPrefs, "daily_notification", "telegram");
+		expect(facets).toEqual(new Set(["prices", "top_movers", "calendar"]));
 	});
 
 	it("a linked user with at least one enabled digest facet should receive the digest", () => {
 		const user = { telegram_chat_id: 8675309, telegram_opted_out: false };
-		expect(shouldSendTelegram(user, digestPrefs, "daily_digest")).toBe(true);
+		expect(shouldSendTelegram(user, digestPrefs, "daily_notification")).toBe(true);
 	});
 
 	it("a linked user with every facet disabled should NOT receive the digest", () => {
 		const user = { telegram_chat_id: 8675309, telegram_opted_out: false };
 		const allOff = digestPrefs.map((p) => ({ ...p, enabled: false }));
-		expect(shouldSendTelegram(user, allOff, "daily_digest")).toBe(false);
+		expect(shouldSendTelegram(user, allOff, "daily_notification")).toBe(false);
 	});
 });
 
