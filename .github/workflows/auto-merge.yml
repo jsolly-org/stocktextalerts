@@ -7,6 +7,7 @@ on:
       - reopened
       - synchronize
       - ready_for_review
+      - labeled
 
 permissions:
   contents: write
@@ -20,8 +21,15 @@ jobs:
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository
     steps:
-      - name: Enable auto-merge
+      - name: Enable auto-merge when orchestrated
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge --auto --squash "$PR_URL"
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          labels=$(gh pr view "$PR_NUMBER" --json labels -q '.labels[].name')
+          if ! printf '%s\n' "$labels" | grep -qx 'ship-auto-merge'; then
+            echo "PR lacks ship-auto-merge label; skipping auto-merge"
+            exit 0
+          fi
+          gh pr merge --auto --squash "$PR_NUMBER"
