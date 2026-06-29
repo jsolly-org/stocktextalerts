@@ -136,8 +136,8 @@ test.describe("Telegram dashboard UI", () => {
 		await connectCard.scrollIntoViewIfNeeded();
 		await connectCard.screenshot({ path: SCREENSHOT_CONNECT });
 
-		// --- Daily Digest panel (multiselect triggers) -------------------------
-		const digestForm = page.locator('form[aria-label="Daily Digest"]');
+		// --- Daily Notification panel (multiselect triggers) -------------------
+		const digestForm = page.locator('form[aria-label="Daily Notification"]');
 		await expect(digestForm).toBeVisible();
 
 		const pricesTrigger = page.locator("#daily_digest_include_prices-channel-trigger");
