@@ -4,7 +4,7 @@
  */
 
 import type { Json } from "../db/generated/database.types";
-import type { SupabaseAdminClient } from "../schedule/helpers";
+import type { SupabaseAdminClient } from "../db/supabase";
 import type { StagedData, StagedNotificationRow, StagedNotificationType } from "./types";
 
 /**

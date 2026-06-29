@@ -1,14 +1,12 @@
 import { DateTime, type DateTime as DateTimeType } from "luxon";
+import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { shouldSendSms } from "../messaging/sms/index";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { shouldAdvanceScheduledNotificationSchedule } from "../schedule/delivery-terminal";
-import {
-	getMaxDailyDigestSlotAttempts,
-	MAX_NOTIFICATION_RETRIES,
-	type SupabaseAdminClient,
-} from "../schedule/helpers";
 import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
+import { getMaxDailyDigestSlotAttempts } from "../scheduled-notifications/store";
+import { MAX_NOTIFICATION_RETRIES } from "../scheduled-notifications/types";
 import { toIsoOrThrow } from "../time/display";
 import type { ScheduledSlotKey } from "../types";
 import type { UserRecord } from "../user-record-types";

@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import { SECTOR_ETF_MAP } from "../assets/sector-mapping";
+import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import {
 	US_MARKET_CLOSE_EASTERN_MINUTES,
@@ -15,13 +16,9 @@ import type {
 	IntradayCandle,
 	MarketSession,
 } from "../market-data-types";
-import { createEmailSender } from "../messaging/email/utils";
-import { createLogoCache } from "../messaging/logo-fetcher";
 import { isFacetEnabled } from "../messaging/notification-prefs";
-import { createSmsSenderFactory } from "../messaging/sms/sender-factory";
+import { createNotificationSenders } from "../messaging/runtime/senders";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
-import { createTelegramSenderFactory } from "../messaging/telegram/sender-factory";
-import type { SupabaseAdminClient } from "../schedule/helpers";
 import { getAnomalyThreshold } from "./alert-profile";
 import { computeAnomalyScore } from "./anomaly-detection";
 import { fetchDailyStats } from "./daily-stats";
@@ -341,12 +338,9 @@ export async function processPriceAlerts(options: {
 		userSymbolMap.set(row.user_id, existing);
 	}
 
-	const sendEmail = createEmailSender();
-	const getSmsSender = createSmsSenderFactory();
+	const { sendEmail, getSmsSender, getTelegramSender, logoCache } = createNotificationSenders();
 	let smsSender: ReturnType<typeof getSmsSender>["sender"] | null = null;
-	const getTelegramSender = createTelegramSenderFactory();
 	let telegramSender: ReturnType<typeof getTelegramSender>["sender"] | null = null;
-	const logoCache = createLogoCache();
 
 	// Pre-compute benchmark moves for SPY and all sector ETFs
 	const benchmarkMoveCache = new Map<string, number | null>();

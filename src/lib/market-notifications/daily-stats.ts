@@ -1,6 +1,6 @@
+import type { SupabaseAdminClient } from "../db/supabase";
 import { createLogger } from "../logging";
 import type { DailyOHLCVBar } from "../market-data-types";
-import type { SupabaseAdminClient } from "../schedule/helpers";
 
 export type { DailyOHLCVBar } from "../market-data-types";
 

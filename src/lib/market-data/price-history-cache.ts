@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import { SECTOR_ETF_MAP } from "../assets/sector-mapping";
+import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
 import { US_MARKET_TIMEZONE } from "../market-constants";
@@ -9,7 +10,6 @@ import {
 	type SparklineData,
 	toSparkline,
 } from "../messaging/parts/charts/sparkline";
-import type { SupabaseAdminClient } from "../schedule/helpers";
 
 const MINUTE_RETENTION_HOURS = 36;
 const DAILY_RETENTION_DAYS = 30;

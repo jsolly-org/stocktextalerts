@@ -1,6 +1,6 @@
 import type { DateTime } from "luxon";
+import type { SupabaseAdminClient } from "../../db/supabase";
 import type { Logger } from "../../logging";
-import type { SupabaseAdminClient } from "../../schedule/helpers";
 import type { UserRecord } from "../../user-record-types";
 import { userLocalToEtMinute } from "../conversion";
 import { calculateNextSendAt } from "./next-send";

@@ -1,3 +1,4 @@
+import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { sendUserEmail } from "../messaging/email";
 import {
@@ -10,7 +11,6 @@ import { deliveryResultToLogFields } from "../messaging/shared";
 import { isSmsChannelUsable, sendUserSms } from "../messaging/sms";
 import { formatDelistingSms } from "../messaging/sms/delisting";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
-import type { SupabaseAdminClient } from "../schedule/helpers";
 import { fetchTickerReferences, type TickerReferenceStatus } from "./reference/delistings";
 
 /** Dependencies injected into `runDelistingSweep`. */

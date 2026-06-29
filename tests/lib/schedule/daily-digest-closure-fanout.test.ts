@@ -124,9 +124,9 @@ vi.mock("../../../src/lib/market-notifications/snapshot-store", () => ({
 	purgeOldAssetSnapshots: vi.fn().mockResolvedValue(0),
 }));
 
-vi.mock("../../../src/lib/schedule/helpers", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/lib/schedule/helpers")>(
-		"../../../src/lib/schedule/helpers",
+vi.mock("../../../src/lib/db/user-assets", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/db/user-assets")>(
+		"../../../src/lib/db/user-assets",
 	);
 	return {
 		...actual,

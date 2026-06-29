@@ -1,18 +1,15 @@
 import type { PriceTargetDirection } from "../db";
+import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { fetchExtendedQuotes } from "../market-data/prices";
 import { getCurrentMarketSession } from "../market-data/session";
 import type { ExtendedQuoteMap, MarketSession } from "../market-data-types";
 import { isEmailChannelUsable } from "../messaging/email/eligibility";
-import { createEmailSender } from "../messaging/email/utils";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
-import { createLogoCache } from "../messaging/logo-fetcher";
 import { isFacetEnabled, type PrefRow } from "../messaging/notification-prefs";
+import { createNotificationSenders } from "../messaging/runtime/senders";
 import { isSmsChannelUsable } from "../messaging/sms/index";
-import { createSmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable, shouldSendTelegram } from "../messaging/telegram/eligibility";
-import { createTelegramSenderFactory } from "../messaging/telegram/sender-factory";
-import type { SupabaseAdminClient } from "../schedule/helpers";
 import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
 import {
 	deliverPriceTargetAlert,
@@ -211,12 +208,9 @@ export async function processPriceTargets(options: {
 		}
 	}
 
-	const sendEmail = createEmailSender();
-	const getSmsSender = createSmsSenderFactory();
+	const { sendEmail, getSmsSender, getTelegramSender, logoCache } = createNotificationSenders();
 	let smsSender: ReturnType<typeof getSmsSender>["sender"] | null = null;
-	const getTelegramSender = createTelegramSenderFactory();
 	let telegramSender: ReturnType<typeof getTelegramSender>["sender"] | null = null;
-	const logoCache = createLogoCache();
 
 	/** Clear (delete) a triggered price target by its primary key, logging on failure. */
 	const clearTarget = async (t: PriceTargetRow, reason: string): Promise<void> => {

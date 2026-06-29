@@ -5,12 +5,11 @@ import {
 	deliverPriceAlert,
 	type PriceAlertDeliveryStats,
 } from "../../../src/lib/market-notifications/delivery";
-import type { EnrichedAlert } from "../../../src/lib/market-notifications/enrichment";
-import type { PriceAlertGrokResult } from "../../../src/lib/market-notifications/grok-summary";
 import type { PriceAlertUser } from "../../../src/lib/market-notifications/users";
 import type { EmailSender } from "../../../src/lib/messaging/email/utils";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { TelegramMessage, TelegramSender } from "../../../src/lib/messaging/telegram/sender";
+import type { EnrichedAlert, PriceAlertGrokResult } from "../../../src/lib/price-alerts/types";
 import { makePrefRows } from "../../helpers/user-record-fixture";
 
 function makeSupabaseMock(): AppSupabaseClient {

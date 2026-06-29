@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { EnrichedAlert } from "../../../src/lib/market-notifications/enrichment";
 import type { Candle } from "../../../src/lib/messaging/parts/charts/candlestick";
 import {
 	formatPriceAlertTelegram,
 	type TelegramPriceAlert,
 } from "../../../src/lib/messaging/telegram/price-alert";
+import type { EnrichedAlert } from "../../../src/lib/price-alerts/types";
 
 function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 	return {

@@ -1,13 +1,13 @@
 import { DateTime } from "luxon";
 import { fetchAndStoreAssetEvents } from "../../asset-events/fetch";
+import type { SupabaseAdminClient } from "../../db/supabase";
 import type { Logger } from "../../logging";
 import { fetchDailyOHLCV } from "../../market-data/bars";
 import {
 	dailyBarsToCloseRows,
 	storeDailyCloseRows,
 	storePriceHistoryRows,
-} from "../../market-notifications/price-history-cache";
-import type { SupabaseAdminClient } from "../../schedule/helpers";
+} from "../../market-data/price-history-cache";
 import type { VendorBackfillMessage } from "./messages";
 
 async function backfillDailyClosesForSymbol(

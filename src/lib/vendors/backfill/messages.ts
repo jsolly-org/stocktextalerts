@@ -1,5 +1,5 @@
 import type { AssetEventProvider } from "../../asset-events/fetch";
-import type { PriceHistoryRow } from "../../market-notifications/price-history-cache";
+import type { PriceHistoryRow } from "../../market-data/price-history-cache";
 
 export type AssetEventsBackfillMessage = {
 	kind: "asset-events";

@@ -1,9 +1,9 @@
 import { setTimeout as realDelay } from "node:timers/promises";
 import { DateTime } from "luxon";
+import type { SupabaseAdminClient } from "../db/supabase";
 import type { InsiderTransaction, RecommendationTrend } from "../finnhub-extra-types";
 import type { Logger } from "../logging";
 import { payloadLogFields, preparePayloadForLog } from "../logging/log-payload";
-import type { SupabaseAdminClient } from "../schedule/helpers";
 import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "../vendors/optional-vendors";
 import { fetchInsiderTransactions, fetchRecommendationTrends } from "./enrichment";
 

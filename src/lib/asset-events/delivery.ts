@@ -1,5 +1,10 @@
+import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
+import {
+	claimScheduledChannel,
+	completeScheduledChannelFromResult,
+} from "../messaging/delivery/scheduled-channel";
 import { sendUserEmail } from "../messaging/email/index";
 import type { EmailSender } from "../messaging/email/utils";
 import {
@@ -12,8 +17,11 @@ import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
-import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
-import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
+import {
+	claimNotification,
+	updateScheduledNotificationRow,
+} from "../scheduled-notifications/store";
+import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../time/market/calendar";
 import type { IsoDateString, MinuteOfDay } from "../types";
 import type { UserRecord } from "../user-record-types";
@@ -57,7 +65,7 @@ export async function processAssetEventsEmailDelivery(options: {
 		stats,
 	} = options;
 
-	const claim = await claimNotification({
+	const attemptCount = await claimScheduledChannel({
 		supabase,
 		userId: user.id,
 		notificationType: "asset_events",
@@ -65,13 +73,9 @@ export async function processAssetEventsEmailDelivery(options: {
 		scheduledMinutes,
 		channel: "email",
 		logger,
+		stats,
 	});
-	if (claim.status === "claim_error") {
-		stats.emailsFailed++;
-		return;
-	}
-	if (claim.status === "retries_exhausted" || claim.status === "not_ready") {
-		stats.skipped++;
+	if (attemptCount === null) {
 		return;
 	}
 
@@ -94,35 +98,18 @@ export async function processAssetEventsEmailDelivery(options: {
 		sendEmail,
 	);
 
-	const logged = await recordNotification(supabase, {
-		user_id: user.id,
-		type: "asset_events",
-		delivery_method: "email",
-		message_delivered: result.success,
-		message: message.text,
-		...deliveryResultToLogFields(result),
-	});
-	if (!logged) {
-		stats.logFailures++;
-	}
-
-	if (result.success) {
-		stats.emailsSent++;
-	} else {
-		stats.emailsFailed++;
-	}
-
-	await updateScheduledNotificationRow({
+	await completeScheduledChannelFromResult({
 		supabase,
 		userId: user.id,
 		notificationType: "asset_events",
 		scheduledDate,
 		scheduledMinutes,
 		channel: "email",
-		status: result.success ? "sent" : "failed",
-		error: result.success ? undefined : result.error,
-		attemptCount: claim.attemptCount,
 		logger,
+		stats,
+		attemptCount,
+		result,
+		logMessage: message.text,
 	});
 }
 

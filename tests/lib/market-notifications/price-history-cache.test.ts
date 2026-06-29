@@ -5,7 +5,7 @@ import {
 	INTRADAY_CACHE_MAX_AGE_MS,
 	listTradingDatesBetween,
 	REQUIRED_DAILY_CLOSES,
-} from "../../../src/lib/market-notifications/price-history-cache";
+} from "../../../src/lib/market-data/price-history-cache";
 
 describe("price history cache helpers", () => {
 	it("lists weekday trading dates between two ISO dates", () => {

@@ -5,6 +5,7 @@ import {
 	formatDailyDigestSmsMessages,
 	processDailyDigestSmsDelivery,
 } from "../../src/lib/daily-digest/delivery";
+import type { SupabaseAdminClient } from "../../src/lib/db/supabase";
 import type { Logger } from "../../src/lib/logging";
 import type { AssetPriceMap } from "../../src/lib/market-data-types";
 import type { SparklineData } from "../../src/lib/messaging/parts/charts/sparkline";
@@ -16,10 +17,7 @@ import {
 	spanStraddlesBoundary,
 } from "../../src/lib/messaging/sms/segment-utils";
 import type { SmsSender } from "../../src/lib/messaging/sms/twilio-utils";
-import type {
-	ScheduledNotificationTotals,
-	SupabaseAdminClient,
-} from "../../src/lib/schedule/helpers";
+import type { ScheduledNotificationTotals } from "../../src/lib/scheduled-notifications/types";
 import { assertIsoDateString, assertMinuteOfDay } from "../../src/lib/types";
 import type { UserAssetRow, UserRecord } from "../../src/lib/user-record-types";
 import { makePrefRows } from "../helpers/user-record-fixture";

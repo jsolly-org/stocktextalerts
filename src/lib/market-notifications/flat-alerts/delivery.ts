@@ -26,7 +26,7 @@ import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/tel
 import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../../messaging/telegram/price-alert";
 import type { TelegramSender } from "../../messaging/telegram/sender";
-import type { EnrichedAlert } from "../enrichment";
+import { buildFlatAlertEnriched } from "../../price-alerts/compose";
 import type { FlatPriceAlertUser } from "./users";
 
 /** Per-run delivery counters. */
@@ -38,37 +38,6 @@ export interface FlatPriceAlertDeliveryStats {
 	telegramSent: number;
 	telegramFailed: number;
 	logFailures: number;
-}
-
-/**
- * Build a minimal `EnrichedAlert` from flat-price-alert data so the shared
- * `formatPriceAlertTelegram` renderer (bold ticker + price line + optional
- * candlestick chart) can be reused. Flat alerts carry no Grok/anomaly context,
- * so `signalContext`/`grokResult` are empty.
- */
-function buildFlatAlertEnriched(options: {
-	symbol: string;
-	quote: ExtendedAssetQuote;
-	triggerPercent: number;
-	since: string;
-	intraday: IntradayBarsResult | null;
-}): EnrichedAlert {
-	const { symbol, quote, triggerPercent, since, intraday } = options;
-	const direction = triggerPercent >= 0 ? "up" : "down";
-	const absPct = Math.abs(triggerPercent).toFixed(1);
-	return {
-		symbol,
-		priceContext: `${symbol} is ${direction} ${absPct}% ${since} (${formatUsdPrice(quote.price)})`,
-		signalContext: "",
-		grokContext: "",
-		grokResult: null,
-		intradayCloses: intraday?.closes ?? null,
-		intradayTimestamps: intraday?.timestamps ?? null,
-		intradayEndTimestamp: intraday?.endTimestamp ?? null,
-		intradayCandles: intraday?.candles ?? null,
-		prevClose: quote.prevClose,
-		isPositiveMove: triggerPercent >= 0,
-	};
 }
 
 /** Unicode-block sparkline cap for SMS. UCS-2 segments fit 70 chars; keep the

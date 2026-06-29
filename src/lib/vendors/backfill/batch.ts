@@ -1,6 +1,6 @@
 import type { SQSRecord } from "aws-lambda";
+import type { SupabaseAdminClient } from "../../db/supabase";
 import type { Logger } from "../../logging";
-import type { SupabaseAdminClient } from "../../schedule/helpers";
 import { VENDOR_BACKFILL_MAX_ATTEMPTS } from "./constants";
 import { parseVendorBackfillMessage } from "./messages";
 import { processVendorBackfillMessage } from "./process";

@@ -4,7 +4,7 @@ import { US_MARKET_TIMEZONE } from "../market-constants";
 import {
 	getIntradaySparklineFromCache,
 	getSevenDaySparklineFromCache,
-} from "../market-notifications/price-history-cache";
+} from "../market-data/price-history-cache";
 import {
 	downsampleEvenly,
 	type SparklineMap,

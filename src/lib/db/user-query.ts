@@ -1,6 +1,6 @@
 import { setTimeout as realDelay } from "node:timers/promises";
+import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
-import type { SupabaseAdminClient } from "../schedule/helpers";
 
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;

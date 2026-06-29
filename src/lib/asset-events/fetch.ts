@@ -1,5 +1,5 @@
+import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
-import type { SupabaseAdminClient } from "../schedule/helpers";
 import type { ProviderResult } from "./providers";
 import { fetchDividends, fetchEarnings, fetchIpos, fetchSplits } from "./providers";
 

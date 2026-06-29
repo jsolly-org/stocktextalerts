@@ -1,7 +1,6 @@
 import { getSiteUrl } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
-import type { EnrichedAlert } from "../market-notifications/enrichment";
 import { isEmailChannelUsable } from "../messaging/email/eligibility";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messaging/email/layout";
@@ -18,6 +17,7 @@ import { shouldSendTelegram } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../messaging/telegram/price-alert";
 import type { TelegramSender } from "../messaging/telegram/sender";
+import { buildPriceTargetEnriched } from "../price-alerts/compose";
 import type { PriceTargetUser, TriggeredPriceTarget } from "./process";
 
 /** Per-run delivery counters for price target notifications. */
@@ -41,28 +41,6 @@ export interface PriceTargetDeliveryOutcome {
 	email: PriceTargetChannelOutcome;
 	sms: PriceTargetChannelOutcome;
 	telegram: PriceTargetChannelOutcome;
-}
-
-/**
- * Build a minimal text-only `EnrichedAlert` from a triggered price target so the
- * shared `formatPriceAlertTelegram` renderer can be reused. Price targets carry no
- * intraday candles, so the message is text-only (no chart).
- */
-function buildPriceTargetEnriched(target: TriggeredPriceTarget): EnrichedAlert {
-	const verb = target.direction === "above" ? "rose to" : "fell to";
-	return {
-		symbol: target.symbol,
-		priceContext: `${target.symbol} ${verb} ${formatUsdPrice(target.currentPrice)}, hitting your target of ${formatUsdPrice(target.targetPrice)}`,
-		signalContext: "",
-		grokContext: "",
-		grokResult: null,
-		intradayCloses: null,
-		intradayTimestamps: null,
-		intradayEndTimestamp: null,
-		intradayCandles: null,
-		prevClose: null,
-		isPositiveMove: target.direction === "above",
-	};
 }
 
 /**

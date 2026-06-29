@@ -14,12 +14,11 @@
 import type { DateTime } from "luxon";
 import { dispatchDailyDigestUser } from "../daily-digest/dispatch";
 import { fetchUpcomingDailyDigestUsers } from "../daily-digest/query-upcoming";
+import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { getCurrentMarketSession } from "../market-data/session";
-import { createEmailSender } from "../messaging/email/utils";
-import { createLogoCache } from "../messaging/logo-fetcher";
-import { createSmsSenderFactory } from "../messaging/sms/sender-factory";
-import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
+import { createNotificationSenders } from "../messaging/runtime/senders";
+import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { DAILY_DISPATCH_BATCH_SIZE } from "../scheduler-constants";
 import { toIsoOrThrow } from "../time/display";
 import { PRECOMPUTE_WINDOW_SECONDS } from "./constants";
@@ -84,10 +83,7 @@ export async function precomputeDailyDigest(options: {
 	// instant, not the scheduler's current clock time. Near US midnight those can
 	// land on different market dates.
 	const marketOpen = options.marketOpen ?? (await getCurrentMarketSession()) === "regular";
-	const sendEmail = createEmailSender();
-	const getSmsSender = createSmsSenderFactory();
-	// One logo cache for the whole precompute fan-out so a symbol's logo is resolved once.
-	const logoCache = createLogoCache();
+	const { sendEmail, getSmsSender, logoCache } = createNotificationSenders();
 
 	for (let index = 0; index < upcomingUsers.length; index += DAILY_DISPATCH_BATCH_SIZE) {
 		const batch = upcomingUsers.slice(index, index + DAILY_DISPATCH_BATCH_SIZE);

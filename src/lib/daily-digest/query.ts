@@ -1,7 +1,7 @@
+import type { SupabaseAdminClient } from "../db/supabase";
 import { fetchUsersWithRetry } from "../db/user-query";
 import type { Logger } from "../logging";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
-import type { SupabaseAdminClient } from "../schedule/helpers";
 import type { UserRecord } from "../user-record-types";
 
 /** Channel-level user columns (per-option facets live in notification_preferences,

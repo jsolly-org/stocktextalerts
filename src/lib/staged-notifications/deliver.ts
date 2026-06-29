@@ -20,6 +20,7 @@ import {
 } from "../daily-digest/delivery";
 import { updateUserDailyDigestNextSendAt } from "../daily-digest/next-send-at";
 import { shouldAdvanceDailyDigestSchedule } from "../daily-digest/schedule-state";
+import type { SupabaseAdminClient } from "../db/supabase";
 import type { DeliveryResult } from "../delivery-types";
 import type { Logger } from "../logging";
 import { sendUserEmail } from "../messaging/email/index";
@@ -40,13 +41,13 @@ import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
-import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
+import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
 import {
 	claimNotification,
 	getMaxDailyDigestSlotAttempts,
 	updateScheduledNotificationRow,
-} from "../schedule/helpers";
-import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
+} from "../scheduled-notifications/store";
+import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { toIsoOrThrow } from "../time/display";
 import type { IsoDateString, MinuteOfDay } from "../types";
 import type { UserRecord } from "../user-record-types";

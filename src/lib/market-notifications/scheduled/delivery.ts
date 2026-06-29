@@ -1,3 +1,4 @@
+import type { SupabaseAdminClient } from "../../db/supabase";
 import type { Logger } from "../../logging";
 import { createErrorForLogging, extractErrorMessage } from "../../logging/errors";
 import type { AssetPriceMap, MarketSession } from "../../market-data-types";
@@ -10,8 +11,11 @@ import { processSmsUpdate } from "../../messaging/sms/delivery";
 import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
 import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../../messaging/telegram/sender-factory";
-import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../../schedule/helpers";
-import { claimNotification, updateScheduledNotificationRow } from "../../schedule/helpers";
+import {
+	claimNotification,
+	updateScheduledNotificationRow,
+} from "../../scheduled-notifications/store";
+import type { ScheduledNotificationTotals } from "../../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../../time/market/calendar";
 import type { IsoDateString, MinuteOfDay } from "../../types";
 import type { UserAssetRow, UserRecord } from "../../user-record-types";

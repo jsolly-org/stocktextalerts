@@ -1,5 +1,5 @@
+import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
-import type { SupabaseAdminClient } from "../schedule/helpers";
 import { enqueueNewSymbolWarmup } from "../vendors/backfill/enqueue";
 import { fetchTickerDetail } from "./reference/ticker-detail";
 import { type ActiveTicker, fetchActiveTickers } from "./reference/universe";

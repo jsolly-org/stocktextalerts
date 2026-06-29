@@ -1,3 +1,4 @@
+import type { PriceAlertGrokResult } from "../price-alerts/types";
 import { fetchGrokResponseOnce, type GrokResponsesResponse } from "../vendors/grok";
 import {
 	applyAnnotationsInline,
@@ -6,23 +7,9 @@ import {
 	type XaiAnnotation,
 } from "../vendors/grok-citations";
 
+export type { PriceAlertGrokResult } from "../price-alerts/types";
+
 const GROK_TIMEOUT_MS = 60_000;
-
-/** A single link returned by Grok for a price alert. */
-interface PriceAlertLink {
-	url: string;
-	title: string;
-	source: string;
-	sourceType: "x" | "web";
-}
-
-/** Structured result from a Grok price alert call: summary + up to 3 links. */
-export interface PriceAlertGrokResult {
-	/** Summary with inline markdown links (e.g. `[[Reuters]](url)`). */
-	summary: string;
-	/** Extracted links for plaintext/SMS fallback. */
-	links: PriceAlertLink[];
-}
 
 /** Validate and normalize model-sourced URLs to http(s) only; reject other schemes. */
 function normalizeHttpUrl(raw: string): string | null {
@@ -41,7 +28,7 @@ function parseGrokPriceAlertResponse(data: GrokResponsesResponse): PriceAlertGro
 	let summaryText: string | null = null;
 	let summaryAnnotations: XaiAnnotation[] = [];
 	const seenUrls = new Set<string>();
-	const links: PriceAlertLink[] = [];
+	const links: PriceAlertGrokResult["links"] = [];
 
 	for (const item of data.output ?? []) {
 		if (item.type !== "message") continue;

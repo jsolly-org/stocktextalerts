@@ -30,6 +30,7 @@
 		"check:ts": "astro check --minimumSeverity warning --minimumFailingSeverity warning",
 		"check:biome": "biome check --write --no-errors-on-unmatched",
 		"check:knip": "knip",
+		"check:lib-boundaries": "node ./node_modules/.bin/tsx scripts/check-lib-boundaries.ts",
 		"check:md": "markdownlint-cli2 \"**/*.md\"",
 		"check:md:fix": "markdownlint-cli2 --fix \"**/*.md\"",
 		"check:sql": "bash scripts/db/check-sql.sh",

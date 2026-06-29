@@ -4,9 +4,10 @@ import {
 	buildAssetEventsContentForChannels,
 } from "../asset-events/content";
 import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
+import type { SupabaseAdminClient } from "../db/supabase";
+import { loadUserAssets } from "../db/user-assets";
 import type { Logger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
-import { fetchTopMovers, type TopMover } from "../market-data/movers";
 import { fetchAssetPricesWithSessionState } from "../market-data/prices";
 import { getCurrentMarketSession } from "../market-data/session";
 import { fetchIntradaySparklines, fetchSparklines } from "../market-data/sparklines";
@@ -14,8 +15,6 @@ import type { AssetPriceMap, MarketSession } from "../market-data-types";
 import type { EmailSender } from "../messaging/email/utils";
 import { type LogoCache, safePrefetchLogos } from "../messaging/logo-fetcher";
 import { anyFacetEnabled, enabledFacets, isFacetEnabled } from "../messaging/notification-prefs";
-import { formatDailyDigestTelegram } from "../messaging/notifications/daily-digest";
-import { formatSignedChangePercent, formatUsdPrice } from "../messaging/parts/asset-price-list";
 import type { SparklineMap } from "../messaging/parts/charts/sparkline";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/parts/delay";
 import type { NotificationExtras } from "../messaging/parts/extras";
@@ -24,24 +23,16 @@ import { shouldSendSms } from "../messaging/sms";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
-import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
-import { loadUserAssets } from "../schedule/helpers";
-import type { StagedDailyData } from "../staged-notification-types";
-import { upsertStagedNotification } from "../staged-notifications/db";
+import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market/calendar";
-import { getLocalMinutesFromDateTime } from "../time/schedule/next-send";
-import {
-	assertIsoDateString,
-	assertYearMonthString,
-	type IsoDateString,
-	type MinuteOfDay,
-	type ScheduledSlotKey,
-} from "../types";
 import type { UserRecord } from "../user-record-types";
-import { withOptionalVendorBudget } from "../vendors/optional-vendors";
 import {
-	formatDailyDigestEmail,
-	formatDailyDigestSmsMessageBodies,
+	buildTopMoversSection,
+	parseDailyScheduleContext,
+	resolveGrokEligibility,
+	updateGrokSendCounter,
+} from "./content-build";
+import {
 	formatDigestQuoteAsOf,
 	processDailyDigestEmailDelivery,
 	processDailyDigestSmsDelivery,
@@ -58,214 +49,7 @@ import {
 	recordDailyDigestProcessingFailure,
 	shouldAdvanceDailyDigestSchedule,
 } from "./schedule-state";
-
-const GROK_WINDOW_HOURS = 24;
-const GROK_MAX_SENDS_PER_WINDOW = 10;
-
-function formatMoverLine(mover: TopMover): string {
-	return `${mover.ticker} — ${formatUsdPrice(mover.price)} (${formatSignedChangePercent(mover.changePercent)})`;
-}
-
-/**
- * Fetch market-wide top gainers/losers and format them as a single email
- * section body. Returns `null` when both lists are empty (upstream failure
- * or all tickers filtered out) — callers skip the section in that case.
- */
-async function buildTopMoversSection(): Promise<string | null> {
-	const moversResult = await withOptionalVendorBudget("top-movers", 10_000, async () => {
-		const [gainers, losers] = await Promise.all([
-			fetchTopMovers("gainers", { optional: true }),
-			fetchTopMovers("losers", { optional: true }),
-		]);
-		return { gainers, losers };
-	});
-	if (moversResult.status !== "ok") {
-		return null;
-	}
-	const { gainers, losers } = moversResult.value;
-	const lines: string[] = [];
-	if (gainers.length > 0) {
-		lines.push("Gainers:");
-		for (const m of gainers) lines.push(formatMoverLine(m));
-	}
-	if (losers.length > 0) {
-		if (lines.length > 0) lines.push("");
-		lines.push("Losers:");
-		for (const m of losers) lines.push(formatMoverLine(m));
-	}
-	return lines.length > 0 ? lines.join("\n") : null;
-}
-
-/** Return whether Grok is allowed within the user's rolling window limit. */
-function canInvokeGrokWithinLimit(options: {
-	grokWindowStart: string | null;
-	grokSendsInWindow: number;
-	currentTimeUtc: DateTime;
-}): boolean {
-	const { grokWindowStart, grokSendsInWindow, currentTimeUtc } = options;
-	if (!grokWindowStart) {
-		return true;
-	}
-	const windowStart = DateTime.fromISO(grokWindowStart, { zone: "utc" });
-	if (!windowStart.isValid) {
-		return true;
-	}
-	// If the window has expired, the counter will be reset — allow the send.
-	if (currentTimeUtc.diff(windowStart, "hours").hours >= GROK_WINDOW_HOURS) {
-		return true;
-	}
-	// Within the window — check the counter.
-	return grokSendsInWindow < GROK_MAX_SENDS_PER_WINDOW;
-}
-
-interface DailyScheduleContext extends ScheduledSlotKey {}
-
-/** Derive the (scheduledDate, scheduledMinutes) key for daily digest delivery. */
-function parseDailyScheduleContext(
-	user: UserRecord,
-	currentTime: DateTime,
-	logger: Logger,
-): DailyScheduleContext | null {
-	const dueAt = user.daily_digest_next_send_at
-		? DateTime.fromISO(user.daily_digest_next_send_at, { zone: "utc" })
-		: currentTime;
-	if (!dueAt.isValid) {
-		logger.error(
-			"Invalid daily_digest_next_send_at timestamp",
-			{
-				userId: user.id,
-				daily_digest_next_send_at: user.daily_digest_next_send_at,
-			},
-			new Error("Invalid daily_digest_next_send_at timestamp"),
-		);
-		return null;
-	}
-	const dueAtLocal = dueAt.setZone(user.timezone);
-	if (!dueAtLocal.isValid) {
-		logger.error(
-			"Failed to format local date for timezone (daily)",
-			{ userId: user.id, timezone: user.timezone },
-			new Error("Failed to format local date for timezone"),
-		);
-		return null;
-	}
-	const scheduledDate = dueAtLocal.toISODate();
-	if (!scheduledDate) {
-		logger.error(
-			"Failed to format scheduled date (daily)",
-			{
-				userId: user.id,
-				timezone: user.timezone,
-				daily_digest_next_send_at: user.daily_digest_next_send_at,
-			},
-			new Error("Failed to format scheduled date"),
-		);
-		return null;
-	}
-	const scheduledMinutes = getLocalMinutesFromDateTime(user.timezone, dueAt);
-	if (scheduledMinutes === null) {
-		logger.error(
-			"Failed to calculate scheduled minutes (daily)",
-			{
-				action: "daily_run",
-				userId: user.id,
-				timezone: user.timezone,
-				daily_digest_next_send_at: user.daily_digest_next_send_at,
-				scheduledDate,
-			},
-			new Error("Failed to calculate scheduled minutes"),
-		);
-		return null;
-	}
-	return {
-		scheduledDate: assertIsoDateString(scheduledDate),
-		scheduledMinutes,
-	};
-}
-
-/** Resolve whether Grok can be used for this digest run. */
-function resolveGrokEligibility(
-	user: UserRecord,
-	needsGrok: boolean,
-	currentTimeUtc: DateTime,
-	logger: Logger,
-	scheduledDate: IsoDateString,
-	scheduledMinutes: MinuteOfDay,
-): { grokAllowed: boolean } {
-	const grokAllowed =
-		needsGrok &&
-		canInvokeGrokWithinLimit({
-			grokWindowStart: user.grok_window_start,
-			grokSendsInWindow: user.grok_sends_in_window,
-			currentTimeUtc,
-		});
-
-	if (needsGrok && !grokAllowed) {
-		logger.info(
-			"Grok send limit reached for this window; digest will proceed without news/rumors",
-			{
-				action: "daily_run",
-				reason: "grok_limit",
-				userId: user.id,
-				scheduledDate,
-				scheduledMinutes,
-				grokSendsInWindow: user.grok_sends_in_window,
-			},
-		);
-	}
-
-	return { grokAllowed };
-}
-
-/** Persist Grok usage counters after at least one successful delivery. */
-async function updateGrokSendCounter(
-	user: UserRecord,
-	supabase: SupabaseAdminClient,
-	grokAllowed: boolean,
-	stats: ScheduledNotificationTotals,
-	currentTime: DateTime,
-	logger: Logger,
-): Promise<void> {
-	// Count a Grok send on ANY delivered channel, including Telegram — otherwise a
-	// telegram-only user's Grok rate-limit counter never advances (the staged path
-	// already includes telegram; keep the live path consistent).
-	if (!grokAllowed || (stats.emailsSent === 0 && stats.smsSent === 0 && stats.telegramSent === 0)) {
-		return;
-	}
-
-	const now = currentTime.toISO();
-	if (!now) return;
-
-	// If the window has expired (or never started), reset the counter.
-	const windowStart = user.grok_window_start
-		? DateTime.fromISO(user.grok_window_start, { zone: "utc" })
-		: null;
-	const windowExpired =
-		!windowStart?.isValid || currentTime.diff(windowStart, "hours").hours >= GROK_WINDOW_HOURS;
-
-	const newCount = windowExpired ? 1 : user.grok_sends_in_window + 1;
-	const newWindowStart = windowExpired ? now : user.grok_window_start;
-
-	user.grok_sends_in_window = newCount;
-	user.grok_window_start = newWindowStart;
-	user.last_grok_rumors_at = now;
-
-	const { error } = await supabase
-		.from("users")
-		.update({
-			last_grok_rumors_at: now,
-			grok_window_start: newWindowStart,
-			grok_sends_in_window: newCount,
-		})
-		.eq("id", user.id);
-	if (error) {
-		logger.error(
-			"Failed to update grok send counter (daily)",
-			{ userId: user.id, newCount, newWindowStart },
-			error,
-		);
-	}
-}
+import { stageDailyDigestContent } from "./stage";
 
 /** Process one user's daily digest notification (deliver now or stage for later). */
 export async function processDailyDigestUser(options: {
@@ -732,97 +516,40 @@ export async function processDailyDigestUser(options: {
 		// handles all post-delivery side-effects using metadata captured below
 		// (grokAllowed, hasAnyAssetEventsOption, shouldUpdateAnalyst, analystMonth).
 		if (stageOnly) {
-			const scheduledForIso = user.daily_digest_next_send_at ?? currentTime.toISO();
-			if (!scheduledForIso) {
-				logger.error(
-					"Cannot determine scheduled_for for daily staging",
-					{ userId: user.id },
-					new Error("Cannot determine scheduled_for for daily staging"),
-				);
-				stats.skipped++;
-				return stats;
-			}
-
-			const emailContent =
-				hasEmailContent && emailExtras
-					? formatDailyDigestEmail({
-							user,
-							is24Hour: user.use_24_hour_time,
-							userAssets: emailPriceAssets,
-							assetPrices: emailPriceMap,
-							extras: emailExtras,
-							assetEvents: emailAssetEvents,
-							sparklines,
-							marketOpen,
-							marketClosureInfo,
-							getLogoHtml,
-						})
-					: null;
-
-			const smsContent =
-				hasSmsContent && smsExtras
-					? {
-							messages: formatDailyDigestSmsMessageBodies({
-								userAssets: smsPriceAssets,
-								assetPrices: smsPriceMap,
-								extras: smsExtras,
-								assetEvents: smsAssetEvents,
-								sparklines,
-								marketOpen,
-								marketClosureInfo,
-								is24Hour: user.use_24_hour_time,
-							}),
-						}
-					: null;
-
-			// Telegram is rendered to its final text + parse-mode entities here so the
-			// deliver phase can send it verbatim (mirrors email/SMS staging above).
-			const telegramFormatted =
-				hasTelegramContent && telegramExtras
-					? formatDailyDigestTelegram({
-							userAssets: telegramPriceAssets,
-							assetPrices: telegramPriceMap,
-							extras: telegramExtras,
-							dateLabel: telegramDateLabel,
-							delayBanner: delayBannerText,
-							marketClosedBanner: telegramMarketBanner,
-							sparklines,
-							marketOpen,
-						})
-					: null;
-			const telegramContent = telegramFormatted
-				? { text: telegramFormatted.text, entities: [...telegramFormatted.entities] }
-				: null;
-
-			const shouldUpdateAnalyst = shouldUpdateAnalystMonth;
-
-			const stagedData: StagedDailyData = {
-				type: "daily",
+			await stageDailyDigestContent({
+				user,
+				supabase,
+				logger,
+				currentTime,
+				stats,
 				scheduledDate,
 				scheduledMinutes,
-				email: emailContent,
-				sms: smsContent,
-				telegram: telegramContent,
+				dueAtLocal,
+				hasEmailContent,
+				hasSmsContent,
+				hasTelegramContent,
+				emailExtras,
+				smsExtras,
+				telegramExtras,
+				emailPriceAssets,
+				emailPriceMap,
+				smsPriceAssets,
+				smsPriceMap,
+				telegramPriceAssets,
+				telegramPriceMap,
+				emailAssetEvents,
+				smsAssetEvents,
+				sparklines,
+				marketOpen,
+				marketClosureInfo,
+				getLogoHtml,
+				telegramDateLabel,
+				delayBannerText,
+				telegramMarketBanner,
 				grokAllowed,
 				hasAnyAssetEventsOption,
-				shouldUpdateAnalyst,
-				analystMonth: shouldUpdateAnalyst
-					? assertYearMonthString(dueAtLocal.toFormat("yyyy-MM"))
-					: null,
-			};
-
-			const { error: stageError } = await upsertStagedNotification(supabase, {
-				userId: user.id,
-				notificationType: "daily",
-				scheduledFor: scheduledForIso,
-				stagedData,
+				shouldUpdateAnalystMonth,
 			});
-
-			if (stageError) {
-				logger.error("Failed to stage daily digest notification", { userId: user.id }, stageError);
-				stats.skipped++;
-			}
-
 			return stats;
 		}
 

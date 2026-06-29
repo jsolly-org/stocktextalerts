@@ -1,7 +1,7 @@
 import type { DateTime } from "luxon";
+import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { anyFacetEnabled } from "../messaging/notification-prefs";
-import type { SupabaseAdminClient } from "../schedule/helpers";
 import { persistUserNextSendAtColumn } from "../time/schedule/persist-user";
 import type { UserRecord } from "../user-record-types";
 import { calculateAssetEventsNextSendAtIso } from "./scheduling-helpers";

@@ -1,14 +1,13 @@
 import { DateTime } from "luxon";
+import type { SupabaseAdminClient } from "../db/supabase";
 import { createSupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
-import { createEmailSender, type EmailSender } from "../messaging/email/utils";
+import type { EmailSender } from "../messaging/email/utils";
 import type { LogoCache } from "../messaging/logo-fetcher";
-import { createSmsSenderFactory, type SmsSenderFactory } from "../messaging/sms/sender-factory";
-import {
-	createTelegramSenderFactory,
-	type TelegramSenderFactory,
-} from "../messaging/telegram/sender-factory";
-import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
+import { createNotificationSenders } from "../messaging/runtime/senders";
+import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
+import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
+import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../time/market/calendar";
 import type { UserRecord } from "../user-record-types";
 import { processDailyDigestUser } from "./process";
@@ -73,9 +72,10 @@ export async function dispatchDailyDigestUser(options: {
 		}
 
 		const supabase = supabaseOption ?? createSupabaseAdminClient();
-		const sendEmail = sendEmailOption ?? createEmailSender();
-		const getSmsSender = getSmsSenderOption ?? createSmsSenderFactory();
-		const getTelegramSender = getTelegramSenderOption ?? createTelegramSenderFactory();
+		const senders = createNotificationSenders();
+		const sendEmail = sendEmailOption ?? senders.sendEmail;
+		const getSmsSender = getSmsSenderOption ?? senders.getSmsSender;
+		const getTelegramSender = getTelegramSenderOption ?? senders.getTelegramSender;
 
 		// Reuse the UserRecord (with prefs) the scheduler already loaded when provided;
 		// only fall back to a per-user fetch on the standalone-invoke path, via the same

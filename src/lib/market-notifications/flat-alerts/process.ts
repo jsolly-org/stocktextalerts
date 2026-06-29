@@ -1,17 +1,14 @@
 import { DateTime } from "luxon";
+import type { SupabaseAdminClient } from "../../db/supabase";
 import { createLogger } from "../../logging";
 import { US_MARKET_TIMEZONE } from "../../market-constants";
 import { fetchIntradayBars } from "../../market-data/bars";
 import { fetchSparklines } from "../../market-data/sparklines";
 import type { ExtendedQuoteMap, IntradayBarsResult } from "../../market-data-types";
-import { createEmailSender } from "../../messaging/email/utils";
-import { createLogoCache } from "../../messaging/logo-fetcher";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
 import type { SparklineData } from "../../messaging/parts/charts/sparkline";
-import { createSmsSenderFactory } from "../../messaging/sms/sender-factory";
+import { createNotificationSenders } from "../../messaging/runtime/senders";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
-import { createTelegramSenderFactory } from "../../messaging/telegram/sender-factory";
-import type { SupabaseAdminClient } from "../../schedule/helpers";
 import { FLAT_PRICE_ALERT_THRESHOLD_PERCENT } from "./constants";
 import { deliverFlatPriceAlert, type FlatPriceAlertDeliveryStats } from "./delivery";
 import {
@@ -294,18 +291,13 @@ export async function processFlatPriceAlerts(options: {
 	}
 
 	// Delivery
-	const sendEmail = createEmailSender();
-	const getSmsSender = createSmsSenderFactory();
+	const { sendEmail, getSmsSender, getTelegramSender, logoCache } = createNotificationSenders();
 	const anySmsEnabled = eligibleAlerts.some((a) =>
 		isFacetEnabled(a.user.prefs, "price_move_alerts", "sms"),
 	);
 	const sendSms = anySmsEnabled ? getSmsSender().sender : null;
-	// Mirror the SMS provider threading: build the Telegram sender once if any eligible
-	// user has a usable Telegram channel; the per-option pref is checked in delivery.
-	const getTelegramSender = createTelegramSenderFactory();
 	const anyTelegramUsable = eligibleAlerts.some((a) => isTelegramChannelUsable(a.user));
 	const sendTelegram = anyTelegramUsable ? getTelegramSender().sender : null;
-	const logoCache = createLogoCache();
 	const nowMs = Date.now();
 
 	for (const alert of eligibleAlerts) {

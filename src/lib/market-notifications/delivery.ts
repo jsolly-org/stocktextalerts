@@ -27,7 +27,7 @@ import { isTelegramChannelUsable, shouldSendTelegram } from "../messaging/telegr
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../messaging/telegram/price-alert";
 import type { TelegramSender } from "../messaging/telegram/sender";
-import type { EnrichedAlert } from "./enrichment";
+import type { EnrichedAlert } from "../price-alerts/types";
 import type { PriceAlertUser } from "./users";
 
 /** Cap Grok summary length in SMS to avoid segment/cost spikes from long model output. */

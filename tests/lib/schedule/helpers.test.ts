@@ -5,14 +5,13 @@
  * between Massive detecting the delisting and the daily sweep cleaning
  * up the user_assets row.
  */
+
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
+import { batchLoadUserAssets } from "../../../src/lib/db/user-assets";
 import { rootLogger } from "../../../src/lib/logging";
-import {
-	batchLoadUserAssets,
-	claimNotification,
-	MAX_NOTIFICATION_RETRIES,
-} from "../../../src/lib/schedule/helpers";
+import { claimNotification } from "../../../src/lib/scheduled-notifications/store";
+import { MAX_NOTIFICATION_RETRIES } from "../../../src/lib/scheduled-notifications/types";
 import { assertIsoDateString, assertMinuteOfDay } from "../../../src/lib/types";
 import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";

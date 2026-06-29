@@ -1,7 +1,7 @@
+import type { SupabaseAdminClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import { attachPrefsToUsers } from "../../messaging/load-prefs";
 import type { PrefRow } from "../../messaging/notification-prefs";
-import type { SupabaseAdminClient } from "../../schedule/helpers";
 
 /** Minimal user shape for flat price alert delivery across email + SMS + Telegram. */
 export interface FlatPriceAlertUser {

@@ -1,5 +1,5 @@
+import type { SupabaseAdminClient } from "../../db/supabase";
 import { shouldAdvanceScheduledNotificationSchedule } from "../../schedule/delivery-terminal";
-import type { SupabaseAdminClient } from "../../schedule/helpers";
 import type { ScheduledSlotKey } from "../../types";
 import type { UserRecord } from "../../user-record-types";
 

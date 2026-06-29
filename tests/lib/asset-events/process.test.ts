@@ -6,10 +6,10 @@ import {
 	processAssetEventsSmsDelivery,
 } from "../../../src/lib/asset-events/delivery";
 import { processAssetEventsUser } from "../../../src/lib/asset-events/process";
-import { loadUserAssets } from "../../../src/lib/schedule/helpers";
+import { loadUserAssets } from "../../../src/lib/db/user-assets";
 
-vi.mock("../../../src/lib/schedule/helpers", async () => {
-	const actual = await vi.importActual("../../../src/lib/schedule/helpers");
+vi.mock("../../../src/lib/db/user-assets", async () => {
+	const actual = await vi.importActual("../../../src/lib/db/user-assets");
 	return {
 		...actual,
 		loadUserAssets: vi.fn(),

@@ -19,8 +19,8 @@ vi.mock("../../../../src/lib/market-notifications/scheduled/delivery", () => ({
 	processMarketScheduledTelegramDelivery: vi.fn(),
 }));
 
-vi.mock("../../../../src/lib/schedule/helpers", async () => {
-	const actual = await vi.importActual("../../../../src/lib/schedule/helpers");
+vi.mock("../../../../src/lib/db/user-assets", async () => {
+	const actual = await vi.importActual("../../../../src/lib/db/user-assets");
 	return {
 		...actual,
 		loadUserAssets: vi.fn(async () => [{ symbol: "AAPL", name: "Apple" }]),

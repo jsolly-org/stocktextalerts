@@ -1,14 +1,14 @@
+import type { SupabaseAdminClient } from "../db/supabase";
 import { shouldSendSms } from "../messaging/sms/index";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
-import type { ScheduledSlotKey } from "../types";
-import type { UserRecord } from "../user-record-types";
 import {
 	type DeliveryMethod,
 	MAX_NOTIFICATION_RETRIES,
 	type ScheduledNotificationStatus,
 	type ScheduledNotificationType,
-	type SupabaseAdminClient,
-} from "./helpers";
+} from "../scheduled-notifications/types";
+import type { ScheduledSlotKey } from "../types";
+import type { UserRecord } from "../user-record-types";
 
 async function getChannelDeliveryState(
 	options: {

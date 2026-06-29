@@ -1,6 +1,6 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import type { MessageEntity } from "grammy/types";
-import type { EnrichedAlert } from "../../market-notifications/enrichment";
+import type { EnrichedAlert } from "../../price-alerts/types";
 import { buildCandlestickSvg, type Candle, renderChartPng } from "../parts/charts/candlestick";
 import { TELEGRAM_FOOTER } from "../parts/footer";
 

@@ -34,40 +34,38 @@ import { processAssetEventsUser } from "../asset-events/process";
 import { fetchAssetEventsUsers } from "../asset-events/query";
 import { dispatchDailyDigestUser } from "../daily-digest/dispatch";
 import { fetchDailyDigestUsers } from "../daily-digest/query";
+import type { SupabaseAdminClient } from "../db/supabase";
+import { batchLoadUserAssets, type UserAssetsMap } from "../db/user-assets";
 import type { Logger } from "../logging";
+import {
+	getPriceCacheSymbols,
+	purgeOldPriceHistoryCache,
+	storePriceHistoryMinuteSnapshots,
+} from "../market-data/price-history-cache";
 import { fetchAssetPricesWithSessionState, fetchExtendedQuotes } from "../market-data/prices";
 import type { AssetPriceMap, ExtendedQuoteMap, MarketSession } from "../market-data-types";
 import {
 	type FlatPriceAlertTotals,
 	processFlatPriceAlerts,
 } from "../market-notifications/flat-alerts/process";
-import {
-	getPriceCacheSymbols,
-	purgeOldPriceHistoryCache,
-	storePriceHistoryMinuteSnapshots,
-} from "../market-notifications/price-history-cache";
 import { type PriceAlertTotals, processPriceAlerts } from "../market-notifications/process";
 import { processMarketScheduledUser } from "../market-notifications/scheduled/process";
 import { fetchMarketScheduledUsers } from "../market-notifications/scheduled/query";
 import { purgeOldAssetSnapshots } from "../market-notifications/snapshot-store";
-import { createEmailSender } from "../messaging/email/utils";
-import { createLogoCache, type LogoCache } from "../messaging/logo-fetcher";
-import { createSmsSenderFactory } from "../messaging/sms/sender-factory";
-import { createTelegramSenderFactory } from "../messaging/telegram/sender-factory";
+import type { LogoCache } from "../messaging/logo-fetcher";
+import type { NotificationSenders } from "../messaging/runtime/senders";
+import { createNotificationSenders } from "../messaging/runtime/senders";
 import { type PriceTargetTotals, processPriceTargets } from "../price-targets/process";
+import {
+	type ScheduledNotificationTotals,
+	USER_PROCESS_BATCH_SIZE,
+} from "../scheduled-notifications/types";
 import { DAILY_DISPATCH_BATCH_SIZE } from "../scheduler-constants";
 import { deliverStagedNotifications } from "../staged-notifications/deliver";
 import { precomputeDailyDigest } from "../staged-notifications/precompute";
 import { toIsoOrThrow } from "../time/display";
 import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market/calendar";
 import { enqueuePriceHistoryStoreRetry } from "../vendors/backfill/enqueue";
-import {
-	batchLoadUserAssets,
-	type ScheduledNotificationTotals,
-	type SupabaseAdminClient,
-	USER_PROCESS_BATCH_SIZE,
-	type UserAssetsMap,
-} from "./helpers";
 import { resolveMarketSessionWithFallback } from "./market-session";
 
 /** Return the delay between pass 1 and pass 2 (ms). */
@@ -146,9 +144,9 @@ function mergeSuccessfulQuotesIntoCache(
 async function runPass(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	sendEmail: ReturnType<typeof createEmailSender>;
-	getSmsSender: ReturnType<typeof createSmsSenderFactory>;
-	getTelegramSender: ReturnType<typeof createTelegramSenderFactory>;
+	sendEmail: NotificationSenders["sendEmail"];
+	getSmsSender: NotificationSenders["getSmsSender"];
+	getTelegramSender: NotificationSenders["getTelegramSender"];
 	marketSession: MarketSession;
 	schedulerQuoteCache: SchedulerQuoteCache;
 	/** Per-invocation logo cache shared across both passes + all users (resolve each
@@ -635,15 +633,10 @@ export async function runScheduledNotifications(options: {
 		});
 	}
 
-	const sendEmail = createEmailSender();
-	const getSmsSender = createSmsSenderFactory();
-	const getTelegramSender = createTelegramSenderFactory();
+	const { sendEmail, getSmsSender, getTelegramSender, logoCache } = createNotificationSenders();
 	// Seed from the captured (superset) map so fallback passes reuse the watched-symbol
 	// quotes the price-history capture already fetched, instead of re-fetching them.
 	const schedulerQuoteCache = createSchedulerQuoteCache(capturedQuoteMap);
-	// One logo cache for the whole invocation (both passes, all users): logos are static
-	// within a tick, so a symbol's logo is fetched at most once instead of once per user.
-	const logoCache = createLogoCache();
 
 	/* ============= Two-pass execution ============= */
 	const passStartTime = Date.now();

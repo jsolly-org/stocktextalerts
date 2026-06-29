@@ -1,4 +1,6 @@
 import { DateTime } from "luxon";
+import type { SupabaseAdminClient } from "../../db/supabase";
+import { loadUserAssets, type UserAssetsMap } from "../../db/user-assets";
 import type { Logger } from "../../logging";
 import { createErrorForLogging, extractErrorMessage } from "../../logging/errors";
 import { fetchIntradaySparklines } from "../../market-data/sparklines";
@@ -20,10 +22,7 @@ import type { TelegramSenderFactory } from "../../messaging/telegram/sender-fact
 import type {
 	DeliveryMethod,
 	ScheduledNotificationTotals,
-	SupabaseAdminClient,
-	UserAssetsMap,
-} from "../../schedule/helpers";
-import { loadUserAssets } from "../../schedule/helpers";
+} from "../../scheduled-notifications/types";
 import { userLocalToEtMinute } from "../../time/conversion";
 import type { MarketClosureInfo } from "../../time/market/calendar";
 import { getUsMarketClosureInfoForInstant } from "../../time/market/calendar";
