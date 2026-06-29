@@ -91,7 +91,7 @@ const AsyncDailyNotificationsPanel = defineAsyncComponent({
 	loadingComponent: PanelSkeleton,
 });
 const AsyncAssetEventsPanel = defineAsyncComponent({
-	loader: () => import("./asset-events/AssetEventsPanel.vue"),
+	loader: () => import("./AssetEventsPanel.vue"),
 	loadingComponent: PanelSkeleton,
 });
 const AsyncMarketNotificationsPanel = defineAsyncComponent({
