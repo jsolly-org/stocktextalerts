@@ -1,11 +1,11 @@
 import type { APIRoute } from "astro";
-import {
-	buildChannelPreferenceSnapshot,
-	loadUserPreferenceRows,
-} from "../../../lib/api/notification-preferences-channels";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
+import {
+	buildChannelPreferenceSnapshot,
+	loadUserPreferenceRows,
+} from "../../../lib/notification-preferences/channels";
 import type { ApiJsonBody } from "../types";
 
 /**

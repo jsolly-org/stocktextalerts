@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchCurrentNotificationPreferences } from "../../../src/lib/api/notification-preferences";
+import { fetchCurrentNotificationPreferences } from "../../../src/lib/client/notification-preferences";
 import { expectConsoleError } from "../../setup";
 
 const { redirectToSignInMock } = vi.hoisted(() => ({

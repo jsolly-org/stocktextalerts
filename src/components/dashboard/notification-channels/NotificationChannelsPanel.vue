@@ -110,7 +110,7 @@ import { DateTime } from "luxon";
 import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
-import { fetchCurrentNotificationPreferences } from "../../../lib/api/notification-preferences";
+import { fetchCurrentNotificationPreferences } from "../../../lib/client/notification-preferences";
 import { formatMessage } from "../../../lib/messaging/status-messages";
 import { etMinuteToUserLocal, getUsBeforeOpenLocalMinutes } from "../../../lib/time/conversion";
 import {

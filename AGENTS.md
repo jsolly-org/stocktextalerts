@@ -45,9 +45,12 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 
 - `src/pages/api/` — API endpoints (auth, assets, schedule, notifications)
 - `src/lib/` — Server logic: `db/`, `auth/`, `vendors/`, `market-notifications/`, `daily-digest/`, `asset-events/`, `messaging/`, `schedule/`, `time/`, `logging/`
+- `src/handlers/` — AWS Lambda entry points (cron, SQS, signed email dispatch)
 - `src/components/dashboard/` — Vue dashboard panels with composables
 - `supabase/migrations/` — SQL migrations (source of truth; the post-push deploy pushes to production)
 - `tests/helpers/` — `test-user.ts`, `test-env.ts`, `asset-data.ts`
+
+See [docs/architecture-tiers.md](docs/architecture-tiers.md) for when code belongs on Vercel vs Lambda.
 
 ## Local development
 

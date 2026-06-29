@@ -66,8 +66,8 @@ import { DateTime } from "luxon";
 import { onMounted, ref, toRefs, watch } from "vue";
 
 import GlobeAltIcon from "../../icons/globe-alt.svg?component";
-import { fetchCurrentNotificationPreferences } from "../../lib/api/notification-preferences";
-import { updateProfileTimezone } from "../../lib/api/profile";
+import { fetchCurrentNotificationPreferences } from "../../lib/client/notification-preferences";
+import { updateProfileTimezone } from "../../lib/client/profile-timezone";
 import { DEFAULT_TIMEZONE } from "../../lib/constants";
 import type { NotificationPreferencesSnapshot, User } from "../../lib/db";
 import { createSaveSequencer, type SequencedResult } from "../../lib/forms/save-sequencer";

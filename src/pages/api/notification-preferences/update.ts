@@ -1,14 +1,5 @@
 import type { APIRoute } from "astro";
 import {
-	buildChannelPreferenceSnapshot,
-	loadUserPreferenceRows,
-	persistChannelPreferences,
-} from "../../../lib/api/notification-preferences-channels";
-import {
-	buildNotificationPreferencesUpdatePayload,
-	DAILY_NOTIFICATION_SCHEDULE_FIELDS,
-} from "../../../lib/api/notification-preferences-update";
-import {
 	DAILY_NOTIFICATION_FACETS,
 	hasAnyDailyNotificationFacet,
 	isDailyNotificationFacetEnabled,
@@ -20,6 +11,15 @@ import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
+import {
+	buildChannelPreferenceSnapshot,
+	loadUserPreferenceRows,
+	persistChannelPreferences,
+} from "../../../lib/notification-preferences/channels";
+import {
+	buildNotificationPreferencesUpdatePayload,
+	DAILY_NOTIFICATION_SCHEDULE_FIELDS,
+} from "../../../lib/notification-preferences/update-payload";
 import { userLocalToEtMinute } from "../../../lib/time/conversion";
 import { isOutsideMarketHours } from "../../../lib/time/market/session";
 import { parseScheduledTimes } from "../../../lib/time/schedule/next-send";

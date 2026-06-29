@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
+import type { User } from "../../../src/lib/db";
 import {
 	buildNotificationPreferencesUpdatePayload,
 	computeTimezoneUpdatePayload,
-} from "../../../src/lib/api/notification-preferences-update";
-import type { User } from "../../../src/lib/db";
+} from "../../../src/lib/notification-preferences/update-payload";
 
 function makeUser(overrides: Partial<User> = {}): User {
 	return {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	buildChannelPreferenceSnapshot,
 	loadUserPreferenceRows,
-} from "../../../src/lib/api/notification-preferences-channels";
+} from "../../../src/lib/notification-preferences/channels";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser, setTestUserPrefs } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";

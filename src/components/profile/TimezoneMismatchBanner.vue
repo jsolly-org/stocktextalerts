@@ -52,11 +52,11 @@
 <script lang="ts" setup>
 import { DateTime } from "luxon";
 import { computed, ref, toRefs, watch } from "vue";
-import { updateProfileTimezone } from "../../lib/api/profile";
 import {
 	isUnauthorizedResponse,
 	redirectToSignIn,
 } from "../../lib/auth/session/session-expired";
+import { updateProfileTimezone } from "../../lib/client/profile-timezone";
 import type { NotificationPreferencesSnapshot } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
 import StatusMessage from "../StatusMessage.vue";

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { updateProfileTimezone } from "../../../src/lib/api/profile";
+import { updateProfileTimezone } from "../../../src/lib/client/profile-timezone";
 
 const { redirectToSignInMock } = vi.hoisted(() => ({
 	redirectToSignInMock: vi.fn(),
