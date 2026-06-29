@@ -19,7 +19,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 
 ## Tech Stack
 
-- **Framework**: Astro 5 with SSR
+- **Framework**: Astro 7 with SSR (Vite 8 / Rolldown)
 - **UI**: Vue 3 components with Tailwind CSS
 - **Icons**: Local SVGs in `/src/icons` loaded via `astro-icon` in `.astro` files; Vue components import SVGs via `vite-svg-loader` using the `?component` suffix
 - **Database**: Supabase (PostgreSQL)
@@ -331,10 +331,11 @@ Do **not** add to Vercel (Lambda-only via `aws/` SAM deploy):
 
 SES notification sending runs on Lambda (`EMAIL_FROM` from SSM `/stocktextalerts/email-from`; no `AWS_*` keys on Vercel or in SAM parameter overrides).
 
-**Important for Astro SSR:**
+**Important for Astro 7 SSR:**
 
+- Vercel builds with **Vite 8 / Rolldown** automatically via the Git integration — no extra bundler config.
 - Ensure variables are available for **Production** and **Preview** (sensitive secrets cannot target Vercel Development — use `.env.local` / `vercel env pull` locally)
-- Enable "Available during Build" so `import.meta.env` works in serverless functions
+- Enable "Available during Build" so `import.meta.env` and `astro:env` work in serverless functions
 
 ### 1a. Deploy creds and live provider keys
 

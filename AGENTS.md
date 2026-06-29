@@ -14,6 +14,7 @@ Local gate before push: pre-push hook steps in `.git-hooks/pre-push` (lint/types
 
 ```bash
 npm run dev                # Dev server at http://localhost:4321
+npm run dev:stop           # Stop Astro 7 background dev server / clear lock
 npm run build              # Production build
 npm test                   # Vitest (requires local Supabase running)
 npm run test:e2e           # Playwright E2E tests
@@ -37,7 +38,7 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 
 **StockTextAlerts** — securities notification platform sending scheduled SMS/email updates for tracked US stocks and ETFs.
 
-**Stack:** Astro 5 (SSR) on Vercel, Vue 3, Tailwind CSS 4, Supabase (PostgreSQL + Auth), Twilio (SMS), AWS SES (email), Massive (prices + asset reference), Finnhub (earnings calendar + analyst/insider extras), xAI/Grok (optional AI summaries).
+**Stack:** Astro 7 (SSR, Vite 8) on Vercel, Vue 3, Tailwind CSS 4, Supabase (PostgreSQL + Auth), Twilio (SMS), AWS SES (email), Massive (prices + asset reference), Finnhub (earnings calendar + analyst/insider extras), xAI/Grok (optional AI summaries).
 
 ### Key Directories
 
@@ -49,8 +50,8 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 
 ## Local development
 
-- **Services for dev/test:** Local Supabase (Postgres + Auth + Mailpit at <http://127.0.0.1:54324>) must be running before `npm test` / `npm run dev` (`predev` / `pretest` call `db:doctor`). Start or repair with `npm run db:bootstrap`. Astro dev server: `npm run dev` → <http://localhost:4321>.
-- **E2E:** Playwright uses port **4322** (`MODE=test npm run dev -- --port 4322`); ordinary browsing uses 4321.
+- **Services for dev/test:** Local Supabase (Postgres + Auth + Mailpit at <http://127.0.0.1:54324>) must be running before `npm test` / `npm run dev` (`predev` / `pretest` call `db:doctor`). Start or repair with `npm run db:bootstrap`. Astro dev server: `npm run dev` → <http://localhost:4321>. Astro 7 dev lock: `npm run dev:stop` / `astro dev stop` before E2E or when tests contend on `.astro/dev.json`.
+- **E2E:** Playwright uses port **4322** (`MODE=test npm run dev -- --port 4322`); preview E2E uses **4323** (`npm run test:e2e:preview`). See `docs/tooling-setup.md` for the full port map.
 - **Smoke checks:** `npm run check:biome`, `npm run check:ts`, `npm test` (needs Supabase), `npm run build`. Full browser E2E: `npm run test:e2e` (needs Playwright + Supabase + dev on 4322).
 
 ## Project-Specific Style
@@ -160,7 +161,14 @@ See `docs/tooling-setup.md` for Production Supabase access (psql, env vars, proj
 
 - **All times shown to the user must respect `use_24_hour_time`** — pass `hour12: !is24` to `toLocaleTimeString` / `Intl.DateTimeFormat`. Stored on `users.use_24_hour_time` in DB, exposed as `user.value.use_24_hour_time` in Vue composables. Helper: `formatMinutesAsLocalTime(minutes, is24)` in `src/lib/time/format.ts`.
 
+## Astro 7 notes
+
+- **Rust compiler** and default **`compressHTML: "jsx"`** can change rendered whitespace or fail on invalid HTML — run `npm run build` after `.astro` edits.
+- **Route caching:** Vercel CDN via `cacheVercel()` in `astro.config.ts`; logo proxy uses `context.cache.set()`.
+- **Env typing:** rate-limit knobs are in `env.schema` (`astro:env/server`); other secrets still use `requireEnv()` from `src/lib/db/env.ts` (shared with Lambdas).
+- **Advanced routing (`src/fetch.ts`):** not used; file-based routes + middleware remain the model.
+
 ## Security
 
-- Astro v5 CSRF protection on by default (`security.checkOrigin: true`) for form POST/PATCH/DELETE/PUT.
+- **CSRF / same-origin:** `security.checkOrigin: false` in `astro.config.ts`; proxy-aware enforcement lives in `src/middleware.ts` (webhook paths exempt). Set `ASTRO_SECURITY_CHECK_ORIGIN=true` to delegate back to Astro’s built-in check.
 - **Node 24.x** (see `.nvmrc`), **npm** (not yarn/pnpm).

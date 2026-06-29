@@ -22,8 +22,7 @@ export default defineConfig({
 		baseURL: "http://localhost:4323",
 	},
 	webServer: {
-		command:
-			"MODE=test npm run build:preview && ASTRO_ADAPTER=node MODE=test npx astro preview --port 4323",
+		command: "MODE=test npm run build:preview && MODE=test npm run preview",
 		url: "http://localhost:4323/",
 		// Build + start is slower than dev server.
 		timeout: 180 * 1000,

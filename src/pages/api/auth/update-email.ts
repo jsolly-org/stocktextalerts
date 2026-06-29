@@ -1,3 +1,7 @@
+import {
+	CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS,
+	CHANGE_EMAIL_RATE_LIMIT_MINUTES,
+} from "astro:env/server";
 import type { APIRoute } from "astro";
 import { enforceAuthRateLimit } from "../../../lib/auth/enforce-rate-limit";
 import { createUserService } from "../../../lib/db";
@@ -8,13 +12,8 @@ import { createLogger } from "../../../lib/logging";
 
 /*
  * Rate limit: N attempts per user per time window.
- * Can be overridden via CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS and
- * CHANGE_EMAIL_RATE_LIMIT_MINUTES env vars.
+ * Override via CHANGE_EMAIL_RATE_LIMIT_* in env (see astro.config.ts env.schema).
  */
-const CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS =
-	Number.parseInt(import.meta.env.CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS ?? "5", 10) || 5;
-const CHANGE_EMAIL_RATE_LIMIT_MINUTES =
-	Number.parseInt(import.meta.env.CHANGE_EMAIL_RATE_LIMIT_MINUTES ?? "15", 10) || 15;
 export const POST: APIRoute = async ({ url, request, redirect, locals, cookies }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,

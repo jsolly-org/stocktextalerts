@@ -1,3 +1,4 @@
+import { PASSWORD_RESET_RATE_LIMIT_SECONDS } from "astro:env/server";
 import type { APIRoute } from "astro";
 import { getSiteUrl } from "../../../../lib/db/env";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
@@ -7,10 +8,8 @@ import { createLogger } from "../../../../lib/logging";
 /*
  * Wait time for password reset rate limits.
  * Supabase defaults to 60 seconds between password reset requests for the same email.
- * Can be overridden via PASSWORD_RESET_RATE_LIMIT_SECONDS env var.
+ * Override via PASSWORD_RESET_RATE_LIMIT_SECONDS in env (see astro.config.ts env.schema).
  */
-const PASSWORD_RESET_RATE_LIMIT_SECONDS =
-	Number.parseInt(import.meta.env.PASSWORD_RESET_RATE_LIMIT_SECONDS ?? "60", 10) || 60;
 
 export const POST: APIRoute = async ({ url, request, redirect, locals }) => {
 	const logger = createLogger({
