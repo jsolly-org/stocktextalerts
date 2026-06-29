@@ -12,7 +12,7 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 | **Auto Merge** | [`.github/workflows/auto-merge.yml`](../.github/workflows/auto-merge.yml) | PR open/sync/ready | Enables squash auto-merge on every non-draft same-repo PR |
 | **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | Successful CI on `main`, manual | Production Supabase migrations, Lambda code updates, live-provider check |
 
-**Integration:** `/ship` (gated direct push to `main`, no PR) is the primary path; the PR + squash auto-merge path is the alternative for concurrent/collaborative work (see "Concurrent merges" below). After a change lands on `main` either way, CI verifies the landed SHA, Vercel's GitHub integration deploys the web tier, and the deploy workflow applies production migrations plus Lambda code updates automatically. `npm run deploy:code` remains a local break-glass path, not the default release path.
+**Integration:** the canonical path is **branch → PR → CI-gated auto-merge** — push a branch, open a PR, and let `gh pr merge --auto --squash` (from `auto-merge.yml`) land it once the required strict `ci` check is green. This keeps CI (full unit/E2E/build, which the pre-push hook skips) a real gate on `main` (see "Concurrent merges" below). `/ship`'s direct push to `main` is **break-glass only** — it bypasses the `ci` check via admin (see AGENTS.md). After a change lands on `main`, the deploy workflow applies production migrations plus Lambda code updates and Vercel's Git integration deploys the web tier. `npm run deploy:code` remains a local break-glass path, not the default release path.
 
 ## Local pre-push gate
 
@@ -29,9 +29,11 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 After the first CI workflow run (so the check name appears):
 
 1. **Settings → General → Pull Requests** — enable **Allow auto-merge** and **Always suggest updating pull request branches** (makes the one-click "Update branch" prominent when a concurrent PR goes out-of-date).
-2. Protect `main` (branch protection rule or ruleset). `enforce_admins` stays **off** so the owner's `/ship` gated push lands directly (gated by the pre-push hook); these rules guard the PR path and block non-admin/accidental pushes:
-   - Require status check **`CI / ci`** to pass, **strict** (branches up to date before merging) — this serializes the PR path
-   - Require a PR for non-admins; block force-push and deletion
+2. Protect `main` (branch protection rule or ruleset) so CI gates every merge:
+   - **Require a pull request before merging** (0 approvals is fine solo) — makes branch+PR the path, so `ci` actually gates `main`
+   - Require status check **`CI / ci`** to pass, **strict** (branches up to date before merging)
+   - Block force-push and deletion
+   - `enforce_admins` stays **off** so the owner keeps a break-glass `/ship` direct push (it bypasses these rules — emergency use only)
    - Enable merge queue when the repository plan/UI supports the `merge_queue` rule
 
 The auto-merge workflow calls `gh pr merge --auto --squash`; GitHub merges when all required checks pass.
@@ -40,7 +42,7 @@ The CI workflow listens for `merge_group` events so merge queue can validate the
 
 ## Concurrent merges
 
-This concerns the **PR path** (the alternative to `/ship` direct push). `/ship` lands one gated commit at a time, so it has no concurrent-merge problem; the machinery below makes the PR path safe when two changes are in flight.
+Branch+PR is the canonical path, so concurrent PRs are the normal case — here's why two in flight can't break `main`.
 
 The risk with two PRs in flight is a **semantic (logical) conflict**: each passes CI against an older `main`, but `main` breaks when both land (e.g. PR A renames a function, PR B adds a call to the old name — no textual conflict, both green, broken `main`). A merge queue is the canonical fix, but it's Enterprise-only here (above).
 

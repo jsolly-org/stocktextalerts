@@ -2,9 +2,9 @@
 
 Ship profile: `aws-sam`
 
-`/ship` integrates by pushing the gated commit directly to `main` (no PR); the PR + squash auto-merge path is the alternative for concurrent/collaborative work. See the [CI](#ci-github-actions--local-pre-push-gate) section ("Integration model") for the full model.
+**Integration: branch → PR → CI-gated auto-merge (canonical).** Push your work on a branch (a `git worktree` keeps it off your main checkout — optional, and does nothing for CI by itself), open a PR, and let auto-merge (`gh pr merge --auto --squash`, wired in `auto-merge.yml`) land it once the required strict **`ci`** check is green. This keeps GitHub CI (full unit/E2E/build — which the local pre-push hook does *not* run) a real gate on `main`. Branch protection requires a PR + the `ci` check. See the [CI](#ci-github-actions--local-pre-push-gate) section for the full model.
 
-That direct push **bypasses** branch protection (Require-PR + required `ci` check) via the owner's admin privilege (`enforce_admins` off) — expected, not a misconfiguration. The local pre-push gate is the gate at push time; GitHub CI re-validates the landed tip and gates the deploy. The "Bypassed rule violations" warning in git's push output is normal.
+`/ship`'s direct push to `main` is **break-glass only** here: as repo admin (`enforce_admins` off) it *bypasses* the required `ci` check, landing code before CI runs (git prints a "Bypassed rule violations" warning). Reach for it only in an emergency that can't wait for the PR pipeline — the normal path is a PR so CI gates the merge.
 
 **Post-push (step 12):** Production deploy is **GitHub-managed** — after push to `main`, CI then `.github/workflows/deploy.yml` runs migrations, Lambda updates, and the live-provider check. Babysit those workflows; local `npm run deploy:code` is break-glass only. Vercel deploys the web tier via Git integration — verify production if web paths changed. Run `npm run deploy:infra` manually (human MFA) when `aws/template.yaml` or `aws/deploy.sh` changes — never auto-run from `/ship`.
 
