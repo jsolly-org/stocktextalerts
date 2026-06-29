@@ -41,7 +41,7 @@ enabled = true
 subject = "Your password has been changed — StockTextAlerts"
 content_path = "./auth-password-changed.html"
 
-[inbucket]
+[local_smtp]
 enabled = true
 port = 54324
 # Exposed so createEmailSender() can route dev/test emails through
