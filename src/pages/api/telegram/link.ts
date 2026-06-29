@@ -1,11 +1,11 @@
 import type { APIRoute } from "astro";
+import type { ApiJsonBody } from "../../../lib/api/json-response";
 import { mintLinkToken } from "../../../lib/auth/deep-link-token";
 import { createUserService } from "../../../lib/db";
 import { requireEnv } from "../../../lib/db/env";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
-import type { ApiJsonBody } from "../types";
 
 /** Linking tokens are single-use and short-lived: 10 minutes. */
 const LINK_TOKEN_TTL_MS = 10 * 60 * 1000;

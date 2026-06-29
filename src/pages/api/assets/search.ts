@@ -1,8 +1,8 @@
 import type { APIRoute } from "astro";
+import type { ApiJsonBody } from "../../../lib/api/json-response";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
-import type { ApiJsonBody } from "../types";
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 20;

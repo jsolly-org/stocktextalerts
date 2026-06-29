@@ -1,4 +1,5 @@
 import { nextTick, ref } from "vue";
+import type { ApiJsonBody } from "../../../lib/api/json-response";
 import {
 	isUnauthorizedResponse,
 	redirectToSignIn,
@@ -7,11 +8,7 @@ import type { User } from "../../../lib/db";
 import type { FlashTone } from "../../ui-constants";
 import { DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID } from "../constants";
 
-type SmsVerificationPayload = {
-	ok: boolean;
-	message?: string;
-	tone?: FlashTone;
-};
+type SmsVerificationPayload = ApiJsonBody & { tone?: FlashTone };
 
 /**
  * Composable that handles sending an SMS verification code and verifying the OTP.
