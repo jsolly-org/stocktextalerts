@@ -1,5 +1,5 @@
-import type { InsiderTransaction, RecommendationTrend } from "../finnhub-extra-types";
 import { rootLogger } from "../logging";
+import type { InsiderTransaction, RecommendationTrend } from "../types";
 import { type FinnhubFetchPolicy, finnhubFetch } from "../vendors/finnhub";
 
 /** Fetch the latest analyst recommendation trend for a ticker (or `null`). */

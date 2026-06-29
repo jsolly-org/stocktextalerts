@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
+import { US_MARKET_TIMEZONE } from "../../constants";
 import type { Logger } from "../../logging";
-import { US_MARKET_TIMEZONE } from "../../market-constants";
 import { asMinuteOfDay, type MinuteOfDay } from "../../types";
 import { parseTimeToMinutes } from "../parse";
 

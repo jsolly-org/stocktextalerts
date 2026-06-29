@@ -4,4 +4,4 @@ export type {
 	StagedNotificationRow,
 	StagedNotificationType,
 	StagedSmsContent,
-} from "../staged-notification-types";
+} from "../types";

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { shouldAdvanceScheduledNotificationSchedule } from "../../../src/lib/schedule/delivery-terminal";
+import type { UserRecord } from "../../../src/lib/types";
 import { assertIsoDateString } from "../../../src/lib/types";
-import type { UserRecord } from "../../../src/lib/user-record-types";
 import { minuteOfDay } from "../../helpers/minute-of-day";
 import { makeUserRecord } from "../../helpers/user-record-fixture";
 

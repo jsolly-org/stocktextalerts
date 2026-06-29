@@ -1,11 +1,9 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import type { buildAssetEventsContent } from "../../asset-events/content";
+import { US_MARKET_TIMEZONE } from "../../constants";
 import { getSiteUrl } from "../../db/env";
-import type { DeliveryResult } from "../../delivery-types";
-import { US_MARKET_TIMEZONE } from "../../market-constants";
-import type { AssetPriceMap } from "../../market-data-types";
 import type { MarketClosureInfo } from "../../time/market/calendar";
-import type { UserAssetRow } from "../../user-record-types";
+import type { AssetPriceMap, DeliveryResult, UserAssetRow } from "../../types";
 import { renderEmailSection } from "../email/html-section";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
 import {
@@ -447,6 +445,7 @@ export function formatDailyDigestTelegram(opts: {
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
 	extras: NotificationExtras;
+	assetEvents?: AssetEventsResult;
 	dateLabel: string;
 	delayBanner?: string | null;
 	marketClosedBanner?: string | null;
@@ -478,6 +477,26 @@ export function formatDailyDigestTelegram(opts: {
 	}
 	if (opts.extras.rumors) {
 		msg = fmt`${msg}\n\n${FormattedString.bold("💬 Rumors")}\n${FormattedString.blockquote(opts.extras.rumors)}`;
+	}
+
+	const ae = opts.assetEvents;
+	if (ae?.eventsSection?.earnings) {
+		msg = fmt`${msg}\n\n${FormattedString.bold("📅 Earnings")}\n${ae.eventsSection.earnings}`;
+	}
+	if (ae?.eventsSection?.dividends) {
+		msg = fmt`${msg}\n\n${FormattedString.bold("💰 Ex-Dividend")}\n${ae.eventsSection.dividends}`;
+	}
+	if (ae?.eventsSection?.splits) {
+		msg = fmt`${msg}\n\n${FormattedString.bold("✂️ Splits")}\n${ae.eventsSection.splits}`;
+	}
+	if (ae?.eventsSection?.ipos) {
+		msg = fmt`${msg}\n\n${FormattedString.bold("🆕 Upcoming IPOs")}\n${ae.eventsSection.ipos}`;
+	}
+	if (ae?.insiderSection) {
+		msg = fmt`${msg}\n\n${FormattedString.bold("🏦 Insider Trades")}\n${ae.insiderSection}`;
+	}
+	if (ae?.analystSection) {
+		msg = fmt`${msg}\n\n${FormattedString.bold("📊 Analyst Consensus (published monthly on the 1st)")}\n${ae.analystSection}`;
 	}
 
 	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;

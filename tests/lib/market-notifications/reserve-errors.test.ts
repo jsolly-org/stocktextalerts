@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseAdminClient } from "../../../src/lib/db/supabase";
-import type { ExtendedAssetQuote } from "../../../src/lib/market-data-types";
 import { reserveFlatPriceAlert } from "../../../src/lib/market-notifications/flat-alerts/state";
 import { processPriceAlerts } from "../../../src/lib/market-notifications/process";
 import { reserveCooldownSlot } from "../../../src/lib/market-notifications/users";
+import type { ExtendedAssetQuote } from "../../../src/lib/types";
 import { adminClient } from "../../helpers/test-env";
 import {
 	createTestUser,

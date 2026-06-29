@@ -1,7 +1,6 @@
 import type { SupabaseAdminClient } from "../../db/supabase";
 import type { Logger } from "../../logging";
 import { createErrorForLogging, extractErrorMessage } from "../../logging/errors";
-import type { AssetPriceMap, MarketSession } from "../../market-data-types";
 import { processEmailUpdate } from "../../messaging/email/delivery";
 import type { EmailSender } from "../../messaging/email/utils";
 import { formatMarketScheduledTelegram } from "../../messaging/notifications/market-scheduled";
@@ -17,8 +16,14 @@ import {
 } from "../../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../../time/market/calendar";
-import type { IsoDateString, MinuteOfDay } from "../../types";
-import type { UserAssetRow, UserRecord } from "../../user-record-types";
+import type {
+	AssetPriceMap,
+	IsoDateString,
+	MarketSession,
+	MinuteOfDay,
+	UserAssetRow,
+	UserRecord,
+} from "../../types";
 
 /**
  * Deliver a scheduled market asset update via email and record the result.

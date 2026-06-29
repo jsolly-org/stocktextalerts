@@ -1,5 +1,5 @@
 import { rootLogger } from "../logging";
-import type { MarketSession } from "../market-data-types";
+import type { MarketSession } from "../types";
 
 export function parseMarketSession(payload: unknown): MarketSession {
 	if (typeof payload !== "object" || payload === null) {

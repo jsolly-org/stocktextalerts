@@ -1,5 +1,5 @@
-import type { ExtendedAssetQuote, IntradayBarsResult } from "../market-data-types";
 import { formatUsdPrice } from "../messaging/parts/asset-price-list";
+import type { ExtendedAssetQuote, IntradayBarsResult } from "../types";
 import type { EnrichedAlert } from "./types";
 
 /** Build a minimal `EnrichedAlert` from flat-price-alert data for shared Telegram rendering. */

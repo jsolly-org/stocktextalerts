@@ -4,11 +4,7 @@ import {
 	buildNewsContextForGrok,
 	fetchFinnhubExtras,
 } from "../../src/lib/daily-digest/finnhub-extras";
-import type {
-	CompanyNewsItem,
-	InsiderTransaction,
-	RecommendationTrend,
-} from "../../src/lib/finnhub-extra-types";
+import type { CompanyNewsItem, InsiderTransaction, RecommendationTrend } from "../../src/lib/types";
 import {
 	isOptionalVendorUnavailable,
 	recordOptionalVendorFailure,

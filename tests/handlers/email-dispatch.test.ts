@@ -130,7 +130,7 @@ describe("email-dispatch Lambda handler", () => {
 
 	it("sends a signed email dispatch request.", async () => {
 		vi.stubEnv("EMAIL_DISPATCH_SECRET", "dispatch-secret");
-		const { handler } = await import("../../src/handlers/email-dispatch");
+		const { handler } = await import("../../src/handlers/delivery/email-dispatch");
 
 		const response = await handler(
 			makeEvent({
@@ -161,7 +161,7 @@ describe("email-dispatch Lambda handler", () => {
 
 	it("rejects invalid signatures before sending.", async () => {
 		vi.stubEnv("EMAIL_DISPATCH_SECRET", "dispatch-secret");
-		const { handler } = await import("../../src/handlers/email-dispatch");
+		const { handler } = await import("../../src/handlers/delivery/email-dispatch");
 
 		const response = await handler(
 			makeEvent(
@@ -177,7 +177,7 @@ describe("email-dispatch Lambda handler", () => {
 
 	it("rejects malformed payloads.", async () => {
 		vi.stubEnv("EMAIL_DISPATCH_SECRET", "dispatch-secret");
-		const { handler } = await import("../../src/handlers/email-dispatch");
+		const { handler } = await import("../../src/handlers/delivery/email-dispatch");
 
 		const response = await handler(
 			makeEvent(
@@ -193,7 +193,7 @@ describe("email-dispatch Lambda handler", () => {
 
 	it("returns 405 for non-POST requests.", async () => {
 		vi.stubEnv("EMAIL_DISPATCH_SECRET", "dispatch-secret");
-		const { handler } = await import("../../src/handlers/email-dispatch");
+		const { handler } = await import("../../src/handlers/delivery/email-dispatch");
 
 		const response = await handler(
 			makeEvent(
@@ -215,7 +215,7 @@ describe("email-dispatch Lambda handler", () => {
 			error: "SES down",
 			errorCode: "ses_error",
 		});
-		const { handler } = await import("../../src/handlers/email-dispatch");
+		const { handler } = await import("../../src/handlers/delivery/email-dispatch");
 
 		const response = await handler(
 			makeEvent({
@@ -238,7 +238,7 @@ describe("email-dispatch Lambda handler", () => {
 	it("rejects unauthorized recipients.", async () => {
 		vi.stubEnv("EMAIL_DISPATCH_SECRET", "dispatch-secret");
 		mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
-		const { handler } = await import("../../src/handlers/email-dispatch");
+		const { handler } = await import("../../src/handlers/delivery/email-dispatch");
 
 		const response = await handler(
 			makeEvent({
@@ -257,7 +257,7 @@ describe("email-dispatch Lambda handler", () => {
 
 	it("rejects duplicate idempotency keys in a warm runtime.", async () => {
 		vi.stubEnv("EMAIL_DISPATCH_SECRET", "dispatch-secret");
-		const { handler } = await import("../../src/handlers/email-dispatch");
+		const { handler } = await import("../../src/handlers/delivery/email-dispatch");
 		const request = {
 			to: "new-user@example.com",
 			subject: "Approved",
@@ -284,7 +284,7 @@ describe("email-dispatch Lambda handler", () => {
 			userId: "user-1",
 			idempotencyKey: "daily-digest/user-1/2026-06-13/540/email",
 		};
-		const { handler } = await import("../../src/handlers/email-dispatch");
+		const { handler } = await import("../../src/handlers/delivery/email-dispatch");
 
 		// First attempt: SES errors -> 502. The outcome is AMBIGUOUS (SES may have accepted the
 		// message before erroring), so the claim is KEPT rather than released.
@@ -313,7 +313,7 @@ describe("email-dispatch Lambda handler", () => {
 			userId: "user-1",
 			idempotencyKey: "user-approved-user-1",
 		};
-		const { handler } = await import("../../src/handlers/email-dispatch");
+		const { handler } = await import("../../src/handlers/delivery/email-dispatch");
 
 		// First attempt: authorization lookup misses -> 403, key released.
 		mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });

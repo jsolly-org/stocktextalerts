@@ -1,4 +1,4 @@
-import type { UserAssetRow } from "../user-record-types";
+import type { UserAssetRow } from "../types";
 import type { AppSupabaseClient } from "./supabase";
 
 /**

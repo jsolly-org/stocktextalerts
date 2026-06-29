@@ -7,8 +7,7 @@ import {
 	type ScheduledNotificationStatus,
 	type ScheduledNotificationType,
 } from "../scheduled-notifications/types";
-import type { ScheduledSlotKey } from "../types";
-import type { UserRecord } from "../user-record-types";
+import type { ScheduledSlotKey, UserRecord } from "../types";
 
 async function getChannelDeliveryState(
 	options: {

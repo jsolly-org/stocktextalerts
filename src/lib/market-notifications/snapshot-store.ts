@@ -1,7 +1,7 @@
 import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
-import type { ExtendedQuoteMap } from "../market-data-types";
+import type { ExtendedQuoteMap } from "../types";
 
 /** Single captured quote row from `asset_snapshots`. */
 export interface AssetSnapshot {

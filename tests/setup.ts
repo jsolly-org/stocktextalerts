@@ -123,7 +123,7 @@ vi.mock("../src/lib/market-data/sparklines", async (importOriginal) => {
 
 // Live provider keys exist only in the Lambda runtime (SAM params). Locally
 // they are always stubbed — the real providers are exercised in production by
-// the scheduled `live-provider-check` Lambda (src/handlers/live-provider-check.ts),
+// the scheduled `live-provider-check` Lambda (src/handlers/maintenance/live-provider-check.ts),
 // not by the local test suite.
 //
 // Outbound email/SMS/Telegram/Verify and default market-data session/sparkline

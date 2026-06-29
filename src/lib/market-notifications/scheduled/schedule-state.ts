@@ -1,7 +1,6 @@
 import type { SupabaseAdminClient } from "../../db/supabase";
 import { shouldAdvanceScheduledNotificationSchedule } from "../../schedule/delivery-terminal";
-import type { ScheduledSlotKey } from "../../types";
-import type { UserRecord } from "../../user-record-types";
+import type { ScheduledSlotKey, UserRecord } from "../../types";
 
 /** True when every enabled market-scheduled channel is terminal for this slot. */
 export async function shouldAdvanceMarketScheduledSchedule(

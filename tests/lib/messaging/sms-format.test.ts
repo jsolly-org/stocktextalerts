@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatMarketScheduledSms } from "../../../src/lib/messaging/notifications/market-scheduled";
-import type { UserAssetRow } from "../../../src/lib/user-record-types";
+import type { UserAssetRow } from "../../../src/lib/types";
 
 describe("SMS scheduled update includes asset price data.", () => {
 	it("Prices and daily change appear in the SMS message.", () => {

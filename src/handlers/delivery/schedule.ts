@@ -1,9 +1,15 @@
+/**
+ * Primary notification scheduler (EventBridge: every minute). Finds users due for
+ * delivery and runs the two-pass pipeline: price alerts, then scheduled SMS/email
+ * (daily digest, market notifications, asset events, price targets). Also purges
+ * expired short URLs and email-dispatch idempotency keys.
+ */
 import type { Context, ScheduledEvent } from "aws-lambda";
-import { createSupabaseAdminClient } from "../lib/db/supabase";
-import { createLogger } from "../lib/logging";
-import { runLambda } from "../lib/logging/request-context";
-import { runScheduledNotifications } from "../lib/schedule/run";
-import { getAndResetOptionalVendorSkipCount } from "../lib/vendors/optional-vendors";
+import { createSupabaseAdminClient } from "../../lib/db/supabase";
+import { createLogger } from "../../lib/logging";
+import { runLambda } from "../../lib/logging/request-context";
+import { runScheduledNotifications } from "../../lib/schedule/run";
+import { getAndResetOptionalVendorSkipCount } from "../../lib/vendors/optional-vendors";
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
 	return runLambda(context, async () => {

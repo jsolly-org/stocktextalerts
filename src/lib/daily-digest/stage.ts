@@ -1,8 +1,8 @@
 import type { DateTime as DateTimeType } from "luxon";
 import type { AssetEventsContent } from "../asset-events/content";
+import { readDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
-import type { AssetPriceMap } from "../market-data-types";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsMessageBodies,
@@ -11,11 +11,10 @@ import {
 import type { SparklineMap } from "../messaging/parts/charts/sparkline";
 import type { NotificationExtras } from "../messaging/parts/extras";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
-import type { StagedDailyData } from "../staged-notification-types";
 import { upsertStagedNotification } from "../staged-notifications/db";
 import type { MarketClosureInfo } from "../time/market/calendar";
+import type { AssetPriceMap, StagedDailyData, UserAssetRow, UserRecord } from "../types";
 import { assertYearMonthString, type IsoDateString, type MinuteOfDay } from "../types";
-import type { UserAssetRow, UserRecord } from "../user-record-types";
 
 export interface StageDailyDigestOptions {
 	user: UserRecord;
@@ -40,6 +39,7 @@ export interface StageDailyDigestOptions {
 	telegramPriceMap: AssetPriceMap;
 	emailAssetEvents: AssetEventsContent | null;
 	smsAssetEvents: AssetEventsContent | null;
+	telegramAssetEvents?: AssetEventsContent | null;
 	sparklines: SparklineMap;
 	marketOpen: boolean;
 	marketClosureInfo: MarketClosureInfo | null;
@@ -77,6 +77,7 @@ export async function stageDailyDigestContent(options: StageDailyDigestOptions):
 		telegramPriceMap,
 		emailAssetEvents,
 		smsAssetEvents,
+		telegramAssetEvents,
 		sparklines,
 		marketOpen,
 		marketClosureInfo,
@@ -89,7 +90,7 @@ export async function stageDailyDigestContent(options: StageDailyDigestOptions):
 		shouldUpdateAnalystMonth,
 	} = options;
 
-	const scheduledForIso = user.daily_digest_next_send_at ?? currentTime.toISO();
+	const scheduledForIso = readDailyNotificationNextSendAt(user) ?? currentTime.toISO();
 	if (!scheduledForIso) {
 		logger.error(
 			"Cannot determine scheduled_for for daily staging",
@@ -138,6 +139,7 @@ export async function stageDailyDigestContent(options: StageDailyDigestOptions):
 					userAssets: telegramPriceAssets,
 					assetPrices: telegramPriceMap,
 					extras: telegramExtras,
+					assetEvents: telegramAssetEvents ?? null,
 					dateLabel: telegramDateLabel,
 					delayBanner: delayBannerText,
 					marketClosedBanner: telegramMarketBanner,

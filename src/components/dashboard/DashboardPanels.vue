@@ -40,6 +40,7 @@
 				:phoneVerified="phoneVerified"
 				:hasTrackedAssets="hasTrackedAssets"
 				:telegramPrefs="dailyDigestTelegramPrefs"
+				:assetEventTelegramPrefs="assetEventsTelegramPrefs"
 			/>
 		</template>
 
@@ -51,16 +52,6 @@
 				:hasTrackedAssets="hasTrackedAssets"
 				:trackedAssets="currentAssets"
 				:telegramPrefs="marketTelegramPrefs"
-			/>
-		</template>
-
-		<template #asset-events>
-			<AsyncAssetEventsPanel
-				v-if="shouldRender(4)"
-				:emailEnabled="emailEnabled"
-				:phoneVerified="phoneVerified"
-				:hasTrackedAssets="hasTrackedAssets"
-				:telegramPrefs="assetEventsTelegramPrefs"
 			/>
 		</template>
 
@@ -88,10 +79,6 @@ const AsyncNotificationChannelsPanel = defineAsyncComponent({
 });
 const AsyncDailyNotificationsPanel = defineAsyncComponent({
 	loader: () => import("./daily-digest/DailyNotificationsPanel.vue"),
-	loadingComponent: PanelSkeleton,
-});
-const AsyncAssetEventsPanel = defineAsyncComponent({
-	loader: () => import("./AssetEventsPanel.vue"),
 	loadingComponent: PanelSkeleton,
 });
 const AsyncMarketNotificationsPanel = defineAsyncComponent({
@@ -177,7 +164,7 @@ watch(activeIndex, (i) => visitedIndices.value.add(i));
 
 // When switching to desktop, mark all panels as visited so they stay mounted on resize back to mobile
 watch(isMobile, (mobile) => {
-	if (!mobile) for (let i = 0; i < 5; i++) visitedIndices.value.add(i);
+	if (!mobile) for (let i = 0; i < 4; i++) visitedIndices.value.add(i);
 }, { immediate: true });
 
 function shouldRender(panelIndex: number): boolean {

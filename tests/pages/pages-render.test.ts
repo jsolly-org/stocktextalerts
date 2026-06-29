@@ -3,8 +3,8 @@ import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { loadRenderers } from "astro/virtual-modules/container.js";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../src/lib/auth-constants", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("../../src/lib/auth-constants")>();
+vi.mock("../../src/lib/constants", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../../src/lib/constants")>();
 	return { ...actual, REGISTRATION_ENABLED: true };
 });
 

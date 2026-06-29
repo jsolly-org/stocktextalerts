@@ -4,8 +4,8 @@ Twilio SMS
 
 import twilio, { type RestException } from "twilio";
 import { requireEnv } from "../../db/env";
-import type { DeliveryResult } from "../../delivery-types";
 import { rootLogger } from "../../logging";
+import type { DeliveryResult } from "../../types";
 import { withDeliveryRetry } from "../delivery-retry";
 
 interface TwilioSenderConfig {

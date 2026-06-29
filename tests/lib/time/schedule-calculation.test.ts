@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
-import { US_MARKET_TIMEZONE } from "../../../src/lib/market-constants";
+import { US_MARKET_TIMEZONE } from "../../../src/lib/constants";
 import {
 	calculateNextSendAt,
 	calculateNextSendAtFromTimes,

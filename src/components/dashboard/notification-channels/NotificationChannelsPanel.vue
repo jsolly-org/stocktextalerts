@@ -288,9 +288,8 @@ watch(
 				sms_notifications_enabled: newData.sms_notifications_enabled,
 				sms_opted_out: newData.sms_opted_out,
 				phone_verified: newData.phone_verified,
-				daily_digest_time: newData.daily_digest_time,
-				daily_digest_next_send_at: newData.daily_digest_next_send_at,
-				asset_events_next_send_at: newData.asset_events_next_send_at,
+				daily_notification_time: newData.daily_notification_time,
+				daily_notification_next_send_at: newData.daily_notification_next_send_at,
 				market_scheduled_asset_price_next_send_at: newData.market_scheduled_asset_price_next_send_at,
 			};
 			// Sync channel state with parent
@@ -324,7 +323,7 @@ function getEarliestMarketNotificationTime(): number | null {
 }
 
 const dailyDeliveryTimeMinutes = ref<number | null>(
-	user.value.daily_digest_time ?? getEarliestMarketNotificationTime(),
+	user.value.daily_notification_time ?? getEarliestMarketNotificationTime(),
 );
 
 const dailyDeliveryTimeInput = computed(() =>
@@ -368,7 +367,7 @@ function handleSetBeforeOpen() {
 
 // Sync delivery time from user state (e.g. after save from another panel)
 watch(
-	() => user.value.daily_digest_time,
+	() => user.value.daily_notification_time,
 	(value) => {
 		dailyDeliveryTimeMinutes.value = value ?? getEarliestMarketNotificationTime();
 	},
@@ -376,7 +375,7 @@ watch(
 watch(
 	() => user.value.market_scheduled_asset_price_times,
 	(times) => {
-		if (user.value.daily_digest_time !== null) return;
+		if (user.value.daily_notification_time !== null) return;
 		dailyDeliveryTimeMinutes.value =
 			times && times.length > 0 ? getEarliestMarketNotificationTime() : null;
 	},
@@ -387,12 +386,12 @@ const nextDailyDeliveryText = computed(() => {
 	if (!isHydrated.value || !user.value.timezone) return null;
 	void tick.value;
 	const hasDeliveryTime =
-		user.value.daily_digest_next_send_at != null ||
+		user.value.daily_notification_next_send_at != null ||
 		dailyDeliveryTimeInput.value != null;
 	if (!hasDeliveryTime) return null;
 
 	const secondsUntil = getSecondsUntilNextSend({
-		nextSendAtIso: user.value.daily_digest_next_send_at,
+		nextSendAtIso: user.value.daily_notification_next_send_at,
 		timeInput: dailyDeliveryTimeInput.value,
 		timezone: user.value.timezone,
 		now: DateTime.utc(),

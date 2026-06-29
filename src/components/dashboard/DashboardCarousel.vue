@@ -43,7 +43,6 @@
 import { type Component, nextTick, onMounted, onUnmounted, ref } from "vue";
 
 import BellAlertIcon from "../../icons/bell-alert.svg?component";
-import CalendarDaysIcon from "../../icons/calendar-days.svg?component";
 import ChartBarIcon from "../../icons/chart-bar.svg?component";
 import NewspaperIcon from "../../icons/newspaper.svg?component";
 import PresentationChartLineIcon from "../../icons/presentation-chart-line.svg?component";
@@ -66,7 +65,6 @@ const tabs: Tab[] = [
 	{ id: "schedule", label: "Alerts", icon: BellAlertIcon },
 	{ id: "daily", label: "Daily", icon: NewspaperIcon },
 	{ id: "market-notifications", label: "Market Notifications", icon: ChartBarIcon },
-	{ id: "asset-events", label: "Asset Events", icon: CalendarDaysIcon },
 ];
 
 const activeIndex = defineModel<number>('activeIndex', { default: 0 });

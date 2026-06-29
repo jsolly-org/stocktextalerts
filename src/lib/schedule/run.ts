@@ -30,10 +30,9 @@
 
 import { setTimeout as realDelay } from "node:timers/promises";
 import { DateTime } from "luxon";
-import { processAssetEventsUser } from "../asset-events/process";
-import { fetchAssetEventsUsers } from "../asset-events/query";
+import { DAILY_DISPATCH_BATCH_SIZE } from "../constants";
 import { dispatchDailyDigestUser } from "../daily-digest/dispatch";
-import { fetchDailyDigestUsers } from "../daily-digest/query";
+import { fetchDailyNotificationUsers } from "../daily-notification/query";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { batchLoadUserAssets, type UserAssetsMap } from "../db/user-assets";
 import type { Logger } from "../logging";
@@ -43,7 +42,6 @@ import {
 	storePriceHistoryMinuteSnapshots,
 } from "../market-data/price-history-cache";
 import { fetchAssetPricesWithSessionState, fetchExtendedQuotes } from "../market-data/prices";
-import type { AssetPriceMap, ExtendedQuoteMap, MarketSession } from "../market-data-types";
 import {
 	type FlatPriceAlertTotals,
 	processFlatPriceAlerts,
@@ -60,11 +58,11 @@ import {
 	type ScheduledNotificationTotals,
 	USER_PROCESS_BATCH_SIZE,
 } from "../scheduled-notifications/types";
-import { DAILY_DISPATCH_BATCH_SIZE } from "../scheduler-constants";
 import { deliverStagedNotifications } from "../staged-notifications/deliver";
 import { precomputeDailyDigest } from "../staged-notifications/precompute";
 import { toIsoOrThrow } from "../time/display";
 import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market/calendar";
+import type { AssetPriceMap, ExtendedQuoteMap, MarketSession } from "../types";
 import { enqueuePriceHistoryStoreRetry } from "../vendors/backfill/enqueue";
 import { resolveMarketSessionWithFallback } from "./market-session";
 import { getPassDelayMs } from "./pass-delay";
@@ -146,8 +144,6 @@ async function runPass(options: {
 	/** Per-invocation logo cache shared across both passes + all users (resolve each
 	 *  symbol's logo at most once per cron tick, not once per user). */
 	logoCache: LogoCache;
-	/** When true, run asset events processing (only in the first pass). */
-	includeAssetEvents: boolean;
 }): Promise<ScheduledNotificationTotals> {
 	const {
 		supabase,
@@ -201,27 +197,19 @@ async function runPass(options: {
 	}
 
 	/* ============= Phase 2: DELIVER fallback (full pipeline for non-staged users) ============= */
-	const [marketUsers, dailyUsers, assetEventsUsers] = await Promise.all([
+	const [marketUsers, dailyUsers] = await Promise.all([
 		fetchMarketScheduledUsers({
 			supabase,
 			logger,
 			forceSend: false,
 			currentTimeIso,
 		}),
-		fetchDailyDigestUsers({
+		fetchDailyNotificationUsers({
 			supabase,
 			logger,
 			forceSend: false,
 			currentTimeIso,
 		}),
-		options.includeAssetEvents
-			? fetchAssetEventsUsers({
-					supabase,
-					logger,
-					forceSend: false,
-					currentTimeIso,
-				})
-			: Promise.resolve([]),
 	]);
 
 	// Filter out users already delivered from staging so we don't double-send.
@@ -231,10 +219,7 @@ async function runPass(options: {
 
 	// Batch-load user assets for market + asset-events users first (single query).
 	// Derive unique symbols from the map for price fetching to avoid a redundant DB round-trip.
-	const userAssetsUserIds = [
-		...fallbackMarketUsers.map((u) => u.id),
-		...assetEventsUsers.map((u) => u.id),
-	];
+	const userAssetsUserIds = [...fallbackMarketUsers.map((u) => u.id)];
 	let userAssetsMap: UserAssetsMap = new Map();
 	if (userAssetsUserIds.length > 0) {
 		try {
@@ -302,16 +287,10 @@ async function runPass(options: {
 		}
 	}
 
-	// Fetch market closure once for market-scheduled banners and asset-events.
-	// Daily digests derive weekend/holiday labels from each user's scheduled send
-	// instant inside the worker, so reusing the scheduler's current-time closure
-	// info can misclassify digests near US midnight.
-	let marketClosureInfo: MarketClosureInfo | null = null;
+	// Fetch market closure once for market-scheduled banners and daily notifications.
 	const needsClosureInfo =
-		!marketOpen &&
-		(fallbackDailyUsers.length > 0 ||
-			fallbackMarketUsers.length > 0 ||
-			assetEventsUsers.length > 0);
+		!marketOpen && (fallbackDailyUsers.length > 0 || fallbackMarketUsers.length > 0);
+	let marketClosureInfo: MarketClosureInfo | null = null;
 	if (needsClosureInfo) {
 		try {
 			marketClosureInfo = await getUsMarketClosureInfoForInstant(currentTime);
@@ -351,28 +330,7 @@ async function runPass(options: {
 		results.push(...batchResults);
 	}
 
-	// In-process: process asset events users in batches (first pass only)
-	for (let index = 0; index < assetEventsUsers.length; index += USER_PROCESS_BATCH_SIZE) {
-		const batch = assetEventsUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
-		const batchResults = await Promise.all(
-			batch.map((user) =>
-				processAssetEventsUser({
-					user,
-					supabase,
-					logger,
-					currentTime,
-					sendEmail,
-					getSmsSender,
-					getTelegramSender,
-					userAssetsMap,
-					marketClosureInfo,
-				}),
-			),
-		);
-		results.push(...batchResults);
-	}
-
-	// Dispatch each fallback daily user in-process, reusing the UserRecord (with prefs)
+	// Dispatch each fallback daily notification user in-process
 	// already loaded above so dispatch doesn't re-fetch the user row + prefs per user.
 	if (fallbackDailyUsers.length > 0) {
 		for (let index = 0; index < fallbackDailyUsers.length; index += DAILY_DISPATCH_BATCH_SIZE) {
@@ -645,7 +603,6 @@ export async function runScheduledNotifications(options: {
 		marketSession: schedulerMarketSession,
 		schedulerQuoteCache,
 		logoCache,
-		includeAssetEvents: true,
 	});
 
 	// Wait until 30 seconds have elapsed since the start of pass 1
@@ -657,7 +614,7 @@ export async function runScheduledNotifications(options: {
 		await realDelay(waitMs);
 	}
 
-	// Pass 2: DELIVER staged + fallback + PRE-COMPUTE (no asset events)
+	// Pass 2: DELIVER staged + fallback + PRE-COMPUTE
 	const pass2Totals = await runPass({
 		supabase,
 		logger,
@@ -667,7 +624,6 @@ export async function runScheduledNotifications(options: {
 		marketSession: schedulerMarketSession,
 		schedulerQuoteCache,
 		logoCache,
-		includeAssetEvents: false,
 	});
 
 	const combinedTotals = mergeTotals(pass1Totals, pass2Totals);

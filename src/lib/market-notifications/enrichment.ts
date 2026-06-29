@@ -1,6 +1,6 @@
-import type { ExtendedAssetQuote } from "../market-data-types";
 import { formatUsdPrice } from "../messaging/parts/asset-price-list";
 import type { EnrichedAlert } from "../price-alerts/types";
+import type { ExtendedAssetQuote } from "../types";
 import { generatePriceAlertSummary } from "./grok-summary";
 
 export type { EnrichedAlert } from "../price-alerts/types";

@@ -1,9 +1,7 @@
 import type { buildAssetEventsContent } from "../asset-events/content";
 import type { SupabaseAdminClient } from "../db/supabase";
-import type { DeliveryResult } from "../delivery-types";
 import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
-import type { AssetPriceMap } from "../market-data-types";
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,
@@ -33,8 +31,14 @@ import {
 } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../time/market/calendar";
-import type { IsoDateString, MinuteOfDay } from "../types";
-import type { UserAssetRow, UserRecord } from "../user-record-types";
+import type {
+	AssetPriceMap,
+	DeliveryResult,
+	IsoDateString,
+	MinuteOfDay,
+	UserAssetRow,
+	UserRecord,
+} from "../types";
 
 export {
 	formatDailyDigestEmail,
@@ -298,6 +302,7 @@ export async function processDailyDigestTelegramDelivery(options: {
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
 	extras: NotificationExtras;
+	assetEvents?: AssetEventsResult;
 	/** Human date label in market tz, e.g. "Thu, Jun 19". */
 	dateLabel: string;
 	delayBanner?: string | null;
@@ -316,6 +321,7 @@ export async function processDailyDigestTelegramDelivery(options: {
 		userAssets,
 		assetPrices,
 		extras,
+		assetEvents,
 		dateLabel,
 		delayBanner,
 		marketClosedBanner,
@@ -379,6 +385,7 @@ export async function processDailyDigestTelegramDelivery(options: {
 		userAssets,
 		assetPrices,
 		extras,
+		assetEvents,
 		dateLabel,
 		delayBanner,
 		marketClosedBanner,

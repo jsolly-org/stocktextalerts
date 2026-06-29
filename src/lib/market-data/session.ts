@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
-import type { MarketSession } from "../market-data-types";
 import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
+import type { MarketSession } from "../types";
 import { marketDataFetch } from "../vendors/massive";
 import { parseMarketSession } from "./session-parse";
 

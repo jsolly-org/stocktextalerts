@@ -5,9 +5,14 @@ import {
 	persistChannelPreferences,
 } from "../../../lib/api/notification-preferences-channels";
 import {
-	ASSET_EVENTS_SCHEDULE_FIELDS,
 	buildNotificationPreferencesUpdatePayload,
+	DAILY_NOTIFICATION_SCHEDULE_FIELDS,
 } from "../../../lib/api/notification-preferences-update";
+import {
+	DAILY_NOTIFICATION_FACETS,
+	hasAnyDailyNotificationFacet,
+	isDailyNotificationFacetEnabled,
+} from "../../../lib/daily-notification/eligibility";
 import { createUserService, type User } from "../../../lib/db";
 import { Constants } from "../../../lib/db/generated/database.types";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
@@ -15,10 +20,10 @@ import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
-import { anyFacetEnabled } from "../../../lib/messaging/notification-prefs";
 import { userLocalToEtMinute } from "../../../lib/time/conversion";
 import { isOutsideMarketHours } from "../../../lib/time/market/session";
 import { parseScheduledTimes } from "../../../lib/time/schedule/next-send";
+import type { DailyNotificationContent, PrefChannel } from "../../../lib/types";
 import type { ApiJsonBody } from "../types";
 
 const NOTIFICATION_PREFERENCES_SCHEMA = {
@@ -71,6 +76,25 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	price_targets_include_telegram: { type: "boolean" },
 } as const satisfies FormSchema;
 
+const DAILY_DIGEST_FACETS = ["prices", "top_movers", "news", "rumors"] as const;
+const DAILY_ASSET_EVENT_FACETS = ["calendar", "ipo", "analyst", "insider"] as const;
+
+function dailyNotificationFormField(
+	content: DailyNotificationContent,
+	channel: PrefChannel,
+): string | null {
+	if ((DAILY_DIGEST_FACETS as readonly string[]).includes(content)) {
+		if (channel === "sms" && (content === "news" || content === "rumors")) {
+			return null;
+		}
+		return `daily_digest_include_${content}_${channel}`;
+	}
+	if ((DAILY_ASSET_EVENT_FACETS as readonly string[]).includes(content)) {
+		return `asset_events_include_${content}_${channel}`;
+	}
+	return null;
+}
+
 /** SMS facet form fields → their (notification_type, content) row key, used to
  *  enforce the sms_opted_out / phone-required guard against the table rows. */
 const SMS_INCLUDE_FIELD_TARGETS: Record<string, { notification_type: string; content: string }> = {
@@ -78,17 +102,29 @@ const SMS_INCLUDE_FIELD_TARGETS: Record<string, { notification_type: string; con
 		notification_type: "market_scheduled_asset_price",
 		content: "",
 	},
-	asset_events_include_calendar_sms: { notification_type: "asset_events", content: "calendar" },
-	asset_events_include_ipo_sms: { notification_type: "asset_events", content: "ipo" },
-	asset_events_include_analyst_sms: { notification_type: "asset_events", content: "analyst" },
-	asset_events_include_insider_sms: { notification_type: "asset_events", content: "insider" },
+	asset_events_include_calendar_sms: {
+		notification_type: "daily_notification",
+		content: "calendar",
+	},
+	asset_events_include_ipo_sms: { notification_type: "daily_notification", content: "ipo" },
+	asset_events_include_analyst_sms: {
+		notification_type: "daily_notification",
+		content: "analyst",
+	},
+	asset_events_include_insider_sms: {
+		notification_type: "daily_notification",
+		content: "insider",
+	},
 	market_asset_price_alerts_include_sms: {
 		notification_type: "market_asset_price_alerts",
 		content: "",
 	},
 	price_move_alerts_include_sms: { notification_type: "price_move_alerts", content: "" },
 	price_targets_include_sms: { notification_type: "price_targets", content: "" },
-	daily_digest_include_top_movers_sms: { notification_type: "daily_digest", content: "top_movers" },
+	daily_digest_include_top_movers_sms: {
+		notification_type: "daily_notification",
+		content: "top_movers",
+	},
 };
 const SMS_INCLUDE_FIELDS = Object.keys(SMS_INCLUDE_FIELD_TARGETS);
 
@@ -208,8 +244,8 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	}
 
 	// Per-option channel facets live in notification_preferences. Load the user's
-	// CURRENT rows so we can compute the post-update asset-events state (for
-	// asset_events_next_send_at) and enforce the SMS opt-out guard.
+	// CURRENT rows so we can compute the post-update daily notification state (for
+	// daily_notification_next_send_at) and enforce the SMS opt-out guard.
 	let existingPrefs: Awaited<ReturnType<typeof loadUserPreferenceRows>>;
 	try {
 		existingPrefs = await loadUserPreferenceRows(supabase, user.id);
@@ -221,34 +257,35 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		);
 	}
 
-	// Resolve the post-update asset-events email/sms enabled state by merging the
-	// submitted facet fields over the existing table rows.
-	const assetEventsScheduleSubmitted = ASSET_EVENTS_SCHEDULE_FIELDS.some((field) =>
+	const dailyNotificationScheduleSubmitted = DAILY_NOTIFICATION_SCHEDULE_FIELDS.some((field) =>
 		formData.has(field),
 	);
-	const isAssetEventsScheduleFacetEnabledAfter = (channel: "email" | "sms", content: string) => {
-		const field = `asset_events_include_${content}_${channel}` as keyof typeof parsed.data;
-		if (formData.has(field) && parsed.data[field] !== undefined) {
-			return parsed.data[field] === true;
+	const isDailyNotificationFacetEnabledAfter = (
+		channel: PrefChannel,
+		content: DailyNotificationContent,
+	) => {
+		const field = dailyNotificationFormField(content, channel);
+		if (
+			field &&
+			formData.has(field) &&
+			parsed.data[field as keyof typeof parsed.data] !== undefined
+		) {
+			return parsed.data[field as keyof typeof parsed.data] === true;
 		}
-		return existingPrefs.some(
-			(p) =>
-				p.notification_type === "asset_events" &&
-				p.channel === channel &&
-				p.content === content &&
-				p.enabled,
-		);
+		return isDailyNotificationFacetEnabled(existingPrefs, channel, content);
 	};
-	const assetEventsEnabledAfterUpdate = (["calendar", "ipo", "analyst", "insider"] as const).some(
-		(content) =>
-			isAssetEventsScheduleFacetEnabledAfter("email", content) ||
-			isAssetEventsScheduleFacetEnabledAfter("sms", content),
+	const dailyNotificationEnabledAfterUpdate = DAILY_NOTIFICATION_FACETS.some((content) =>
+		(["email", "sms", "telegram"] as const).some((channel) => {
+			if (dailyNotificationFormField(content, channel) === null) {
+				return isDailyNotificationFacetEnabled(existingPrefs, channel, content);
+			}
+			return isDailyNotificationFacetEnabledAfter(channel, content);
+		}),
 	);
-	const assetEventsEnabledBefore =
-		anyFacetEnabled(existingPrefs, "asset_events", "email") ||
-		anyFacetEnabled(existingPrefs, "asset_events", "sms");
-	const assetEventsOptionsChanged =
-		assetEventsScheduleSubmitted && assetEventsEnabledAfterUpdate !== assetEventsEnabledBefore;
+	const dailyNotificationEnabledBefore = hasAnyDailyNotificationFacet(existingPrefs);
+	const dailyNotificationOptionsChanged =
+		dailyNotificationScheduleSubmitted &&
+		dailyNotificationEnabledAfterUpdate !== dailyNotificationEnabledBefore;
 
 	let safeNotificationPreferenceUpdates: ReturnType<
 		typeof buildNotificationPreferencesUpdatePayload
@@ -260,8 +297,8 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			rawTimesValue: rawTimesValue as string | null,
 			parsedMarketScheduledAssetPriceTimes,
 			dbUser,
-			assetEventsEnabledAfterUpdate,
-			assetEventsOptionsChanged,
+			dailyNotificationEnabledAfterUpdate,
+			dailyNotificationOptionsChanged,
 			logger,
 		});
 	} catch (error) {
@@ -366,12 +403,11 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 					phone_verified: updatedUser.phone_verified,
 					timezone: updatedUser.timezone,
 					market_scheduled_asset_price_times: updatedUser.market_scheduled_asset_price_times,
-					daily_digest_time: updatedUser.daily_digest_time,
-					daily_digest_next_send_at: updatedUser.daily_digest_next_send_at,
+					daily_notification_time: updatedUser.daily_notification_time,
+					daily_notification_next_send_at: updatedUser.daily_notification_next_send_at,
 					market_scheduled_asset_price_next_send_at:
 						updatedUser.market_scheduled_asset_price_next_send_at,
 					dismiss_timezone_mismatch_prompts: updatedUser.dismiss_timezone_mismatch_prompts,
-					asset_events_next_send_at: updatedUser.asset_events_next_send_at,
 					market_asset_price_alerts_enabled: updatedUser.market_asset_price_alerts_enabled,
 					market_asset_price_alert_move_size: updatedUser.market_asset_price_alert_move_size,
 					...buildChannelPreferenceSnapshot(updatedPrefs),

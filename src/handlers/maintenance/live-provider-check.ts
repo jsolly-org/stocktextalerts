@@ -1,30 +1,19 @@
+/**
+ * Live provider health check (EventBridge: 16:00 UTC weekdays; also post-deploy).
+ * The only Lambda that makes real Massive/Finnhub round-trips — local tests always
+ * stub vendors. Telegram probe is read-only (getMe/getWebhookInfo, never sends).
+ * Throws on any failure so LiveProviderCheckFunctionErrorAlarm pages via SNS.
+ */
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { HttpError } from "grammy";
-import { fetchEarnings } from "../lib/asset-events/earnings";
-import { createLogger, type Logger } from "../lib/logging";
-import { runLambda } from "../lib/logging/request-context";
-import { fetchDailyCloses, fetchPrevClose } from "../lib/market-data/bars";
-import { fetchAssetPrices } from "../lib/market-data/prices";
-import { getCurrentMarketSession } from "../lib/market-data/session";
-import { checkTelegramLive } from "../lib/messaging/telegram/health";
-import { createTelegramBot, readTelegramBotToken } from "../lib/messaging/telegram/sender";
-
-/**
- * Scheduled live data-provider health check (Massive + Finnhub + Telegram).
- *
- * This is the only place real provider round-trips run — against the real
- * Massive/Finnhub APIs during market hours, when snapshot data is fresh, plus a
- * read-only Telegram token check — and throws on any failure. (There is no local
- * live-test tier; provider keys + the bot token exist only in this Lambda's env.)
- * The Telegram check is deliberately side-effect-free: it calls only the read-only
- * `getMe()` + `getWebhookInfo()` Bot-API methods (never sendMessage/sendPhoto), so
- * an agent invoking this Lambda can never trigger a real message. The thrown error
- * surfaces on the `AWS/Lambda Errors` metric, which `LiveProviderCheckFunctionErrorAlarm`
- * routes to the shared-infra SNS topic (same enriched-email path as every other
- * function alarm). Provider keys + the bot token are fetched at runtime from SSM
- * SecureString (via loadSecretsIntoEnv → src/lib/secrets.ts), like the other
- * scheduled Lambdas, and exist only in this Lambda's runtime.
- */
+import { fetchEarnings } from "../../lib/asset-events/earnings";
+import { createLogger, type Logger } from "../../lib/logging";
+import { runLambda } from "../../lib/logging/request-context";
+import { fetchDailyCloses, fetchPrevClose } from "../../lib/market-data/bars";
+import { fetchAssetPrices } from "../../lib/market-data/prices";
+import { getCurrentMarketSession } from "../../lib/market-data/session";
+import { checkTelegramLive } from "../../lib/messaging/telegram/health";
+import { createTelegramBot, readTelegramBotToken } from "../../lib/messaging/telegram/sender";
 
 interface CheckResult {
 	name: string;

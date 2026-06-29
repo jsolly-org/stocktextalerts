@@ -5,7 +5,7 @@ import {
 	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_OPEN_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,
-} from "../../market-constants";
+} from "../../constants";
 import { dateTimeAtMinuteOfDay } from "../utils";
 
 export type ScheduledMarketSession = "pre" | "regular" | "after";

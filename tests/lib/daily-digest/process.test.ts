@@ -14,7 +14,7 @@ import type { EmailSender } from "../../../src/lib/messaging/email/utils";
 import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { TelegramSender } from "../../../src/lib/messaging/telegram/sender";
-import type { UserRecord } from "../../../src/lib/user-record-types";
+import type { UserRecord } from "../../../src/lib/types";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser, setTestUserPrefs } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -121,8 +121,8 @@ describe("Daily digest process scenarios", () => {
 		const { error: updateError } = await adminClient
 			.from("users")
 			.update({
-				daily_digest_time: nineAmLocalMinutes,
-				daily_digest_next_send_at: nowIso,
+				daily_notification_time: nineAmLocalMinutes,
+				daily_notification_next_send_at: nowIso,
 			})
 			.eq("id", id);
 		expect(updateError).toBeNull();
@@ -139,10 +139,10 @@ describe("Daily digest process scenarios", () => {
 
 		const { data: before } = await adminClient
 			.from("users")
-			.select("daily_digest_next_send_at")
+			.select("daily_notification_next_send_at")
 			.eq("id", id)
 			.single();
-		const nextSendAtBefore = before?.daily_digest_next_send_at;
+		const nextSendAtBefore = before?.daily_notification_next_send_at;
 
 		const stats = await processDailyDigestUser({
 			user: userWithPrefs as unknown as UserRecord,
@@ -164,11 +164,11 @@ describe("Daily digest process scenarios", () => {
 
 		const { data: after } = await adminClient
 			.from("users")
-			.select("daily_digest_next_send_at")
+			.select("daily_notification_next_send_at")
 			.eq("id", id)
 			.single();
-		expect(after?.daily_digest_next_send_at).not.toBeNull();
-		expect(after?.daily_digest_next_send_at).not.toBe(nextSendAtBefore);
+		expect(after?.daily_notification_next_send_at).not.toBeNull();
+		expect(after?.daily_notification_next_send_at).not.toBe(nextSendAtBefore);
 	});
 
 	it("User who disabled email but has SMS enabled receives price summary via SMS only.", async () => {
@@ -192,8 +192,8 @@ describe("Daily digest process scenarios", () => {
 		const { error: updateError } = await adminClient
 			.from("users")
 			.update({
-				daily_digest_time: nineAmLocalMinutes,
-				daily_digest_next_send_at: nowIso,
+				daily_notification_time: nineAmLocalMinutes,
+				daily_notification_next_send_at: nowIso,
 			})
 			.eq("id", id);
 		expect(updateError).toBeNull();
@@ -285,8 +285,8 @@ describe("Daily digest process scenarios", () => {
 		const { error: updateError } = await adminClient
 			.from("users")
 			.update({
-				daily_digest_time: sixThirtyPmLocalMinutes,
-				daily_digest_next_send_at: saturdayInstant.toISO(),
+				daily_notification_time: sixThirtyPmLocalMinutes,
+				daily_notification_next_send_at: saturdayInstant.toISO(),
 			})
 			.eq("id", id);
 		expect(updateError).toBeNull();
@@ -341,8 +341,8 @@ describe("Daily digest process scenarios", () => {
 		await adminClient
 			.from("users")
 			.update({
-				daily_digest_time: 9 * 60,
-				daily_digest_next_send_at: nowIso,
+				daily_notification_time: 9 * 60,
+				daily_notification_next_send_at: nowIso,
 			})
 			.eq("id", id);
 		await setTestUserPrefs(id, [["daily_digest", "news", "email", true]]);
@@ -393,8 +393,8 @@ describe("Daily digest process scenarios", () => {
 		await adminClient
 			.from("users")
 			.update({
-				daily_digest_time: 9 * 60,
-				daily_digest_next_send_at: nowIso,
+				daily_notification_time: 9 * 60,
+				daily_notification_next_send_at: nowIso,
 				grok_sends_in_window: 0,
 			})
 			.eq("id", id);
@@ -430,7 +430,7 @@ describe("Daily digest process scenarios", () => {
 		);
 	});
 
-	it("Failed SMS delivery does not advance daily_digest_next_send_at.", async () => {
+	it("Failed SMS delivery does not advance daily_notification_next_send_at.", async () => {
 		expectConsoleError("Failed to send Daily Digest SMS part");
 		const now = DateTime.utc();
 		const nowIso = now.toISO();
@@ -449,8 +449,8 @@ describe("Daily digest process scenarios", () => {
 		await adminClient
 			.from("users")
 			.update({
-				daily_digest_time: 9 * 60,
-				daily_digest_next_send_at: nowIso,
+				daily_notification_time: 9 * 60,
+				daily_notification_next_send_at: nowIso,
 			})
 			.eq("id", id);
 
@@ -466,7 +466,7 @@ describe("Daily digest process scenarios", () => {
 
 		const { data: before } = await adminClient
 			.from("users")
-			.select("daily_digest_next_send_at")
+			.select("daily_notification_next_send_at")
 			.eq("id", id)
 			.single();
 
@@ -489,11 +489,11 @@ describe("Daily digest process scenarios", () => {
 
 		const { data: after } = await adminClient
 			.from("users")
-			.select("daily_digest_next_send_at")
+			.select("daily_notification_next_send_at")
 			.eq("id", id)
 			.single();
 
-		expect(after?.daily_digest_next_send_at).toBe(before?.daily_digest_next_send_at);
+		expect(after?.daily_notification_next_send_at).toBe(before?.daily_notification_next_send_at);
 	});
 
 	it("Grok limit reached skips Finnhub news fetch even when email news is enabled.", async () => {
@@ -514,8 +514,8 @@ describe("Daily digest process scenarios", () => {
 		await adminClient
 			.from("users")
 			.update({
-				daily_digest_time: 9 * 60,
-				daily_digest_next_send_at: nowIso,
+				daily_notification_time: 9 * 60,
+				daily_notification_next_send_at: nowIso,
 				grok_sends_in_window: 999,
 				grok_window_start: nowIso,
 			})

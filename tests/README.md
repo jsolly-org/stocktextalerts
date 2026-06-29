@@ -100,7 +100,7 @@ For scoped env overrides inside a file, prefer `resetTestEnvStubs()` (`unstubAll
 
 Provider keys (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`, `XAI_API_KEY`, `TELEGRAM_BOT_TOKEN`) live in the Lambda runtime and are **always stubbed locally**. `MASSIVE_API_KEY` is also on Vercel (logo endpoint); `TELEGRAM_BOT_TOKEN` is on Vercel (webhook). There are no local live-provider round-trips.
 
-Post-deploy live verification uses the scheduled `stocktextalerts-live-provider-check` Lambda (`src/handlers/live-provider-check.ts`).
+Post-deploy live verification uses the scheduled `stocktextalerts-live-provider-check` Lambda (`src/handlers/maintenance/live-provider-check.ts`).
 
 ## Email routing (Mailpit)
 

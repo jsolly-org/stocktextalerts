@@ -78,7 +78,7 @@
 					id="daily_digest_time_label"
 					class="text-base font-semibold text-heading"
 				>
-					Daily digest delivery time
+					Daily notification delivery time
 				</span>
 				<p
 					id="daily_digest_time_description"
@@ -93,7 +93,7 @@
 						:inputId="`daily_digest_time`"
 						:inputName="`daily_digest_time`"
 						:initialTime="props.dailyDeliveryTimeInput"
-						inputAriaLabel="Daily digest delivery time"
+						inputAriaLabel="Daily notification delivery time"
 						:clearable="props.dailyDeliveryTimeMinutes !== null"
 						clearAriaLabel="Clear delivery time"
 						:is24="props.is24"
@@ -121,7 +121,7 @@
 <script lang="ts" setup>
 import { computed } from "vue";
 import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
-import { DASHBOARD_SECTION_HASHES, DASHBOARD_SECTION_IDS } from "../../../lib/dashboard-link-constants";
+import { DASHBOARD_SECTION_HASHES, DASHBOARD_SECTION_IDS } from "../../../lib/constants";
 import StatusMessage from "../../StatusMessage.vue";
 import ToggleSwitch from "../../ToggleSwitch.vue";
 import TimePicker from "../shared/TimePicker.vue";

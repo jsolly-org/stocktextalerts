@@ -273,7 +273,7 @@ Because Vercel Git deployments start independently on `main` pushes, schema-affe
 
 Vitest runs fully offline and stubs every external provider key (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`, `XAI_API_KEY`); Twilio and SES are always faked in tests. There is **no way to run live provider tests locally** — the provider keys live only in the Lambda runtime (SAM params).
 
-Real Massive/Finnhub round-trips are exercised in production by the scheduled `stocktextalerts-live-provider-check` Lambda ([src/handlers/live-provider-check.ts](src/handlers/live-provider-check.ts)), which throws on any failure and surfaces it through the standard Lambda error alarm. The GitHub deploy workflow invokes it after every production deploy; invoke it on demand with `aws lambda invoke` only for investigation.
+Real Massive/Finnhub round-trips are exercised in production by the scheduled `stocktextalerts-live-provider-check` Lambda ([src/handlers/maintenance/live-provider-check.ts](src/handlers/maintenance/live-provider-check.ts)), which throws on any failure and surfaces it through the standard Lambda error alarm. The GitHub deploy workflow invokes it after every production deploy; invoke it on demand with `aws lambda invoke` only for investigation.
 
 ## Usage
 

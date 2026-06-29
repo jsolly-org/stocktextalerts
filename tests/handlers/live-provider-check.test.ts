@@ -27,7 +27,7 @@ vi.mock("../../src/lib/messaging/telegram/sender", () => ({
 	readTelegramBotToken: vi.fn(() => "test-telegram-bot-token"),
 }));
 
-import { handler } from "../../src/handlers/live-provider-check";
+import { handler } from "../../src/handlers/maintenance/live-provider-check";
 import { fetchEarnings } from "../../src/lib/asset-events/earnings";
 import { fetchDailyCloses, fetchPrevClose } from "../../src/lib/market-data/bars";
 import { fetchAssetPrices } from "../../src/lib/market-data/prices";

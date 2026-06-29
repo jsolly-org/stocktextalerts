@@ -11,8 +11,8 @@ function makeUser(overrides: Partial<User> = {}): User {
 	return {
 		id: "00000000-0000-0000-0000-000000000111",
 		timezone: "America/New_York",
-		daily_digest_time: 1020,
-		asset_events_next_send_at: "2026-01-14T22:00:00.000Z",
+		daily_notification_time: 1020,
+		daily_notification_next_send_at: "2026-01-14T22:00:00.000Z",
 		...overrides,
 	} as unknown as User;
 }
@@ -56,7 +56,7 @@ describe("computeAssetEventsNextSendAt", () => {
 		computeAssetEventsNextSendAt(
 			updates,
 			user,
-			user.daily_digest_time,
+			user.daily_notification_time,
 			user.timezone,
 			false, // timezoneChanged
 			false, // dailyTimeChanged
@@ -64,7 +64,7 @@ describe("computeAssetEventsNextSendAt", () => {
 			true, // hasAnyAssetEventsOption
 		);
 
-		expect(updates.asset_events_next_send_at).toBeTruthy();
+		expect(updates.daily_notification_next_send_at).toBeTruthy();
 	});
 
 	it("Disabling the last enabled option clears next_send_at.", () => {
@@ -74,7 +74,7 @@ describe("computeAssetEventsNextSendAt", () => {
 		computeAssetEventsNextSendAt(
 			updates,
 			user,
-			user.daily_digest_time,
+			user.daily_notification_time,
 			user.timezone,
 			false,
 			false,
@@ -82,7 +82,7 @@ describe("computeAssetEventsNextSendAt", () => {
 			false, // hasAnyAssetEventsOption — nothing left enabled
 		);
 
-		expect(updates.asset_events_next_send_at).toBeNull();
+		expect(updates.daily_notification_next_send_at).toBeNull();
 	});
 
 	it("No options + no change flags = no mutation.", () => {
@@ -92,7 +92,7 @@ describe("computeAssetEventsNextSendAt", () => {
 		computeAssetEventsNextSendAt(
 			updates,
 			user,
-			user.daily_digest_time,
+			user.daily_notification_time,
 			user.timezone,
 			false,
 			false,
@@ -100,7 +100,7 @@ describe("computeAssetEventsNextSendAt", () => {
 			false,
 		);
 
-		expect(updates.asset_events_next_send_at).toBeUndefined();
+		expect(updates.daily_notification_next_send_at).toBeUndefined();
 	});
 
 	it("Timezone change recomputes when an option is enabled.", () => {
@@ -110,7 +110,7 @@ describe("computeAssetEventsNextSendAt", () => {
 		computeAssetEventsNextSendAt(
 			updates,
 			user,
-			user.daily_digest_time,
+			user.daily_notification_time,
 			"America/Chicago",
 			true, // timezoneChanged
 			false,
@@ -118,7 +118,7 @@ describe("computeAssetEventsNextSendAt", () => {
 			true, // hasAnyAssetEventsOption
 		);
 
-		expect(updates.asset_events_next_send_at).toBeTruthy();
+		expect(updates.daily_notification_next_send_at).toBeTruthy();
 	});
 
 	it("Daily time change recomputes when an option is enabled.", () => {
@@ -136,17 +136,17 @@ describe("computeAssetEventsNextSendAt", () => {
 			true, // hasAnyAssetEventsOption
 		);
 
-		expect(updates.asset_events_next_send_at).toBeTruthy();
+		expect(updates.daily_notification_next_send_at).toBeTruthy();
 	});
 
 	it("Self-healing: repairs null next_send_at when an option is enabled.", () => {
-		const user = makeUser({ asset_events_next_send_at: null });
+		const user = makeUser({ daily_notification_next_send_at: null });
 		const updates: UserUpdateInput = {};
 
 		computeAssetEventsNextSendAt(
 			updates,
 			user,
-			user.daily_digest_time,
+			user.daily_notification_time,
 			user.timezone,
 			false,
 			false,
@@ -154,17 +154,17 @@ describe("computeAssetEventsNextSendAt", () => {
 			true, // hasAnyAssetEventsOption — repairs a missing schedule
 		);
 
-		expect(updates.asset_events_next_send_at).toBeTruthy();
+		expect(updates.daily_notification_next_send_at).toBeTruthy();
 	});
 
 	it("No repair when next_send_at is already set.", () => {
-		const user = makeUser({ asset_events_next_send_at: "2026-01-14T22:00:00.000Z" });
+		const user = makeUser({ daily_notification_next_send_at: "2026-01-14T22:00:00.000Z" });
 		const updates: UserUpdateInput = {};
 
 		computeAssetEventsNextSendAt(
 			updates,
 			user,
-			user.daily_digest_time,
+			user.daily_notification_time,
 			user.timezone,
 			false,
 			false,
@@ -172,6 +172,6 @@ describe("computeAssetEventsNextSendAt", () => {
 			true,
 		);
 
-		expect(updates.asset_events_next_send_at).toBeUndefined();
+		expect(updates.daily_notification_next_send_at).toBeUndefined();
 	});
 });

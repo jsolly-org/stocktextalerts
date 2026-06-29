@@ -96,7 +96,7 @@ describe("A signed-in user updates their timezone.", () => {
 		const { error: dailyDigestError } = await adminClient
 			.from("users")
 			.update({
-				daily_digest_time: 540,
+				daily_notification_time: 540,
 			})
 			.eq("id", testUser.id);
 		expect(dailyDigestError).toBeNull();
@@ -105,7 +105,7 @@ describe("A signed-in user updates their timezone.", () => {
 
 		const { data: beforeUpdate } = await adminClient
 			.from("users")
-			.select("market_scheduled_asset_price_next_send_at,daily_digest_next_send_at")
+			.select("market_scheduled_asset_price_next_send_at,daily_notification_next_send_at")
 			.eq("id", testUser.id)
 			.single();
 		expect(beforeUpdate).not.toBeNull();
@@ -127,11 +127,11 @@ describe("A signed-in user updates their timezone.", () => {
 		expect(json.ok).toBe(true);
 		expect(json.notificationPreferences.timezone).toBe("America/Los_Angeles");
 		expect(json.notificationPreferences.market_scheduled_asset_price_next_send_at).toBeTruthy();
-		expect(json.notificationPreferences.daily_digest_next_send_at).toBeTruthy();
+		expect(json.notificationPreferences.daily_notification_next_send_at).toBeTruthy();
 
 		const { data: afterUpdate } = await adminClient
 			.from("users")
-			.select("timezone,market_scheduled_asset_price_next_send_at,daily_digest_next_send_at")
+			.select("timezone,market_scheduled_asset_price_next_send_at,daily_notification_next_send_at")
 			.eq("id", testUser.id)
 			.single();
 
@@ -144,8 +144,8 @@ describe("A signed-in user updates their timezone.", () => {
 		);
 		// Daily digest times are user-local; switching from ET to PT pushes
 		// 9:00 AM "local" three hours later in UTC.
-		expect(afterUpdate?.daily_digest_next_send_at).not.toBe(
-			beforeUpdate?.daily_digest_next_send_at,
+		expect(afterUpdate?.daily_notification_next_send_at).not.toBe(
+			beforeUpdate?.daily_notification_next_send_at,
 		);
 	});
 });

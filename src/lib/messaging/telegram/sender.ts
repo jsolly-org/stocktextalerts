@@ -2,8 +2,8 @@ import { autoRetry } from "@grammyjs/auto-retry";
 import { Bot, GrammyError, InputFile } from "grammy";
 import type { InlineKeyboardMarkup, MessageEntity } from "grammy/types";
 import { requireEnv } from "../../db/env";
-import type { DeliveryResult } from "../../delivery-types";
 import { rootLogger } from "../../logging";
+import type { DeliveryResult } from "../../types";
 
 /** A fully-rendered outbound Telegram message (text carries out-of-band entities). */
 export interface TelegramMessage {

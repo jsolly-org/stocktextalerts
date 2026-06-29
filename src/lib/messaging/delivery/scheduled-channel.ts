@@ -1,5 +1,4 @@
 import type { SupabaseAdminClient } from "../../db/supabase";
-import type { DeliveryResult } from "../../delivery-types";
 import type { Logger } from "../../logging";
 import {
 	claimNotification,
@@ -10,7 +9,7 @@ import type {
 	ScheduledNotificationTotals,
 	ScheduledNotificationType,
 } from "../../scheduled-notifications/types";
-import type { IsoDateString, MinuteOfDay, ScheduledSlotKey } from "../../types";
+import type { DeliveryResult, IsoDateString, MinuteOfDay, ScheduledSlotKey } from "../../types";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 
 type ClaimResult = Awaited<ReturnType<typeof claimNotification>>;

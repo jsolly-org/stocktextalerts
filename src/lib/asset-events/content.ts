@@ -1,8 +1,8 @@
 import { DateTime } from "luxon";
+import { isDailyNotificationFacetEnabled } from "../daily-notification/eligibility";
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
-import { isFacetEnabled } from "../messaging/notification-prefs";
-import type { UserRecord } from "../user-record-types";
+import type { UserRecord } from "../types";
 import { loadStoredFinnhubExtras } from "./enrichment-store";
 import { formatAnalystSection, formatAssetEventsSection, formatInsiderSection } from "./format";
 
@@ -41,15 +41,15 @@ const emptyContent = (): AssetEventsContent => ({
 });
 
 function channelWantsCalendar(user: UserRecord, channel: DeliveryChannel): boolean {
-	return isFacetEnabled(user.prefs, "asset_events", channel, "calendar");
+	return isDailyNotificationFacetEnabled(user.prefs, channel, "calendar");
 }
 
 function channelWantsIpos(user: UserRecord, channel: DeliveryChannel): boolean {
-	return isFacetEnabled(user.prefs, "asset_events", channel, "ipo");
+	return isDailyNotificationFacetEnabled(user.prefs, channel, "ipo");
 }
 
 function channelWantsInsider(user: UserRecord, channel: DeliveryChannel): boolean {
-	return isFacetEnabled(user.prefs, "asset_events", channel, "insider");
+	return isDailyNotificationFacetEnabled(user.prefs, channel, "insider");
 }
 
 function channelWantsAnalyst(
@@ -58,7 +58,7 @@ function channelWantsAnalyst(
 	currentMonth: string,
 ): boolean {
 	return (
-		isFacetEnabled(user.prefs, "asset_events", channel, "analyst") &&
+		isDailyNotificationFacetEnabled(user.prefs, channel, "analyst") &&
 		user.asset_events_last_analyst_sent_month !== currentMonth
 	);
 }

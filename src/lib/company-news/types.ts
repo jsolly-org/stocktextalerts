@@ -1,1 +1,1 @@
-export type { CompanyNewsItem } from "../finnhub-extra-types";
+export type { CompanyNewsItem } from "../types";

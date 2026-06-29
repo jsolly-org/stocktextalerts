@@ -4,7 +4,7 @@
 		:id="DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID"
 		method="POST"
 		action="/api/notification-preferences/update"
-		aria-label="Daily Digest"
+		aria-label="Daily Notification"
 		:aria-busy="isSaving"
 		@input="handleFormInput"
 		@change="handleFormChange"
@@ -30,12 +30,12 @@
 					:id="DASHBOARD_SECTION_IDS.dailyNotifications"
 					class="text-xl sm:text-2xl font-bold text-heading"
 				>
-					Daily Digest
+					Daily Notification
 				</h2>
 			<p
 				class="text-sm text-body-secondary mt-1"
 			>
-				Everything you enable below is bundled into <strong class="font-semibold text-label">one daily message</strong> sent at your daily digest <a href="#daily_digest_time" class="font-medium text-primary underline rounded-sm hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1">delivery time</a>.
+				Everything you enable below is bundled into <strong class="font-semibold text-label">one daily message</strong> sent at your <a href="#daily_digest_time" class="font-medium text-primary underline rounded-sm hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1">daily notification delivery time</a>.
 			</p>
 			</header>
 
@@ -51,7 +51,7 @@
 				:class="{ 'opacity-50': notificationSetupBlocked }"
 				:aria-disabled="notificationSetupBlocked ? 'true' : undefined"
 			>
-					<legend class="sr-only">Daily digest settings</legend>
+					<legend class="sr-only">Daily notification settings</legend>
 
 				<div class="flex items-center justify-between gap-3 py-3">
 					<input
@@ -217,6 +217,16 @@
 				</div>
 				</div>
 
+				<DailyAssetEventsFieldset
+					:email-enabled="emailEnabled"
+					:phone-verified="phoneVerified"
+					:has-tracked-assets="hasTrackedAssets"
+					:needs-channel-selection="needsChannelSelection"
+					:notification-setup-blocked="notificationSetupBlocked"
+					:telegram-prefs="assetEventTelegramPrefs"
+					:notify-change="notifyChange"
+				/>
+
 				</fieldset>
 
 				<div v-if="isHydrated && nextDailyDeliveryText" class="mt-4 border-t border-edge pt-4">
@@ -238,7 +248,7 @@ import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
-import { DASHBOARD_SECTION_IDS } from "../../../lib/dashboard-link-constants";
+import { DASHBOARD_SECTION_IDS } from "../../../lib/constants";
 import { etMinuteToUserLocal } from "../../../lib/time/conversion";
 import {
 	formatCountdownWithSeconds,
@@ -263,6 +273,7 @@ import {
 } from "../shared/channel-disabled-titles";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
+import DailyAssetEventsFieldset from "./DailyAssetEventsFieldset.vue";
 
 interface Props {
 	emailEnabled: boolean;
@@ -276,10 +287,14 @@ interface Props {
 	 * it back in its snapshot, so these refs are the panel's own source of truth.
 	 */
 	telegramPrefs: Record<string, boolean>;
+	/** Asset-event Telegram facets (calendar, ipo, analyst, insider). */
+	assetEventTelegramPrefs?: Record<string, boolean>;
 }
 
-const props = defineProps<Props>();
-const { emailEnabled, phoneVerified, hasTrackedAssets } =
+const props = withDefaults(defineProps<Props>(), {
+	assetEventTelegramPrefs: () => ({}),
+});
+const { emailEnabled, phoneVerified, hasTrackedAssets, assetEventTelegramPrefs } =
 	toRefs(props);
 
 const user = useDashboardUser();
@@ -495,7 +510,7 @@ const hasAnyAssetEventsOptionEnabled = computed(
 
 /** Derive the current delivery time input from the shared user state (managed by NotificationChannelsPanel). */
 const dailyDeliveryTimeInput = computed(() => {
-	const minutes = user.value.daily_digest_time;
+	const minutes = user.value.daily_notification_time;
 	return minutes !== null && minutes !== undefined
 		? minutesToTimeInputValue(minutes)
 		: null;
@@ -555,14 +570,20 @@ const shouldSubmitDailyDigestTime = computed(
 		shouldClearDailyDigestTimeOnSubmit.value,
 );
 
+const dailyNotificationEnabled = computed(
+	() => dailyEnabled.value || hasAnyAssetEventsOptionEnabled.value,
+);
+
 const nextDailyDeliveryText = computed(() => {
-	if (!isHydrated.value || !dailyEnabled.value) return null;
+	if (!isHydrated.value || !dailyNotificationEnabled.value) return null;
 	void tick.value;
 
 	if (!user.value.timezone) return null;
 
+	const nextSendAtIso = user.value.daily_notification_next_send_at;
+
 	const secondsUntil = getSecondsUntilNextSend({
-		nextSendAtIso: user.value.daily_digest_next_send_at,
+		nextSendAtIso,
 		timeInput: dailyDeliveryTimeInput.value,
 		timezone: user.value.timezone,
 		now: DateTime.utc(),
@@ -641,12 +662,32 @@ watch(savedData, (newData) => {
 			newData.daily_digest_include_top_movers_sms,
 		daily_digest_include_news_email: newData.daily_digest_include_news_email,
 		daily_digest_include_rumors_email: newData.daily_digest_include_rumors_email,
-		daily_digest_time: newData.daily_digest_time,
-		daily_digest_next_send_at: newData.daily_digest_next_send_at,
-		// Daily delivery time determines asset events delivery time, so the server
-		// recalculates asset_events_next_send_at when it changes. Keep all panels'
-		// scheduling in sync so countdowns update without a page refresh.
-		asset_events_next_send_at: newData.asset_events_next_send_at,
+		...(newData.asset_events_include_calendar_email !== undefined && {
+			asset_events_include_calendar_email: newData.asset_events_include_calendar_email,
+		}),
+		...(newData.asset_events_include_calendar_sms !== undefined && {
+			asset_events_include_calendar_sms: newData.asset_events_include_calendar_sms,
+		}),
+		...(newData.asset_events_include_ipo_email !== undefined && {
+			asset_events_include_ipo_email: newData.asset_events_include_ipo_email,
+		}),
+		...(newData.asset_events_include_ipo_sms !== undefined && {
+			asset_events_include_ipo_sms: newData.asset_events_include_ipo_sms,
+		}),
+		...(newData.asset_events_include_analyst_email !== undefined && {
+			asset_events_include_analyst_email: newData.asset_events_include_analyst_email,
+		}),
+		...(newData.asset_events_include_analyst_sms !== undefined && {
+			asset_events_include_analyst_sms: newData.asset_events_include_analyst_sms,
+		}),
+		...(newData.asset_events_include_insider_email !== undefined && {
+			asset_events_include_insider_email: newData.asset_events_include_insider_email,
+		}),
+		...(newData.asset_events_include_insider_sms !== undefined && {
+			asset_events_include_insider_sms: newData.asset_events_include_insider_sms,
+		}),
+		daily_notification_time: newData.daily_notification_time,
+		daily_notification_next_send_at: newData.daily_notification_next_send_at,
 		market_scheduled_asset_price_next_send_at: newData.market_scheduled_asset_price_next_send_at,
 	};
 });

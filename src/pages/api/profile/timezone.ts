@@ -68,7 +68,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	}
 
 	// Asset-events facets live in notification_preferences; resolve whether any
-	// email/sms facet is on to decide if asset_events_next_send_at needs recomputing.
+	// email/sms facet is on to decide if daily_notification_next_send_at needs recomputing.
 	const prefs = await loadUserPreferenceRows(supabase, authUser.id);
 	const hasAnyAssetEvents =
 		anyFacetEnabled(prefs, "asset_events", "email") ||
@@ -130,8 +130,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				timezone: updatedUser.timezone,
 				market_scheduled_asset_price_next_send_at:
 					updatedUser.market_scheduled_asset_price_next_send_at,
-				daily_digest_next_send_at: updatedUser.daily_digest_next_send_at,
-				asset_events_next_send_at: updatedUser.asset_events_next_send_at,
+				daily_notification_next_send_at: updatedUser.daily_notification_next_send_at,
 			},
 		} satisfies ApiJsonBody,
 		{ status: 200 },

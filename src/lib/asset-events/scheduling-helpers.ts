@@ -3,7 +3,7 @@ import type { User, UserUpdateInput } from "../db";
 import { userLocalToEtMinute } from "../time/conversion";
 import { calculateNextSendAt } from "../time/schedule/next-send";
 
-/** Default local delivery minute when asset events is enabled but daily_digest_time is unset. */
+/** Default local delivery minute when asset events is enabled but daily_notification_time is unset. */
 export const DEFAULT_ASSET_EVENTS_DELIVERY_MINUTES = 540; // 9:00 AM
 
 /**
@@ -23,7 +23,7 @@ export function calculateAssetEventsNextSendAtIso(options: {
 }
 
 /**
- * Compute `asset_events_next_send_at` when asset events preferences, daily delivery time, or timezone changes.
+ * Compute `daily_notification_next_send_at` when asset events preferences, daily delivery time, or timezone changes.
  *
  * Asset-events per-option preferences now live in `notification_preferences`, so
  * the caller resolves the post-update asset-events-enabled state and passes it in
@@ -43,19 +43,19 @@ export function computeAssetEventsNextSendAt(
 ): void {
 	const needsRepair =
 		hasAnyAssetEventsOption &&
-		dbUser.asset_events_next_send_at === null &&
-		updates.asset_events_next_send_at === undefined;
+		dbUser.daily_notification_next_send_at === null &&
+		updates.daily_notification_next_send_at === undefined;
 
 	if (
 		(timezoneChanged || dailyTimeChanged || assetEventsOptionsChanged || needsRepair) &&
 		hasAnyAssetEventsOption
 	) {
-		updates.asset_events_next_send_at = calculateAssetEventsNextSendAtIso({
+		updates.daily_notification_next_send_at = calculateAssetEventsNextSendAtIso({
 			dailyDigestTime: finalDailyTime,
 			timezone: finalTimezone,
 			now: DateTime.utc(),
 		});
 	} else if (assetEventsOptionsChanged && !hasAnyAssetEventsOption) {
-		updates.asset_events_next_send_at = null;
+		updates.daily_notification_next_send_at = null;
 	}
 }

@@ -12,8 +12,8 @@ import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market/calendar";
 import { getLocalMinutesFromDateTime } from "../time/schedule/next-send";
+import type { UserRecord } from "../types";
 import { assertIsoDateString } from "../types";
-import type { UserRecord } from "../user-record-types";
 import { type AssetEventsTelegramFacets, buildAssetEventsContentForChannels } from "./content";
 import {
 	processAssetEventsEmailDelivery,
@@ -27,7 +27,7 @@ import { shouldAdvanceAssetEventsSchedule } from "./schedule-state";
  * Process a single user's standalone asset events notification.
  *
  * Builds asset events content (earnings/dividends/splits/IPOs + insider + analyst),
- * delivers via enabled channels, and advances `asset_events_next_send_at`.
+ * delivers via enabled channels, and advances `daily_notification_next_send_at`.
  */
 export async function processAssetEventsUser(options: {
 	user: UserRecord;
@@ -65,17 +65,17 @@ export async function processAssetEventsUser(options: {
 	} = options;
 
 	try {
-		const dueAt = user.asset_events_next_send_at
-			? DateTime.fromISO(user.asset_events_next_send_at, { zone: "utc" })
+		const dueAt = user.daily_notification_next_send_at
+			? DateTime.fromISO(user.daily_notification_next_send_at, { zone: "utc" })
 			: currentTime;
 		if (!dueAt.isValid) {
 			logger.error(
-				"Invalid asset_events_next_send_at timestamp",
+				"Invalid daily_notification_next_send_at timestamp",
 				{
 					userId: user.id,
-					asset_events_next_send_at: user.asset_events_next_send_at,
+					daily_notification_next_send_at: user.daily_notification_next_send_at,
 				},
-				new Error("Invalid asset_events_next_send_at timestamp"),
+				new Error("Invalid daily_notification_next_send_at timestamp"),
 			);
 			stats.skipped++;
 			return stats;
@@ -97,7 +97,7 @@ export async function processAssetEventsUser(options: {
 				{
 					userId: user.id,
 					timezone: user.timezone,
-					asset_events_next_send_at: user.asset_events_next_send_at,
+					daily_notification_next_send_at: user.daily_notification_next_send_at,
 				},
 				new Error("Failed to format scheduled date"),
 			);
@@ -113,7 +113,7 @@ export async function processAssetEventsUser(options: {
 					action: "asset_events_run",
 					userId: user.id,
 					timezone: user.timezone,
-					asset_events_next_send_at: user.asset_events_next_send_at,
+					daily_notification_next_send_at: user.daily_notification_next_send_at,
 					scheduledDate,
 				},
 				new Error("Failed to calculate scheduled minutes"),

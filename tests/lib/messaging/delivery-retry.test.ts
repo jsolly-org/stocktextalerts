@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { DeliveryResult } from "../../../src/lib/delivery-types";
 import { withDeliveryRetry } from "../../../src/lib/messaging/delivery-retry";
+import type { DeliveryResult } from "../../../src/lib/types";
 import { expectConsoleError } from "../../setup";
 
 const noSleep = () => Promise.resolve();

@@ -1,16 +1,23 @@
+/**
+ * Daily asset-data maintenance (EventBridge: midnight UTC). Ingests earnings
+ * calendar events for this week and next, Finnhub analyst/insider enrichment,
+ * reconciles the tradable-universe with Massive, and runs the delisting sweep
+ * (notifying affected users). Enqueues vendor-backfill retries on partial ingest
+ * failures.
+ */
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { DateTime } from "luxon";
-import { fetchAndStoreFinnhubEnrichment } from "../lib/asset-events/enrichment-store";
-import type { AssetEventProvider } from "../lib/asset-events/fetch";
-import { fetchAndStoreAssetEvents } from "../lib/asset-events/fetch";
-import { runDelistingSweep } from "../lib/assets/delisting-sweep";
-import { runUniverseReconcile } from "../lib/assets/universe-reconcile";
-import { createSupabaseAdminClient } from "../lib/db/supabase";
-import { createLogger } from "../lib/logging";
-import { runLambda } from "../lib/logging/request-context";
-import { createEmailSender } from "../lib/messaging/email/utils";
-import { createSmsSenderFactory } from "../lib/messaging/sms/sender-factory";
-import { enqueueAssetEventsIngestRetry } from "../lib/vendors/backfill/enqueue";
+import { fetchAndStoreFinnhubEnrichment } from "../../lib/asset-events/enrichment-store";
+import type { AssetEventProvider } from "../../lib/asset-events/fetch";
+import { fetchAndStoreAssetEvents } from "../../lib/asset-events/fetch";
+import { runDelistingSweep } from "../../lib/assets/delisting-sweep";
+import { runUniverseReconcile } from "../../lib/assets/universe-reconcile";
+import { createSupabaseAdminClient } from "../../lib/db/supabase";
+import { createLogger } from "../../lib/logging";
+import { runLambda } from "../../lib/logging/request-context";
+import { createEmailSender } from "../../lib/messaging/email/utils";
+import { createSmsSenderFactory } from "../../lib/messaging/sms/sender-factory";
+import { enqueueAssetEventsIngestRetry } from "../../lib/vendors/backfill/enqueue";
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
 	return runLambda(context, async () => {

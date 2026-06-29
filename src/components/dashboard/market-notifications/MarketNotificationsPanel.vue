@@ -419,13 +419,11 @@ import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import XMarkIcon from "../../../icons/x-mark.svg?component";
-import { DASHBOARD_SECTION_IDS } from "../../../lib/dashboard-link-constants";
-import {
+import { DASHBOARD_SECTION_IDS, 
 	DEFAULT_MARKET_UPDATE_TIME_MINUTES,
 	US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,
-	US_MARKET_TIMEZONE,
-} from "../../../lib/market-constants";
+	US_MARKET_TIMEZONE,} from "../../../lib/constants";
 import {
 	type AlertMoveSize,
 	normalizeMoveSize,
@@ -957,8 +955,7 @@ watch(
 			market_scheduled_asset_price_times: newData.market_scheduled_asset_price_times,
 			market_scheduled_asset_price_next_send_at: newData.market_scheduled_asset_price_next_send_at,
 			// Keep other panels' scheduling in sync with the server response.
-			daily_digest_next_send_at: newData.daily_digest_next_send_at,
-			asset_events_next_send_at: newData.asset_events_next_send_at,
+			daily_notification_next_send_at: newData.daily_notification_next_send_at,
 			// Sync price alerts state from server response
 			...(newData.market_asset_price_alerts_enabled !== undefined && {
 				market_asset_price_alerts_enabled: newData.market_asset_price_alerts_enabled,

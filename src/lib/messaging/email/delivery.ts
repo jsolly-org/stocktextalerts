@@ -1,7 +1,5 @@
 import type { AppSupabaseClient } from "../../db/supabase";
-import type { ProcessingStats } from "../../delivery-types";
-import type { AssetPriceMap, MarketSession } from "../../market-data-types";
-import type { UserAssetRow } from "../../user-record-types";
+import type { AssetPriceMap, MarketSession, ProcessingStats, UserAssetRow } from "../../types";
 import { formatMarketScheduledEmail } from "../notifications/market-scheduled";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { EmailFormatContext, EmailUser } from "../types";

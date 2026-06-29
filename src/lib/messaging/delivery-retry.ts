@@ -1,5 +1,5 @@
-import type { DeliveryResult } from "../delivery-types";
 import { rootLogger } from "../logging";
+import type { DeliveryResult } from "../types";
 
 /**
  * Error codes that warrant a retry. Twilio surfaces numeric codes as strings

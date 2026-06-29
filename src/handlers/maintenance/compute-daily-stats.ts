@@ -1,16 +1,23 @@
+/**
+ * Nightly market-stats precompute (EventBridge: 22:00 UTC weekdays). Fetches
+ * daily OHLCV from Massive for every tracked symbol plus benchmark ETFs, computes
+ * 20-day average volume and 14-day ATR, upserts daily_asset_stats, and caches
+ * daily closes for anomaly detection. Enqueues vendor-backfill on fetch/store
+ * failures.
+ */
 import type { Context, ScheduledEvent } from "aws-lambda";
-import { createSupabaseAdminClient } from "../lib/db/supabase";
-import { createLogger } from "../lib/logging";
-import { runLambda } from "../lib/logging/request-context";
-import { fetchDailyOHLCV } from "../lib/market-data/bars";
+import { createSupabaseAdminClient } from "../../lib/db/supabase";
+import { createLogger } from "../../lib/logging";
+import { runLambda } from "../../lib/logging/request-context";
+import { fetchDailyOHLCV } from "../../lib/market-data/bars";
 import {
 	dailyBarsToCloseRows,
 	getBenchmarkCacheSymbols,
 	storeDailyCloseRows,
-} from "../lib/market-data/price-history-cache";
-import { computeADV, computeATR } from "../lib/market-notifications/daily-stats";
-import { upsertDailyStatsInChunks } from "../lib/market-notifications/daily-stats-upsert";
-import { enqueueDailyCloseBackfill } from "../lib/vendors/backfill/enqueue";
+} from "../../lib/market-data/price-history-cache";
+import { computeADV, computeATR } from "../../lib/market-notifications/daily-stats";
+import { upsertDailyStatsInChunks } from "../../lib/market-notifications/daily-stats-upsert";
+import { enqueueDailyCloseBackfill } from "../../lib/vendors/backfill/enqueue";
 
 /** Batch size for Massive API calls to stay under ~100 req/s. */
 const BATCH_SIZE = 50;

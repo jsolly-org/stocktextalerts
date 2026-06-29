@@ -12,6 +12,7 @@
  */
 
 import type { DateTime } from "luxon";
+import { DAILY_DISPATCH_BATCH_SIZE } from "../constants";
 import { dispatchDailyDigestUser } from "../daily-digest/dispatch";
 import { fetchUpcomingDailyDigestUsers } from "../daily-digest/query-upcoming";
 import type { SupabaseAdminClient } from "../db/supabase";
@@ -19,7 +20,6 @@ import type { Logger } from "../logging";
 import { getCurrentMarketSession } from "../market-data/session";
 import { createNotificationSenders } from "../messaging/runtime/senders";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
-import { DAILY_DISPATCH_BATCH_SIZE } from "../scheduler-constants";
 import { toIsoOrThrow } from "../time/display";
 import { PRECOMPUTE_WINDOW_SECONDS } from "./constants";
 

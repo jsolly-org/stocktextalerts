@@ -1,25 +1,31 @@
+/**
+ * Authenticated email relay (Lambda Function URL). Vercel calls this to send
+ * transactional email via SES when the web runtime cannot (e.g. approval emails).
+ * Validates HMAC signatures, enforces idempotency, and restricts recipients to
+ * admin addresses or the user's own registered email.
+ */
 import type {
 	APIGatewayProxyEventV2,
 	APIGatewayProxyStructuredResultV2,
 	Context,
 } from "aws-lambda";
-import { parseAdminEmails } from "../lib/auth/approval/admin";
-import { readEnv, requireEnv } from "../lib/db/env";
-import { createSupabaseAdminClient } from "../lib/db/supabase";
-import { createLogger } from "../lib/logging";
-import { runLambda } from "../lib/logging/request-context";
-import { verifyEmailDispatchSignature } from "../lib/messaging/email/dispatch-auth";
+import { parseAdminEmails } from "../../lib/auth/approval/admin";
+import { readEnv, requireEnv } from "../../lib/db/env";
+import { createSupabaseAdminClient } from "../../lib/db/supabase";
+import { createLogger } from "../../lib/logging";
+import { runLambda } from "../../lib/logging/request-context";
+import { verifyEmailDispatchSignature } from "../../lib/messaging/email/dispatch-auth";
 import {
 	EMAIL_DISPATCH_SIGNATURE_HEADER,
 	EMAIL_DISPATCH_TIMESTAMP_HEADER,
 	type EmailDispatchRequest,
 	type EmailDispatchResponse,
-} from "../lib/messaging/email/dispatch-contract";
+} from "../../lib/messaging/email/dispatch-contract";
 import {
 	claimEmailDispatchKey,
 	releaseEmailDispatchKey,
-} from "../lib/messaging/email/dispatch-idempotency";
-import { createEmailSender } from "../lib/messaging/email/utils";
+} from "../../lib/messaging/email/dispatch-idempotency";
+import { createEmailSender } from "../../lib/messaging/email/utils";
 
 function jsonResponse(
 	statusCode: number,

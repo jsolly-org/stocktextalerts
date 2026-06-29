@@ -3,8 +3,7 @@ import { isUnauthorizedResponse, redirectToSignIn } from "../auth/session/sessio
 type TimezoneUpdate = {
 	timezone?: string;
 	market_scheduled_asset_price_next_send_at?: string | null;
-	daily_digest_next_send_at?: string | null;
-	asset_events_next_send_at?: string | null;
+	daily_notification_next_send_at?: string | null;
 };
 
 /**

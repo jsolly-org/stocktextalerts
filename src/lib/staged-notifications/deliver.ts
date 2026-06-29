@@ -13,15 +13,13 @@
  */
 
 import { DateTime } from "luxon";
-import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
 import {
 	formatDailyDigestSmsLogMessage,
 	summarizeDailyDigestSmsResults,
 } from "../daily-digest/delivery";
-import { updateUserDailyDigestNextSendAt } from "../daily-digest/next-send-at";
 import { shouldAdvanceDailyDigestSchedule } from "../daily-digest/schedule-state";
+import { updateUserDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
-import type { DeliveryResult } from "../delivery-types";
 import type { Logger } from "../logging";
 import { sendUserEmail } from "../messaging/email/index";
 import type { EmailSender } from "../messaging/email/utils";
@@ -49,8 +47,7 @@ import {
 } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { toIsoOrThrow } from "../time/display";
-import type { IsoDateString, MinuteOfDay } from "../types";
-import type { UserRecord } from "../user-record-types";
+import type { DeliveryResult, IsoDateString, MinuteOfDay, UserRecord } from "../types";
 import {
 	deleteStagedNotification,
 	fetchDueStagedNotifications,
@@ -187,13 +184,12 @@ export async function deliverStagedNotifications(options: {
 			use_24_hour_time,
 			market_scheduled_asset_price_enabled,
 			market_scheduled_asset_price_times,
-			daily_digest_time,
-			daily_digest_next_send_at,
+			daily_notification_time,
+			daily_notification_next_send_at,
 			market_scheduled_asset_price_next_send_at,
 			email_notifications_enabled,
 			sms_notifications_enabled,
 			sms_opted_out,
-			asset_events_next_send_at,
 			asset_events_last_analyst_sent_month,
 			telegram_chat_id,
 			telegram_opted_out,
@@ -769,7 +765,7 @@ async function deliverStagedDaily(options: {
 		}
 
 		try {
-			await updateUserDailyDigestNextSendAt({
+			await updateUserDailyNotificationNextSendAt({
 				user,
 				supabase,
 				logger,
@@ -781,23 +777,6 @@ async function deliverStagedDaily(options: {
 				{ userId: user.id },
 				error,
 			);
-		}
-
-		if (stagedData.hasAnyAssetEventsOption) {
-			try {
-				await updateUserAssetEventsNextSendAt({
-					user,
-					supabase,
-					logger,
-					currentTime,
-				});
-			} catch (error) {
-				logger.error(
-					"Failed to advance asset_events next_send_at for staged daily delivery",
-					{ userId: user.id },
-					error,
-				);
-			}
 		}
 	} else {
 		const priorAttempts = await getMaxDailyDigestSlotAttempts({

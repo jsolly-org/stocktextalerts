@@ -1,8 +1,14 @@
+/**
+ * SQS consumer for deferred vendor API work. Retries failed Massive/Finnhub
+ * operations enqueued by other Lambdas or the web tier — asset-events ingest,
+ * daily-close cache backfill, price-history store, and new-symbol warmup.
+ * Reports partial batch failures for SQS redrive.
+ */
 import type { Context, SQSBatchResponse, SQSEvent } from "aws-lambda";
-import { createSupabaseAdminClient } from "../lib/db/supabase";
-import { createLogger } from "../lib/logging";
-import { runLambda } from "../lib/logging/request-context";
-import { handleVendorBackfillBatch } from "../lib/vendors/backfill/batch";
+import { createSupabaseAdminClient } from "../../lib/db/supabase";
+import { createLogger } from "../../lib/logging";
+import { runLambda } from "../../lib/logging/request-context";
+import { handleVendorBackfillBatch } from "../../lib/vendors/backfill/batch";
 
 export async function handler(event: SQSEvent, context: Context): Promise<SQSBatchResponse> {
 	return runLambda(context, async () => {

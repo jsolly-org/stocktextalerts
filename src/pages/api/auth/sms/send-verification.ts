@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { sendVerification } from "../../../../lib/auth/sms-verification";
-import { VERIFICATION_RESEND_COOLDOWN_MS } from "../../../../lib/auth-constants";
+import { VERIFICATION_RESEND_COOLDOWN_MS } from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";

@@ -7,7 +7,6 @@ import {
 } from "../../src/lib/daily-digest/delivery";
 import type { SupabaseAdminClient } from "../../src/lib/db/supabase";
 import type { Logger } from "../../src/lib/logging";
-import type { AssetPriceMap } from "../../src/lib/market-data-types";
 import type { SparklineData } from "../../src/lib/messaging/parts/charts/sparkline";
 import type { NotificationExtras } from "../../src/lib/messaging/parts/extras";
 import { SMS_UCS2_SEGMENT_SIZE } from "../../src/lib/messaging/sms/constants";
@@ -18,8 +17,8 @@ import {
 } from "../../src/lib/messaging/sms/segment-utils";
 import type { SmsSender } from "../../src/lib/messaging/sms/twilio-utils";
 import type { ScheduledNotificationTotals } from "../../src/lib/scheduled-notifications/types";
+import type { AssetPriceMap, UserAssetRow, UserRecord } from "../../src/lib/types";
 import { assertIsoDateString } from "../../src/lib/types";
-import type { UserAssetRow, UserRecord } from "../../src/lib/user-record-types";
 import { minuteOfDay } from "../helpers/minute-of-day";
 import { makePrefRows } from "../helpers/user-record-fixture";
 
@@ -59,9 +58,8 @@ describe("Daily digest email prices", () => {
 			sms_opted_out: false,
 			market_scheduled_asset_price_enabled: false,
 			market_scheduled_asset_price_times: null,
-			daily_digest_time: scheduledMinutes,
-			daily_digest_next_send_at: null,
-			asset_events_next_send_at: null,
+			daily_notification_time: scheduledMinutes,
+			daily_notification_next_send_at: null,
 			asset_events_last_analyst_sent_month: null,
 			last_grok_rumors_at: null,
 			grok_window_start: null,

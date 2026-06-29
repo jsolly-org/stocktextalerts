@@ -1,19 +1,23 @@
+import {
+	DAILY_NOTIFICATION_USER_SELECT,
+	HAS_DELIVERY_CHANNEL_OR,
+} from "../daily-notification/query";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { fetchUsersWithRetry } from "../db/user-query";
 import type { Logger } from "../logging";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
-import type { UserRecord } from "../user-record-types";
-import { DAILY_DIGEST_USER_SELECT, HAS_DELIVERY_CHANNEL_OR } from "./query";
+import type { UserRecord } from "../types";
 
 type UserRecordWithoutPrefs = Omit<UserRecord, "prefs">;
 
-/** Fetch users whose daily digest is due in an upcoming time window. */
+/** Fetch users whose daily notification is due in an upcoming time window. */
 export async function fetchUpcomingDailyDigestUsers(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	afterTimeIso: string;
 	beforeTimeIso: string;
 }): Promise<UserRecord[]> {
+	const { afterTimeIso, beforeTimeIso } = options;
 	return fetchUsersWithRetry<UserRecord>({
 		supabase: options.supabase,
 		logger: options.logger,
@@ -21,12 +25,11 @@ export async function fetchUpcomingDailyDigestUsers(options: {
 		execute: async () => {
 			const { data, error } = await options.supabase
 				.from("users")
-				.select(DAILY_DIGEST_USER_SELECT)
-				.not("daily_digest_time", "is", null)
+				.select(DAILY_NOTIFICATION_USER_SELECT)
 				.or(HAS_DELIVERY_CHANNEL_OR)
-				.not("daily_digest_next_send_at", "is", null)
-				.gt("daily_digest_next_send_at", options.afterTimeIso)
-				.lte("daily_digest_next_send_at", options.beforeTimeIso);
+				.or(
+					`and(daily_notification_next_send_at.not.is.null,daily_notification_next_send_at.gt.${afterTimeIso},daily_notification_next_send_at.lte.${beforeTimeIso})`,
+				);
 
 			if (error) return { data: null, error };
 

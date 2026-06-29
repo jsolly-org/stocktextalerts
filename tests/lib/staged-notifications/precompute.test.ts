@@ -6,7 +6,7 @@ import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { TelegramSender } from "../../../src/lib/messaging/telegram/sender";
 import { precomputeDailyDigest } from "../../../src/lib/staged-notifications/precompute";
-import type { UserRecord } from "../../../src/lib/user-record-types";
+import type { UserRecord } from "../../../src/lib/types";
 import { getRealAssetSymbols } from "../../helpers/asset-data";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
@@ -95,8 +95,8 @@ describe("A cron job precomputes daily digest content for upcoming users.", () =
 		await adminClient
 			.from("users")
 			.update({
-				daily_digest_time: 10 * 60,
-				daily_digest_next_send_at: scheduledForIso,
+				daily_notification_time: 10 * 60,
+				daily_notification_next_send_at: scheduledForIso,
 			})
 			.eq("id", id);
 		const { data: userRow, error: userError } = await adminClient

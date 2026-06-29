@@ -94,7 +94,7 @@ test.describe("Telegram dashboard UI", () => {
 		// renders one multiselect with Telegram already chosen (server reads this
 		// row into the panel's `telegramPrefs` prop). Upsert because createTestUser
 		// already seeds the (default-off) prices/telegram row.
-		await setTestUserPrefs(userId, [["daily_digest", "prices", "telegram", true]]);
+		await setTestUserPrefs(userId, [["daily_notification", "prices", "telegram", true]]);
 
 		await signIn(page, email, TEST_PASSWORD);
 	});
@@ -165,16 +165,22 @@ test.describe("Telegram dashboard UI", () => {
 		// --- Behavior: toggling Telegram on for Top Movers flips the DB row ---
 		// Precondition: top_movers/telegram is seeded off by default (the full
 		// preference catalog is seeded for every user).
-		expect(await getTelegramPreference(userId as string, "daily_digest", "top_movers")).toBe(false);
+		expect(await getTelegramPreference(userId as string, "daily_notification", "top_movers")).toBe(
+			false,
+		);
 
 		await waitForAutosave(page, async () => {
 			await telegramOption.click();
 		});
 
 		// The new row persisted as enabled.
-		expect(await getTelegramPreference(userId as string, "daily_digest", "top_movers")).toBe(true);
+		expect(await getTelegramPreference(userId as string, "daily_notification", "top_movers")).toBe(
+			true,
+		);
 		// The pre-seeded prices/telegram row is untouched (still enabled).
-		expect(await getTelegramPreference(userId as string, "daily_digest", "prices")).toBe(true);
+		expect(await getTelegramPreference(userId as string, "daily_notification", "prices")).toBe(
+			true,
+		);
 
 		// The trigger summary now reflects the new Telegram selection in the UI.
 		await expect(topMoversTrigger).toContainText("Telegram");
@@ -182,8 +188,8 @@ test.describe("Telegram dashboard UI", () => {
 		await expect(topMoversListbox).toBeHidden();
 	});
 
-	test("toggling Telegram on a Market panel option and an Asset Events option each persist a DB row", async () => {
-		await page.goto("/dashboard");
+	test("toggling Telegram on a Market panel option and a daily asset-event option each persist a DB row", async () => {
+		await page.goto("/dashboard", { waitUntil: "networkidle" });
 		await page.locator("[data-hydrated]").first().waitFor({ state: "attached", timeout: 15_000 });
 
 		// --- Market Notifications: 5% Price Move Alerts (content='') -----------
@@ -209,7 +215,9 @@ test.describe("Telegram dashboard UI", () => {
 		expect(await getTelegramPreference(userId as string, "price_move_alerts")).toBe(true);
 		await expect(priceMoveTrigger).toContainText("Telegram");
 
-		// --- Asset Events: Calendar (content='calendar') -----------------------
+		// --- Daily notification: Calendar asset event (content='calendar') --------
+		const dailyForm = page.locator('form[aria-label="Daily Notification"]');
+		await dailyForm.scrollIntoViewIfNeeded();
 		const calendarTrigger = page.locator("#asset_events_calendar-channel-trigger");
 		await expect(calendarTrigger).toBeVisible();
 
@@ -217,15 +225,19 @@ test.describe("Telegram dashboard UI", () => {
 		const calendarTelegram = calendarListbox.getByRole("option", { name: "Telegram" });
 		await expect(calendarTelegram).toBeVisible();
 
-		// Precondition: asset_events/calendar/telegram is seeded off by default.
-		expect(await getTelegramPreference(userId as string, "asset_events", "calendar")).toBe(false);
+		// Precondition: daily_notification/calendar/telegram is seeded off by default.
+		expect(await getTelegramPreference(userId as string, "daily_notification", "calendar")).toBe(
+			false,
+		);
 
 		await waitForAutosave(page, async () => {
 			await calendarTelegram.click();
 		});
 
 		// The new row persisted as enabled, keyed by the calendar content facet.
-		expect(await getTelegramPreference(userId as string, "asset_events", "calendar")).toBe(true);
+		expect(await getTelegramPreference(userId as string, "daily_notification", "calendar")).toBe(
+			true,
+		);
 		await expect(calendarTrigger).toContainText("Telegram");
 	});
 });

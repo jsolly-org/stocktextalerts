@@ -37,7 +37,7 @@ function fieldNameFor(notification_type: string, content: string, channel: PrefC
 }
 
 /** field name → (notification_type, content, channel) for every catalog option. */
-const CHANNEL_PREFERENCE_FIELD_MAP: Record<string, ChannelPreferenceTarget> = Object.fromEntries(
+const CATALOG_FIELD_MAP: Record<string, ChannelPreferenceTarget> = Object.fromEntries(
 	NOTIFICATION_PREFERENCE_CATALOG.map((entry) => [
 		fieldNameFor(entry.notification_type, entry.content, entry.channel),
 		{
@@ -47,6 +47,33 @@ const CHANNEL_PREFERENCE_FIELD_MAP: Record<string, ChannelPreferenceTarget> = Ob
 		},
 	]),
 );
+
+/** Legacy dashboard field names → daily_notification rows (one release-window compat). */
+const LEGACY_DAILY_FIELD_ALIASES: Record<string, ChannelPreferenceTarget> = {
+	...Object.fromEntries(
+		(["prices", "top_movers", "news", "rumors"] as const).flatMap((content) =>
+			(["email", "sms", "telegram"] as const)
+				.filter((channel) => channel !== "sms" || content === "prices" || content === "top_movers")
+				.map((channel) => [
+					`daily_digest_include_${content}_${channel}`,
+					{ notification_type: "daily_notification", content, channel },
+				]),
+		),
+	),
+	...Object.fromEntries(
+		(["calendar", "ipo", "analyst", "insider"] as const).flatMap((content) =>
+			(["email", "sms", "telegram"] as const).map((channel) => [
+				`asset_events_include_${content}_${channel}`,
+				{ notification_type: "daily_notification", content, channel },
+			]),
+		),
+	),
+};
+
+const CHANNEL_PREFERENCE_FIELD_MAP: Record<string, ChannelPreferenceTarget> = {
+	...CATALOG_FIELD_MAP,
+	...LEGACY_DAILY_FIELD_ALIASES,
+};
 
 const CHANNEL_PREFERENCE_FIELD_NAMES = Object.keys(CHANNEL_PREFERENCE_FIELD_MAP);
 
@@ -123,7 +150,17 @@ export function buildChannelPreferenceSnapshot(
 	const snapshot = {} as ChannelPreferenceSnapshot;
 	for (const entry of NOTIFICATION_PREFERENCE_CATALOG) {
 		const field = fieldNameFor(entry.notification_type, entry.content, entry.channel);
-		snapshot[field] = isFacetEnabled(prefs, entry.notification_type, entry.channel, entry.content);
+		const enabled = isFacetEnabled(prefs, entry.notification_type, entry.channel, entry.content);
+		snapshot[field] = enabled;
+	}
+	// Legacy dashboard field names (daily_digest_*, asset_events_*)
+	for (const [legacyField, target] of Object.entries(LEGACY_DAILY_FIELD_ALIASES)) {
+		snapshot[legacyField as ChannelPreferenceFieldName] = isFacetEnabled(
+			prefs,
+			target.notification_type as "daily_notification",
+			target.channel,
+			target.content as "prices",
+		);
 	}
 	return snapshot;
 }

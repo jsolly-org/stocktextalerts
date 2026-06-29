@@ -1,8 +1,8 @@
 import type { SupabaseAdminClient } from "../db/supabase";
 import { createLogger } from "../logging";
-import type { DailyOHLCVBar } from "../market-data-types";
+import type { DailyOHLCVBar } from "../types";
 
-export type { DailyOHLCVBar } from "../market-data-types";
+export type { DailyOHLCVBar } from "../types";
 
 const logger = createLogger({ module: "daily-stats" });
 

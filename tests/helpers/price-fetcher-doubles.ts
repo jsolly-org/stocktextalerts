@@ -1,10 +1,10 @@
-import type { MarketSession } from "../../src/lib/market-data-types";
 import {
 	downsampleEvenly,
 	type SparklineMap,
 	type SparklineWindow,
 	toSparkline,
 } from "../../src/lib/messaging/parts/charts/sparkline";
+import type { MarketSession } from "../../src/lib/types";
 
 function isFinitePositive(v: unknown): v is number {
 	return typeof v === "number" && Number.isFinite(v) && v > 0;

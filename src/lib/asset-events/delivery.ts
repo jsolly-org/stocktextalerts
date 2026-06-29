@@ -23,8 +23,7 @@ import {
 } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../time/market/calendar";
-import type { IsoDateString, MinuteOfDay } from "../types";
-import type { UserRecord } from "../user-record-types";
+import type { IsoDateString, MinuteOfDay, UserRecord } from "../types";
 
 /* =============
 Delivery: Email

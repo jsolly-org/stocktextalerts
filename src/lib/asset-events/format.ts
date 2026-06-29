@@ -1,4 +1,4 @@
-import type { InsiderTransaction, RecommendationTrend } from "../finnhub-extra-types";
+import type { InsiderTransaction, RecommendationTrend } from "../types";
 
 type DeliveryChannel = "sms" | "email";
 

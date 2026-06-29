@@ -1,17 +1,18 @@
 import { DateTime, type DateTime as DateTimeType } from "luxon";
+import { readDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { fetchTopMovers, type TopMover } from "../market-data/movers";
 import { formatSignedChangePercent, formatUsdPrice } from "../messaging/parts/asset-price-list";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { getLocalMinutesFromDateTime } from "../time/schedule/next-send";
+import type { UserRecord } from "../types";
 import {
 	assertIsoDateString,
 	type IsoDateString,
 	type MinuteOfDay,
 	type ScheduledSlotKey,
 } from "../types";
-import type { UserRecord } from "../user-record-types";
 import { withOptionalVendorBudget } from "../vendors/optional-vendors";
 
 const GROK_WINDOW_HOURS = 24;
@@ -79,17 +80,16 @@ export function parseDailyScheduleContext(
 	currentTime: DateTimeType,
 	logger: Logger,
 ): DailyScheduleContext | null {
-	const dueAt = user.daily_digest_next_send_at
-		? DateTime.fromISO(user.daily_digest_next_send_at, { zone: "utc" })
-		: currentTime;
+	const nextSendAtIso = readDailyNotificationNextSendAt(user);
+	const dueAt = nextSendAtIso ? DateTime.fromISO(nextSendAtIso, { zone: "utc" }) : currentTime;
 	if (!dueAt.isValid) {
 		logger.error(
-			"Invalid daily_digest_next_send_at timestamp",
+			"Invalid daily_notification_next_send_at timestamp",
 			{
 				userId: user.id,
-				daily_digest_next_send_at: user.daily_digest_next_send_at,
+				daily_notification_next_send_at: nextSendAtIso,
 			},
-			new Error("Invalid daily_digest_next_send_at timestamp"),
+			new Error("Invalid daily_notification_next_send_at timestamp"),
 		);
 		return null;
 	}
@@ -109,7 +109,7 @@ export function parseDailyScheduleContext(
 			{
 				userId: user.id,
 				timezone: user.timezone,
-				daily_digest_next_send_at: user.daily_digest_next_send_at,
+				daily_notification_next_send_at: nextSendAtIso,
 			},
 			new Error("Failed to format scheduled date"),
 		);
@@ -123,7 +123,7 @@ export function parseDailyScheduleContext(
 				action: "daily_run",
 				userId: user.id,
 				timezone: user.timezone,
-				daily_digest_next_send_at: user.daily_digest_next_send_at,
+				daily_notification_next_send_at: nextSendAtIso,
 				scheduledDate,
 			},
 			new Error("Failed to calculate scheduled minutes"),

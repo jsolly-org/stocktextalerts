@@ -1,4 +1,4 @@
-import type { IntradayCandle } from "../market-data-types";
+import type { IntradayCandle } from "../types";
 
 /** A single link returned by Grok for a price alert. */
 interface PriceAlertLink {

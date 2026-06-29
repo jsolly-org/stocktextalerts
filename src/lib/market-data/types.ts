@@ -1,5 +1,5 @@
 import type { AppSupabaseClient } from "../db/supabase";
-import type { AssetPriceMap } from "../market-data-types";
+import type { AssetPriceMap } from "../types";
 
 export interface TopMover {
 	ticker: string;

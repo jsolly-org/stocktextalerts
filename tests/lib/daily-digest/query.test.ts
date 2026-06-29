@@ -24,10 +24,14 @@ describe("fetchDailyDigestUsers candidate selection", () => {
 		// prices Telegram facet on — a legitimate Telegram-only digest subscriber.
 		const { error } = await adminClient
 			.from("users")
-			.update({ daily_digest_time: 540, telegram_chat_id: 991234567, telegram_opted_out: false })
+			.update({
+				daily_notification_time: 540,
+				telegram_chat_id: 991234567,
+				telegram_opted_out: false,
+			})
 			.eq("id", user.id);
 		expect(error).toBeNull();
-		await setTestUserPrefs(user.id, [["daily_digest", "prices", "telegram", true]]);
+		await setTestUserPrefs(user.id, [["daily_notification", "prices", "telegram", true]]);
 
 		const users = await fetchDailyDigestUsers({
 			supabase: adminClient,
@@ -42,7 +46,7 @@ describe("fetchDailyDigestUsers candidate selection", () => {
 		expect(
 			found?.prefs.some(
 				(p) =>
-					p.notification_type === "daily_digest" &&
+					p.notification_type === "daily_notification" &&
 					p.content === "prices" &&
 					p.channel === "telegram" &&
 					p.enabled,
@@ -59,7 +63,7 @@ describe("fetchDailyDigestUsers candidate selection", () => {
 		registerTestUserForCleanup(user.id);
 		const { error } = await adminClient
 			.from("users")
-			.update({ daily_digest_time: 540 })
+			.update({ daily_notification_time: 540 })
 			.eq("id", user.id);
 		expect(error).toBeNull();
 

@@ -68,11 +68,11 @@ import { onMounted, ref, toRefs, watch } from "vue";
 import GlobeAltIcon from "../../icons/globe-alt.svg?component";
 import { fetchCurrentNotificationPreferences } from "../../lib/api/notification-preferences";
 import { updateProfileTimezone } from "../../lib/api/profile";
+import { DEFAULT_TIMEZONE } from "../../lib/constants";
 import type { NotificationPreferencesSnapshot, User } from "../../lib/db";
 import { createSaveSequencer, type SequencedResult } from "../../lib/forms/save-sequencer";
 import { rootLogger } from "../../lib/logging";
-import { DEFAULT_TIMEZONE } from "../../lib/time-constants";
-import type { TimezoneOption } from "../../lib/timezone-types";
+import type { TimezoneOption } from "../../lib/types";
 import { useHydrated } from "../composables/useHydrated";
 import StatusMessage from "../StatusMessage.vue";
 import TimezoneMismatchBanner from "./TimezoneMismatchBanner.vue";
@@ -112,8 +112,8 @@ function buildSavedNotificationPreferences(
 		dismiss_timezone_mismatch_prompts:
 			sourceUser.dismiss_timezone_mismatch_prompts,
 		market_scheduled_asset_price_enabled: sourceUser.market_scheduled_asset_price_enabled,
-		daily_digest_time: sourceUser.daily_digest_time,
-		daily_digest_next_send_at: sourceUser.daily_digest_next_send_at,
+		daily_notification_time: sourceUser.daily_notification_time,
+		daily_notification_next_send_at: sourceUser.daily_notification_next_send_at,
 		daily_digest_include_prices_email: sourceUser.daily_digest_include_prices_email,
 		daily_digest_include_prices_sms: sourceUser.daily_digest_include_prices_sms,
 		daily_digest_include_top_movers_email:
@@ -132,7 +132,6 @@ function buildSavedNotificationPreferences(
 		asset_events_include_analyst_sms: sourceUser.asset_events_include_analyst_sms,
 		asset_events_include_insider_email: sourceUser.asset_events_include_insider_email,
 		asset_events_include_insider_sms: sourceUser.asset_events_include_insider_sms,
-		asset_events_next_send_at: sourceUser.asset_events_next_send_at,
 		asset_events_last_analyst_sent_month: sourceUser.asset_events_last_analyst_sent_month,
 		market_asset_price_alerts_enabled: sourceUser.market_asset_price_alerts_enabled,
 		market_asset_price_alerts_include_email: sourceUser.market_asset_price_alerts_include_email,
@@ -239,11 +238,8 @@ function mergeResolvedTimezone(
 		...(prefs.market_scheduled_asset_price_next_send_at !== undefined && {
 			market_scheduled_asset_price_next_send_at: prefs.market_scheduled_asset_price_next_send_at,
 		}),
-		...(prefs.daily_digest_next_send_at !== undefined && {
-			daily_digest_next_send_at: prefs.daily_digest_next_send_at,
-		}),
-		...(prefs.asset_events_next_send_at !== undefined && {
-			asset_events_next_send_at: prefs.asset_events_next_send_at,
+		...(prefs.daily_notification_next_send_at !== undefined && {
+			daily_notification_next_send_at: prefs.daily_notification_next_send_at,
 		}),
 	};
 }

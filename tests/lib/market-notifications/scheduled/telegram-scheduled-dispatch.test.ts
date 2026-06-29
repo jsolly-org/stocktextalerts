@@ -20,7 +20,7 @@ import type { EmailSender } from "../../../../src/lib/messaging/email/utils";
 import { attachPrefsToUsers } from "../../../../src/lib/messaging/load-prefs";
 import type { SmsSender } from "../../../../src/lib/messaging/sms/twilio-utils";
 import type { TelegramSender } from "../../../../src/lib/messaging/telegram/sender";
-import type { UserRecord } from "../../../../src/lib/user-record-types";
+import type { UserRecord } from "../../../../src/lib/types";
 import { adminClient } from "../../../helpers/test-env";
 import { createTestUser, setTestUserPrefs } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";

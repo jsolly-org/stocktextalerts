@@ -2,7 +2,7 @@ import {
 	US_AFTER_OPEN_EASTERN_MINUTES,
 	US_BEFORE_OPEN_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,
-} from "../market-constants";
+} from "../constants";
 import { dateTimeAtMinuteOfDay, minuteOfDayFromDateTime } from "./utils";
 
 /**

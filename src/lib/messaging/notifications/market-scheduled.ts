@@ -1,9 +1,8 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import { getSiteUrl } from "../../db/env";
-import type { AssetPriceMap, MarketSession } from "../../market-data-types";
-import { NO_SESSION_TRADE } from "../../market-data-types";
 import type { MarketClosureInfo } from "../../time/market/calendar";
-import type { UserAssetRow } from "../../user-record-types";
+import type { AssetPriceMap, MarketSession, UserAssetRow } from "../../types";
+import { NO_SESSION_TRADE } from "../../types";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
 import {
 	appendTelegramAssetPriceLines,

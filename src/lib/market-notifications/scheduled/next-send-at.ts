@@ -2,7 +2,7 @@ import type { DateTime } from "luxon";
 import type { SupabaseAdminClient } from "../../db/supabase";
 import type { Logger } from "../../logging";
 import { calculateNextMarketScheduledSendAtFromTimes } from "../../time/schedule/market-next-send";
-import type { UserRecord } from "../../user-record-types";
+import type { UserRecord } from "../../types";
 
 /** Recompute and persist `users.market_scheduled_asset_price_next_send_at` after a run. */
 export async function updateUserMarketScheduledNextSendAt(options: {

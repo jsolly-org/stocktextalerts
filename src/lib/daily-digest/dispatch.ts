@@ -9,7 +9,7 @@ import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../time/market/calendar";
-import type { UserRecord } from "../user-record-types";
+import type { UserRecord } from "../types";
 import { processDailyDigestUser } from "./process";
 import { fetchOneDailyDigestUser } from "./query";
 
@@ -93,8 +93,9 @@ export async function dispatchDailyDigestUser(options: {
 			dailyDigestUser = fetched;
 		}
 
+		const user = dailyDigestUser;
 		return await processDailyDigestUser({
-			user: dailyDigestUser,
+			user,
 			supabase,
 			logger: rootLogger,
 			currentTime,

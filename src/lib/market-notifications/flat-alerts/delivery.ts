@@ -1,7 +1,6 @@
 import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
-import type { ExtendedAssetQuote, IntradayBarsResult } from "../../market-data-types";
 import { sendUserEmail } from "../../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
 import type { EmailSender } from "../../messaging/email/utils";
@@ -27,6 +26,7 @@ import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../../messaging/telegram/price-alert";
 import type { TelegramSender } from "../../messaging/telegram/sender";
 import { buildFlatAlertEnriched } from "../../price-alerts/compose";
+import type { ExtendedAssetQuote, IntradayBarsResult } from "../../types";
 import { formatRelativeMinutesAgo } from "./relative-time";
 import type { FlatPriceAlertUser } from "./users";
 

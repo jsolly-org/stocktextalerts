@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const dispatchDailyDigestUserMock = vi.fn();
-const fetchDailyDigestUsersMock = vi.fn();
+const fetchDailyNotificationUsersMock = vi.fn();
 const fetchUpcomingDailyDigestUsersMock = vi.fn();
 const getCurrentMarketSessionMock = vi.fn();
 const fetchMarketScheduledUsersMock = vi.fn();
-const fetchAssetEventsUsersMock = vi.fn();
 const processPriceAlertsMock = vi.fn();
 const processPriceTargetsMock = vi.fn();
 const getUsMarketClosureInfoForInstantMock = vi.fn();
@@ -16,8 +15,8 @@ vi.mock("../../../src/lib/daily-digest/dispatch", () => ({
 	dispatchDailyDigestUser: dispatchDailyDigestUserMock,
 }));
 
-vi.mock("../../../src/lib/daily-digest/query", () => ({
-	fetchDailyDigestUsers: fetchDailyDigestUsersMock,
+vi.mock("../../../src/lib/daily-notification/query", () => ({
+	fetchDailyNotificationUsers: fetchDailyNotificationUsersMock,
 }));
 
 vi.mock("../../../src/lib/daily-digest/query-upcoming", () => ({
@@ -27,11 +26,6 @@ vi.mock("../../../src/lib/daily-digest/query-upcoming", () => ({
 vi.mock("../../../src/lib/market-notifications/scheduled/query", () => ({
 	fetchMarketScheduledUsers: fetchMarketScheduledUsersMock,
 }));
-
-vi.mock("../../../src/lib/asset-events/query", () => ({
-	fetchAssetEventsUsers: fetchAssetEventsUsersMock,
-}));
-
 vi.mock("../../../src/lib/market-data/session", async () => {
 	const actual = await vi.importActual<typeof import("../../../src/lib/market-data/session")>(
 		"../../../src/lib/market-data/session",
@@ -72,11 +66,6 @@ vi.mock("../../../src/lib/market-notifications/scheduled/process", () => ({
 		telegramFailed: 0,
 	}),
 }));
-
-vi.mock("../../../src/lib/asset-events/process", () => ({
-	processAssetEventsUser: vi.fn(),
-}));
-
 vi.mock("../../../src/lib/staged-notifications/deliver", () => ({
 	deliverStagedNotifications: vi.fn().mockResolvedValue({
 		stats: {
@@ -137,9 +126,8 @@ vi.mock("../../../src/lib/db/user-assets", async () => {
 describe("A cron fallback pass fans out daily digests without a shared closure label.", () => {
 	beforeEach(() => {
 		dispatchDailyDigestUserMock.mockReset();
-		fetchDailyDigestUsersMock.mockReset();
+		fetchDailyNotificationUsersMock.mockReset();
 		fetchMarketScheduledUsersMock.mockReset();
-		fetchAssetEventsUsersMock.mockReset();
 		getCurrentMarketSessionMock.mockReset();
 		processPriceAlertsMock.mockReset();
 		processPriceTargetsMock.mockReset();
@@ -186,10 +174,9 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 	it("lets each daily user classify the market day from their own scheduled instant", async () => {
 		const { runScheduledNotifications } = await import("../../../src/lib/schedule/run");
 
-		fetchDailyDigestUsersMock.mockResolvedValueOnce([{ id: "daily-user-1" }]);
+		fetchDailyNotificationUsersMock.mockResolvedValueOnce([{ id: "daily-user-1" }]);
 		fetchMarketScheduledUsersMock.mockResolvedValue([]);
-		fetchAssetEventsUsersMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
-		fetchDailyDigestUsersMock.mockResolvedValueOnce([]);
+		fetchDailyNotificationUsersMock.mockResolvedValueOnce([]);
 		fetchMarketScheduledUsersMock.mockResolvedValueOnce([]);
 		getCurrentMarketSessionMock.mockResolvedValue("closed");
 		getUsMarketClosureInfoForInstantMock.mockResolvedValue({
@@ -239,8 +226,7 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 			.mockResolvedValueOnce([marketUser])
 			.mockResolvedValueOnce([marketUser])
 			.mockResolvedValue([]);
-		fetchDailyDigestUsersMock.mockResolvedValue([]);
-		fetchAssetEventsUsersMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+		fetchDailyNotificationUsersMock.mockResolvedValue([]);
 		getCurrentMarketSessionMock.mockResolvedValue("regular");
 		batchLoadUserAssetsMock.mockResolvedValue(
 			new Map([["market-user-1", [{ symbol: "AAPL", name: "Apple", type: "stock" }]]]),

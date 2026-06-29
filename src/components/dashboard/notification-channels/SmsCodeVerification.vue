@@ -94,7 +94,7 @@ import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import {
 	VERIFICATION_EXPIRATION_MS,
 	VERIFICATION_RESEND_COOLDOWN_MS,
-} from "../../../lib/auth-constants";
+} from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import { formatPhoneForDisplay } from "../../../lib/messaging/format-phone";
 import { formatMessage } from "../../../lib/messaging/status-messages";

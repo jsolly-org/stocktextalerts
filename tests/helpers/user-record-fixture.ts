@@ -4,7 +4,7 @@ import {
 	type PrefRow,
 	parsePrefRow,
 } from "../../src/lib/messaging/notification-prefs";
-import type { UserRecord } from "../../src/lib/user-record-types";
+import type { UserRecord } from "../../src/lib/types";
 
 /**
  * Build notification_preferences rows for a test user from a compact spec.
@@ -41,9 +41,8 @@ export function makeUserRecord(overrides: Partial<UserRecord> = {}): UserRecord 
 		sms_opted_out: false,
 		market_scheduled_asset_price_enabled: false,
 		market_scheduled_asset_price_times: null,
-		daily_digest_time: null,
-		daily_digest_next_send_at: null,
-		asset_events_next_send_at: null,
+		daily_notification_time: null,
+		daily_notification_next_send_at: null,
 		asset_events_last_analyst_sent_month: null,
 		last_grok_rumors_at: null,
 		grok_window_start: null,

@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { ASSET_SYMBOL_MAX_LENGTH } from "../../../lib/asset-constants";
+import { ASSET_SYMBOL_MAX_LENGTH } from "../../../lib/constants";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";

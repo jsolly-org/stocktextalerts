@@ -4,8 +4,8 @@ import { POST } from "../../../../src/pages/api/auth/email/register";
 import { createApiContext } from "../../../helpers/api-context";
 import { TEST_PASSWORD } from "../../../helpers/constants";
 
-vi.mock("../../../../src/lib/auth-constants", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("../../../../src/lib/auth-constants")>();
+vi.mock("../../../../src/lib/constants", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../../../../src/lib/constants")>();
 	return { ...actual, REGISTRATION_ENABLED: false };
 });
 

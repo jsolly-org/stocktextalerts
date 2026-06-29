@@ -1,5 +1,5 @@
 import { getCurrentMarketSession } from "../market-data/session";
-import type { MarketSession } from "../market-data-types";
+import type { MarketSession } from "../types";
 import { marketSessionCacheStore } from "./market-session-cache-store";
 
 /**

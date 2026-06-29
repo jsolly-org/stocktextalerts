@@ -1,10 +1,15 @@
+/**
+ * User-settings backup (EventBridge: every five hours). Exports notification
+ * preferences and related tables from Postgres to S3 as CSV snapshots with a
+ * manifest, then emits a CloudWatch heartbeat for staleness monitoring.
+ */
 import type { Context, ScheduledEvent } from "aws-lambda";
-import { exportSnapshot } from "../lib/backup/export";
-import { emitHeartbeat, getConnectionString, putBackup } from "../lib/backup/storage";
-import { requireEnv } from "../lib/db/env";
-import { createLogger } from "../lib/logging";
-import { createErrorForLogging } from "../lib/logging/errors";
-import { runLambda } from "../lib/logging/request-context";
+import { exportSnapshot } from "../../lib/backup/export";
+import { emitHeartbeat, getConnectionString, putBackup } from "../../lib/backup/storage";
+import { requireEnv } from "../../lib/db/env";
+import { createLogger } from "../../lib/logging";
+import { createErrorForLogging } from "../../lib/logging/errors";
+import { runLambda } from "../../lib/logging/request-context";
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
 	return runLambda(context, async () => {

@@ -1,6 +1,6 @@
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
-import type { AssetPriceMap, ExtendedQuoteMap, MarketSession } from "../market-data-types";
+import type { AssetPriceMap, ExtendedQuoteMap, MarketSession } from "../types";
 import { fetchPrevDayBar, fetchSnapshotQuotes } from "./quotes";
 import type { AssetPricesWithSessionState } from "./types";
 

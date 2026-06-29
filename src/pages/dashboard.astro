@@ -54,21 +54,39 @@ const { data: prefRows } = await supabase
 	.select("notification_type, content, channel, enabled")
 	.eq("user_id", authUser.id);
 
-// daily_digest + asset_events: keyed by content facet ("prices", "calendar", …).
+// daily_notification: keyed by content facet ("prices", "calendar", …).
 const dailyDigestTelegramPrefs: Record<string, boolean> = {};
 const assetEventsTelegramPrefs: Record<string, boolean> = {};
+const DAILY_DIGEST_FACETS = new Set(["prices", "top_movers", "news", "rumors"]);
+const ASSET_EVENT_FACETS = new Set(["calendar", "ipo", "analyst", "insider"]);
 // market types (content=''): keyed by notification_type.
 const marketTelegramPrefs: Record<string, boolean> = {};
 // email/sms per-option fields folded back onto the user (DashboardUser augment).
 const channelPrefFields: Record<string, boolean> = {};
 for (const row of prefRows ?? []) {
 	if (row.channel === "telegram") {
-		if (row.notification_type === "daily_digest") {
-			dailyDigestTelegramPrefs[row.content] = row.enabled;
-		} else if (row.notification_type === "asset_events") {
-			assetEventsTelegramPrefs[row.content] = row.enabled;
+		if (
+			row.notification_type === "daily_notification" ||
+			row.notification_type === "daily_digest" ||
+			row.notification_type === "asset_events"
+		) {
+			if (DAILY_DIGEST_FACETS.has(row.content)) {
+				dailyDigestTelegramPrefs[row.content] = row.enabled;
+			} else if (ASSET_EVENT_FACETS.has(row.content)) {
+				assetEventsTelegramPrefs[row.content] = row.enabled;
+			}
 		} else {
 			marketTelegramPrefs[row.notification_type] = row.enabled;
+		}
+	} else if (
+		row.notification_type === "daily_notification" ||
+		row.notification_type === "daily_digest" ||
+		row.notification_type === "asset_events"
+	) {
+		if (DAILY_DIGEST_FACETS.has(row.content)) {
+			channelPrefFields[`daily_digest_include_${row.content}_${row.channel}`] = row.enabled;
+		} else if (ASSET_EVENT_FACETS.has(row.content)) {
+			channelPrefFields[`asset_events_include_${row.content}_${row.channel}`] = row.enabled;
 		}
 	} else {
 		const field =

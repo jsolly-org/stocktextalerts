@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../src/lib/db/supabase";
-import type { DeliveryResult } from "../../../src/lib/delivery-types";
 import type { EmailSender } from "../../../src/lib/messaging/email/utils";
 import {
 	deliverPriceTargetAlert,
@@ -8,6 +7,7 @@ import {
 	type PriceTargetDeliveryStats,
 } from "../../../src/lib/price-targets/delivery";
 import type { PriceTargetUser, TriggeredPriceTarget } from "../../../src/lib/price-targets/process";
+import type { DeliveryResult } from "../../../src/lib/types";
 import { makePrefRows } from "../../helpers/user-record-fixture";
 
 function makeSupabaseMock(): AppSupabaseClient {

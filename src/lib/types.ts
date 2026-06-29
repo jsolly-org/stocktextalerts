@@ -5,6 +5,8 @@
  * typed via `Database["public"]["Enums"]` in `src/lib/db/index.ts`.
  */
 
+import type { MessageEntity } from "grammy/types";
+import type { StagedNotificationType } from "./db";
 import type { Database } from "./db/generated/database.types";
 import { Constants } from "./db/generated/database.types";
 
@@ -62,7 +64,7 @@ Dates & timestamps
 /** ISO calendar date `YYYY-MM-DD` (`scheduled_date`, `event_date`, etc.). */
 export type IsoDateString = string & Brand<"IsoDateString">;
 /** ISO-8601 UTC timestamp (`next_send_at`, `scheduled_for`, etc.). */
-export type IsoTimestampString = string & Brand<"IsoTimestampString">;
+type IsoTimestampString = string & Brand<"IsoTimestampString">;
 /** `YYYY-MM` month key (`asset_events_last_analyst_sent_month`). */
 export type YearMonthString = string & Brand<"YearMonthString">;
 
@@ -97,4 +99,282 @@ export function assertYearMonthString(value: string): YearMonthString {
 export interface ScheduledSlotKey {
 	scheduledDate: IsoDateString;
 	scheduledMinutes: MinuteOfDay;
+}
+
+/* =============
+Finnhub extras
+============= */
+
+export interface RecommendationTrend {
+	buy: number;
+	hold: number;
+	sell: number;
+	strongBuy: number;
+	strongSell: number;
+	period: string;
+}
+
+export interface InsiderTransaction {
+	name: string;
+	share: number;
+	change: number;
+	transactionType: string;
+	transactionDate: string;
+}
+
+/** Minimal company-news item fields used in digests/sections. */
+export interface CompanyNewsItem {
+	headline: string;
+	summary: string;
+	datetime: number;
+	url: string;
+	source: string;
+	/** Ticker symbols associated with this article (from API). */
+	tickers: string[];
+}
+
+/* =============
+Notification preferences
+============= */
+
+/** A delivery channel (mirrors the DB `delivery_method` enum). */
+export type PrefChannel = "email" | "sms" | "telegram";
+
+/** Notification types stored in `notification_preferences.notification_type`. */
+export type NotificationPreferenceType =
+	| "daily_notification"
+	| "daily_digest"
+	| "asset_events"
+	| "market_asset_price_alerts"
+	| "market_scheduled_asset_price"
+	| "price_move_alerts"
+	| "price_targets";
+
+export type DailyDigestContent = "prices" | "top_movers" | "news" | "rumors";
+export type AssetEventsContent = "calendar" | "ipo" | "analyst" | "insider";
+/** All content facets in the unified daily notification. */
+export type DailyNotificationContent = DailyDigestContent | AssetEventsContent;
+/** Facet-less notification types use empty content. */
+export type FacetlessContent = "";
+
+export type FacetlessNotificationType = Exclude<
+	NotificationPreferenceType,
+	"daily_notification" | "daily_digest" | "asset_events"
+>;
+
+type PrefRowBase = {
+	channel: PrefChannel;
+	enabled: boolean;
+};
+
+type DailyNotificationPrefRow = PrefRowBase & {
+	notification_type: "daily_notification";
+	content: DailyNotificationContent;
+};
+
+type DailyDigestPrefRow = PrefRowBase & {
+	notification_type: "daily_digest";
+	content: DailyDigestContent;
+};
+
+type AssetEventsPrefRow = PrefRowBase & {
+	notification_type: "asset_events";
+	content: AssetEventsContent;
+};
+
+type FacetlessPrefRow = PrefRowBase & {
+	notification_type: FacetlessNotificationType;
+	content: FacetlessContent;
+};
+
+/** A single notification-preference row (subset used by eligibility/reads). */
+export type PrefRow =
+	| DailyNotificationPrefRow
+	| DailyDigestPrefRow
+	| AssetEventsPrefRow
+	| FacetlessPrefRow;
+
+/* =============
+User records
+============= */
+
+type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
+
+type GrokRumorsPreferences = {
+	last_grok_rumors_at: string | null;
+	grok_window_start: string | null;
+	grok_sends_in_window: number;
+};
+
+/** User fields required for notification delivery, scheduling, and formatting.
+ *
+ * Per-option channel preferences live in `notification_preferences` (carried as
+ * `prefs`), NOT on per-column flags. Channel-level enables (`email_notifications_enabled`,
+ * etc.) stay on the users row. */
+export type UserRecord = Pick<
+	DbUserRow,
+	| "id"
+	| "email"
+	| "phone_country_code"
+	| "phone_number"
+	| "phone_verified"
+	| "timezone"
+	| "use_24_hour_time"
+	| "market_scheduled_asset_price_next_send_at"
+	| "email_notifications_enabled"
+	| "sms_notifications_enabled"
+	| "sms_opted_out"
+> & {
+	market_scheduled_asset_price_enabled: boolean;
+	market_scheduled_asset_price_times: number[] | null;
+	daily_notification_time: number | null;
+	daily_notification_next_send_at: string | null;
+	asset_events_last_analyst_sent_month: string | null;
+	telegram_chat_id: number | null;
+	telegram_opted_out: boolean;
+	/** Per-option channel preferences (the single source of truth for all channels). */
+	prefs: PrefRow[];
+} & GrokRumorsPreferences;
+
+/** User asset joined with its canonical asset name. */
+export type UserAssetRow = Pick<Database["public"]["Tables"]["user_assets"]["Row"], "symbol"> & {
+	name: Database["public"]["Tables"]["assets"]["Row"]["name"];
+	icon_url?: Database["public"]["Tables"]["assets"]["Row"]["icon_url"];
+	icon_base64?: Database["public"]["Tables"]["assets"]["Row"]["icon_base64"];
+};
+
+/* =============
+Market data
+============= */
+
+/**
+ * Sentinel when Massive returned the ticker entry but no live trade exists for
+ * the current session. Distinct from `null` (ticker missing from response).
+ */
+export const NO_SESSION_TRADE = "no_session_trade" as const;
+export type NoSessionTrade = typeof NO_SESSION_TRADE;
+
+/** A single intraday OHLC bar (`t` is ms since epoch). */
+export interface IntradayCandle {
+	o: number;
+	h: number;
+	l: number;
+	c: number;
+	t: number;
+}
+
+/** Result of extracting closes and timestamps from intraday bars. */
+export interface IntradayBarsResult {
+	closes: number[];
+	timestamps: (number | null)[] | null;
+	startTimestamp: number | null;
+	endTimestamp: number | null;
+	candles: IntradayCandle[] | null;
+}
+
+/** Single daily OHLCV bar extracted from Massive aggregates. */
+export interface DailyOHLCVBar {
+	open: number;
+	high: number;
+	low: number;
+	close: number;
+	volume: number;
+	tradingDate?: string;
+}
+
+interface AssetPrice {
+	price: number;
+	changePercent: number;
+	timestamp?: number | null;
+	prevClose?: number | null;
+}
+
+/** Quote fields used by movement alerts and snapshot persistence. */
+export interface ExtendedAssetQuote extends AssetPrice {
+	dayHigh: number | null;
+	dayLow: number | null;
+	dayOpen: number | null;
+	prevClose: number | null;
+	timestamp: number | null;
+	volume: number | null;
+}
+
+/** Map of simple price quotes keyed by symbol. `null` = ticker missing (fetch fail / no live trade). */
+export type AssetPriceMap = Map<string, AssetPrice | null>;
+/** Map of extended quotes keyed by symbol. */
+export type ExtendedQuoteMap = Map<string, ExtendedAssetQuote | null>;
+
+export type MarketSession = "pre" | "regular" | "after" | "closed";
+
+/* =============
+Delivery
+============= */
+
+/** Result of attempting to deliver a single notification (email or SMS). */
+export type DeliveryResult =
+	| { success: true; messageSid?: string }
+	| { success: false; error: string; errorCode?: string };
+
+/** Per-notification processing metadata used for auditing/debugging. */
+export type ProcessingStats =
+	| { sent: true; logged: boolean }
+	| { sent: false; logged: boolean; error: string; errorCode?: string };
+
+/* =============
+Timezone
+============= */
+
+export type TimezoneOption = Pick<
+	Database["public"]["Tables"]["timezones"]["Row"],
+	"value" | "label" | "display_order"
+>;
+
+/* =============
+Staged notifications
+============= */
+
+export type { StagedNotificationType };
+
+interface StagedEmailContent {
+	subject: string;
+	text: string;
+	html: string;
+}
+
+export type StagedSmsContent =
+	| { messages: string[] }
+	// Short-lived persisted JSON compatibility for rows staged before multipart SMS shipped.
+	| { message: string };
+
+/** Fully-rendered Telegram message: plain text plus out-of-band parse-mode entities. */
+interface StagedTelegramContent {
+	text: string;
+	entities: MessageEntity[];
+}
+
+export interface StagedDailyData extends ScheduledSlotKey {
+	type: "daily";
+	email: StagedEmailContent | null;
+	sms: StagedSmsContent | null;
+	telegram: StagedTelegramContent | null;
+
+	// Post-delivery metadata: these fields capture decisions made during
+	// the pre-compute phase so the delivery phase can perform cleanup
+	// (Grok counter updates, next_send_at advances, analyst month tracking)
+	// without re-running eligibility checks or re-querying user preferences.
+	grokAllowed: boolean;
+	hasAnyAssetEventsOption: boolean;
+	shouldUpdateAnalyst: boolean;
+	analystMonth: YearMonthString | null;
+}
+
+export type StagedData = StagedDailyData;
+
+export interface StagedNotificationRow {
+	id: string;
+	user_id: string;
+	notification_type: StagedNotificationType;
+	scheduled_for: IsoTimestampString;
+	staged_at: IsoTimestampString;
+	staged_data: StagedData;
 }

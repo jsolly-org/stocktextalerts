@@ -1,4 +1,5 @@
 import { DateTime, type DateTime as DateTimeType } from "luxon";
+import { persistDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { shouldSendSms } from "../messaging/sms/index";
@@ -8,8 +9,7 @@ import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
 import { getMaxDailyDigestSlotAttempts } from "../scheduled-notifications/store";
 import { MAX_NOTIFICATION_RETRIES } from "../scheduled-notifications/types";
 import { toIsoOrThrow } from "../time/display";
-import type { ScheduledSlotKey } from "../types";
-import type { UserRecord } from "../user-record-types";
+import type { ScheduledSlotKey, UserRecord } from "../types";
 
 /** True when every enabled delivery channel for this digest slot is sent or retries are exhausted. */
 export async function shouldAdvanceDailyDigestSchedule(
@@ -43,26 +43,20 @@ export async function deferDailyDigestProcessingRetry(options: {
 	const retryAt = currentTime.plus({ milliseconds: delayMs });
 	const retryAtIso = toIsoOrThrow(retryAt, "Failed to format digest retry time");
 
-	const { error } = await supabase
-		.from("users")
-		.update({ daily_digest_next_send_at: retryAtIso })
-		.eq("id", user.id);
+	await persistDailyNotificationNextSendAt({
+		userId: user.id,
+		supabase,
+		logger,
+		nextSendAtIso: retryAtIso,
+	});
 
-	if (error) {
-		logger.error(
-			"Failed to defer daily_digest_next_send_at after processing error",
-			{ userId: user.id, retryAtIso, deferralCount },
-			error,
-		);
-	} else {
-		logger.info("Deferred daily digest for retry", {
-			action: "daily_run",
-			userId: user.id,
-			retryAtIso,
-			deferralCount: deferralCount + 1,
-			delayMs,
-		});
-	}
+	logger.info("Deferred daily digest for retry", {
+		action: "daily_run",
+		userId: user.id,
+		retryAtIso,
+		deferralCount: deferralCount + 1,
+		delayMs,
+	});
 }
 
 /**

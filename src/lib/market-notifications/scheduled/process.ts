@@ -4,8 +4,6 @@ import { loadUserAssets, type UserAssetsMap } from "../../db/user-assets";
 import type { Logger } from "../../logging";
 import { createErrorForLogging, extractErrorMessage } from "../../logging/errors";
 import { fetchIntradaySparklines } from "../../market-data/sparklines";
-import type { AssetPriceMap, MarketSession } from "../../market-data-types";
-import { NO_SESSION_TRADE } from "../../market-data-types";
 import type { EmailSender } from "../../messaging/email/utils";
 import { type LogoCache, safePrefetchLogos } from "../../messaging/logo-fetcher";
 import { anyFacetEnabled, isFacetEnabled } from "../../messaging/notification-prefs";
@@ -28,8 +26,8 @@ import type { MarketClosureInfo } from "../../time/market/calendar";
 import { getUsMarketClosureInfoForInstant } from "../../time/market/calendar";
 import { isOutsideMarketHours } from "../../time/market/session";
 import { getLocalMinutesFromDateTime } from "../../time/schedule/next-send";
-import { assertIsoDateString } from "../../types";
-import type { UserRecord } from "../../user-record-types";
+import type { AssetPriceMap, MarketSession, UserRecord } from "../../types";
+import { assertIsoDateString, NO_SESSION_TRADE } from "../../types";
 import {
 	processMarketScheduledEmailDelivery,
 	processMarketScheduledSmsDelivery,

@@ -13,7 +13,6 @@ vi.mock("../../../src/lib/time/market/calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
 
-import type { DeliveryResult } from "../../../src/lib/delivery-types";
 import type { Logger } from "../../../src/lib/logging";
 import { createEmailSender, type EmailSender } from "../../../src/lib/messaging/email/utils";
 import {
@@ -32,6 +31,7 @@ import {
 	type TelegramSenderFactory,
 } from "../../../src/lib/messaging/telegram/sender-factory";
 import { deliverStagedNotifications } from "../../../src/lib/staged-notifications/deliver";
+import type { DeliveryResult } from "../../../src/lib/types";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -103,8 +103,8 @@ describe("deliverStagedNotifications", () => {
 		const { error } = await adminClient
 			.from("users")
 			.update({
-				daily_digest_time: options.scheduledMinutes ?? 9 * 60,
-				daily_digest_next_send_at: options.scheduledForIso,
+				daily_notification_time: options.scheduledMinutes ?? 9 * 60,
+				daily_notification_next_send_at: options.scheduledForIso,
 			})
 			.eq("id", id);
 		expect(error).toBeNull();
@@ -154,8 +154,8 @@ describe("deliverStagedNotifications", () => {
 		const { error } = await adminClient
 			.from("users")
 			.update({
-				daily_digest_time: options.scheduledMinutes ?? 9 * 60,
-				daily_digest_next_send_at: options.scheduledForIso,
+				daily_notification_time: options.scheduledMinutes ?? 9 * 60,
+				daily_notification_next_send_at: options.scheduledForIso,
 				telegram_chat_id: 778899125,
 				telegram_opted_out: false,
 			})
@@ -530,11 +530,13 @@ describe("deliverStagedNotifications", () => {
 		// ...and the schedule advanced past the delivered slot (not merely the row deleted).
 		const { data: advancedUser } = await adminClient
 			.from("users")
-			.select("daily_digest_next_send_at")
+			.select("daily_notification_next_send_at")
 			.eq("id", userId)
 			.single();
 		expect(
-			DateTime.fromISO(advancedUser?.daily_digest_next_send_at ?? "", { zone: "utc" }).toMillis(),
+			DateTime.fromISO(advancedUser?.daily_notification_next_send_at ?? "", {
+				zone: "utc",
+			}).toMillis(),
 		).toBeGreaterThan(DateTime.fromISO(scheduledForIso, { zone: "utc" }).toMillis());
 	});
 
@@ -590,11 +592,13 @@ describe("deliverStagedNotifications", () => {
 
 		const { data: notAdvanced } = await adminClient
 			.from("users")
-			.select("daily_digest_next_send_at")
+			.select("daily_notification_next_send_at")
 			.eq("id", userId)
 			.single();
 		expect(
-			DateTime.fromISO(notAdvanced?.daily_digest_next_send_at ?? "", { zone: "utc" }).toMillis(),
+			DateTime.fromISO(notAdvanced?.daily_notification_next_send_at ?? "", {
+				zone: "utc",
+			}).toMillis(),
 		).toBe(DateTime.fromISO(scheduledForIso, { zone: "utc" }).toMillis());
 	});
 });

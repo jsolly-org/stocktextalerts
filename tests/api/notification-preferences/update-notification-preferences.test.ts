@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_MARKET_UPDATE_TIME_MINUTES } from "../../../src/lib/market-constants";
+import { DEFAULT_MARKET_UPDATE_TIME_MINUTES } from "../../../src/lib/constants";
 import { POST } from "../../../src/pages/api/notification-preferences/update";
 import { createApiContext, createFormPostRequest } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
@@ -272,7 +272,7 @@ describe("A signed-in user toggles Telegram on their notification options.", () 
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("settings_updated");
 
-		expect(await readTelegramPref(testUser.id, "daily_digest", "prices")).toBe(true);
+		expect(await readTelegramPref(testUser.id, "daily_notification", "prices")).toBe(true);
 	});
 
 	it("Submitting the same option as false sets the Telegram row's enabled to false.", async () => {
@@ -291,7 +291,7 @@ describe("A signed-in user toggles Telegram on their notification options.", () 
 		expect(
 			(await postNotificationPreferencesUpdate({ formData: enableForm, cookies })).status,
 		).toBe(200);
-		expect(await readTelegramPref(testUser.id, "daily_digest", "prices")).toBe(true);
+		expect(await readTelegramPref(testUser.id, "daily_notification", "prices")).toBe(true);
 
 		// Then disable it.
 		const disableForm = new FormData();
@@ -299,7 +299,7 @@ describe("A signed-in user toggles Telegram on their notification options.", () 
 		const response = await postNotificationPreferencesUpdate({ formData: disableForm, cookies });
 
 		expect(response.status).toBe(200);
-		expect(await readTelegramPref(testUser.id, "daily_digest", "prices")).toBe(false);
+		expect(await readTelegramPref(testUser.id, "daily_notification", "prices")).toBe(false);
 	});
 
 	it("A facet-less option (price_move_alerts) persists a Telegram row keyed on empty content.", async () => {
@@ -337,7 +337,7 @@ describe("A signed-in user toggles Telegram on their notification options.", () 
 		expect((await postNotificationPreferencesUpdate({ formData: seedForm, cookies })).status).toBe(
 			200,
 		);
-		expect(await readTelegramPref(testUser.id, "daily_digest", "prices")).toBe(true);
+		expect(await readTelegramPref(testUser.id, "daily_notification", "prices")).toBe(true);
 
 		// Submit a totally unrelated field (Telegram for a different option).
 		const unrelatedForm = new FormData();
@@ -349,8 +349,8 @@ describe("A signed-in user toggles Telegram on their notification options.", () 
 
 		expect(response.status).toBe(200);
 		// The prices row is untouched (still enabled); the analyst row is newly enabled.
-		expect(await readTelegramPref(testUser.id, "daily_digest", "prices")).toBe(true);
-		expect(await readTelegramPref(testUser.id, "asset_events", "analyst")).toBe(true);
+		expect(await readTelegramPref(testUser.id, "daily_notification", "prices")).toBe(true);
+		expect(await readTelegramPref(testUser.id, "daily_notification", "analyst")).toBe(true);
 	});
 
 	it("A request mixing an email column write and a Telegram option persists both.", async () => {
@@ -372,18 +372,18 @@ describe("A signed-in user toggles Telegram on their notification options.", () 
 
 		expect(response.status).toBe(200);
 
-		// Email lands on the daily-digest prices email row in notification_preferences.
+		// Email lands on the daily notification prices email row in notification_preferences.
 		const { data: emailPref } = await adminClient
 			.from("notification_preferences")
 			.select("enabled")
 			.eq("user_id", testUser.id)
-			.eq("notification_type", "daily_digest")
+			.eq("notification_type", "daily_notification")
 			.eq("content", "prices")
 			.eq("channel", "email")
 			.maybeSingle();
 		expect(emailPref?.enabled).toBe(true);
 
 		// Telegram lands on notification_preferences.
-		expect(await readTelegramPref(testUser.id, "daily_digest", "prices")).toBe(true);
+		expect(await readTelegramPref(testUser.id, "daily_notification", "prices")).toBe(true);
 	});
 });

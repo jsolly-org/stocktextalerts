@@ -1,13 +1,8 @@
-import { DateTime } from "luxon";
-import {
-	calculateAssetEventsNextSendAtIso,
-	computeAssetEventsNextSendAt,
-} from "../asset-events/scheduling-helpers";
+import { applyDailyNotificationNextSendAtToUserUpdate } from "../daily-notification/schedule";
 import { type AlertMoveSize, omitUndefined, type User, type UserUpdateInput } from "../db";
 import type { Logger } from "../logging";
 import { userLocalToEtMinute } from "../time/conversion";
 import {
-	calculateNextSendAt,
 	computeNextSendAtIso,
 	parseScheduledTimes,
 	serializeTimes,
@@ -37,10 +32,34 @@ interface ParsedNotificationPreferencesForm {
 	asset_events_include_analyst_sms?: boolean;
 	asset_events_include_insider_email?: boolean;
 	asset_events_include_insider_sms?: boolean;
+	daily_digest_include_prices_email?: boolean;
+	daily_digest_include_prices_sms?: boolean;
+	daily_digest_include_top_movers_email?: boolean;
+	daily_digest_include_top_movers_sms?: boolean;
+	daily_digest_include_news_email?: boolean;
+	daily_digest_include_rumors_email?: boolean;
+	daily_digest_include_prices_telegram?: boolean;
+	daily_digest_include_top_movers_telegram?: boolean;
+	daily_digest_include_news_telegram?: boolean;
+	daily_digest_include_rumors_telegram?: boolean;
+	asset_events_include_calendar_telegram?: boolean;
+	asset_events_include_ipo_telegram?: boolean;
+	asset_events_include_analyst_telegram?: boolean;
+	asset_events_include_insider_telegram?: boolean;
 }
 
-/** asset_events form fields that gate `asset_events_next_send_at` scheduling. */
-export const ASSET_EVENTS_SCHEDULE_FIELDS = [
+/** Daily notification form fields that gate next-send-at scheduling. */
+export const DAILY_NOTIFICATION_SCHEDULE_FIELDS = [
+	"daily_digest_include_prices_email",
+	"daily_digest_include_prices_sms",
+	"daily_digest_include_top_movers_email",
+	"daily_digest_include_top_movers_sms",
+	"daily_digest_include_news_email",
+	"daily_digest_include_rumors_email",
+	"daily_digest_include_prices_telegram",
+	"daily_digest_include_top_movers_telegram",
+	"daily_digest_include_news_telegram",
+	"daily_digest_include_rumors_telegram",
 	"asset_events_include_calendar_email",
 	"asset_events_include_calendar_sms",
 	"asset_events_include_ipo_email",
@@ -49,6 +68,10 @@ export const ASSET_EVENTS_SCHEDULE_FIELDS = [
 	"asset_events_include_analyst_sms",
 	"asset_events_include_insider_email",
 	"asset_events_include_insider_sms",
+	"asset_events_include_calendar_telegram",
+	"asset_events_include_ipo_telegram",
+	"asset_events_include_analyst_telegram",
+	"asset_events_include_insider_telegram",
 ] as const satisfies ReadonlyArray<keyof ParsedNotificationPreferencesForm>;
 
 /**
@@ -83,34 +106,6 @@ function computeScheduledNextSendAt(
 }
 
 /**
- * Compute `daily_digest_next_send_at` when the daily delivery time or timezone changes.
- *
- * Mutates `updates` in-place so callers can compose a single `users` table update payload.
- */
-function computeDailyNextSendAt(
-	updates: UserUpdateInput,
-	dbUser: User,
-	finalDailyTime: number | null,
-	finalTimezone: string,
-	timezoneChanged: boolean,
-	dailyTimeChanged: boolean,
-): void {
-	const hasDailyTime = finalDailyTime !== null;
-	const needsRepair =
-		hasDailyTime &&
-		dbUser.daily_digest_next_send_at === null &&
-		updates.daily_digest_next_send_at === undefined;
-
-	if ((timezoneChanged || dailyTimeChanged || needsRepair) && hasDailyTime) {
-		const etMinutes = userLocalToEtMinute(finalDailyTime, finalTimezone);
-		const nextDailyUtc = calculateNextSendAt(etMinutes, DateTime.utc());
-		updates.daily_digest_next_send_at = nextDailyUtc?.toISO() ?? null;
-	} else if (dailyTimeChanged && !hasDailyTime) {
-		updates.daily_digest_next_send_at = null;
-	}
-}
-
-/**
  * Build a safe `users` table update payload from the notification preferences form submission.
  *
  * Only fields actually submitted by the form are persisted to avoid boolean drift when unchecked
@@ -122,12 +117,10 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	rawTimesValue: string | null;
 	parsedMarketScheduledAssetPriceTimes?: number[] | null;
 	dbUser: User;
-	/** Whether the user has ANY asset-events email/sms facet enabled AFTER this
-	 *  update (merged: existing table rows + submitted overrides), resolved by the
-	 *  caller. Drives `asset_events_next_send_at`. */
-	assetEventsEnabledAfterUpdate: boolean;
-	/** Whether any asset-events email/sms facet's value changed in this submission. */
-	assetEventsOptionsChanged: boolean;
+	/** Whether the user has ANY daily notification facet enabled AFTER this update. */
+	dailyNotificationEnabledAfterUpdate: boolean;
+	/** Whether any daily notification facet changed in this submission. */
+	dailyNotificationOptionsChanged: boolean;
 	logger?: Logger;
 }): UserUpdateInput {
 	const {
@@ -136,8 +129,8 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		rawTimesValue,
 		parsedMarketScheduledAssetPriceTimes,
 		dbUser,
-		assetEventsEnabledAfterUpdate,
-		assetEventsOptionsChanged,
+		dailyNotificationEnabledAfterUpdate,
+		dailyNotificationOptionsChanged,
 		logger,
 	} = options;
 
@@ -209,7 +202,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		market_scheduled_asset_price_times: etNormalizedTimes,
 		...boolUpdates,
 		...(formData.has("daily_digest_time")
-			? { daily_digest_time: parsedData.daily_digest_time ?? null }
+			? { daily_notification_time: parsedData.daily_digest_time ?? null }
 			: {}),
 		...(formData.has("market_asset_price_alert_move_size") &&
 		parsedData.market_asset_price_alert_move_size !== undefined
@@ -228,8 +221,8 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 			serializeTimes(dbUser.market_scheduled_asset_price_times ?? null);
 
 	const dailyTimeChanged =
-		safeNotificationPreferenceUpdates.daily_digest_time !== undefined &&
-		safeNotificationPreferenceUpdates.daily_digest_time !== dbUser.daily_digest_time;
+		safeNotificationPreferenceUpdates.daily_notification_time !== undefined &&
+		safeNotificationPreferenceUpdates.daily_notification_time !== dbUser.daily_notification_time;
 
 	const finalTimezone = safeNotificationPreferenceUpdates.timezone ?? dbUser.timezone;
 	const finalTimes =
@@ -238,9 +231,9 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 			: dbUser.market_scheduled_asset_price_times;
 
 	const finalDailyTime =
-		safeNotificationPreferenceUpdates.daily_digest_time !== undefined
-			? safeNotificationPreferenceUpdates.daily_digest_time
-			: dbUser.daily_digest_time;
+		safeNotificationPreferenceUpdates.daily_notification_time !== undefined
+			? safeNotificationPreferenceUpdates.daily_notification_time
+			: dbUser.daily_notification_time;
 
 	computeScheduledNextSendAt(
 		safeNotificationPreferenceUpdates,
@@ -250,24 +243,16 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		timeChanged,
 		logger,
 	);
-	computeDailyNextSendAt(
-		safeNotificationPreferenceUpdates,
+	applyDailyNotificationNextSendAtToUserUpdate({
+		updates: safeNotificationPreferenceUpdates,
 		dbUser,
 		finalDailyTime,
 		finalTimezone,
 		timezoneChanged,
 		dailyTimeChanged,
-	);
-	computeAssetEventsNextSendAt(
-		safeNotificationPreferenceUpdates,
-		dbUser,
-		finalDailyTime,
-		finalTimezone,
-		timezoneChanged,
-		dailyTimeChanged,
-		assetEventsOptionsChanged,
-		assetEventsEnabledAfterUpdate,
-	);
+		dailyOptionsChanged: dailyNotificationOptionsChanged,
+		hasDailyNotification: dailyNotificationEnabledAfterUpdate,
+	});
 
 	return safeNotificationPreferenceUpdates;
 }
@@ -275,22 +260,19 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 interface TimezoneUpdatePayload {
 	timezone: string;
 	market_scheduled_asset_price_next_send_at?: string | null;
-	daily_digest_next_send_at?: string | null;
-	asset_events_next_send_at?: string | null;
+	daily_notification_next_send_at?: string | null;
 }
 
 /**
  * Compute the minimal update payload required when a user changes timezone.
  *
- * Recomputes `market_scheduled_asset_price_next_send_at`, `daily_digest_next_send_at`, and `asset_events_next_send_at` only when the user
- * has the corresponding schedule enabled to avoid unnecessary writes.
+ * Recomputes `market_scheduled_asset_price_next_send_at` and `daily_notification_next_send_at`
+ * only when the user has the corresponding schedule enabled to avoid unnecessary writes.
  */
 export function computeTimezoneUpdatePayload(
 	newTimezone: string,
 	dbUser: User,
-	/** Whether the user has any asset-events email/sms facet enabled (from
-	 *  notification_preferences), used to decide whether to recompute its schedule. */
-	hasAnyAssetEvents: boolean,
+	hasDailyNotification: boolean,
 ): TimezoneUpdatePayload {
 	const payload: TimezoneUpdatePayload = {
 		timezone: newTimezone,
@@ -300,24 +282,20 @@ export function computeTimezoneUpdatePayload(
 		return payload;
 	}
 
-	// Market scheduled times are ET-canonical; the absolute UTC moment of
-	// next_send_at is invariant under user-timezone changes. The stored
-	// ISO is still correct, so don't recompute / write it.
-	// (Spec: "stored values are ET-minutes — invariant under timezone
-	// changes... the call site drops the newTimezone argument.")
-
-	if (dbUser.daily_digest_time != null) {
-		const etMinutes = userLocalToEtMinute(dbUser.daily_digest_time, newTimezone);
-		const nextDailyUtc = calculateNextSendAt(etMinutes, DateTime.utc());
-		payload.daily_digest_next_send_at = nextDailyUtc?.toISO() ?? null;
-	}
-
-	if (hasAnyAssetEvents) {
-		payload.asset_events_next_send_at = calculateAssetEventsNextSendAtIso({
-			dailyDigestTime: dbUser.daily_digest_time,
-			timezone: newTimezone,
-			now: DateTime.utc(),
+	if (hasDailyNotification) {
+		const tempUpdates: Record<string, unknown> = {};
+		applyDailyNotificationNextSendAtToUserUpdate({
+			updates: tempUpdates,
+			dbUser,
+			finalDailyTime: dbUser.daily_notification_time,
+			finalTimezone: newTimezone,
+			timezoneChanged: true,
+			dailyTimeChanged: false,
+			dailyOptionsChanged: false,
+			hasDailyNotification: true,
 		});
+		payload.daily_notification_next_send_at =
+			(tempUpdates.daily_notification_next_send_at as string | null | undefined) ?? null;
 	}
 
 	return payload;

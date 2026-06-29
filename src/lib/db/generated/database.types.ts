@@ -838,10 +838,9 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           asset_events_last_analyst_sent_month: string | null
-          asset_events_next_send_at: string | null
           created_at: string
-          daily_digest_next_send_at: string | null
-          daily_digest_time: number | null
+          daily_notification_next_send_at: string | null
+          daily_notification_time: number | null
           dismiss_timezone_mismatch_prompts: boolean
           email: string
           email_notifications_enabled: boolean
@@ -873,10 +872,9 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           asset_events_last_analyst_sent_month?: string | null
-          asset_events_next_send_at?: string | null
           created_at?: string
-          daily_digest_next_send_at?: string | null
-          daily_digest_time?: number | null
+          daily_notification_next_send_at?: string | null
+          daily_notification_time?: number | null
           dismiss_timezone_mismatch_prompts?: boolean
           email: string
           email_notifications_enabled?: boolean
@@ -908,10 +906,9 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           asset_events_last_analyst_sent_month?: string | null
-          asset_events_next_send_at?: string | null
           created_at?: string
-          daily_digest_next_send_at?: string | null
-          daily_digest_time?: number | null
+          daily_notification_next_send_at?: string | null
+          daily_notification_time?: number | null
           dismiss_timezone_mismatch_prompts?: boolean
           email?: string
           email_notifications_enabled?: boolean

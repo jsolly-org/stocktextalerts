@@ -1,5 +1,5 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
-import type { AssetPriceMap, NoSessionTrade } from "../../market-data-types";
+import type { AssetPriceMap, NoSessionTrade } from "../../types";
 import type { EmailFormatContext } from "../types";
 import { EMAIL_SPARKLINE_LABEL, SMS_SPARKLINE_LABEL, type SparklineData } from "./charts/sparkline";
 import { toSvgSparklineImg } from "./charts/svg-sparkline";

@@ -4,9 +4,9 @@
  * stubbed; delivery uses test-mode email/SMS senders.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ExtendedAssetQuote } from "../../../../src/lib/market-data-types";
 import type { EmailSender } from "../../../../src/lib/messaging/email/utils";
 import type { SmsSender } from "../../../../src/lib/messaging/sms/twilio-utils";
+import type { ExtendedAssetQuote } from "../../../../src/lib/types";
 import { adminClient } from "../../../helpers/test-env";
 import { createTestUser, setTestUserPrefs } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";

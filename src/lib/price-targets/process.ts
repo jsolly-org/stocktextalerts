@@ -3,7 +3,6 @@ import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { fetchExtendedQuotes } from "../market-data/prices";
 import { getCurrentMarketSession } from "../market-data/session";
-import type { ExtendedQuoteMap, MarketSession } from "../market-data-types";
 import { isEmailChannelUsable } from "../messaging/email/eligibility";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
 import { isFacetEnabled, type PrefRow } from "../messaging/notification-prefs";
@@ -11,6 +10,7 @@ import { createNotificationSenders } from "../messaging/runtime/senders";
 import { isSmsChannelUsable } from "../messaging/sms/index";
 import { isTelegramChannelUsable, shouldSendTelegram } from "../messaging/telegram/eligibility";
 import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
+import type { ExtendedQuoteMap, MarketSession } from "../types";
 import {
 	deliverPriceTargetAlert,
 	type PriceTargetDeliveryOutcome,

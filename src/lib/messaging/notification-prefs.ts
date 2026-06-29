@@ -15,44 +15,40 @@ global enable is on AND at least one facet row is enabled for (type, channel).
 import type {
 	AssetEventsContent,
 	DailyDigestContent,
+	DailyNotificationContent,
 	FacetlessContent,
 	FacetlessNotificationType,
 	NotificationPreferenceType,
 	PrefChannel,
 	PrefRow,
-} from "../notification-preference-types";
+} from "../types";
 
 export type {
-	AssetEventsContent,
-	DailyDigestContent,
+	DailyNotificationContent,
 	FacetlessContent,
 	NotificationPreferenceType,
 	PrefChannel,
 	PrefRow,
-} from "../notification-preference-types";
+} from "../types";
 
 const NOTIFICATION_PREFERENCE_TYPES = [
-	"daily_digest",
-	"asset_events",
+	"daily_notification",
 	"market_asset_price_alerts",
 	"market_scheduled_asset_price",
 	"price_move_alerts",
 	"price_targets",
 ] as const satisfies readonly NotificationPreferenceType[];
 
-const DAILY_DIGEST_CONTENTS = [
+const DAILY_NOTIFICATION_CONTENTS = [
 	"prices",
 	"top_movers",
 	"news",
 	"rumors",
-] as const satisfies readonly DailyDigestContent[];
-
-const ASSET_EVENTS_CONTENTS = [
 	"calendar",
 	"ipo",
 	"analyst",
 	"insider",
-] as const satisfies readonly AssetEventsContent[];
+] as const satisfies readonly DailyNotificationContent[];
 
 const FACETLESS_NOTIFICATION_TYPES = [
 	"market_asset_price_alerts",
@@ -84,8 +80,20 @@ export function parsePrefRow(row: {
 
 	const base = { channel: row.channel, enabled: row.enabled };
 
+	if (row.notification_type === "daily_notification") {
+		if (!(DAILY_NOTIFICATION_CONTENTS as readonly string[]).includes(row.content)) {
+			return null;
+		}
+		return {
+			...base,
+			notification_type: "daily_notification",
+			content: row.content as DailyNotificationContent,
+		};
+	}
+
+	// Legacy read compat (pre-migration rows; removed from DB after daily_notification_unity)
 	if (row.notification_type === "daily_digest") {
-		if (!(DAILY_DIGEST_CONTENTS as readonly string[]).includes(row.content)) {
+		if (!(["prices", "top_movers", "news", "rumors"] as readonly string[]).includes(row.content)) {
 			return null;
 		}
 		return {
@@ -96,7 +104,7 @@ export function parsePrefRow(row: {
 	}
 
 	if (row.notification_type === "asset_events") {
-		if (!(ASSET_EVENTS_CONTENTS as readonly string[]).includes(row.content)) {
+		if (!(["calendar", "ipo", "analyst", "insider"] as readonly string[]).includes(row.content)) {
 			return null;
 		}
 		return {
@@ -135,143 +143,141 @@ News/rumors are email + telegram only (no sms facet ever existed for them).
 /** One catalog entry: a (type, content, channel) option and its new-user default. */
 type FacetCatalogEntry = {
 	notification_type: NotificationPreferenceType;
-	content: DailyDigestContent | AssetEventsContent | FacetlessContent;
+	content: DailyNotificationContent | FacetlessContent;
 	channel: PrefChannel;
 	default: boolean;
 };
 
 export const NOTIFICATION_PREFERENCE_CATALOG: readonly FacetCatalogEntry[] = [
-	// daily_digest
+	// daily_notification — unified daily slot (digest + asset events)
 	{
-		notification_type: "daily_digest",
+		notification_type: "daily_notification",
 		content: "prices",
 		channel: "email",
 		default: true,
 	},
 	{
-		notification_type: "daily_digest",
+		notification_type: "daily_notification",
 		content: "prices",
 		channel: "sms",
 		default: true,
 	},
 	{
-		notification_type: "daily_digest",
+		notification_type: "daily_notification",
 		content: "prices",
 		channel: "telegram",
 		default: false,
 	},
 	{
-		notification_type: "daily_digest",
+		notification_type: "daily_notification",
 		content: "top_movers",
 		channel: "email",
 		default: false,
 	},
 	{
-		notification_type: "daily_digest",
+		notification_type: "daily_notification",
 		content: "top_movers",
 		channel: "sms",
 		default: false,
 	},
 	{
-		notification_type: "daily_digest",
+		notification_type: "daily_notification",
 		content: "top_movers",
 		channel: "telegram",
 		default: false,
 	},
-	// news/rumors: email + telegram only
 	{
-		notification_type: "daily_digest",
+		notification_type: "daily_notification",
 		content: "news",
 		channel: "email",
 		default: false,
 	},
 	{
-		notification_type: "daily_digest",
+		notification_type: "daily_notification",
 		content: "news",
 		channel: "telegram",
 		default: false,
 	},
 	{
-		notification_type: "daily_digest",
+		notification_type: "daily_notification",
 		content: "rumors",
 		channel: "email",
 		default: false,
 	},
 	{
-		notification_type: "daily_digest",
+		notification_type: "daily_notification",
 		content: "rumors",
 		channel: "telegram",
 		default: false,
 	},
-	// asset_events
 	{
-		notification_type: "asset_events",
+		notification_type: "daily_notification",
 		content: "calendar",
 		channel: "email",
 		default: false,
 	},
 	{
-		notification_type: "asset_events",
+		notification_type: "daily_notification",
 		content: "calendar",
 		channel: "sms",
 		default: false,
 	},
 	{
-		notification_type: "asset_events",
+		notification_type: "daily_notification",
 		content: "calendar",
 		channel: "telegram",
 		default: false,
 	},
 	{
-		notification_type: "asset_events",
+		notification_type: "daily_notification",
 		content: "ipo",
 		channel: "email",
 		default: false,
 	},
 	{
-		notification_type: "asset_events",
+		notification_type: "daily_notification",
 		content: "ipo",
 		channel: "sms",
 		default: false,
 	},
 	{
-		notification_type: "asset_events",
+		notification_type: "daily_notification",
 		content: "ipo",
 		channel: "telegram",
 		default: false,
 	},
 	{
-		notification_type: "asset_events",
+		notification_type: "daily_notification",
 		content: "analyst",
 		channel: "email",
 		default: false,
 	},
 	{
-		notification_type: "asset_events",
+		notification_type: "daily_notification",
 		content: "analyst",
 		channel: "sms",
 		default: false,
 	},
 	{
-		notification_type: "asset_events",
+		notification_type: "daily_notification",
 		content: "analyst",
 		channel: "telegram",
 		default: false,
 	},
 	{
-		notification_type: "asset_events",
+		notification_type: "daily_notification",
 		content: "insider",
 		channel: "email",
 		default: false,
 	},
 	{
-		notification_type: "asset_events",
+		notification_type: "daily_notification",
 		content: "insider",
 		channel: "sms",
 		default: false,
 	},
 	{
-		notification_type: "asset_events",
+		notification_type: "daily_notification",
 		content: "insider",
 		channel: "telegram",
 		default: false,
@@ -355,7 +361,7 @@ export const NOTIFICATION_PREFERENCE_CATALOG: readonly FacetCatalogEntry[] = [
 export function buildDefaultPreferenceRows(userId: string): Array<{
 	user_id: string;
 	notification_type: NotificationPreferenceType;
-	content: DailyDigestContent | AssetEventsContent | FacetlessContent;
+	content: DailyNotificationContent | FacetlessContent;
 	channel: PrefChannel;
 	enabled: boolean;
 }> {
@@ -378,7 +384,7 @@ export function isFacetEnabled(
 	prefs: readonly PrefRow[],
 	notificationType: NotificationPreferenceType,
 	channel: PrefChannel,
-	content: DailyDigestContent | AssetEventsContent | FacetlessContent = "",
+	content: DailyNotificationContent | FacetlessContent = "",
 ): boolean {
 	return prefs.some(
 		(p) =>
@@ -397,8 +403,8 @@ export function enabledFacets(
 	prefs: readonly PrefRow[],
 	notificationType: NotificationPreferenceType,
 	channel: PrefChannel,
-): Set<DailyDigestContent | AssetEventsContent | FacetlessContent> {
-	const facets = new Set<DailyDigestContent | AssetEventsContent | FacetlessContent>();
+): Set<DailyNotificationContent | FacetlessContent> {
+	const facets = new Set<DailyNotificationContent | FacetlessContent>();
 	for (const p of prefs) {
 		if (p.notification_type === notificationType && p.channel === channel && p.enabled) {
 			facets.add(p.content);

@@ -31,13 +31,13 @@ async function getScheduledTimes(userId: string): Promise<number[] | null> {
 async function getDailyDigestTime(userId: string): Promise<number | null> {
 	const { data, error } = await adminClient
 		.from("users")
-		.select("daily_digest_time")
+		.select("daily_notification_time")
 		.eq("id", userId)
 		.single();
 	if (error) {
 		throw new Error(`Failed to read daily digest time: ${error.message}`);
 	}
-	return data.daily_digest_time;
+	return data.daily_notification_time;
 }
 
 test.describe("delivery times and timepicker", () => {

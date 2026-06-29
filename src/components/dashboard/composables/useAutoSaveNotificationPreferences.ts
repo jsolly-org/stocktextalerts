@@ -8,8 +8,8 @@ export type NotificationPreferencesData = {
 	phone_verified: boolean;
 	timezone: string;
 	market_scheduled_asset_price_times: number[] | null;
-	daily_digest_time: number | null;
-	daily_digest_next_send_at: string | null;
+	daily_notification_time: number | null;
+	daily_notification_next_send_at: string | null;
 	market_scheduled_asset_price_next_send_at: string | null;
 	dismiss_timezone_mismatch_prompts: boolean;
 	daily_digest_include_prices_email: boolean;
@@ -28,7 +28,6 @@ export type NotificationPreferencesData = {
 	asset_events_include_analyst_sms: boolean;
 	asset_events_include_insider_email: boolean;
 	asset_events_include_insider_sms: boolean;
-	asset_events_next_send_at: string | null;
 	market_asset_price_alerts_enabled: boolean;
 	market_asset_price_alerts_include_email: boolean;
 	market_asset_price_alerts_include_sms: boolean;

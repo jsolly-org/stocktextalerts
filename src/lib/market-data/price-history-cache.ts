@@ -3,12 +3,12 @@ import { SECTOR_ETF_MAP } from "../assets/sector-mapping";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
-import type { DailyOHLCVBar, ExtendedQuoteMap } from "../market-data-types";
 import {
 	downsampleEvenly,
 	type SparklineData,
 	toSparkline,
 } from "../messaging/parts/charts/sparkline";
+import type { DailyOHLCVBar, ExtendedQuoteMap } from "../types";
 import { formatChartAsOfLabel } from "./chart-as-of-label";
 
 const MINUTE_RETENTION_HOURS = 36;
