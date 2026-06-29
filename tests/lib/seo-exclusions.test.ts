@@ -80,7 +80,8 @@ describe("Ahrefs audit private-route policy.", () => {
 	it("keeps public marketing pages in the sitemap.", () => {
 		expect(isExcludedFromSitemap("/")).toBe(false);
 		expect(isExcludedFromSitemap("/about")).toBe(false);
-		expect(isExcludedFromSitemap("/terms")).toBe(false);
+		expect(isExcludedFromSitemap("/legal/terms")).toBe(false);
+		expect(isExcludedFromSitemap("/legal/privacy")).toBe(false);
 	});
 });
 

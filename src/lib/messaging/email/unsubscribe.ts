@@ -82,7 +82,7 @@ export function verifyEmailUnsubscribeToken(options: {
  */
 export function createEmailUnsubscribeUrl(options: { userId: string; email: string }): string {
 	const token = createEmailUnsubscribeToken(options);
-	const baseUrl = `${getSiteUrl()}/email/unsubscribe`;
+	const baseUrl = `${getSiteUrl()}/unsubscribe`;
 	const params = new URLSearchParams({
 		user: options.userId,
 		token,

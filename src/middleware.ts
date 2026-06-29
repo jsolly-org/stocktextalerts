@@ -49,6 +49,13 @@ const VERCEL_CSP: CspDirectives = {
 	"connect-src": ["https://vercel.live"],
 };
 
+/** Permanent redirects for legacy URLs (preserve query strings). */
+const LEGACY_PATH_REDIRECTS: Record<string, string> = {
+	"/privacy": "/legal/privacy",
+	"/terms": "/legal/terms",
+	"/email/unsubscribe": "/unsubscribe",
+};
+
 /** Dev-only: Astro HMR workers + ANDI accessibility bookmarklet (SSA + jQuery). */
 const DEV_CSP: CspDirectives = {
 	"script-src": ["https://www.ssa.gov", "https://ajax.googleapis.com"],
@@ -178,6 +185,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
 	const requestId = crypto.randomUUID();
 	context.locals.requestId = requestId;
 	const requestUrl = new URL(context.request.url);
+	const pathname = requestUrl.pathname.replace(/\/$/, "") || "/";
+
+	const legacyTarget = LEGACY_PATH_REDIRECTS[pathname];
+	if (legacyTarget) {
+		const redirectUrl = new URL(`${legacyTarget}${requestUrl.search}`, requestUrl.origin);
+		return context.redirect(redirectUrl.toString(), 301);
+	}
 
 	// Keep Astro checkOrigin disabled and enforce origin checks here so
 	// same-origin validation can account for proxy headers.

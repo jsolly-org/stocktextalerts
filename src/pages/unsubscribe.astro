@@ -1,11 +1,11 @@
 ---
-import Layout from "../../layouts/Layout.astro";
-import StatusMessage from "../../components/StatusMessage.astro";
-import { createUserService } from "../../lib/db";
-import { createSupabaseAdminClient, createSupabaseServerClient } from "../../lib/db/supabase";
-import { createLogger } from "../../lib/logging";
-import { verifyEmailUnsubscribeToken } from "../../lib/messaging/email/unsubscribe";
-import { isValidUuid } from "../../lib/validation";
+import Layout from "../layouts/Layout.astro";
+import StatusMessage from "../components/StatusMessage.astro";
+import { createUserService } from "../lib/db";
+import { createSupabaseAdminClient, createSupabaseServerClient } from "../lib/db/supabase";
+import { createLogger } from "../lib/logging";
+import { verifyEmailUnsubscribeToken } from "../lib/messaging/email/unsubscribe";
+import { isValidUuid } from "../lib/validation";
 
 const logger = createLogger({
 	requestId: Astro.locals?.requestId,
@@ -111,7 +111,7 @@ if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 						token,
 						sms: "true",
 					});
-					smsOptOutUrl = `/email/unsubscribe?${params.toString()}`;
+					smsOptOutUrl = `/unsubscribe?${params.toString()}`;
 					canOfferSmsOptOut = true;
 				}
 			}

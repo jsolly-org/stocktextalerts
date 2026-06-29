@@ -19,9 +19,9 @@ import AuthUnconfirmedPage from "../../src/pages/auth/unconfirmed.astro";
 import AuthVerifiedPage from "../../src/pages/auth/verified.astro";
 import DashboardPage from "../../src/pages/dashboard.astro";
 import IndexPage from "../../src/pages/index.astro";
-import PrivacyPage from "../../src/pages/privacy.astro";
+import PrivacyPage from "../../src/pages/legal/privacy.astro";
+import TermsPage from "../../src/pages/legal/terms.astro";
 import ProfilePage from "../../src/pages/profile.astro";
-import TermsPage from "../../src/pages/terms.astro";
 import { TEST_PASSWORD } from "../helpers/constants";
 import { createAuthenticatedCookies } from "../helpers/test-env";
 import { cleanupTestUser, createTestEmail, createTestUser } from "../helpers/test-user";
@@ -189,8 +189,8 @@ describe("Users can load pages without unexpected errors.", () => {
 	];
 
 	const staticPages = [
-		{ component: PrivacyPage, path: "/privacy" },
-		{ component: TermsPage, path: "/terms" },
+		{ component: PrivacyPage, path: "/legal/privacy" },
+		{ component: TermsPage, path: "/legal/terms" },
 	];
 
 	it.each(authPages)("A visitor can access auth page $path.", async ({ component, path }) => {

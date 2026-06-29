@@ -1,7 +1,7 @@
 ---
-import Footer from '../components/Footer.astro';
-import Navigation from '../components/Navigation.astro';
-import Layout from '../layouts/Layout.astro';
+import Footer from "../../components/Footer.astro";
+import Navigation from "../../components/Navigation.astro";
+import Layout from "../../layouts/Layout.astro";
 
 export const prerender = true;
 
@@ -13,7 +13,7 @@ const jsonLd = {
 	"@type": "BreadcrumbList",
 	"itemListElement": [
 		{ "@type": "ListItem", "position": 1, "name": "Home", "item": siteUrl },
-		{ "@type": "ListItem", "position": 2, "name": "Terms of Service", "item": `${siteUrl}/terms` },
+		{ "@type": "ListItem", "position": 2, "name": "Terms of Service", "item": `${siteUrl}/legal/terms` },
 	],
 };
 ---
