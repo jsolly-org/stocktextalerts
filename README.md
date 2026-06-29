@@ -261,7 +261,7 @@ For local debugging, run `npm run db:reset` before tests to ensure your Supabase
 
 ### CI (GitHub Actions + local pre-push gate)
 
-**GitHub Actions** runs the full test battery on every PR, merge queue entry if the feature becomes available, and `main` push: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (Biome, YAML, actionlint, types, Knip, SQL/squawk, migration grants, Lambda bundle build, local Supabase, unit + E2E, build). [`.github/workflows/auto-merge.yml`](.github/workflows/auto-merge.yml) enables squash auto-merge on non-draft PRs once required checks pass. [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) deploys production after `main` CI passes.
+**GitHub Actions** runs the full test battery on every PR, merge queue entry if the feature becomes available, and `main` push: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (Biome, YAML, actionlint, types, Knip, SQL/squawk, migration grants, Lambda bundle build, local Supabase, unit + E2E, build). [`.github/workflows/auto-merge.yml`](.github/workflows/auto-merge.yml) enables squash auto-merge only on PRs labeled `ship-auto-merge` (orchestrated via `/ship`). [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) deploys production after `main` CI passes.
 
 The **local pre-push hook** (`.git-hooks/pre-push`) runs lint, types, and static checks only — no local Supabase, no unit/E2E, no deploy credentials. See [docs/github-ci.md](docs/github-ci.md) for the full command split, branch protection, production environment secrets, and deploy setup.
 

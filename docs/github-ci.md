@@ -9,10 +9,10 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 | Workflow | File | When | Purpose |
 | --- | --- | --- | --- |
 | **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PRs, merge queue, `main` pushes, manual | Lint, workflow lint, types, Knip, SQL, migration grants, Lambda bundle build, local Supabase bootstrap, unit tests, E2E (dev server), Astro build |
-| **Auto Merge** | [`.github/workflows/auto-merge.yml`](../.github/workflows/auto-merge.yml) | PR open/sync/ready | Enables squash auto-merge on every non-draft same-repo PR |
+| **Auto Merge** | [`.github/workflows/auto-merge.yml`](../.github/workflows/auto-merge.yml) | PR open/sync/ready/labeled | Enables squash auto-merge **only** when the PR has label `ship-auto-merge` (added by `/ship`) |
 | **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | Successful CI on `main`, manual | Production Supabase migrations, Lambda code updates, live-provider check |
 
-**Integration:** the canonical path is **branch → PR → CI-gated auto-merge** — push a branch, open a PR, and let `gh pr merge --auto --squash` (from `auto-merge.yml`) land it once the required strict `ci` check is green. This keeps CI (full unit/E2E/build, which the pre-push hook skips) a real gate on `main` (see "Concurrent merges" below). `/ship`'s direct push to `main` is **break-glass only** — it bypasses the `ci` check via admin (see AGENTS.md). After a change lands on `main`, the deploy workflow applies production migrations plus Lambda code updates and Vercel's Git integration deploys the web tier. `npm run deploy:code` remains a local break-glass path, not the default release path.
+**Integration:** the canonical path is **branch → PR → CI-gated auto-merge** — push a branch, open a PR via `/ship` (which adds `ship-auto-merge` and arms auto-merge), and GitHub merges once the required strict `ci` check is green. Unlabeled third-party PRs do not auto-merge. This keeps CI (full unit/E2E/build, which the pre-push hook skips) a real gate on `main` (see "Concurrent merges" below). `/ship`'s direct push to `main` is **break-glass only** — it bypasses the `ci` check via admin (see AGENTS.md). After a change lands on `main`, the deploy workflow applies production migrations plus Lambda code updates and Vercel's Git integration deploys the web tier. `npm run deploy:code` remains a local break-glass path, not the default release path.
 
 ## Local pre-push gate
 
@@ -31,14 +31,15 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 After the first CI workflow run (so the check name appears):
 
 1. **Settings → General → Pull Requests** — enable **Allow auto-merge** and **Always suggest updating pull request branches** (makes the one-click "Update branch" prominent when a concurrent PR goes out-of-date).
-2. Protect `main` (branch protection rule or ruleset) so CI gates every merge:
+2. **Settings → Labels** — ensure label **`ship-auto-merge`** exists (color optional). Restrict who can add it to maintainers if you want belt-and-suspenders beyond the workflow gate.
+3. Protect `main` (branch protection rule or ruleset) so CI gates every merge:
    - **Require a pull request before merging** (0 approvals is fine solo) — makes branch+PR the path, so `ci` actually gates `main`
    - Require status check **`CI / ci`** to pass, **strict** (branches up to date before merging)
    - Block force-push and deletion
    - `enforce_admins` stays **off** so the owner keeps a break-glass `/ship` direct push (it bypasses these rules — emergency use only)
    - Enable merge queue when the repository plan/UI supports the `merge_queue` rule
 
-The auto-merge workflow calls `gh pr merge --auto --squash`; GitHub merges when all required checks pass.
+The auto-merge workflow calls `gh pr merge --auto --squash` only when the PR has label `ship-auto-merge`; GitHub merges when all required checks pass.
 
 The CI workflow listens for `merge_group` events so merge queue can validate the integrated commit before landing if the feature becomes available. As of 2026-06-28, GitHub rejects `merge_queue` through both REST and GraphQL for this private GitHub Team repository, and neither legacy branch protection nor repository rulesets expose the option in the UI. **Native merge queue requires GitHub Enterprise Cloud for private repos** — unavailable on Free/Pro/Team — so the `merge_group` wiring is forward-compat, not active.
 
