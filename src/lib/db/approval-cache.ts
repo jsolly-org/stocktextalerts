@@ -6,14 +6,9 @@
  * Approved users are cached without expiry (approval is one-way in this app).
  * Unapproved users use a short TTL so a fresh admin approval is picked up quickly.
  */
+import { approvalCache } from "./approval-cache-store";
+
 const UNAPPROVED_TTL_MS = 30_000;
-
-const cache = new Map<string, { approved: boolean; atMs: number }>();
-
-/** Reset cache (tests only). */
-export function __resetApprovalCacheForTests(): void {
-	cache.clear();
-}
 
 function isCacheHit(hit: { approved: boolean; atMs: number }, now: number, ttlMs: number): boolean {
 	if (hit.approved) {
@@ -33,11 +28,11 @@ export async function getApprovalCached(
 	now: number = Date.now(),
 	unapprovedTtlMs: number = UNAPPROVED_TTL_MS,
 ): Promise<boolean> {
-	const hit = cache.get(userId);
+	const hit = approvalCache.get(userId);
 	if (hit && isCacheHit(hit, now, unapprovedTtlMs)) {
 		return hit.approved;
 	}
 	const approved = await lookup();
-	cache.set(userId, { approved, atMs: now });
+	approvalCache.set(userId, { approved, atMs: now });
 	return approved;
 }

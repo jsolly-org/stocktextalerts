@@ -90,8 +90,8 @@ vi.mock("../../../src/lib/market-data/sparklines", async () => {
 	};
 });
 
-import { __resetMarketSessionCacheForTests } from "../../../src/lib/schedule/market-session";
 import { runScheduledNotifications } from "../../../src/lib/schedule/run";
+import { resetMarketSessionCache } from "../../helpers/reset-market-session-cache";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -125,7 +125,7 @@ async function fetchUserNextSendAt(userId: string): Promise<string | null> {
 
 describe("runScheduledNotifications: fallback pipeline", () => {
 	beforeEach(() => {
-		__resetMarketSessionCacheForTests();
+		resetMarketSessionCache();
 		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 		vi.stubEnv("SCHEDULE_PASS_DELAY_MS", "0");
 		// Default to a regular-hours session so callers that don't override

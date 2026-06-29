@@ -3,9 +3,9 @@ import {
 	dailyBarsToCloseRows,
 	formatChartAsOfLabel,
 	INTRADAY_CACHE_MAX_AGE_MS,
-	listTradingDatesBetween,
 	REQUIRED_DAILY_CLOSES,
 } from "../../../src/lib/market-data/price-history-cache";
+import { listTradingDatesBetween } from "../../helpers/market-data";
 
 describe("price history cache helpers", () => {
 	it("lists weekday trading dates between two ISO dates", () => {

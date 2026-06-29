@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { enabledFacets, type PrefRow } from "../../../src/lib/messaging/notification-prefs";
 import {
-	enabledTelegramFacets,
 	isTelegramChannelUsable,
 	shouldSendTelegram,
-	type TelegramPrefRow,
 } from "../../../src/lib/messaging/telegram/eligibility";
 import { createTelegramSenderFactory } from "../../../src/lib/messaging/telegram/sender-factory";
 
-const digestPrefs: TelegramPrefRow[] = [
+const digestPrefs: PrefRow[] = [
 	{ notification_type: "daily_digest", content: "prices", channel: "telegram", enabled: true },
 	{ notification_type: "daily_digest", content: "news", channel: "telegram", enabled: false },
 	{ notification_type: "daily_digest", content: "top_movers", channel: "telegram", enabled: true },
@@ -34,7 +33,7 @@ describe("Telegram delivery eligibility", () => {
 	});
 
 	it("returns only the enabled facets for the requested notification type", () => {
-		const facets = enabledTelegramFacets(digestPrefs, "daily_digest");
+		const facets = enabledFacets(digestPrefs, "daily_digest", "telegram");
 		expect(facets).toEqual(new Set(["prices", "top_movers"]));
 		// 'news' is disabled and 'calendar' belongs to a different type — both excluded.
 	});

@@ -1,4 +1,5 @@
 import { finnhubFetch } from "../vendors/finnhub";
+import { earningsCalendarCache } from "./earnings-cache-store";
 import type { EarningsEvent, ProviderResult } from "./types";
 
 async function fetchFinnhubEarnings(
@@ -44,15 +45,6 @@ async function fetchFinnhubEarnings(
 }
 
 const EARNINGS_CACHE_TTL_MS = 5 * 60_000;
-const earningsCalendarCache = new Map<
-	string,
-	{ result: ProviderResult<EarningsEvent>; expiresAt: number }
->();
-
-/** Test-only: clear the earnings-calendar memo so module state doesn't leak across tests. */
-export function resetEarningsCacheForTests(): void {
-	earningsCalendarCache.clear();
-}
 
 /** Fetch all earnings events for a date range (market-wide). */
 export async function fetchEarnings(

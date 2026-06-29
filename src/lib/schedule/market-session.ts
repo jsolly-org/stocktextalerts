@@ -1,5 +1,6 @@
 import { getCurrentMarketSession } from "../market-data/session";
 import type { MarketSession } from "../market-data-types";
+import { marketSessionCacheStore } from "./market-session-cache-store";
 
 /**
  * Last successfully resolved market session. Persists across warm Lambda
@@ -7,7 +8,6 @@ import type { MarketSession } from "../market-data-types";
  * so a transient Massive `/v1/marketstatus/now` failure reuses the value from
  * the previous minute instead of aborting the entire run.
  */
-let cached: { session: MarketSession; atMs: number } | null = null;
 
 /** Max age of a cached session we're willing to reuse during an outage. */
 const MAX_STALE_MS = 10 * 60 * 1000;
@@ -16,11 +16,6 @@ interface ResolvedMarketSession {
 	session: MarketSession;
 	/** True when the value came from cache/default because the live call failed. */
 	degraded: boolean;
-}
-
-/** Reset module cache (tests only). */
-export function __resetMarketSessionCacheForTests(): void {
-	cached = null;
 }
 
 /**
@@ -33,9 +28,10 @@ export async function resolveMarketSessionWithFallback(
 ): Promise<ResolvedMarketSession> {
 	try {
 		const session = await getCurrentMarketSession();
-		cached = { session, atMs: now };
+		marketSessionCacheStore.value = { session, atMs: now };
 		return { session, degraded: false };
 	} catch {
+		const cached = marketSessionCacheStore.value;
 		if (cached && now - cached.atMs <= MAX_STALE_MS) {
 			return { session: cached.session, degraded: true };
 		}

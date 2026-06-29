@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import { fetchEarnings, resetEarningsCacheForTests } from "../../../src/lib/asset-events/earnings";
+import { fetchEarnings } from "../../../src/lib/asset-events/earnings";
 import { finnhubFetch } from "../../../src/lib/vendors/finnhub";
+import { resetEarningsCache } from "../../helpers/reset-earnings-cache";
 
 // Mock the network seam; fetchEarnings' cache wraps the real parsing in finnhub/earnings.ts.
 vi.mock("../../../src/lib/vendors/finnhub", () => ({ finnhubFetch: vi.fn() }));
@@ -20,11 +21,11 @@ function calendar(symbol: string) {
 
 describe("fetchEarnings memoizes the market-wide earnings calendar per date range", () => {
 	beforeEach(() => {
-		resetEarningsCacheForTests();
+		resetEarningsCache();
 		mockFinnhubFetch.mockReset();
 	});
 	afterEach(() => {
-		resetEarningsCacheForTests();
+		resetEarningsCache();
 	});
 
 	it("collapses repeated same-range fetches into a single Finnhub call", async () => {

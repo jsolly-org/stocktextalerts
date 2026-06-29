@@ -3,7 +3,6 @@ import { SECTOR_ETF_MAP } from "../assets/sector-mapping";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
-import { US_MARKET_TIMEZONE } from "../market-constants";
 import type { DailyOHLCVBar, ExtendedQuoteMap } from "../market-data-types";
 import {
 	downsampleEvenly,
@@ -46,23 +45,6 @@ export async function getPriceCacheSymbols(supabase: SupabaseAdminClient): Promi
 		symbols.add(row.symbol);
 	}
 	return [...symbols];
-}
-
-export function listTradingDatesBetween(from: string, to: string): string[] {
-	const start = DateTime.fromISO(from, { zone: US_MARKET_TIMEZONE });
-	const end = DateTime.fromISO(to, { zone: US_MARKET_TIMEZONE });
-	if (!start.isValid || !end.isValid) return [];
-	const dates: string[] = [];
-	let day = start.startOf("day");
-	const endDay = end.startOf("day");
-	while (day <= endDay) {
-		if (day.weekday <= 5) {
-			const iso = day.toISODate();
-			if (iso) dates.push(iso);
-		}
-		day = day.plus({ days: 1 });
-	}
-	return dates;
 }
 
 export function formatChartAsOfLabel(
