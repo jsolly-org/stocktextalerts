@@ -26,20 +26,20 @@ enable_confirmations = true
 
 [auth.email.template.confirmation]
 subject = "Confirm your email — StockTextAlerts"
-content_path = "./supabase/templates/auth-confirmation.html"
+content_path = "./templates/auth-confirmation.html"
 
 [auth.email.template.recovery]
 subject = "Reset your password — StockTextAlerts"
-content_path = "./supabase/templates/auth-recovery.html"
+content_path = "./templates/auth-recovery.html"
 
 [auth.email.template.email_change]
 subject = "Confirm your email change — StockTextAlerts"
-content_path = "./supabase/templates/auth-email-change.html"
+content_path = "./templates/auth-email-change.html"
 
 [auth.email.notification.password_changed]
 enabled = true
 subject = "Your password has been changed — StockTextAlerts"
-content_path = "./supabase/templates/auth-password-changed.html"
+content_path = "./templates/auth-password-changed.html"
 
 [local_smtp]
 enabled = true

@@ -292,14 +292,14 @@ export function detectGoTrueDrift(configPath: string): DriftVerdict {
 	// Nothing declared → nothing to enforce (a config that defers to GoTrue defaults).
 	if (expected.length === 0) return { status: "in_sync" };
 
-	// content_path is relative to the project root (where the Supabase CLI runs), i.e. the parent of
-	// the supabase/ dir that holds config.toml.
-	const repoRoot = path.dirname(path.dirname(configPath));
+	// content_path is relative to the supabase/ directory that holds config.toml (GoTrue resolves
+	// paths from there — e.g. `./templates/foo.html` → `supabase/templates/foo.html`).
+	const supabaseDir = path.dirname(configPath);
 	const [canary] = expected;
 	if (canary === undefined) return { status: "in_sync" };
 	let localContent: string;
 	try {
-		localContent = fs.readFileSync(path.resolve(repoRoot, canary.contentPath), "utf8");
+		localContent = fs.readFileSync(path.resolve(supabaseDir, canary.contentPath), "utf8");
 	} catch (err) {
 		return {
 			status: "auth_unavailable",
