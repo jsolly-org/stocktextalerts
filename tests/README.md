@@ -2,6 +2,21 @@
 
 StockTextAlerts uses Vitest for unit/integration tests and Playwright for browser E2E. Both suites share one local Supabase stack and serialize access through a cross-worktree lock.
 
+## Layout (mirrors `src/`)
+
+| Tests | Source |
+| --- | --- |
+| `tests/lib/**` | `src/lib/**` |
+| `tests/pages/api/**` | `src/pages/api/**` |
+| `tests/pages/http/**` | Full HTTP form posts against the Astro dev server |
+| `tests/pages/*.test.ts` | Astro page routes (`src/pages/`) |
+| `tests/handlers/**` | `src/handlers/**` |
+| `tests/scripts/**` | `scripts/**` |
+| `tests/e2e/**` | Browser flows (Playwright) |
+| `tests/helpers/**`, `tests/stubs/**`, `tests/setup.ts`, `tests/lock.ts` | Shared test infrastructure (not mirrored) |
+
+Security-focused API specs keep a `.security.test.ts` suffix alongside the handler mirror path (e.g. `tests/pages/api/auth/signin.security.test.ts`).
+
 **Repo-specific:** Local opt-in guards, `test:local` preflight (Podman + `db:doctor` + auto `db:start`), and the `local-tests` Cursor skill apply only to this repository. Other repos under `~/code` follow `~/code/dotagents` for agent workflow; they use their own test and bootstrap scripts.
 
 ## Local runs discouraged (CI is canonical)
@@ -35,7 +50,7 @@ The guard is enforced in `tests/guard-local-db-tests.ts` (wrappers, `vitest.conf
 | **4321** | Dev | `npm run dev` |
 | **4322** | Dev (E2E) | `npm run test:e2e` — runs `astro dev stop` before start |
 | **4323** | Production preview | `npm run test:e2e:preview` — `build:preview` + `npm run preview` |
-| **4325** | Dev (Vitest HTTP) | `tests/api-http/*` via `tests/helpers/http/server.ts` |
+| **4325** | Dev (Vitest HTTP) | `tests/pages/http/*` via `tests/helpers/http/server.ts` |
 
 Astro 7’s project dev lock (`.astro/dev.json`) is cleared by:
 
