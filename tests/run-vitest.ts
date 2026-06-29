@@ -1,5 +1,6 @@
 #!/usr/bin/env npx tsx
 import { spawnSync } from "node:child_process";
+import { stopAstroDevLockAfterHttpTests } from "./helpers/http/server";
 import { normalizeDirectVitestProcessEnv } from "./helpers/test-process-env";
 import { stopAstroDevLockAfterHttpTests } from "./helpers/http/server";
 import {
