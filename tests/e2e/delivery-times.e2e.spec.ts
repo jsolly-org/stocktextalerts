@@ -116,7 +116,7 @@ test.describe("delivery times and timepicker", () => {
 		const form = page.locator('form[aria-label="Market notifications"]');
 		await form.locator("#scheduled_update_time_initial").click();
 
-		const menu = page.locator(".dp__menu");
+		const menu = page.locator(".dp--menu");
 		await expect(menu).toBeVisible();
 
 		// Open the hour overlay grid. Fresh picker defaults to 9:00 AM (the
@@ -124,19 +124,17 @@ test.describe("delivery times and timepicker", () => {
 		// 09/10/11 valid; 12 & 01–08 disabled.
 		await menu.locator('[data-test-id="hours-toggle-overlay-btn-0"]').click();
 
-		// vue-datepicker renders each hour as a <div role="gridcell"> with a
-		// nested <div> that carries the dp__overlay_cell* classes + our injected
-		// title attribute. Targeting the parent gridcell first lets us assert
-		// aria-disabled, then drilling into the inner div checks the visual
-		// affordances.
-		const twelveCell = menu.locator('[role="gridcell"][data-test-id="12"]');
+		// vue-datepicker renders each hour as a <div role="option"> with
+		// data-test-id set to the padded hour text; the inner div carries
+		// dp--overlay-cell* classes + our injected title attribute.
+		const twelveCell = menu.locator('[role="option"][data-test-id="12"]');
 		await expect(twelveCell).toHaveAttribute("aria-disabled", "true");
-		const twelveInner = twelveCell.locator(".dp__overlay_cell_disabled");
+		const twelveInner = twelveCell.locator(".dp--overlay-cell-disabled");
 		await expect(twelveInner).toHaveAttribute("title", OUTSIDE_HOURS_TOOLTIP);
 		const disabledCursor = await twelveInner.evaluate((el) => window.getComputedStyle(el).cursor);
 		expect(disabledCursor).toBe("not-allowed");
 
-		const nineCell = menu.locator('[role="gridcell"][data-test-id="09"]');
+		const nineCell = menu.locator('[role="option"][data-test-id="09"]');
 		expect(await nineCell.getAttribute("aria-disabled")).toBeNull();
 
 		// Close the menu without committing so the next test starts clean.
@@ -214,15 +212,15 @@ test.describe("delivery times and timepicker", () => {
 		await input.scrollIntoViewIfNeeded();
 		await input.click();
 
-		const menu = page.locator(".dp__menu");
+		const menu = page.locator(".dp--menu");
 		await expect(menu).toBeVisible();
 		await menu.locator('[data-test-id="hours-toggle-overlay-btn-0"]').click();
 
 		// No constraints → no disabled cells in the hour grid.
-		await expect(menu.locator(".dp__overlay_cell_disabled")).toHaveCount(0);
+		await expect(menu.locator(".dp--overlay-cell-disabled")).toHaveCount(0);
 
 		// Pick 10 (AM, since the picker defaults to 09:00 AM via timeConfig.startTime).
-		await menu.locator('[role="gridcell"][data-test-id="10"]').click();
+		await menu.locator('[role="option"][data-test-id="10"]').click();
 
 		await waitForAutosave(page, async () => {
 			await menu.getByRole("button", { name: "Select" }).click();
