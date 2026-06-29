@@ -10,8 +10,6 @@ import { loadEnv } from "vite";
 import svgLoader from "vite-svg-loader";
 import { isExcludedFromSitemap } from "./seo-routes";
 
-const vendorMassivePath = fileURLToPath(new URL("./src/lib/vendors/massive.ts", import.meta.url));
-const vendorFinnhubPath = fileURLToPath(new URL("./src/lib/vendors/finnhub.ts", import.meta.url));
 const stubVendorMassivePath = fileURLToPath(
 	new URL("./tests/stubs/vendors/massive.ts", import.meta.url),
 );
@@ -176,9 +174,17 @@ export default defineConfig({
 	vite: {
 		resolve: useVendorStubs
 			? {
+					// Match relative imports like "../vendors/massive" — absolute-path
+					// aliases do not intercept those specifiers in Vite.
 					alias: [
-						{ find: vendorMassivePath, replacement: stubVendorMassivePath },
-						{ find: vendorFinnhubPath, replacement: stubVendorFinnhubPath },
+						{
+							find: /[/\\]vendors[/\\]massive(\.ts)?$/,
+							replacement: stubVendorMassivePath,
+						},
+						{
+							find: /[/\\]vendors[/\\]finnhub(\.ts)?$/,
+							replacement: stubVendorFinnhubPath,
+						},
 					],
 				}
 			: undefined,

@@ -183,7 +183,7 @@ test.describe("Telegram dashboard UI", () => {
 	});
 
 	test("toggling Telegram on a Market panel option and an Asset Events option each persist a DB row", async () => {
-		await page.goto("/dashboard", { waitUntil: "networkidle" });
+		await page.goto("/dashboard");
 		await page.locator("[data-hydrated]").first().waitFor({ state: "attached", timeout: 15_000 });
 
 		// --- Market Notifications: 5% Price Move Alerts (content='') -----------
