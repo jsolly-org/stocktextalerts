@@ -2,6 +2,41 @@
 
 StockTextAlerts uses Vitest for unit/integration tests and Playwright for browser E2E. Both suites share one local Supabase stack and serialize access through a cross-worktree lock.
 
+## Astro 7 testing flow
+
+| Port | Server | Command |
+| --- | --- | --- |
+| **4321** | Dev | `npm run dev` |
+| **4322** | Dev (E2E) | `npm run test:e2e` — runs `astro dev stop` before start |
+| **4323** | Production preview | `npm run test:e2e:preview` — `build:preview` + `npm run preview` |
+| **4325** | Dev (Vitest HTTP) | `tests/api-http/*` via `tests/helpers/http/server.ts` |
+
+Astro 7’s project dev lock (`.astro/dev.json`) is cleared by:
+
+- Playwright E2E (`astro dev stop` in `playwright.config.ts` webServer command)
+- Vitest HTTP tests (`stopAstroDevLockAfterHttpTests()` in `tests/run-vitest.ts`)
+
+Use `npm run dev:stop` manually if a stale lock blocks local dev.
+
+### Preview E2E (production build parity)
+
+`npm run test:e2e:preview` runs the same E2E specs against a **production build** served by `@astrojs/node` on port 4323. This catches Vite 8 / Rolldown issues (CSS chunking, asset hashing) that the dev server skips.
+
+**CI:** regular `npm run test:e2e` runs in GitHub Actions. Preview E2E is a **pre-release / local** check — run before shipping Astro or Vite config changes. See `docs/github-ci.md`.
+
+### AstroContainer page tests
+
+`tests/pages/pages-render.test.ts` and `tests/pages/email-unsubscribe.test.ts` use `experimental_AstroContainer` with `@astrojs/vue/container-renderer`.
+
+### Post-upgrade HTML audit
+
+After Astro major upgrades, visually inspect `.astro` pages under `src/pages/` and `src/components/` for:
+
+- Missing spaces between adjacent inline elements (Astro 7 default `compressHTML: "jsx"`)
+- Invalid HTML nesting the Rust compiler no longer auto-corrects
+
+Prefer explicit `{" "}` or markup fixes over setting `compressHTML: true` globally.
+
 ## Supported entrypoints
 
 | Command | Wrapper | Notes |

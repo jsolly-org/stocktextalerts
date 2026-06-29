@@ -10,9 +10,10 @@ import { isValidAssetSymbol } from "../../../../lib/validation";
  *
  * Proxies the Massive branding icon image for a given asset symbol.
  * The API key is appended server-side so it never reaches the browser.
- * Returns the upstream image bytes with a 7-day browser cache.
+ * Returns the upstream image bytes. CDN caching via Astro 7 `context.cache.set()`
+ * (Vercel `cacheVercel()` provider in production).
  */
-export const GET: APIRoute = async ({ url, params, request, cookies, locals }) => {
+export const GET: APIRoute = async ({ url, params, request, cookies, locals, cache }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,
@@ -92,11 +93,18 @@ export const GET: APIRoute = async ({ url, params, request, cookies, locals }) =
 		const contentType = upstream.headers.get("Content-Type") ?? "image/png";
 		const body = await upstream.arrayBuffer();
 
+		if (cache.enabled) {
+			cache.set({
+				maxAge: 604_800,
+				swr: 86_400,
+				tags: [`assets:logo:${symbol}`],
+			});
+		}
+
 		return new Response(body, {
 			status: 200,
 			headers: {
 				"Content-Type": contentType,
-				"Cache-Control": "public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400",
 			},
 		});
 	} catch (err) {

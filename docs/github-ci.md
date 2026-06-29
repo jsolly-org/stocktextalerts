@@ -8,7 +8,7 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 
 | Workflow | File | When | Purpose |
 | --- | --- | --- | --- |
-| **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PRs, merge queue, `main` pushes, manual | Lint, workflow lint, types, Knip, SQL, migration grants, Lambda bundle build, local Supabase bootstrap, unit tests, E2E, Astro build |
+| **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PRs, merge queue, `main` pushes, manual | Lint, workflow lint, types, Knip, SQL, migration grants, Lambda bundle build, local Supabase bootstrap, unit tests, E2E (dev server), Astro build |
 | **Auto Merge** | [`.github/workflows/auto-merge.yml`](../.github/workflows/auto-merge.yml) | PR open/sync/ready | Enables squash auto-merge on every non-draft same-repo PR |
 | **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | Successful CI on `main`, manual | Production Supabase migrations, Lambda code updates, live-provider check |
 
@@ -23,6 +23,8 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 - Biome, YAML, actionlint, Astro check, Knip, Squawk, deploy-function coverage, migration grants (static)
 
 **Not in pre-push (GitHub CI only):** `db:doctor`, `check:db-privileges`, `npm test`, `npm run test:e2e`, Astro build. These need local Supabase/Docker on the runner — no Podman/Postgres required locally before push.
+
+**Pre-release (local, not CI):** `npm run test:e2e:preview` — production-build E2E on port 4323. Run before Astro/Vite config changes or when debugging Rolldown/CSS chunk issues.
 
 ## Required GitHub settings
 

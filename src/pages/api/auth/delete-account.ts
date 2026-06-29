@@ -1,3 +1,7 @@
+import {
+	DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS,
+	DELETE_ACCOUNT_RATE_LIMIT_MINUTES,
+} from "astro:env/server";
 import type { APIRoute } from "astro";
 import { deleteUserAccount } from "../../../lib/auth/delete-account";
 import { enforceAuthRateLimit } from "../../../lib/auth/enforce-rate-limit";
@@ -8,13 +12,8 @@ import { createLogger } from "../../../lib/logging";
 
 /*
  * Rate limit: N attempts per user per time window.
- * Can be overridden via DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS and
- * DELETE_ACCOUNT_RATE_LIMIT_MINUTES env vars.
+ * Override via DELETE_ACCOUNT_RATE_LIMIT_* in env (see astro.config.ts env.schema).
  */
-const DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS =
-	Number.parseInt(import.meta.env.DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS ?? "5", 10) || 5;
-const DELETE_ACCOUNT_RATE_LIMIT_MINUTES =
-	Number.parseInt(import.meta.env.DELETE_ACCOUNT_RATE_LIMIT_MINUTES ?? "15", 10) || 15;
 
 export const POST: APIRoute = async ({ url, cookies, redirect, request, locals }) => {
 	const logger = createLogger({

@@ -1,8 +1,9 @@
 import sitemap from "@astrojs/sitemap";
 import vercel from "@astrojs/vercel";
+import { cacheVercel } from "@astrojs/vercel/cache";
 import vue from "@astrojs/vue";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig } from "astro/config";
+import { defineConfig, envField, memoryCache } from "astro/config";
 import icon from "astro-icon";
 import { loadEnv } from "vite";
 import svgLoader from "vite-svg-loader";
@@ -98,6 +99,57 @@ export default defineConfig({
 	},
 
 	trailingSlash: "never",
+
+	cache: {
+		provider: useNodeAdapter ? memoryCache() : cacheVercel(),
+	},
+
+	env: {
+		schema: {
+			CHANGE_PASSWORD_RATE_LIMIT_ATTEMPTS: envField.number({
+				context: "server",
+				access: "public",
+				optional: true,
+				default: 5,
+			}),
+			CHANGE_PASSWORD_RATE_LIMIT_MINUTES: envField.number({
+				context: "server",
+				access: "public",
+				optional: true,
+				default: 15,
+			}),
+			CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS: envField.number({
+				context: "server",
+				access: "public",
+				optional: true,
+				default: 5,
+			}),
+			CHANGE_EMAIL_RATE_LIMIT_MINUTES: envField.number({
+				context: "server",
+				access: "public",
+				optional: true,
+				default: 15,
+			}),
+			DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS: envField.number({
+				context: "server",
+				access: "public",
+				optional: true,
+				default: 5,
+			}),
+			DELETE_ACCOUNT_RATE_LIMIT_MINUTES: envField.number({
+				context: "server",
+				access: "public",
+				optional: true,
+				default: 15,
+			}),
+			PASSWORD_RESET_RATE_LIMIT_SECONDS: envField.number({
+				context: "server",
+				access: "public",
+				optional: true,
+				default: 60,
+			}),
+		},
+	},
 
 	integrations: [
 		sitemap({
