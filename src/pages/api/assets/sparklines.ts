@@ -1,17 +1,26 @@
 import type { APIRoute } from "astro";
 import type { ApiJsonBody } from "../../../lib/client/json-response";
 import { createUserService, getUserAssets } from "../../../lib/db";
-import { createSupabaseServerClient } from "../../../lib/db/supabase";
+import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { fetchSparklines } from "../../../lib/market-data/sparklines";
 import { isValidAssetSymbol } from "../../../lib/validation";
 
+/** Max symbols per sparklines request — aligns with watchlist size cap. */
+const MAX_SPARKLINE_SYMBOLS = 50;
+
 /**
  * GET /api/assets/sparklines
  *
- * Returns 7-point sparkline close data for the user's tracked assets.
- * Accepts an optional `symbols` query param (comma-separated) to fetch
- * sparklines for specific symbols instead of all user assets.
+ * Returns 7-point sparkline close arrays for dashboard watchlist mini-charts
+ * (`SparklineSvg`). Reads `asset_daily_closes` first (populated nightly by
+ * compute-daily-stats), falling back to Massive only for cache misses (e.g.
+ * a symbol the user just added). Non-critical: the client ignores fetch errors.
+ *
+ * Query params:
+ * - `symbols` (optional): comma-separated tickers; when omitted, loads up to
+ *   {@link MAX_SPARKLINE_SYMBOLS} tracked assets for the authenticated user.
+ *   Invalid symbols are dropped.
  */
 export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
@@ -32,13 +41,12 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 		});
 	}
 
-	const MAX_SPARKLINE_SYMBOLS = 50;
-
 	try {
 		const symbolsParam = url.searchParams.get("symbols");
 		let symbols: string[];
 
 		if (symbolsParam) {
+			// Incremental fetch after add-to-watchlist — only the new symbol(s).
 			const raw = symbolsParam
 				.split(",")
 				.map((s) => s.trim().toUpperCase())
@@ -46,16 +54,21 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 			// Validate format and length; cap count to avoid abuse.
 			symbols = [...new Set(raw.filter(isValidAssetSymbol))].slice(0, MAX_SPARKLINE_SYMBOLS);
 		} else {
+			// Initial dashboard load — one request for the full watchlist.
 			const userAssets = await getUserAssets(supabase, user.id);
-			symbols = userAssets.map((a) => a.symbol);
+			symbols = userAssets.map((a) => a.symbol).slice(0, MAX_SPARKLINE_SYMBOLS);
 		}
 
 		if (symbols.length === 0) {
 			return Response.json({ ok: true, sparklines: {} });
 		}
 
-		const sparklineMap = await fetchSparklines(symbols);
+		// asset_daily_closes is service_role-only — session client cannot read it.
+		const sparklineMap = await fetchSparklines(symbols, {
+			supabase: createSupabaseAdminClient(),
+		});
 
+		// Strip ascii/window — the Vue chart only needs numeric closes.
 		const sparklines: Record<string, number[] | null> = {};
 		for (const symbol of symbols) {
 			const data = sparklineMap.get(symbol);

@@ -5,8 +5,12 @@ import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 
 const DEFAULT_LIMIT = 10;
+/** Hard cap on `limit` query param — keeps ILIKE candidate scans bounded. */
 const MAX_LIMIT = 20;
+/** Over-fetch from Postgres so relevance ranking can pick the best N. */
 const SEARCH_CANDIDATE_MULTIPLIER = 5;
+/** Reject oversized queries before they hit ILIKE filters. */
+const MAX_QUERY_LENGTH = 100;
 
 /** Assigns a rank for search result ordering (0 = exact symbol match, 4 = no match). */
 function getAssetSearchRank(
@@ -36,10 +40,16 @@ function getAssetSearchRank(
 }
 
 /**
- * Search assets by symbol or name prefix/substring.
+ * GET /api/assets/search
  *
- * Requires authentication. Query length is limited to prevent abuse.
- * Returns results sorted by relevance (exact symbol > symbol prefix > name prefix > name contains).
+ * Typeahead search for the dashboard watchlist add flow (`AssetInput`).
+ * Requires authentication. Queries the assets table with ILIKE on symbol
+ * prefix and name substring, then re-ranks in-process so exact symbol matches
+ * beat prefix matches beat name matches.
+ *
+ * Query params:
+ * - `q` (required, 1–100 chars): search text
+ * - `limit` (optional, default 10, max 20): number of results returned
  */
 export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
@@ -58,8 +68,6 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 	}
 
 	const query = url.searchParams.get("q")?.trim() ?? "";
-	/** Limit query length to reduce ILIKE load and prevent abuse. */
-	const MAX_QUERY_LENGTH = 100;
 	if (query.length < 1) {
 		return Response.json({ ok: true, message: "ok", results: [] } satisfies ApiJsonBody, {
 			status: 200,
@@ -116,6 +124,7 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 		}
 
 		const candidates = data ?? [];
+		// Postgres orders by symbol; apply relevance rank then truncate to `limit`.
 		const rankCache = new Map<string, number>();
 		for (const row of candidates) {
 			rankCache.set(row.symbol, getAssetSearchRank(row, normalizedQuery));

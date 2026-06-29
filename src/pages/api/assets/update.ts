@@ -19,6 +19,17 @@ const ASSETS_SCHEMA = {
 	tracked_assets: { type: "json_string_array", required: true },
 } as const satisfies FormSchema;
 
+/**
+ * POST /api/assets/update
+ *
+ * Atomically replace the authenticated user's tracked-asset list via the
+ * `replace_user_assets` RPC. Called from the dashboard watchlist panel
+ * (hidden `tracked_assets` JSON field). Validates symbol format, enforces
+ * {@link MAX_TRACKED_ASSETS}, and rejects delisted tickers before writing.
+ * New symbols enqueue vendor-backfill warmup (daily closes + stats) when
+ * `VENDOR_BACKFILL_QUEUE_URL` is configured — same path as first-time adds
+ * elsewhere in the app.
+ */
 export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
@@ -148,6 +159,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	}
 
 	try {
+		// Single RPC replaces the join table atomically — avoids partial updates.
 		const { error } = await supabase.rpc("replace_user_assets", {
 			user_id: user.id,
 			symbols: uniqueSymbols,
@@ -189,6 +201,8 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	}
 
 	const previousSymbolSet = new Set(previousSymbols);
+	// Warm up price-history cache for net-new symbols so sparklines and alerts
+	// have closes on the next dashboard load without waiting for the nightly cron.
 	if (readEnv("VENDOR_BACKFILL_QUEUE_URL")) {
 		for (const symbol of uniqueSymbols) {
 			if (previousSymbolSet.has(symbol)) continue;

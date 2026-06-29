@@ -8,10 +8,12 @@ import { isValidAssetSymbol } from "../../../../lib/validation";
 /**
  * GET /api/assets/logo/:symbol
  *
- * Proxies the Massive branding icon image for a given asset symbol.
- * The API key is appended server-side so it never reaches the browser.
- * Returns the upstream image bytes. CDN caching via Astro 7 `context.cache.set()`
- * (Vercel `cacheVercel()` provider in production).
+ * Authenticated logo proxy for dashboard `AssetBadge` images. Looks up
+ * `assets.icon_url` (a Massive branding URL stored without the API key),
+ * appends `MASSIVE_API_KEY` server-side, and streams the upstream bytes back
+ * to the browser so the key never reaches the client. Host is restricted to
+ * `api.massive.com` to block SSRF via poisoned icon_url values. CDN caching
+ * via Astro 7 `context.cache.set()` (Vercel `cacheVercel()` in production).
  */
 export const GET: APIRoute = async ({ url, params, request, cookies, locals, cache }) => {
 	const logger = createLogger({
@@ -62,6 +64,7 @@ export const GET: APIRoute = async ({ url, params, request, cookies, locals, cac
 	let upstreamUrl: string;
 	try {
 		const parsed = new URL(iconUrl);
+		// icon_url is DB-sourced; allowlist prevents fetching arbitrary hosts.
 		const allowedHosts = new Set(["api.massive.com"]);
 		if (parsed.protocol !== "https:" || !allowedHosts.has(parsed.hostname)) {
 			logger.info("Rejected icon_url host for logo proxy", {
@@ -93,6 +96,7 @@ export const GET: APIRoute = async ({ url, params, request, cookies, locals, cac
 		const contentType = upstream.headers.get("Content-Type") ?? "image/png";
 		const body = await upstream.arrayBuffer();
 
+		// Logos change rarely; cache 7d with 1d SWR for CDN efficiency.
 		if (cache.enabled) {
 			cache.set({
 				maxAge: 604_800,

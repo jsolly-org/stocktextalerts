@@ -9,8 +9,11 @@ import { getCurrentMarketSession } from "../../../lib/market-data/session";
 /**
  * GET /api/assets/prices
  *
- * Returns prevClose, sector, and iconUrl for the user's tracked assets.
- * Used by the move-size selector to show asset-grounded examples.
+ * Live quote metadata for the authenticated user's watchlist. Fetches prevClose
+ * from Massive via `fetchExtendedQuotes` (session-aware — pre/post-market
+ * behavior matches notification pricing) and merges static sector/icon_url from
+ * the assets table. Consumed by the move-size selector to show dollar/percent
+ * examples grounded in each tracked symbol's prev close.
  */
 export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
@@ -39,10 +42,11 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 			return Response.json({ ok: true, assets: {} });
 		}
 
+		// Session drives which Massive snapshot fields are populated (e.g. prevDay.c).
 		const session = await getCurrentMarketSession();
 		const quoteMap = await fetchExtendedQuotes(symbols, session);
 
-		// Load existing sector values from assets table
+		// Sector and icon_url are reference data — not on the Massive snapshot.
 		const { data: assetRows, error: assetRowsError } = await supabase
 			.from("assets")
 			.select("symbol, sector, icon_url")
