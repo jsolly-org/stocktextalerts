@@ -18,8 +18,9 @@ import {
 } from "../../src/lib/messaging/sms/segment-utils";
 import type { SmsSender } from "../../src/lib/messaging/sms/twilio-utils";
 import type { ScheduledNotificationTotals } from "../../src/lib/scheduled-notifications/types";
-import { assertIsoDateString, assertMinuteOfDay } from "../../src/lib/types";
+import { assertIsoDateString } from "../../src/lib/types";
 import type { UserAssetRow, UserRecord } from "../../src/lib/user-record-types";
+import { minuteOfDay } from "../helpers/minute-of-day";
 import { makePrefRows } from "../helpers/user-record-fixture";
 
 describe("Daily digest email prices", () => {
@@ -41,7 +42,7 @@ describe("Daily digest email prices", () => {
 		window: "7-trading-days",
 	};
 	const scheduledDate = assertIsoDateString("2026-06-01");
-	const scheduledMinutes = assertMinuteOfDay(9 * 60);
+	const scheduledMinutes = minuteOfDay(9 * 60);
 
 	function makeDailyDigestSmsUser(): UserRecord {
 		return {

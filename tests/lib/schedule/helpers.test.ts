@@ -12,8 +12,9 @@ import { batchLoadUserAssets } from "../../../src/lib/db/user-assets";
 import { rootLogger } from "../../../src/lib/logging";
 import { claimNotification } from "../../../src/lib/scheduled-notifications/store";
 import { MAX_NOTIFICATION_RETRIES } from "../../../src/lib/scheduled-notifications/types";
-import { assertIsoDateString, assertMinuteOfDay } from "../../../src/lib/types";
+import { assertIsoDateString } from "../../../src/lib/types";
 import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
+import { minuteOfDay } from "../../helpers/minute-of-day";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -31,7 +32,7 @@ describe("claimNotification surfaces the claim RPC's post-claim attempt_count", 
 			userId: "00000000-0000-0000-0000-000000000001",
 			notificationType: "daily",
 			scheduledDate: assertIsoDateString("2026-06-24"),
-			scheduledMinutes: assertMinuteOfDay(540),
+			scheduledMinutes: minuteOfDay(540),
 			channel: "email",
 			logger: rootLogger,
 		});
@@ -48,7 +49,7 @@ describe("claimNotification surfaces the claim RPC's post-claim attempt_count", 
 			userId: "00000000-0000-0000-0000-000000000002",
 			notificationType: "daily",
 			scheduledDate: assertIsoDateString("2026-06-24"),
-			scheduledMinutes: assertMinuteOfDay(540),
+			scheduledMinutes: minuteOfDay(540),
 			channel: "email",
 			logger: rootLogger,
 		});
@@ -68,7 +69,7 @@ describe("claimNotification surfaces the claim RPC's post-claim attempt_count", 
 			userId: user.id,
 			notificationType: "daily" as const,
 			scheduledDate: assertIsoDateString("2026-06-24"),
-			scheduledMinutes: assertMinuteOfDay(540),
+			scheduledMinutes: minuteOfDay(540),
 			channel: "email" as const,
 			logger: rootLogger,
 		};

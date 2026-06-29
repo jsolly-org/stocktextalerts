@@ -26,7 +26,7 @@ const TRANSIENT_DELIVERY_ERROR_CODES = new Set<string>([
 ]);
 
 /** True when a failed delivery result is worth retrying. */
-export function isTransientDeliveryError(result: DeliveryResult): boolean {
+function isTransientDeliveryError(result: DeliveryResult): boolean {
 	if (result.success) return false;
 	return result.errorCode !== undefined && TRANSIENT_DELIVERY_ERROR_CODES.has(result.errorCode);
 }
@@ -38,7 +38,7 @@ interface DeliveryRetryOptions {
 	/** Base backoff; attempt N waits baseDelayMs * 2^(N-1). Default 500ms. */
 	baseDelayMs?: number;
 	isTransient?: (result: DeliveryResult) => boolean;
-	/** Injected in tests so we don't sleep against real timers. */
+	/** Optional sleep override (defaults to setTimeout). */
 	sleep?: (ms: number) => Promise<void>;
 }
 

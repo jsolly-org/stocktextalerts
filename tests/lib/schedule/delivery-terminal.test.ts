@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { shouldAdvanceScheduledNotificationSchedule } from "../../../src/lib/schedule/delivery-terminal";
-import { assertIsoDateString, assertMinuteOfDay } from "../../../src/lib/types";
+import { assertIsoDateString } from "../../../src/lib/types";
 import type { UserRecord } from "../../../src/lib/user-record-types";
+import { minuteOfDay } from "../../helpers/minute-of-day";
 import { makeUserRecord } from "../../helpers/user-record-fixture";
 
 function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
@@ -27,7 +28,7 @@ describe("shouldAdvanceScheduledNotificationSchedule", () => {
 			user: makeUser(),
 			notificationType: "market",
 			scheduledDate: assertIsoDateString("2026-06-07"),
-			scheduledMinutes: assertMinuteOfDay(570),
+			scheduledMinutes: minuteOfDay(570),
 			emailRequired: true,
 			smsRequired: false,
 		});
@@ -53,7 +54,7 @@ describe("shouldAdvanceScheduledNotificationSchedule", () => {
 			user: makeUser({ sms_notifications_enabled: true, phone_verified: true }),
 			notificationType: "asset_events",
 			scheduledDate: assertIsoDateString("2026-06-07"),
-			scheduledMinutes: assertMinuteOfDay(540),
+			scheduledMinutes: minuteOfDay(540),
 			emailRequired: true,
 			smsRequired: true,
 		});

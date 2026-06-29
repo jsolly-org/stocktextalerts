@@ -67,13 +67,7 @@ import { toIsoOrThrow } from "../time/display";
 import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market/calendar";
 import { enqueuePriceHistoryStoreRetry } from "../vendors/backfill/enqueue";
 import { resolveMarketSessionWithFallback } from "./market-session";
-
-/** Return the delay between pass 1 and pass 2 (ms). */
-function getPassDelayMs(): number {
-	const raw = process.env.SCHEDULE_PASS_DELAY_MS;
-	const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
-	return Number.isFinite(parsed) && parsed >= 0 ? parsed : 30_000;
-}
+import { getPassDelayMs } from "./pass-delay";
 
 const EMPTY_TOTALS: ScheduledNotificationTotals = {
 	skipped: 0,

@@ -11,20 +11,14 @@ import { deliveryResultToLogFields } from "../messaging/shared";
 import { isSmsChannelUsable, sendUserSms } from "../messaging/sms";
 import { formatDelistingSms } from "../messaging/sms/delisting";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
-import { fetchTickerReferences, type TickerReferenceStatus } from "./reference/delistings";
+import { fetchTickerReferences } from "./reference/delistings";
 
-/** Dependencies injected into `runDelistingSweep`. */
+/** Dependencies for `runDelistingSweep`. */
 interface DelistingSweepDeps {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderFactory;
-	/**
-	 * Injection seam for tests — defaults to `fetchTickerReferences` from
-	 * the Massive provider. Tests pass a fake that returns pre-canned
-	 * statuses without hitting the network.
-	 */
-	lookupTickerReferences?: (symbols: string[]) => Promise<TickerReferenceStatus[]>;
 }
 
 /** Summary counters returned by `runDelistingSweep`. */
@@ -111,7 +105,6 @@ const NOTIFICATION_DEDUPE_WINDOW_MS = 48 * 60 * 60 * 1000;
  */
 export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<DelistingSweepResult> {
 	const { supabase, logger, sendEmail, getSmsSender } = deps;
-	const lookupTickerReferences = deps.lookupTickerReferences ?? fetchTickerReferences;
 	const result: DelistingSweepResult = { ...EMPTY_RESULT };
 
 	// 1. Load distinct symbols.
@@ -165,7 +158,7 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 	}
 
 	// 3. Reference lookup against Massive for unchecked symbols.
-	const statuses = symbolsToCheck.length > 0 ? await lookupTickerReferences(symbolsToCheck) : [];
+	const statuses = symbolsToCheck.length > 0 ? await fetchTickerReferences(symbolsToCheck) : [];
 	const newlyDetected: Array<{
 		symbol: string;
 		name: string;

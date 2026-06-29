@@ -13,13 +13,8 @@ const ALL_TIMEZONES_TTL_MS = 24 * 60 * 60 * 1000;
 let allTimezonesCache: {
 	rows: DbTimezoneRow[];
 	expiresAtMs: number;
-	cacheBuster: string;
 } | null = null;
 let allTimezonesInFlight: Promise<DbTimezoneRow[]> | null = null;
-
-function getTimezoneCacheBuster(): string {
-	return (process.env.TIMEZONE_CACHE_BUSTER ?? "").trim();
-}
 
 async function loadAllTimezones(supabase: AppSupabaseClient): Promise<DbTimezoneRow[]> {
 	const pageSize = 1000;
@@ -46,14 +41,9 @@ async function loadAllTimezones(supabase: AppSupabaseClient): Promise<DbTimezone
 }
 
 async function getAllTimezonesCached(supabase: AppSupabaseClient): Promise<DbTimezoneRow[]> {
-	const cacheBuster = getTimezoneCacheBuster();
 	const nowMs = Date.now();
 
-	if (
-		allTimezonesCache &&
-		allTimezonesCache.cacheBuster === cacheBuster &&
-		allTimezonesCache.expiresAtMs > nowMs
-	) {
+	if (allTimezonesCache && allTimezonesCache.expiresAtMs > nowMs) {
 		return allTimezonesCache.rows;
 	}
 
@@ -66,22 +56,11 @@ async function getAllTimezonesCached(supabase: AppSupabaseClient): Promise<DbTim
 			allTimezonesCache = {
 				rows,
 				expiresAtMs: Date.now() + ALL_TIMEZONES_TTL_MS,
-				cacheBuster,
 			};
 			return rows;
 		})
 		.catch((error) => {
-			rootLogger.error(
-				"Failed to load timezones cache",
-				{ action: "load_timezones_cache", cacheBuster },
-				error,
-			);
-			// Only invalidate cache on error if a cache bust was explicitly requested
-			// (i.e., cacheBuster changed). This preserves valid cached data during
-			// transient fetch errors.
-			if (allTimezonesCache && allTimezonesCache.cacheBuster !== cacheBuster) {
-				allTimezonesCache = null;
-			}
+			rootLogger.error("Failed to load timezones cache", { action: "load_timezones_cache" }, error);
 			throw error;
 		})
 		.finally(() => {

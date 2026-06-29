@@ -3,6 +3,7 @@ import type { Logger } from "../logging";
 import { enqueueNewSymbolWarmup } from "../vendors/backfill/enqueue";
 import { fetchTickerDetail } from "./reference/ticker-detail";
 import { type ActiveTicker, fetchActiveTickers } from "./reference/universe";
+import { activeSetTooSmallToFlag, MIN_PLAUSIBLE_ACTIVE_UNIVERSE } from "./universe-reconcile-floor";
 
 /** Default per-run enrichment cap — candidates beyond this defer to subsequent runs. */
 const DEFAULT_ENRICHMENT_CAP = 500;
@@ -10,51 +11,14 @@ const DEFAULT_ENRICHMENT_CAP = 500;
 const DEFAULT_ENRICHMENT_CONCURRENCY = 20;
 /** Upsert/flag chunk size — keeps `.in()` filter URLs under practical length limits. */
 const CHUNK_SIZE = 500;
-/**
- * Absolute floor on the fetched active-set size below which step 3 skips delist-flagging as a
- * suspected silent truncation. The real US stock+ETF active universe is ~11k; a truncated fetch
- * degrades to one or a few 1000-row pages. Deliberately an ABSOLUTE floor, NOT a fraction of the
- * stored active count — that count is inflated by the very backlog this job exists to drain (the
- * table was seeded with ~28k mostly-historical rows), so a stored-relative floor trips on every
- * bootstrap run and deadlocks the drain. ~5k is far below the true universe yet far above any
- * single-page truncation, so it flags a bad fetch without blocking the legitimate backlog drain.
- */
-const MIN_PLAUSIBLE_ACTIVE_UNIVERSE = 5000;
-
-/**
- * True when the fetched active set is below the plausibility floor — a suspected silent truncation,
- * on which step 3 skips delist-flagging. Exported so the floor boundary AND comparison direction can
- * be unit-tested directly: the shared-seed integration DB cannot host an active set between the floor
- * and stored-active without mass-flagging seed rows, so this predicate is the only place the actual
- * regression (a stored-relative floor would deadlock the backlog drain) is pinnable.
- */
-export function activeSetTooSmallToFlag(activeCount: number): boolean {
-	return activeCount < MIN_PLAUSIBLE_ACTIVE_UNIVERSE;
-}
 
 /** Detail-fetch result returned by the Massive enrichment seam. */
 type TickerDetail = { ok: boolean; iconUrl: string | null; sector: string | null };
 
-/** Dependencies injected into `runUniverseReconcile`. */
+/** Dependencies for `runUniverseReconcile`. */
 interface UniverseReconcileDeps {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	/**
-	 * Injection seam for tests — defaults to `fetchActiveTickers` from the
-	 * Massive provider. Tests pass a fake that returns a pre-canned active set
-	 * without hitting the network.
-	 */
-	getActiveTickers?: () => Promise<ActiveTicker[]>;
-	/**
-	 * Injection seam for tests — defaults to `fetchTickerDetail`. Tests pass a
-	 * fake that returns pre-canned sector/icon without hitting the network.
-	 */
-	getTickerDetail?: (symbol: string) => Promise<TickerDetail>;
-	/**
-	 * Injection seam for tests — defaults to `enqueueNewSymbolWarmup`. Tests
-	 * pass a spy to assert which new symbols got warmed.
-	 */
-	enqueueWarmup?: (msg: { symbol: string; reason?: string }) => Promise<boolean>;
 	/** Per-run enrichment cap. Defaults to 500. */
 	enrichmentCap?: number;
 	/** Bounded detail-fetch concurrency. Defaults to 20. */
@@ -247,16 +211,13 @@ export async function runUniverseReconcile(
 	deps: UniverseReconcileDeps,
 ): Promise<UniverseReconcileResult> {
 	const { supabase, logger } = deps;
-	const getActiveTickers = deps.getActiveTickers ?? fetchActiveTickers;
-	const getTickerDetail = deps.getTickerDetail ?? fetchTickerDetail;
-	const enqueueWarmup = deps.enqueueWarmup ?? enqueueNewSymbolWarmup;
 	const enrichmentCap = deps.enrichmentCap ?? DEFAULT_ENRICHMENT_CAP;
 	const enrichmentConcurrency = deps.enrichmentConcurrency ?? DEFAULT_ENRICHMENT_CONCURRENCY;
 
 	const result: UniverseReconcileResult = { ...EMPTY_RESULT };
 
 	// --- Step 1: Fetch the active set. ---
-	const active = await getActiveTickers();
+	const active = await fetchActiveTickers();
 	result.activeTickersFetched = active.length;
 	if (active.length === 0) {
 		// A genuinely empty universe is impossible, so an empty result means the
@@ -443,7 +404,7 @@ export async function runUniverseReconcile(
 		result.enrichmentSkippedCap = candidates.length - toEnrich.length;
 		await enrichSymbols(
 			toEnrich,
-			{ supabase, logger, getTickerDetail, concurrency: enrichmentConcurrency },
+			{ supabase, logger, getTickerDetail: fetchTickerDetail, concurrency: enrichmentConcurrency },
 			result,
 		);
 	} catch (error) {
@@ -460,7 +421,7 @@ export async function runUniverseReconcile(
 			// A new symbol whose upsert chunk failed isn't in `assets`; warming it would
 			// enqueue backfill for a phantom symbol. Skip those.
 			if (failedUpsertSymbols.has(symbol)) continue;
-			const ok = await enqueueWarmup({ symbol, reason: "universe_reconcile_new_listing" });
+			const ok = await enqueueNewSymbolWarmup({ symbol, reason: "universe_reconcile_new_listing" });
 			if (ok) result.warmupEnqueued += 1;
 			else result.warmupEnqueueFailed += 1;
 		}

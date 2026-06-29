@@ -9,11 +9,12 @@ import {
 	type SparklineData,
 	toSparkline,
 } from "../messaging/parts/charts/sparkline";
+import { formatChartAsOfLabel } from "./chart-as-of-label";
 
 const MINUTE_RETENTION_HOURS = 36;
 const DAILY_RETENTION_DAYS = 30;
-export const INTRADAY_CACHE_MAX_AGE_MS = 15 * 60 * 1000;
-export const REQUIRED_DAILY_CLOSES = 7;
+const INTRADAY_CACHE_MAX_AGE_MS = 15 * 60 * 1000;
+const REQUIRED_DAILY_CLOSES = 7;
 
 const MARKET_BENCHMARK_SYMBOL = "SPY";
 
@@ -45,22 +46,6 @@ export async function getPriceCacheSymbols(supabase: SupabaseAdminClient): Promi
 		symbols.add(row.symbol);
 	}
 	return [...symbols];
-}
-
-export function formatChartAsOfLabel(
-	isoTimestamp: string,
-	timezone: string,
-	use24HourTime: boolean,
-): string {
-	const dt = DateTime.fromISO(isoTimestamp, { zone: "utc" }).setZone(timezone);
-	if (!dt.isValid) return "";
-	const formatted = dt.toLocaleString({
-		hour: "numeric",
-		minute: "2-digit",
-		hour12: !use24HourTime,
-		timeZoneName: "short",
-	});
-	return `chart as of ${formatted}`;
 }
 
 export async function storePriceHistoryRows(

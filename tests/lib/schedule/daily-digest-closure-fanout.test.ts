@@ -152,7 +152,6 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 			prices: new Map(),
 			noSessionTrade: new Set(),
 		});
-		vi.stubEnv("SCHEDULE_PASS_DELAY_MS", "0");
 
 		processPriceAlertsMock.mockResolvedValue({
 			totals: {

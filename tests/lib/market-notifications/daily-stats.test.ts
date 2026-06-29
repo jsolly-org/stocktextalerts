@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractOHLCVFromBars } from "../../../src/lib/market-data/bars";
+import { extractOHLCVFromBars } from "../../../src/lib/market-data/bars-parse";
 import {
 	computeADV,
 	computeATR,

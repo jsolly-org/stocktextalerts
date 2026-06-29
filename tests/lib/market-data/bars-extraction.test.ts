@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { extractIntradayOHLCV, extractOHLCVFromBars } from "../../../src/lib/market-data/bars";
+import {
+	extractIntradayOHLCV,
+	extractOHLCVFromBars,
+} from "../../../src/lib/market-data/bars-parse";
 import { fetchPrevDayBar } from "../../../src/lib/market-data/quotes";
 
 describe("Massive OHLCV bar extraction", () => {
