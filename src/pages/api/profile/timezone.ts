@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { anyDailyAssetEventFacetEnabled } from "../../../lib/daily-notification/eligibility";
+import { hasAnyDailyNotificationFacet } from "../../../lib/daily-notification/eligibility";
 import { createUserService, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
@@ -67,15 +67,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		});
 	}
 
-	// Asset-events facets live in notification_preferences; resolve whether any
-	// email/sms facet is on to decide if daily_notification_next_send_at needs recomputing.
+	// Daily notification facets live in notification_preferences; recompute
+	// daily_notification_next_send_at when any facet is enabled.
 	const prefs = await loadUserPreferenceRows(supabase, authUser.id);
-	const hasAnyAssetEvents =
-		anyDailyAssetEventFacetEnabled(prefs, "email") || anyDailyAssetEventFacetEnabled(prefs, "sms");
+	const hasDailyNotification = hasAnyDailyNotificationFacet(prefs);
 
 	let updatePayload: ReturnType<typeof computeTimezoneUpdatePayload>;
 	try {
-		updatePayload = computeTimezoneUpdatePayload(parsed.data.timezone, dbUser, hasAnyAssetEvents);
+		updatePayload = computeTimezoneUpdatePayload(parsed.data.timezone, dbUser, hasDailyNotification);
 	} catch (error) {
 		logger.error(
 			"Failed to compute timezone update payload",
