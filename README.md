@@ -219,10 +219,10 @@ When running Supabase locally, emails are intercepted by Mailpit. View them at <
 Local Supabase Auth emails (confirm signup, reset password, etc.) can be customized via `supabase/config.toml`.
 This repo includes a styled confirmation email template that matches the app’s notification email look:
 
-- `supabase/auth-confirmation.html` (wired up via `[auth.email.template.confirmation]`)
-- `supabase/auth-recovery.html` (wired up via `[auth.email.template.recovery]`)
-- `supabase/auth-email-change.html` (wired up via `[auth.email.template.email_change]`)
-- `supabase/auth-password-changed.html` (wired up via `[auth.email.notification.password_changed]`)
+- `supabase/templates/auth-confirmation.html` (wired up via `[auth.email.template.confirmation]`)
+- `supabase/templates/auth-recovery.html` (wired up via `[auth.email.template.recovery]`)
+- `supabase/templates/auth-email-change.html` (wired up via `[auth.email.template.email_change]`)
+- `supabase/templates/auth-password-changed.html` (wired up via `[auth.email.notification.password_changed]`)
 
 ### 6. Expose Local Webhooks (ngrok)
 
