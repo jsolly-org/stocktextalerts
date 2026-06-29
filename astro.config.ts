@@ -6,7 +6,7 @@ import vue from "@astrojs/vue";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, envField, memoryCache } from "astro/config";
 import icon from "astro-icon";
-import { loadEnv } from "vite";
+import { loadEnv, type Plugin } from "vite";
 import svgLoader from "vite-svg-loader";
 import { isExcludedFromSitemap } from "./seo-routes";
 
@@ -16,6 +16,26 @@ const stubVendorMassivePath = fileURLToPath(
 const stubVendorFinnhubPath = fileURLToPath(
 	new URL("./tests/stubs/vendors/finnhub.ts", import.meta.url),
 );
+
+function stubVendorModulesPlugin(stubs: { massive: string; finnhub: string }): Plugin {
+	const resolveStub = (source: string): string | null => {
+		if (source.endsWith("/vendors/massive") || source.endsWith("/vendors/massive.ts")) {
+			return stubs.massive;
+		}
+		if (source.endsWith("/vendors/finnhub") || source.endsWith("/vendors/finnhub.ts")) {
+			return stubs.finnhub;
+		}
+		return null;
+	};
+
+	return {
+		name: "stub-vendor-modules",
+		enforce: "pre",
+		resolveId(source) {
+			return resolveStub(source);
+		},
+	};
+}
 
 // Config runs before Vite loads .env*; loadEnv makes .env / .env.local available here.
 const mode = process.env.MODE || process.env.NODE_ENV || "development";
@@ -172,28 +192,20 @@ export default defineConfig({
 	],
 
 	vite: {
-		resolve: useVendorStubs
-			? {
-					// Match relative imports like "../vendors/massive" — absolute-path
-					// aliases do not intercept those specifiers in Vite.
-					alias: [
-						{
-							find: /[/\\]vendors[/\\]massive(\.ts)?$/,
-							replacement: stubVendorMassivePath,
-						},
-						{
-							find: /[/\\]vendors[/\\]finnhub(\.ts)?$/,
-							replacement: stubVendorFinnhubPath,
-						},
-					],
-				}
-			: undefined,
 		server: {
 			// Allow Vite dev server to be accessed through ngrok.
 			// Vite treats leading-dot entries as wildcard subdomains.
 			allowedHosts: [".ngrok-free.app"],
 		},
 		plugins: [
+			...(useVendorStubs
+				? [
+						stubVendorModulesPlugin({
+							massive: stubVendorMassivePath,
+							finnhub: stubVendorFinnhubPath,
+						}),
+					]
+				: []),
 			// Astro Icon's <Icon> component cannot be used in Vue components (Astro-only, server-rendered).
 			// For Vue components, import SVGs with ?component suffix to get Vue components with render functions.
 			(() => {
