@@ -18,7 +18,7 @@ export const SITEMAP_EXCLUDED_ROUTE_PREFIXES = [
 	"/auth/unconfirmed",
 	"/auth/verified",
 	"/dashboard",
-	"/email/unsubscribe",
+	"/unsubscribe",
 	"/profile",
 	"/404",
 	"/500",
@@ -35,7 +35,7 @@ export const ROBOTS_DISALLOW_PREFIXES = [
 	"/auth/unconfirmed",
 	"/auth/verified",
 	"/dashboard",
-	"/email/unsubscribe",
+	"/unsubscribe",
 	"/profile",
 ] as const;
 

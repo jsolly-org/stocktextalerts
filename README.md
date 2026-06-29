@@ -324,7 +324,7 @@ Do not mirror `.env.local` into Vercel 1:1.
 Add the runtime variables your **Vercel SSR app** needs (Settings → Environment Variables):
 
 - `TWILIO_*` — SMS verification and inbound webhooks
-- `UNSUBSCRIBE_TOKEN_SECRET` — verify `/email/unsubscribe` links (must match the Lambda value)
+- `UNSUBSCRIBE_TOKEN_SECRET` — verify `/unsubscribe` links (must match the Lambda value)
 - `MASSIVE_API_KEY` — asset logo proxy (`/api/assets/logo/...`)
 - Supabase integration vars (if not using the Vercel Supabase integration)
 

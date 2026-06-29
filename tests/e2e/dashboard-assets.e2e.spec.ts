@@ -335,7 +335,7 @@ test.describe("dashboard and assets", () => {
 		const session = await e2e.openSignedInPage(browser, user);
 		try {
 			const token = createEmailUnsubscribeToken(user.id, user.email);
-			const unsubscribeUrl = `${session.baseOrigin}/email/unsubscribe?user=${encodeURIComponent(user.id)}&token=${encodeURIComponent(token)}`;
+			const unsubscribeUrl = `${session.baseOrigin}/unsubscribe?user=${encodeURIComponent(user.id)}&token=${encodeURIComponent(token)}`;
 			await session.page.goto(unsubscribeUrl);
 			await expect(session.page.getByText("Email notifications are now turned off.")).toBeVisible();
 

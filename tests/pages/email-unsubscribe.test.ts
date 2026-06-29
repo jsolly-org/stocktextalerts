@@ -3,7 +3,7 @@ import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { loadRenderers } from "astro/virtual-modules/container.js";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createEmailUnsubscribeToken } from "../../src/lib/messaging/email/unsubscribe";
-import EmailUnsubscribePage from "../../src/pages/email/unsubscribe.astro";
+import EmailUnsubscribePage from "../../src/pages/unsubscribe.astro";
 import { adminClient } from "../helpers/test-env";
 import { createTestEmail, createTestUser, generateUniquePhoneNumber } from "../helpers/test-user";
 import { registerTestUserForCleanup } from "../helpers/test-user-cleanup";
@@ -46,7 +46,7 @@ describe("A user clicks the email unsubscribe link.", () => {
 			userId: user.id,
 			email: user.email,
 		});
-		const url = new URL("http://localhost/email/unsubscribe");
+		const url = new URL("http://localhost/unsubscribe");
 		url.searchParams.set("user", user.id);
 		url.searchParams.set("token", token);
 
@@ -81,7 +81,7 @@ describe("A user clicks the email unsubscribe link.", () => {
 		});
 		registerTestUserForCleanup(user.id);
 
-		const url = new URL("http://localhost/email/unsubscribe");
+		const url = new URL("http://localhost/unsubscribe");
 		url.searchParams.set("user", user.id);
 		url.searchParams.set("token", "invalid-token-value");
 
@@ -120,7 +120,7 @@ describe("A user clicks the email unsubscribe link.", () => {
 			userId: user.id,
 			email: user.email,
 		});
-		const url = new URL("http://localhost/email/unsubscribe");
+		const url = new URL("http://localhost/unsubscribe");
 		url.searchParams.set("user", user.id);
 		url.searchParams.set("token", token);
 
@@ -151,7 +151,7 @@ describe("A user clicks the email unsubscribe link.", () => {
 			userId: user.id,
 			email: user.email,
 		});
-		const url = new URL("http://localhost/email/unsubscribe");
+		const url = new URL("http://localhost/unsubscribe");
 		url.searchParams.set("user", user.id);
 		url.searchParams.set("token", token);
 		url.searchParams.set("sms", "true");
