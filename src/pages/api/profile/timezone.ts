@@ -1,10 +1,10 @@
 import type { APIRoute } from "astro";
+import { anyDailyAssetEventFacetEnabled } from "../../../lib/daily-notification/eligibility";
 import { createUserService, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
-import { anyFacetEnabled } from "../../../lib/messaging/notification-prefs";
 import { loadUserPreferenceRows } from "../../../lib/notification-preferences/channels";
 import { computeTimezoneUpdatePayload } from "../../../lib/notification-preferences/update-payload";
 import type { ApiJsonBody } from "../types";
@@ -71,8 +71,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	// email/sms facet is on to decide if daily_notification_next_send_at needs recomputing.
 	const prefs = await loadUserPreferenceRows(supabase, authUser.id);
 	const hasAnyAssetEvents =
-		anyFacetEnabled(prefs, "asset_events", "email") ||
-		anyFacetEnabled(prefs, "asset_events", "sms");
+		anyDailyAssetEventFacetEnabled(prefs, "email") || anyDailyAssetEventFacetEnabled(prefs, "sms");
 
 	let updatePayload: ReturnType<typeof computeTimezoneUpdatePayload>;
 	try {

@@ -1,9 +1,12 @@
 import { DateTime } from "luxon";
+import {
+	anyDailyAssetEventFacetEnabled,
+	enabledDailyNotificationFacets,
+} from "../daily-notification/eligibility";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { loadUserAssets, type UserAssetsMap } from "../db/user-assets";
 import type { Logger } from "../logging";
 import type { EmailSender } from "../messaging/email/utils";
-import { anyFacetEnabled, enabledFacets } from "../messaging/notification-prefs";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/parts/delay";
 import { shouldSendSms } from "../messaging/sms";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
@@ -134,7 +137,7 @@ export async function processAssetEventsUser(options: {
 		// All channel facets live in notification_preferences (carried on user.prefs).
 		// Telegram additionally gates on the usable-channel check (linked + not opted out).
 		const telegramFacetSet = isTelegramChannelUsable(user)
-			? enabledFacets(user.prefs, "asset_events", "telegram")
+			? enabledDailyNotificationFacets(user.prefs, "telegram")
 			: new Set<string>();
 		const telegramFacets: AssetEventsTelegramFacets = {
 			calendar: telegramFacetSet.has("calendar"),
@@ -149,8 +152,8 @@ export async function processAssetEventsUser(options: {
 			telegramFacets.analyst;
 
 		const hasAnyAssetEventsOption =
-			anyFacetEnabled(user.prefs, "asset_events", "email") ||
-			anyFacetEnabled(user.prefs, "asset_events", "sms") ||
+			anyDailyAssetEventFacetEnabled(user.prefs, "email") ||
+			anyDailyAssetEventFacetEnabled(user.prefs, "sms") ||
 			wantsTelegram;
 
 		if (!hasAnyAssetEventsOption) {
@@ -188,8 +191,8 @@ export async function processAssetEventsUser(options: {
 				? passedMarketClosureInfo
 				: await getUsMarketClosureInfoForInstant(currentTime);
 
-		const wantsEmail = emailEnabled && anyFacetEnabled(user.prefs, "asset_events", "email");
-		const wantsSms = smsEnabled && anyFacetEnabled(user.prefs, "asset_events", "sms");
+		const wantsEmail = emailEnabled && anyDailyAssetEventFacetEnabled(user.prefs, "email");
+		const wantsSms = smsEnabled && anyDailyAssetEventFacetEnabled(user.prefs, "sms");
 
 		let emailContent: Awaited<ReturnType<typeof buildAssetEventsContentForChannels>>["email"] =
 			null;
