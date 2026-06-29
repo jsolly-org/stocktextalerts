@@ -1,0 +1,86 @@
+import { randomUUID } from "node:crypto";
+import { describe, expect, it } from "vitest";
+import { POST } from "../../../../../src/pages/api/auth/account-management/change-password";
+import { createApiContext } from "../../../../helpers/api-context";
+import { NEW_PASSWORD } from "../../../../helpers/constants";
+import { adminClient, createAuthenticatedCookies } from "../../../../helpers/test-env";
+import { createTestUser } from "../../../../helpers/test-user";
+import { registerTestUserForCleanup } from "../../../../helpers/test-user-cleanup";
+
+describe("Password change endpoint enforces authentication, form validation, and rate limiting.", () => {
+	it("Unauthenticated requests are redirected to sign-in.", async () => {
+		const request = new Request("http://localhost/api/auth/account-management/change-password", {
+			method: "POST",
+			body: new URLSearchParams({
+				password: NEW_PASSWORD,
+			}),
+		});
+
+		const response = await POST(createApiContext({ request }));
+
+		expect(response.status).toBe(302);
+		expect(response.headers.get("Location")).toBe("/auth/signin?error=unauthorized");
+	});
+
+	it("Authenticated requests with missing fields are rejected as invalid form.", async () => {
+		const originalPassword = "TestPassword123!";
+		const testUser = await createTestUser({
+			email: `test-${randomUUID()}@example.com`,
+			password: originalPassword,
+			confirmed: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const cookies = await createAuthenticatedCookies(testUser.email, originalPassword);
+
+		const request = new Request("http://localhost/api/auth/account-management/change-password", {
+			method: "POST",
+			body: new URLSearchParams({
+				password: "",
+			}),
+		});
+
+		const response = await POST(createApiContext({ request, cookies }));
+
+		expect(response.status).toBe(302);
+		expect(response.headers.get("Location")).toBe("/profile?error=invalid_form");
+	});
+});
+
+describe("Password change endpoint enforces rate limiting.", () => {
+	it("When rate limit is exceeded, the request is redirected with rate_limit error.", async () => {
+		const originalPassword = "TestPassword123!";
+		const testUser = await createTestUser({
+			email: `test-${randomUUID()}@example.com`,
+			password: originalPassword,
+			confirmed: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const attempts =
+			Number.parseInt(process.env.CHANGE_PASSWORD_RATE_LIMIT_ATTEMPTS ?? "5", 10) || 5;
+
+		await adminClient.from("rate_limit_log").insert(
+			Array.from({ length: attempts }, () => ({
+				user_id: testUser.id,
+				endpoint: "change_password",
+			})),
+		);
+
+		const cookies = await createAuthenticatedCookies(testUser.email, originalPassword);
+
+		const request = new Request("http://localhost/api/auth/account-management/change-password", {
+			method: "POST",
+			body: new URLSearchParams({
+				password: NEW_PASSWORD,
+			}),
+		});
+
+		const response = await POST(createApiContext({ request, cookies }));
+
+		expect(response.status).toBe(302);
+		const location = response.headers.get("Location");
+		expect(location).toContain("/profile?error=rate_limit");
+		expect(location).toContain("minutes=");
+	});
+});
