@@ -1,6 +1,7 @@
 #!/usr/bin/env npx tsx
 import { spawnSync } from "node:child_process";
 import { normalizeDirectVitestProcessEnv } from "./helpers/test-process-env";
+import { stopAstroDevLockAfterHttpTests } from "./helpers/http/server";
 import {
 	acquireTestLockWithRetry,
 	formatContentionMessage,
@@ -52,6 +53,7 @@ async function main() {
 		exitCode = typeof child.status === "number" ? child.status : 1;
 	} finally {
 		releaseTestLock();
+		stopAstroDevLockAfterHttpTests();
 	}
 
 	process.exit(exitCode);

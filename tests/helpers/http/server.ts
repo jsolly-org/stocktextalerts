@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 
 const E2E_DEV_BASE = "http://127.0.0.1:4322";
 const HTTP_TEST_HOST = "127.0.0.1";
@@ -50,15 +50,32 @@ async function waitForProbe(baseUrl: string, timeoutMs: number): Promise<void> {
 	throw new Error(`HTTP test server did not become ready at ${baseUrl}`);
 }
 
+function stopAstroDevLock(): void {
+	spawnSync("./node_modules/.bin/astro", ["dev", "stop"], {
+		cwd: process.cwd(),
+		stdio: "ignore",
+	});
+}
+
 function stopDedicatedServer(): void {
 	const state = runtime();
 	if (state.dedicatedServer && !state.dedicatedServer.killed) {
-		state.dedicatedServer.kill("SIGTERM");
+		const pid = state.dedicatedServer.pid;
+		if (pid && process.platform !== "win32") {
+			try {
+				process.kill(-pid, "SIGTERM");
+			} catch {
+				state.dedicatedServer.kill("SIGTERM");
+			}
+		} else {
+			state.dedicatedServer.kill("SIGTERM");
+		}
 	}
 	state.dedicatedServer = null;
 	if (state.resolvedBase === HTTP_TEST_BASE) {
 		state.resolvedBase = null;
 	}
+	stopAstroDevLock();
 }
 
 function startDedicatedServer(): ChildProcess {
@@ -77,7 +94,7 @@ function startDedicatedServer(): ChildProcess {
 			},
 			// Avoid pipe backpressure killing the dev server in CI.
 			stdio: "ignore",
-			detached: false,
+			detached: process.platform !== "win32",
 		},
 	);
 	child.on("exit", () => {
@@ -139,4 +156,9 @@ export function shutdownHttpTestServer(): void {
 	const state = runtime();
 	state.startPromise = null;
 	stopDedicatedServer();
+}
+
+/** Clear Astro 7's project-wide dev lock after Vitest HTTP integration tests. */
+export function stopAstroDevLockAfterHttpTests(): void {
+	stopAstroDevLock();
 }

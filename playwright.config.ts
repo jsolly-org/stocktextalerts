@@ -10,7 +10,8 @@ export default defineConfig({
 		baseURL: "http://localhost:4322",
 	},
 	webServer: {
-		command: "MODE=test npm run dev -- --port 4322",
+		command:
+			"./node_modules/.bin/astro dev stop 2>/dev/null || true; MODE=test npm run dev -- --port 4322",
 		url: "http://localhost:4322/",
 		timeout: 120 * 1000,
 		// Use 4322 to avoid clashing with default Astro dev (4321). Reuse locally only.
