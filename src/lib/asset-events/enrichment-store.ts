@@ -1,11 +1,11 @@
 import { setTimeout as realDelay } from "node:timers/promises";
 import { DateTime } from "luxon";
+import type { InsiderTransaction, RecommendationTrend } from "../finnhub-extra-types";
 import type { Logger } from "../logging";
 import { payloadLogFields, preparePayloadForLog } from "../logging/log-payload";
-import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "../resilience/optional-vendors";
 import type { SupabaseAdminClient } from "../schedule/helpers";
+import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "../vendors/optional-vendors";
 import { fetchInsiderTransactions, fetchRecommendationTrends } from "./enrichment";
-import type { InsiderTransaction, RecommendationTrend } from "./types";
 
 /** Analyst rows older than this are treated as stale at send time. */
 export const ANALYST_FRESHNESS_MS = 36 * 60 * 60 * 1000;

@@ -3,7 +3,7 @@ import {
 	formatCountdownWithSeconds,
 	getNowInTimezone,
 	getSecondsUntilNextSend,
-} from "../../../lib/time/format";
+} from "../../../lib/time/display";
 import { useHydrated } from "../../composables/useHydrated";
 
 // Defers time-dependent rendering until after mount to avoid hydration mismatches.

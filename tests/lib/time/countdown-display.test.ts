@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
-import { formatCountdownWithSeconds, getSecondsUntilNextSend } from "../../../src/lib/time/format";
+import { formatCountdownWithSeconds, getSecondsUntilNextSend } from "../../../src/lib/time/display";
 
 describe("The dashboard countdown reflects DST shifts in elapsed UTC seconds.", () => {
 	it("Friday-evening countdown to Monday 09:30 EDT across the spring-forward weekend reads 60h 30m — one hour shorter than the naive wall-clock difference.", () => {

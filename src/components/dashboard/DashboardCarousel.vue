@@ -50,7 +50,7 @@ import PresentationChartLineIcon from "../../icons/presentation-chart-line.svg?c
 import {
 	DASHBOARD_HASH_TO_TAB_INDEX,
 	DASHBOARD_TAB_INDEX_TO_HASH,
-} from "../../lib/constants";
+} from "./constants";
 
 const scrollBehavior = (): ScrollBehavior =>
 	window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";

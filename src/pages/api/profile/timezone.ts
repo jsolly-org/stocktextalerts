@@ -1,13 +1,13 @@
 import type { APIRoute } from "astro";
 import { loadUserPreferenceRows } from "../../../lib/api/notification-preferences-channels";
 import { computeTimezoneUpdatePayload } from "../../../lib/api/notification-preferences-update";
-import type { ApiJsonBody } from "../../../lib/api/types";
 import { createUserService, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
 import { anyFacetEnabled } from "../../../lib/messaging/notification-prefs";
+import type { ApiJsonBody } from "../types";
 
 export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({

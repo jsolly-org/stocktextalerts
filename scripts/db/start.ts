@@ -13,7 +13,12 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { rootLogger } from "../../src/lib/logging";
-import { ensureContainerEngineEnv, resolveSupabaseCli } from "./container-engine";
+import {
+	ensureContainerEngineEnv,
+	isPodmanStorageCorruptionError,
+	PODMAN_STORAGE_CORRUPTION_HINT,
+	resolveSupabaseCli,
+} from "./container-engine";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..", "..");
@@ -61,6 +66,9 @@ function main(): void {
 	if (firstStart.status === 0) return;
 
 	if (!isStaleSupabaseState(firstStart.output)) {
+		if (isPodmanStorageCorruptionError(firstStart.output)) {
+			process.stderr.write(PODMAN_STORAGE_CORRUPTION_HINT);
+		}
 		process.exit(firstStart.status);
 	}
 

@@ -8,7 +8,6 @@ import {
 	ASSET_EVENTS_SCHEDULE_FIELDS,
 	buildNotificationPreferencesUpdatePayload,
 } from "../../../lib/api/notification-preferences-update";
-import type { ApiJsonBody } from "../../../lib/api/types";
 import { createUserService, type User } from "../../../lib/db";
 import { Constants } from "../../../lib/db/generated/database.types";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
@@ -17,8 +16,10 @@ import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
 import { anyFacetEnabled } from "../../../lib/messaging/notification-prefs";
-import { isOutsideMarketHours, userLocalToEtMinute } from "../../../lib/time/format";
-import { parseScheduledTimes } from "../../../lib/time/scheduled-times";
+import { userLocalToEtMinute } from "../../../lib/time/conversion";
+import { isOutsideMarketHours } from "../../../lib/time/market/session";
+import { parseScheduledTimes } from "../../../lib/time/schedule/next-send";
+import type { ApiJsonBody } from "../types";
 
 const NOTIFICATION_PREFERENCES_SCHEMA = {
 	market_scheduled_asset_price_enabled: { type: "boolean" },

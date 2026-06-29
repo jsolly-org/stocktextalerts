@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../src/lib/db/supabase";
+import type { DeliveryResult } from "../../../src/lib/delivery-types";
 import type { Logger } from "../../../src/lib/logging";
 import { optOutIfBotBlocked } from "../../../src/lib/messaging/telegram/opt-out";
-import type { DeliveryResult } from "../../../src/lib/messaging/types";
 
 type RecordedUpdate = { table: string; payload: unknown; eqColumn: string; eqValue: unknown };
 

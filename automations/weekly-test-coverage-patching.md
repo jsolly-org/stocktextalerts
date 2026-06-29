@@ -45,7 +45,7 @@ This is a scheduled `main` coverage patching run:
    - Use realistic tickers, prices, timezones, and user data
    - Name tests like real production scenarios, not function behaviors
 8. Optionally run the smallest relevant test commands for signal:
-   - Prefer targeted test files first using `npm test -- <path-to-test-file>`
+   - Prefer targeted test files first using `ALLOW_LOCAL_DB_TESTS=1 npm test -- <path-to-test-file>`
    - If multiple related files were changed, run the relevant subset
    - Do not weaken assertions, add unrealistic mocks, or change production behavior just to make the tests pass
    - If a new test fails because it exposed a real missing behavior or regression, keep the test and document the failure clearly in the PR

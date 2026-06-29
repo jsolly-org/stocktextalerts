@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { verifySupabaseOtp } from "../../../lib/auth/supabase-otp";
-import { MIN_PASSWORD_LENGTH } from "../../../lib/constants";
+import { MIN_PASSWORD_LENGTH } from "../../../lib/auth-constants";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";

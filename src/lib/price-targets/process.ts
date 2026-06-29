@@ -2,7 +2,7 @@ import type { PriceTargetDirection } from "../db";
 import { rootLogger } from "../logging";
 import { fetchExtendedQuotes } from "../market-data/prices";
 import { getCurrentMarketSession } from "../market-data/session";
-import type { ExtendedQuoteMap, MarketSession } from "../market-data/types";
+import type { ExtendedQuoteMap, MarketSession } from "../market-data-types";
 import { isEmailChannelUsable } from "../messaging/email/eligibility";
 import { createEmailSender } from "../messaging/email/utils";
 import { attachPrefsToUsers } from "../messaging/load-prefs";

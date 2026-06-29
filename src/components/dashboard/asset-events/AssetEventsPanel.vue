@@ -211,23 +211,23 @@ import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import ClockIcon from "../../../icons/clock.svg?component";
 import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
-import {
-	DASHBOARD_ASSET_EVENTS_FORM_ID,
-	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
-	DASHBOARD_SECTION_IDS,
-} from "../../../lib/constants";
+import { DASHBOARD_SECTION_IDS } from "../../../lib/dashboard-link-constants";
+import { userLocalToEtMinute } from "../../../lib/time/conversion";
 import {
 	formatCountdownWithSeconds,
 	formatMinutesAsLocalTime,
-	userLocalToEtMinute,
-} from "../../../lib/time/format";
-import { calculateNextSendAt } from "../../../lib/time/scheduled-times";
+} from "../../../lib/time/display";
+import { calculateNextSendAt } from "../../../lib/time/schedule/next-send";
 import { useHydrated } from "../../composables/useHydrated";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
 } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
+import {
+	DASHBOARD_ASSET_EVENTS_FORM_ID,
+	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
+} from "../constants";
 import type { ChannelOption } from "../shared/ChannelMultiSelect.vue";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
 import {

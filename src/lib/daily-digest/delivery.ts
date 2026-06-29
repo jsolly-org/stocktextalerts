@@ -1,7 +1,8 @@
 import type { buildAssetEventsContent } from "../asset-events/content";
+import type { DeliveryResult } from "../delivery-types";
 import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
-import type { AssetPriceMap } from "../market-data/types";
+import type { AssetPriceMap } from "../market-data-types";
 import { sendUserEmail } from "../messaging/email/index";
 import type { EmailSender } from "../messaging/email/utils";
 import {
@@ -22,11 +23,11 @@ import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
-import type { DeliveryResult, UserAssetRow, UserRecord } from "../messaging/types";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
-import type { MarketClosureInfo } from "../time/market-calendar";
+import type { MarketClosureInfo } from "../time/market/calendar";
 import type { IsoDateString, MinuteOfDay } from "../types";
+import type { UserAssetRow, UserRecord } from "../user-record-types";
 
 export {
 	formatDailyDigestEmail,

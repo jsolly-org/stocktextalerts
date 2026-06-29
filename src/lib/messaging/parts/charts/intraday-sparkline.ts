@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { US_MARKET_OPEN_EASTERN_MINUTES, US_MARKET_TIMEZONE } from "../../../constants";
+import { US_MARKET_OPEN_EASTERN_MINUTES, US_MARKET_TIMEZONE } from "../../../market-constants";
 import { getChangeColor } from "../asset-price-list";
 import { type SparklineTimeLabel, toSvgSparklineImg } from "./svg-sparkline";
 

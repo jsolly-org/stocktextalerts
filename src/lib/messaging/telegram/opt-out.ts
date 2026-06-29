@@ -1,6 +1,6 @@
 import type { AppSupabaseClient } from "../../db/supabase";
+import type { DeliveryResult } from "../../delivery-types";
 import { type Logger, rootLogger } from "../../logging";
-import type { DeliveryResult } from "../types";
 
 /** Telegram Bot API error_code for "Forbidden: bot was blocked by the user" (and
  *  the related "user is deactivated" / "chat not found"). grammY surfaces it as

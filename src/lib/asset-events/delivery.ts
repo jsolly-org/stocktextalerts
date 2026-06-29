@@ -12,11 +12,11 @@ import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
-import type { UserRecord } from "../messaging/types";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
-import type { MarketClosureInfo } from "../time/market-calendar";
+import type { MarketClosureInfo } from "../time/market/calendar";
 import type { IsoDateString, MinuteOfDay } from "../types";
+import type { UserRecord } from "../user-record-types";
 
 /* =============
 Delivery: Email

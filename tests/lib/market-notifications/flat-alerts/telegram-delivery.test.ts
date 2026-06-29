@@ -9,7 +9,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../../src/lib/db/supabase";
-import type { ExtendedAssetQuote } from "../../../../src/lib/market-data/types";
+import type { ExtendedAssetQuote } from "../../../../src/lib/market-data-types";
 import {
 	deliverFlatPriceAlert,
 	type FlatPriceAlertDeliveryStats,

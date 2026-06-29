@@ -50,7 +50,7 @@ function createSupabaseTimezonesStub(options: {
 describe("A user's detected timezone is resolved consistently.", () => {
 	it("When resolving the same timezone twice, the same result is returned without extra lookups.", async () => {
 		vi.resetModules();
-		const { resolveTimezone } = await import("../../../src/lib/time/cache");
+		const { resolveTimezone } = await import("../../../src/lib/time/timezone/cache");
 
 		const stub = createSupabaseTimezonesStub({
 			rows: [{ value: "Etc/UTC" }],
@@ -72,7 +72,7 @@ describe("A user's detected timezone is resolved consistently.", () => {
 
 	it("When resolving concurrently, the same lookup is shared.", async () => {
 		vi.resetModules();
-		const { resolveTimezone } = await import("../../../src/lib/time/cache");
+		const { resolveTimezone } = await import("../../../src/lib/time/timezone/cache");
 
 		const stub = createSupabaseTimezonesStub({
 			rows: [{ value: "Etc/UTC" }],
@@ -98,7 +98,7 @@ describe("A user's detected timezone is resolved consistently.", () => {
 describe("A user sees available timezone options consistently.", () => {
 	it("When requesting timezone options twice, the same list is returned without extra lookups.", async () => {
 		vi.resetModules();
-		const { getTimezoneOptions } = await import("../../../src/lib/time/cache");
+		const { getTimezoneOptions } = await import("../../../src/lib/time/timezone/cache");
 
 		const stub = createSupabaseTimezonesStub({
 			rows: [
@@ -122,7 +122,7 @@ describe("A user sees available timezone options consistently.", () => {
 
 	it("When requesting timezone options concurrently, the same lookup is shared.", async () => {
 		vi.resetModules();
-		const { getTimezoneOptions } = await import("../../../src/lib/time/cache");
+		const { getTimezoneOptions } = await import("../../../src/lib/time/timezone/cache");
 
 		const stub = createSupabaseTimezonesStub({
 			rows: [

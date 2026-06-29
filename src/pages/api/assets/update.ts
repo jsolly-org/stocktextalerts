@@ -1,6 +1,4 @@
 import type { APIRoute } from "astro";
-import type { ApiJsonBody } from "../../../lib/api/types";
-import { enqueueNewSymbolWarmup } from "../../../lib/backfill/queue";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import {
 	isAssetsLimitError,
@@ -14,6 +12,8 @@ import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging, extractErrorMessage } from "../../../lib/logging/errors";
 import { isValidAssetSymbol } from "../../../lib/validation";
+import { enqueueNewSymbolWarmup } from "../../../lib/vendors/backfill/enqueue";
+import type { ApiJsonBody } from "../types";
 
 const ASSETS_SCHEMA = {
 	tracked_assets: { type: "json_string_array", required: true },

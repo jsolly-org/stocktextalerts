@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
+import { ROBOTS_DISALLOW_PREFIXES } from "../../seo-routes";
 import { getSiteUrl } from "../lib/db/env";
-import { ROBOTS_DISALLOW_PREFIXES } from "../lib/seo/excluded-routes";
 
 /** Ensure `robots.txt` is generated at build time. */
 export const prerender = true;

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../src/lib/db/supabase";
+import type { DeliveryResult } from "../../../src/lib/delivery-types";
 import type { EmailSender } from "../../../src/lib/messaging/email/utils";
-import type { DeliveryResult } from "../../../src/lib/messaging/types";
 import {
 	deliverPriceTargetAlert,
 	formatPriceTargetSms,

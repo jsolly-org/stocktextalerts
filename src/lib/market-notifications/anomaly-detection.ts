@@ -1,4 +1,4 @@
-import type { ExtendedAssetQuote } from "../market-data/types";
+import type { ExtendedAssetQuote } from "../market-data-types";
 import type { AssetSnapshot } from "./snapshot-store";
 
 /* =============

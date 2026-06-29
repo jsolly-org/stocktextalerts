@@ -419,36 +419,38 @@ import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import XMarkIcon from "../../../icons/x-mark.svg?component";
+import { DASHBOARD_SECTION_IDS } from "../../../lib/dashboard-link-constants";
 import {
-	DASHBOARD_MARKET_FORM_ID,
-	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
-	DASHBOARD_SECTION_IDS,
 	DEFAULT_MARKET_UPDATE_TIME_MINUTES,
 	US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,
-} from "../../../lib/constants";
+} from "../../../lib/market-constants";
 import {
 	type AlertMoveSize,
 	normalizeMoveSize,
 } from "../../../lib/market-notifications/alert-profile";
+import { etMinuteToUserLocal, getUsAfterOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
-	etMinuteToUserLocal,
 	formatMinutesAsLocalTime,
-	getLastMarketClose,
-	getUsAfterOpenLocalMinutes,
-	isMarketCurrentlyOpen,
 	minutesToTimeInputValue,
-	parseTimeToMinutes,
-} from "../../../lib/time/format";
+} from "../../../lib/time/display";
+import {
+	getLastMarketClose,
+	isMarketCurrentlyOpen,
+} from "../../../lib/time/market/session";
+import { parseTimeToMinutes } from "../../../lib/time/parse";
 import FadeTransition from "../../FadeTransition.vue";
 import AssetBadge from "../assets/AssetBadge.vue";
-import type { InitialAsset } from "../assets/types";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
 } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
+import {
+	DASHBOARD_MARKET_FORM_ID,
+	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
+} from "../constants";
 import type { ChannelOption } from "../shared/ChannelMultiSelect.vue";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
 import {
@@ -457,6 +459,7 @@ import {
 } from "../shared/channel-disabled-titles";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
+import type { InitialAsset } from "../types";
 import { useScheduledUpdateTiming } from "./helpers";
 import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
 

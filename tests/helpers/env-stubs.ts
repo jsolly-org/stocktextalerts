@@ -17,7 +17,6 @@ export function restoreBaselineTestEnvStubs(): void {
 	vi.stubEnv("TWILIO_VERIFY_SERVICE_SID", "VAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 	delete process.env.EMAIL_DISPATCH_URL;
 	delete process.env.EMAIL_DISPATCH_SECRET;
-	delete process.env.SKIP_VENDOR_HTTP_IN_TEST;
 }
 
 /** Clear custom env overrides then restore the suite baseline. */

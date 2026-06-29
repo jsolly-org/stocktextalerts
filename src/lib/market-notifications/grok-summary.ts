@@ -1,10 +1,10 @@
+import { fetchGrokResponseOnce, type GrokResponsesResponse } from "../vendors/grok";
 import {
 	applyAnnotationsInline,
 	isXUrl,
 	linkLabelFromUrl,
 	type XaiAnnotation,
-} from "../ai/grok-citations";
-import { fetchGrokResponseOnce, type GrokResponsesResponse } from "../vendors/grok";
+} from "../vendors/grok-citations";
 
 const GROK_TIMEOUT_MS = 60_000;
 

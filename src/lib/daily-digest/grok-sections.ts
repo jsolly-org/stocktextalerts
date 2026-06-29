@@ -1,10 +1,10 @@
-import { applyAnnotationsInline, type XaiAnnotation } from "../ai/grok-citations";
 import { rootLogger } from "../logging";
 import {
 	fetchGrokResponse,
 	type GrokResponsesRequest,
 	type GrokResponsesResponse,
 } from "../vendors/grok";
+import { applyAnnotationsInline, type XaiAnnotation } from "../vendors/grok-citations";
 
 export type GrokSectionResult = {
 	content: string;

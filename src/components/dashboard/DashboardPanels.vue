@@ -70,17 +70,15 @@
 <script lang="ts" setup>
 import { useMediaQuery } from "@vueuse/core";
 import { computed, defineAsyncComponent, ref, toRefs, watch } from "vue";
-import {
-	DASHBOARD_ASSETS_FORM_ID,
-} from "../../lib/constants";
 import type { DashboardUser } from "../../lib/db";
 import { useHydrated } from "../composables/useHydrated";
-import type { InitialAsset } from "./assets/types";
 import WatchlistPanel from "./assets/WatchlistPanel.vue";
 import { useAutoSaveForm } from "./composables/useAutoSaveNotificationPreferences";
 import { provideDashboardUser } from "./composables/useDashboardUser";
+import { DASHBOARD_ASSETS_FORM_ID } from "./constants";
 import DashboardCarousel from "./DashboardCarousel.vue";
 import PanelSkeleton from "./PanelSkeleton.vue";
+import type { InitialAsset } from "./types";
 
 // Lazy-load panels 2-5 so mobile only fetches the chunk when the tab is visited.
 // On desktop all loaders fire immediately in parallel (shouldRender returns true for all).

@@ -1,10 +1,10 @@
 import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
-import { US_MARKET_TIMEZONE } from "../../../src/lib/constants";
+import { US_MARKET_TIMEZONE } from "../../../src/lib/market-constants";
 import {
 	calculateNextSendAt,
 	calculateNextSendAtFromTimes,
-} from "../../../src/lib/time/scheduled-times";
+} from "../../../src/lib/time/schedule/next-send";
 
 function formatEtParts(date: DateTime): {
 	ymd: string;
@@ -115,7 +115,7 @@ describe("A scheduler picks the earliest send across multiple ET-canonical times
 });
 
 describe("A non-DST-aligned user's wall-clock-stable schedule (daily-digest path).", () => {
-	// The production recompute path (update-user-next-send-at.ts) calls
+	// The production recompute path (schedule/persist-user.ts) calls
 	// `userLocalToEtMinute(localMinutes, user.timezone)` immediately before
 	// `calculateNextSendAt(etMinutes, now)` — so the ET-minute it passes in
 	// is whatever 9 AM HST resolves to on the *current* day's ET offset.

@@ -23,6 +23,9 @@ const SUPABASE_CLIENT_OPTIONS = {
 
 export type AppSupabaseClient = SupabaseClient<Database>;
 
+/** Privileged server-side Supabase client used by schedule jobs and Lambdas. */
+export type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
+
 function createTypedClient(key: string): AppSupabaseClient {
 	return createClient<Database>(requireEnv("SUPABASE_URL"), key, SUPABASE_CLIENT_OPTIONS);
 }

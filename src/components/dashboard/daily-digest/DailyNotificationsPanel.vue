@@ -238,23 +238,23 @@ import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
+import { DASHBOARD_SECTION_IDS } from "../../../lib/dashboard-link-constants";
+import { etMinuteToUserLocal } from "../../../lib/time/conversion";
 import {
-	DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID,
-	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
-	DASHBOARD_SECTION_IDS,
-} from "../../../lib/constants";
-import {
-	etMinuteToUserLocal,
 	formatCountdownWithSeconds,
 	getSecondsUntilNextSend,
 	minutesToTimeInputValue,
-} from "../../../lib/time/format";
+} from "../../../lib/time/display";
 import { useHydrated } from "../../composables/useHydrated";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
 } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
+import {
+	DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID,
+	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
+} from "../constants";
 import type { ChannelOption } from "../shared/ChannelMultiSelect.vue";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
 import {

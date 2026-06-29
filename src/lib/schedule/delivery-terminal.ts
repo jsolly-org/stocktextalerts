@@ -1,7 +1,7 @@
 import { shouldSendSms } from "../messaging/sms/index";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
-import type { UserRecord } from "../messaging/types";
 import type { ScheduledSlotKey } from "../types";
+import type { UserRecord } from "../user-record-types";
 import {
 	type DeliveryMethod,
 	MAX_NOTIFICATION_RETRIES,

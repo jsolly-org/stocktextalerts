@@ -1,4 +1,4 @@
-import { SMS_UCS2_SEGMENT_SIZE } from "../../constants";
+import { SMS_UCS2_SEGMENT_SIZE } from "./constants";
 
 interface TextSpan {
 	start: number;

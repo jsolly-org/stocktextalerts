@@ -1,4 +1,4 @@
-import type { MarketSession } from "../../src/lib/market-data/types";
+import type { MarketSession } from "../../src/lib/market-data-types";
 import {
 	downsampleEvenly,
 	type SparklineMap,

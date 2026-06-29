@@ -3,7 +3,7 @@
 import type { User } from "@supabase/supabase-js";
 import { Icon } from "astro-icon/components";
 import { isApprovalAdminEmail } from "../lib/auth/approval/admin";
-import { REGISTRATION_ENABLED } from "../lib/constants";
+import { REGISTRATION_ENABLED } from "../lib/auth-constants";
 
 interface Props {
 	user?: User;

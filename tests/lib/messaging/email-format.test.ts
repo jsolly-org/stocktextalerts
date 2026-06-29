@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AssetPriceMap } from "../../../src/lib/market-data/types";
+import type { AssetPriceMap } from "../../../src/lib/market-data-types";
 import { formatMarketScheduledEmail } from "../../../src/lib/messaging/notifications/market-scheduled";
-import type { UserAssetRow } from "../../../src/lib/messaging/types";
+import type { UserAssetRow } from "../../../src/lib/user-record-types";
 
 describe("Email scheduled update includes asset price data.", () => {
 	const testUser = { id: "test-user-id", email: "test@example.com" };

@@ -63,9 +63,9 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import XMarkIcon from "../../../icons/x-mark.svg?component";
 import {
 	formatTimeValue,
-	parseTimeString,
 	resolveIs24,
-} from "../../../lib/time/format";
+} from "../../../lib/time/display";
+import { parseTimeString } from "../../../lib/time/parse";
 import { useHydrated } from "../../composables/useHydrated";
 
 type TimeModel = {

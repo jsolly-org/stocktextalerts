@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SMS_UCS2_SEGMENT_SIZE } from "../../src/lib/constants";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsMessage,
@@ -7,21 +6,22 @@ import {
 	processDailyDigestSmsDelivery,
 } from "../../src/lib/daily-digest/delivery";
 import type { Logger } from "../../src/lib/logging";
-import type { AssetPriceMap } from "../../src/lib/market-data/types";
+import type { AssetPriceMap } from "../../src/lib/market-data-types";
 import type { SparklineData } from "../../src/lib/messaging/parts/charts/sparkline";
 import type { NotificationExtras } from "../../src/lib/messaging/parts/extras";
+import { SMS_UCS2_SEGMENT_SIZE } from "../../src/lib/messaging/sms/constants";
 import {
 	finalizeSmsBodyForUcs2Segments,
 	findDailyDigestProtectedSpans,
 	spanStraddlesBoundary,
 } from "../../src/lib/messaging/sms/segment-utils";
 import type { SmsSender } from "../../src/lib/messaging/sms/twilio-utils";
-import type { UserAssetRow, UserRecord } from "../../src/lib/messaging/types";
 import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
 } from "../../src/lib/schedule/helpers";
 import { assertIsoDateString, assertMinuteOfDay } from "../../src/lib/types";
+import type { UserAssetRow, UserRecord } from "../../src/lib/user-record-types";
 import { makePrefRows } from "../helpers/user-record-fixture";
 
 describe("Daily digest email prices", () => {

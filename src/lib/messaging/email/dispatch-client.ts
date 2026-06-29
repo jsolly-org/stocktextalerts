@@ -1,6 +1,6 @@
 import { readEnv } from "../../db/env";
+import type { DeliveryResult } from "../../delivery-types";
 import type { Logger } from "../../logging";
-import type { DeliveryResult } from "../types";
 import { signEmailDispatchBody } from "./dispatch-auth";
 import {
 	EMAIL_DISPATCH_SIGNATURE_HEADER,

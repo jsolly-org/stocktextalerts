@@ -1,0 +1,80 @@
+import { MAX_TRACKED_ASSETS } from "../db/database-errors";
+import { rootLogger } from "../logging";
+
+const MESSAGE_ALLOWLIST = {
+	asset_added: "Asset added successfully",
+	asset_removed: "Asset removed successfully",
+	assets_updated: "Tracked assets updated successfully",
+	phone_verified: "Phone number verified successfully",
+	settings_updated: "Settings updated successfully",
+	timezone_updated: "Timezone updated successfully",
+	timezone_banner_dismissed: "Timezone banner dismissed",
+	unauthorized: "Please sign in to continue.",
+	failed_to_update_settings: "Failed to update settings. Please try again.",
+	failed_to_update_timezone: "Failed to update timezone. Please try again.",
+	failed_to_dismiss_timezone_banner: "Failed to dismiss timezone banner. Please try again.",
+	invalid_form: "There was a problem with your submission. Please check the form and try again.",
+	invalid_phone_format:
+		"Invalid phone number format. Please enter a valid phone number and try again.",
+	invalid_credentials: "Invalid email or password.",
+	invalid_verification: "Verification link is invalid or expired.",
+	email_required: "No email address found.",
+	missing_fields: "Email and password are required.",
+	user_already_exists: "An account with this email already exists.",
+	profile_creation_failed: "Failed to create user profile. Please try again or contact support.",
+	failed: "Request failed. Please try again.",
+	rate_limit: "You've made too many requests. Please try again later.",
+	weak_password: "Password does not meet security requirements. Please choose a stronger password.",
+	expired: "This password reset link has expired.",
+	invalid_token: "This password reset link is invalid.",
+	password_reset_sent: "If an account exists for that email, a reset link has been sent.",
+	verification_email_sent: "Verification email sent! Check your inbox.",
+	email_change_requested: "Check your old and new inboxes to confirm the email change.",
+	email_updated: "Email updated successfully.",
+	email_change_failed: "Email update failed. Please try again.",
+	email_unchanged: "The new email is the same as your current email.",
+	password_reset: "Password updated successfully! You can now sign in with your new password.",
+	password_changed: "Password updated successfully!",
+	password_change_failed: "Password update failed. Please try again.",
+	account_deleted: "Your account has been permanently deleted.",
+	verification_sent: "Verification code sent",
+	verification_recently_sent:
+		"A verification code was just sent. Please wait a minute and try again.",
+	verification_failed: "Verification failed. Please try again.",
+	verification_rate_limited:
+		"Too many verification attempts. Please wait 15 minutes and try again.",
+	invalid_code: "Invalid verification code. Please try again.",
+	no_code_requested: "Request a verification code before entering one.",
+	code_expired: "Verification code has expired. Please request a new code.",
+	failed_to_add_asset: "Failed to add asset",
+	failed_to_remove_asset: "Failed to remove asset",
+	failed_to_update_assets: "Failed to update tracked assets. Please try again.",
+	update_failed: "Failed to update. Please try again.",
+	server_error: "An error occurred. Please try again",
+	phone_not_set: "Add a phone number before verifying.",
+	sms_opted_out: "SMS is currently paused. Text START to our number to resume SMS notifications.",
+	sms_notifications_disabled: "SMS notifications are disabled.",
+	notifications_not_configured: "Enable at least one notification channel to send updates.",
+	user_not_found: "User not found",
+	delete_failed: "Failed to delete account. Please try again.",
+	delete_partial:
+		"Your account data was deleted, but we couldn't fully remove your sign-in. Please sign out and try again.",
+	delete_orphaned_auth_failed: "Failed to complete account deletion. Please try again.",
+	assets_limit: `Maximum ${MAX_TRACKED_ASSETS} assets allowed`,
+	delisted_symbols: "One or more symbols have been delisted and can no longer be tracked.",
+	registration_closed: "Registration is currently closed.",
+} as const;
+
+type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
+
+/** Convert a whitelisted status/message key into a user-facing string. */
+export function formatMessage(message: string | null): string {
+	if (!message) return "";
+
+	if (Object.hasOwn(MESSAGE_ALLOWLIST, message)) {
+		return MESSAGE_ALLOWLIST[message as MessageKey];
+	}
+
+	rootLogger.error("Unknown status message key", { message });
+	return "";
+}

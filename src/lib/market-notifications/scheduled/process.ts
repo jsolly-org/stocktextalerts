@@ -2,8 +2,8 @@ import { DateTime } from "luxon";
 import type { Logger } from "../../logging";
 import { createErrorForLogging, extractErrorMessage } from "../../logging/errors";
 import { fetchIntradaySparklines } from "../../market-data/sparklines";
-import type { AssetPriceMap, MarketSession } from "../../market-data/types";
-import { NO_SESSION_TRADE } from "../../market-data/types";
+import type { AssetPriceMap, MarketSession } from "../../market-data-types";
+import { NO_SESSION_TRADE } from "../../market-data-types";
 import type { EmailSender } from "../../messaging/email/utils";
 import { type LogoCache, safePrefetchLogos } from "../../messaging/logo-fetcher";
 import { anyFacetEnabled, isFacetEnabled } from "../../messaging/notification-prefs";
@@ -17,7 +17,6 @@ import { shouldSendSms } from "../../messaging/sms";
 import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../../messaging/telegram/sender-factory";
-import type { UserRecord } from "../../messaging/types";
 import type {
 	DeliveryMethod,
 	ScheduledNotificationTotals,
@@ -25,11 +24,13 @@ import type {
 	UserAssetsMap,
 } from "../../schedule/helpers";
 import { loadUserAssets } from "../../schedule/helpers";
-import { isOutsideMarketHours, userLocalToEtMinute } from "../../time/format";
-import type { MarketClosureInfo } from "../../time/market-calendar";
-import { getUsMarketClosureInfoForInstant } from "../../time/market-calendar";
-import { getLocalMinutesFromDateTime } from "../../time/scheduled-times";
+import { userLocalToEtMinute } from "../../time/conversion";
+import type { MarketClosureInfo } from "../../time/market/calendar";
+import { getUsMarketClosureInfoForInstant } from "../../time/market/calendar";
+import { isOutsideMarketHours } from "../../time/market/session";
+import { getLocalMinutesFromDateTime } from "../../time/schedule/next-send";
 import { assertIsoDateString } from "../../types";
+import type { UserRecord } from "../../user-record-types";
 import {
 	processMarketScheduledEmailDelivery,
 	processMarketScheduledSmsDelivery,

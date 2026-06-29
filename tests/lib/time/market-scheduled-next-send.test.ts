@@ -1,12 +1,12 @@
 import { DateTime } from "luxon";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../src/lib/time/market-calendar", () => ({
+vi.mock("../../../src/lib/time/market/calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn(),
 }));
 
-import { getUsMarketClosureInfoForInstant } from "../../../src/lib/time/market-calendar";
-import { calculateNextMarketScheduledSendAtFromTimes } from "../../../src/lib/time/market-scheduled-next-send";
+import { getUsMarketClosureInfoForInstant } from "../../../src/lib/time/market/calendar";
+import { calculateNextMarketScheduledSendAtFromTimes } from "../../../src/lib/time/schedule/market-next-send";
 
 const mockedGetClosure = vi.mocked(getUsMarketClosureInfoForInstant);
 

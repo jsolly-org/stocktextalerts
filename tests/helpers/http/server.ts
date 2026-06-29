@@ -87,7 +87,6 @@ function startDedicatedServer(): ChildProcess {
 			env: {
 				...process.env,
 				MODE: "test",
-				SKIP_VENDOR_HTTP_IN_TEST: "1",
 				SITE_URL: HTTP_TEST_BASE,
 				EMAIL_SMTP_HOST: process.env.EMAIL_SMTP_HOST ?? "localhost",
 				EMAIL_SMTP_PORT: process.env.EMAIL_SMTP_PORT ?? "1025",

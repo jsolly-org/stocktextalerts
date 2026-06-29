@@ -51,10 +51,10 @@
 import { computed, nextTick, ref, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import CheckCircleIcon from "../../../icons/check-circle-20.svg?component";
-import { DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID } from "../../../lib/constants";
 import { formatPhoneForDisplay } from "../../../lib/messaging/format-phone";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import { useSmsVerificationContext } from "../composables/useSmsVerificationContext";
+import { DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID } from "../constants";
 import SmsCodeVerification from "./SmsCodeVerification.vue";
 import SmsPhoneSetup from "./SmsPhoneSetup.vue";
 

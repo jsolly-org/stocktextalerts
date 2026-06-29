@@ -17,8 +17,6 @@ export default defineConfig({
 		// Use 4322 to avoid clashing with default Astro dev (4321). Reuse locally only.
 		reuseExistingServer: !process.env.CI,
 		env: {
-			// CI uses placeholder API keys; avoid vendor retry storms during E2E (fetch.ts).
-			SKIP_VENDOR_HTTP_IN_TEST: "1",
 			// Deterministic admin allowlist for tests/e2e/admin-users.e2e.spec.ts,
 			// independent of whatever .env.local / CI static vars contain.
 			ADMIN_EMAILS: "admin-e2e@example.com,workflow-admin-e2e@example.com",

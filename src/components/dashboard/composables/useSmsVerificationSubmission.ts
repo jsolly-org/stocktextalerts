@@ -3,8 +3,9 @@ import {
 	isUnauthorizedResponse,
 	redirectToSignIn,
 } from "../../../lib/auth/session/session-expired";
-import { DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID, type FlashTone } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
+import type { FlashTone } from "../../ui-constants";
+import { DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID } from "../constants";
 
 type SmsVerificationPayload = {
 	ok: boolean;

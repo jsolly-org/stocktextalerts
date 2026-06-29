@@ -7,8 +7,9 @@ import StatusMessage from "../../components/StatusMessage.astro";
 import Layout from "../../layouts/Layout.astro";
 import { createSupabaseServerClient } from "../../lib/db/supabase";
 import { rootLogger } from "../../lib/logging";
-import { formatMessage, MIN_PASSWORD_LENGTH, REGISTRATION_ENABLED } from "../../lib/constants";
-import { getTimezoneOptions } from "../../lib/time/cache";
+import { MIN_PASSWORD_LENGTH, REGISTRATION_ENABLED } from "../../lib/auth-constants";
+import { formatMessage } from "../../lib/messaging/status-messages";
+import { getTimezoneOptions } from "../../lib/time/timezone/cache";
 
 if (!REGISTRATION_ENABLED) {
 	return Astro.redirect("/auth/signin?error=registration_closed");
@@ -156,8 +157,8 @@ if (error === "user_already_exists") {
 </Layout>
 
 <script>
-import { DEFAULT_TIMEZONE } from "../../lib/constants";
-	import { setupDetectedTimezoneOption } from "../../lib/time/detected-timezone";
+import { DEFAULT_TIMEZONE } from "../../lib/time-constants";
+	import { setupDetectedTimezoneOption } from "../../lib/time/timezone/browser-detected";
 
 	// Ensure register form preselects a detected timezone even before user profile exists.
 	setupDetectedTimezoneOption({ defaultTimezone: DEFAULT_TIMEZONE });

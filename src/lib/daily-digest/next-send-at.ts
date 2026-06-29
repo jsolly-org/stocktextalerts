@@ -1,8 +1,8 @@
 import type { DateTime } from "luxon";
 import type { Logger } from "../logging";
-import type { UserRecord } from "../messaging/types";
 import type { SupabaseAdminClient } from "../schedule/helpers";
-import { updateUserNextSendAtSingleTime } from "../time/update-user-next-send-at";
+import { updateUserNextSendAtSingleTime } from "../time/schedule/persist-user";
+import type { UserRecord } from "../user-record-types";
 
 /* Recompute because timezone/DST offsets can shift the user's intended local delivery time. */
 /**

@@ -1,13 +1,13 @@
 import { setTimeout as realDelay } from "node:timers/promises";
 import { fetchInsiderTransactions, fetchRecommendationTrends } from "../asset-events/enrichment";
-import type { InsiderTransaction, RecommendationTrend } from "../asset-events/types";
+import { COMPANY_NEWS_USER_BUDGET_MS } from "../company-news/constants";
 import { fetchCompanyNews } from "../company-news/fetch";
-import type { CompanyNewsItem } from "../company-news/types";
-import {
-	COMPANY_NEWS_USER_BUDGET_MS,
-	isOptionalVendorUnavailable,
-	withOptionalVendorBudget,
-} from "../resilience/optional-vendors";
+import type {
+	CompanyNewsItem,
+	InsiderTransaction,
+	RecommendationTrend,
+} from "../finnhub-extra-types";
+import { isOptionalVendorUnavailable, withOptionalVendorBudget } from "../vendors/optional-vendors";
 
 const INTER_REQUEST_DELAY_MS = 100;
 

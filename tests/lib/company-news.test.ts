@@ -3,7 +3,7 @@ import { fetchCompanyNews } from "../../src/lib/company-news/fetch";
 import {
 	recordOptionalVendorFailure,
 	resetOptionalVendorCircuitsForTests,
-} from "../../src/lib/resilience/optional-vendors";
+} from "../../src/lib/vendors/optional-vendors";
 
 // Mock retry delays so error/retry tests don't wait real seconds
 vi.mock("node:timers/promises", () => ({

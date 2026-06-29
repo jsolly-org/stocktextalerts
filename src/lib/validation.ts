@@ -1,4 +1,4 @@
-import { ASSET_SYMBOL_MAX_LENGTH } from "./constants";
+import { ASSET_SYMBOL_MAX_LENGTH } from "./asset-constants";
 
 /** Valid asset symbol format (alphanumeric, dot, hyphen). Matches DB constraint. */
 const VALID_SYMBOL_RE = /^[A-Z0-9.-]+$/u;

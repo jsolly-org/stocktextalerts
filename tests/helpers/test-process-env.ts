@@ -9,6 +9,4 @@ export function normalizeDirectVitestProcessEnv(): void {
 	// Unit tests mock dispatch-client; real dispatch URL from `.env.local` bypasses the mock.
 	delete process.env.EMAIL_DISPATCH_URL;
 	delete process.env.EMAIL_DISPATCH_SECRET;
-	// E2E/build sets this for dummy API keys; unit tests mock fetch instead.
-	delete process.env.SKIP_VENDOR_HTTP_IN_TEST;
 }

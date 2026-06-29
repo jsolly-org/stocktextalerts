@@ -52,8 +52,8 @@ vi.mock("../../../src/lib/market-data/prices", async () => {
 	};
 });
 
-vi.mock("../../../src/lib/time/market-calendar", async () => {
-	const actual = await vi.importActual("../../../src/lib/time/market-calendar");
+vi.mock("../../../src/lib/time/market/calendar", async () => {
+	const actual = await vi.importActual("../../../src/lib/time/market/calendar");
 	return {
 		...actual,
 		getUsMarketClosureInfoForInstant: getUsMarketClosureInfoForInstantMock,

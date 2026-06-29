@@ -1,4 +1,4 @@
-import { formatMessage } from "../constants";
+import { formatMessage } from "../messaging/status-messages";
 
 /**
  * Convert an auth error code/key into a user-facing message string.

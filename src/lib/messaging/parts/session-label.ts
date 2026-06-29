@@ -1,5 +1,5 @@
-import type { MarketSession } from "../../market-data/types";
-import { formatMinutesAsLocalTime } from "../../time/format";
+import type { MarketSession } from "../../market-data-types";
+import { formatMinutesAsLocalTime } from "../../time/display";
 import { escapeHtml } from "./html-utils";
 
 /** Active market session for which a notification is delivered. Closed users

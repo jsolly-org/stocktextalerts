@@ -33,7 +33,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "pg";
 
-import { EXPECTED_DB_SCHEMA_VERSION } from "../../tests/helpers/constants";
+import { EXPECTED_DB_SCHEMA_VERSION } from "../../src/lib/db/schema-version";
 import { rootLogger } from "../../src/lib/logging";
 import { detectGoTrueDrift, type TemplateMismatch } from "./gotrue-config";
 import { isLocalHost } from "./is-local-host";

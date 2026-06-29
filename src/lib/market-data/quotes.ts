@@ -1,6 +1,6 @@
+import type { MarketSession, NoSessionTrade } from "../market-data-types";
+import { NO_SESSION_TRADE } from "../market-data-types";
 import { marketDataFetch } from "../vendors/massive";
-import type { MarketSession, NoSessionTrade } from "./types";
-import { NO_SESSION_TRADE } from "./types";
 
 interface SnapshotTicker {
 	ticker: string;

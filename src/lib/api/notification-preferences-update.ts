@@ -5,13 +5,13 @@ import {
 } from "../asset-events/scheduling-helpers";
 import { type AlertMoveSize, omitUndefined, type User, type UserUpdateInput } from "../db";
 import type { Logger } from "../logging";
-import { userLocalToEtMinute } from "../time/format";
+import { userLocalToEtMinute } from "../time/conversion";
 import {
 	calculateNextSendAt,
 	computeNextSendAtIso,
 	parseScheduledTimes,
 	serializeTimes,
-} from "../time/scheduled-times";
+} from "../time/schedule/next-send";
 
 /** Parsed form fields the update endpoint consumes. Per-option channel fields
  *  (`*_email`/`*_sms`/`*_telegram`) are persisted to notification_preferences by

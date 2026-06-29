@@ -39,7 +39,7 @@ vi.mock("../../../../src/lib/messaging/logo-fetcher", () => ({
 	safePrefetchLogos: vi.fn(async () => ({ getLogoHtml: () => undefined })),
 }));
 
-vi.mock("../../../../src/lib/time/market-calendar", () => ({
+vi.mock("../../../../src/lib/time/market/calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn(async () => null),
 }));
 

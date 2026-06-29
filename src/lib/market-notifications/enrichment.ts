@@ -1,4 +1,4 @@
-import type { ExtendedAssetQuote, IntradayCandle } from "../market-data/types";
+import type { ExtendedAssetQuote, IntradayCandle } from "../market-data-types";
 import { formatUsdPrice } from "../messaging/parts/asset-price-list";
 import { generatePriceAlertSummary, type PriceAlertGrokResult } from "./grok-summary";
 

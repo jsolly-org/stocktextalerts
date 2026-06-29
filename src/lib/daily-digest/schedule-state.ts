@@ -2,7 +2,6 @@ import { DateTime, type DateTime as DateTimeType } from "luxon";
 import type { Logger } from "../logging";
 import { shouldSendSms } from "../messaging/sms/index";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
-import type { UserRecord } from "../messaging/types";
 import { shouldAdvanceScheduledNotificationSchedule } from "../schedule/delivery-terminal";
 import {
 	getMaxDailyDigestSlotAttempts,
@@ -10,8 +9,9 @@ import {
 	type SupabaseAdminClient,
 } from "../schedule/helpers";
 import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
-import { toIsoOrThrow } from "../time/format";
+import { toIsoOrThrow } from "../time/display";
 import type { ScheduledSlotKey } from "../types";
+import type { UserRecord } from "../user-record-types";
 
 /** True when every enabled delivery channel for this digest slot is sent or retries are exhausted. */
 export async function shouldAdvanceDailyDigestSchedule(

@@ -1,8 +1,8 @@
 import { DateTime } from "luxon";
 import type { Logger } from "../logging";
 import { isFacetEnabled } from "../messaging/notification-prefs";
-import type { UserRecord } from "../messaging/types";
 import type { SupabaseAdminClient } from "../schedule/helpers";
+import type { UserRecord } from "../user-record-types";
 import { loadStoredFinnhubExtras } from "./enrichment-store";
 import { formatAnalystSection, formatAssetEventsSection, formatInsiderSection } from "./format";
 

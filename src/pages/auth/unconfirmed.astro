@@ -3,7 +3,7 @@
 import { Icon } from "astro-icon/components";
 import StatusMessage from "../../components/StatusMessage.astro";
 import Layout from "../../layouts/Layout.astro";
-import { formatMessage } from "../../lib/constants";
+import { formatMessage } from "../../lib/messaging/status-messages";
 
 const search = Astro.url.searchParams;
 const email = search.get("email");

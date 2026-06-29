@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import type { UserRecord } from "../../../src/lib/messaging/types";
 import { shouldAdvanceScheduledNotificationSchedule } from "../../../src/lib/schedule/delivery-terminal";
 import { assertIsoDateString, assertMinuteOfDay } from "../../../src/lib/types";
+import type { UserRecord } from "../../../src/lib/user-record-types";
 import { makeUserRecord } from "../../helpers/user-record-fixture";
 
 function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {

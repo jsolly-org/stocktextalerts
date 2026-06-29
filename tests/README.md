@@ -2,6 +2,32 @@
 
 StockTextAlerts uses Vitest for unit/integration tests and Playwright for browser E2E. Both suites share one local Supabase stack and serialize access through a cross-worktree lock.
 
+**Repo-specific:** Local opt-in guards, `test:local` preflight (Podman + `db:doctor` + auto `db:start`), and the `local-tests` Cursor skill apply only to this repository. Other repos under `~/code` follow `~/code/dotagents` for agent workflow; they use their own test and bootstrap scripts.
+
+## Local runs discouraged (CI is canonical)
+
+**DB-backed tests (`npm test`, `npm run test:e2e`, `npm run test:e2e:preview`, direct `npx vitest` / Playwright) are blocked locally by default.** GitHub CI on PRs and `main` is the supported runner — it bootstraps Supabase on the runner and runs the full battery without touching your shared local stack.
+
+Preferred local wrappers (opt-in + automatic preflight):
+
+```bash
+npm run test:local
+npm run test:local -- tests/lib/some-file.test.ts
+npm run test:e2e:local
+```
+
+Equivalent explicit opt-in:
+
+```bash
+ALLOW_LOCAL_DB_TESTS=1 npm test
+ALLOW_LOCAL_DB_TESTS=1 npm run test:e2e
+ALLOW_LOCAL_DB_TESTS=1 npm run test:e2e:preview
+```
+
+The guard is enforced in `tests/guard-local-db-tests.ts` (wrappers, `vitest.config.ts`, and `playwright.shared.ts`). CI sets `CI=true` and passes through automatically.
+
+**Before pushing:** rely on the PR's `CI / ci` check — do not treat a local run as a merge gate. Local static checks (`npm run check:biome`, `npm run check:ts`, `npm run build`) remain available without opt-in.
+
 ## Astro 7 testing flow
 
 | Port | Server | Command |
@@ -41,9 +67,9 @@ Prefer explicit `{" "}` or markup fixes over setting `compressHTML: true` global
 
 | Command | Wrapper | Notes |
 | --- | --- | --- |
-| `npm test` | `tests/run-vitest.ts` | Preferred. Loads `.env.local`, runs `db:doctor` preflight, acquires test lock. |
-| `npm run test:e2e` | `tests/run-playwright.ts` | Starts Astro on port **4322** (`MODE=test`). Acquires test lock. |
-| `npx vitest` / IDE runner | `vitest.config.ts` | Also normalized — see guardrails below. |
+| `npm test` | `tests/run-vitest.ts` | Blocked locally unless `ALLOW_LOCAL_DB_TESTS=1` or `npm run test:local`. Loads `.env.local`, runs test preflight (`preflight-for-tests.ts`), acquires test lock. |
+| `npm run test:e2e` | `tests/run-playwright.ts` | Same opt-in. Starts Astro on port **4322** (`MODE=test`). Acquires test lock. |
+| `npx vitest` / IDE runner | `vitest.config.ts` | Same opt-in — see guardrails below. |
 
 Do **not** force-clear `test.lock` while another worktree's suite is running. The wrappers retry for up to ~6 minutes (3 × 2 min) before printing a contention banner.
 
@@ -61,7 +87,6 @@ Direct Vitest invocation (IDE, `npx vitest`) loads `.env.local` then applies `no
 
 - Sets `NODE_ENV=test`
 - Clears `EMAIL_SMTP_HOST` (real SMTP + fake timers deadlock unit tests)
-- Deletes `SKIP_VENDOR_HTTP_IN_TEST` (E2E/build flag; unit tests mock `fetch` instead)
 
 `vitest.config.ts` also sets `fileParallelism: false` and `sequence.concurrent: false` because tests share DB state.
 
@@ -89,7 +114,7 @@ Test email never hits real SES.
 - **Global retries:** `0` in `playwright.shared.ts`. Serial suites that mutate DB/page state must not auto-retry.
 - **Route walker exception:** `tests/e2e/routes.e2e.spec.ts` sets `retries: 1` locally (stateless navigation).
 - **`reuseExistingServer`:** enabled locally, disabled in CI (`playwright.config.ts`).
-- **Web server env:** `SKIP_VENDOR_HTTP_IN_TEST=1`, deterministic `TWILIO_AUTH_TOKEN` stub for inbound SMS E2E, Mailpit SMTP settings inherited from `.env.local`.
+- **Web server env:** vendor modules aliased to no-op stubs when `MODE=test` (see `astro.config.ts`); deterministic `TWILIO_AUTH_TOKEN` stub for inbound SMS E2E, Mailpit SMTP settings inherited from `.env.local`.
 - **Origins:** derive from Playwright `baseURL` / `page` origin instead of hardcoding `:4322` where practical.
 - **Waits:** prefer route gates, response barriers, and `expect.poll` over fixed `waitForTimeout`.
 

@@ -2,8 +2,8 @@
  * scripts/db/container-engine.ts — point the Supabase CLI at the local container engine.
  *
  * The Supabase CLI talks to the container engine through Go's Docker SDK, which reads the
- * `DOCKER_HOST` env var (falling back to `/var/run/docker.sock`). This fleet runs Podman
- * (rootless, `podman machine` on macOS), and two things break the fallback:
+ * `DOCKER_HOST` env var (falling back to `/var/run/docker.sock`). StockTextAlerts local dev
+ * uses Podman (rootless, `podman machine` on macOS), and two things break the fallback:
  *
  *   1. Podman's API socket lives at an ephemeral path under `$TMPDIR` (`/var/folders/...`) that
  *      changes on every reboot / machine recreation — so a hardcoded value goes stale.
@@ -22,7 +22,8 @@
  * vendor-neutral "container engine" terms; only this adapter point touches the Docker name.
  *
  * DESIGN CHOICE (shell out to Podman vs. read containers.conf / CONTAINER_HOST): we shell out to
- * `podman machine inspect` directly. The fleet is Podman-only with no second-engine requirement,
+ * `podman machine inspect` directly. This repo's local Supabase stack is Podman-only with no
+ * second-engine requirement,
  * so the simpler, explicit path wins over an indirection that would let the same code target a
  * different engine (rules/code-style.md — clarity now over flexibility later). Podman's own tools
  * resolve via the vendor-neutral `CONTAINER_HOST` chain, but the Supabase CLI does not read it, so
@@ -38,6 +39,8 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..", "..");
+
+const PODMAN_MACHINE_START_TIMEOUT_MS = 120_000;
 
 /** Breadcrumb to stderr (never stdout): the db:gen-types wrapper redirects this module's caller's
  * stdout into the generated types file, so any stdout write here corrupts that file. stderr is the
@@ -62,14 +65,70 @@ export function resolveSupabaseCli(): string {
 const NO_ENGINE_HINT = [
 	"",
 	"💡 No container engine reachable for the local Supabase stack.",
-	"   This fleet runs Podman (rootless, `podman machine` on macOS).",
+	"   StockTextAlerts local dev uses Podman (rootless, `podman machine` on macOS).",
 	"   Start it:        podman machine start",
 	"   First-time init: podman machine init   (then `podman machine start`)",
 	"   Then retry:      npm run db:bootstrap",
 	"",
 ].join("\n");
 
+export const PODMAN_STORAGE_CORRUPTION_HINT = [
+	"",
+	"💡 Podman VM storage looks corrupted (overlay graph driver error).",
+	"   Repair (destructive to containers/images in the VM):",
+	"     podman machine stop",
+	"     podman machine rm podman-machine-default",
+	"     podman machine init && podman machine start",
+	"     npm run db:bootstrap",
+	"",
+].join("\n");
+
 type EngineState = { running: boolean; socketPath: string };
+
+/** Parse `unix://…` into a filesystem path; null for non-unix schemes. */
+export function parseUnixDockerHost(dockerHost: string): string | null {
+	const match = /^unix:\/\/(.+)$/u.exec(dockerHost.trim());
+	return match?.[1] ?? null;
+}
+
+/** True when the unix socket path exists and the engine API responds. */
+export function isDockerHostReachable(dockerHost: string): boolean {
+	const socketPath = parseUnixDockerHost(dockerHost);
+	if (!socketPath) {
+		return false;
+	}
+	try {
+		fs.accessSync(socketPath, fs.constants.R_OK | fs.constants.W_OK);
+	} catch {
+		return false;
+	}
+	return isContainerEngineApiReachable(dockerHost);
+}
+
+/** Best-effort ping against the docker-compat API (Podman locally; Docker on CI). */
+function isContainerEngineApiReachable(dockerHost: string): boolean {
+	const env = { ...process.env, DOCKER_HOST: dockerHost };
+	for (const cmd of [resolvePodmanBinary(), "docker"]) {
+		const result = spawnSync(cmd, ["version", "--format", "{{.Client.Version}}"], {
+			encoding: "utf8",
+			env,
+			timeout: 5_000,
+		});
+		if (result.status === 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/** Supabase/Podman output indicating the VM's container storage layer is broken. */
+export function isPodmanStorageCorruptionError(output: string): boolean {
+	return (
+		output.includes("readlink") &&
+		output.includes("overlay") &&
+		output.includes("invalid argument")
+	);
+}
 
 /**
  * Inspect the local Podman machine(s) for a reachable docker-compat API socket. Returns null if
@@ -110,23 +169,68 @@ function inspectPodmanMachine(): EngineState | null {
 	return rows.find((row) => row.running) ?? rows[0] ?? null;
 }
 
+/** Start the default Podman machine when it exists but is stopped (local dev/agents only). */
+export function ensurePodmanMachineRunning(): boolean {
+	if (process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true") {
+		return true;
+	}
+
+	const engine = inspectPodmanMachine();
+	if (!engine) {
+		return false;
+	}
+	if (engine.running) {
+		return true;
+	}
+
+	note("container-engine — Podman machine stopped; starting (may take ~30s)…");
+	const result = spawnSync(resolvePodmanBinary(), ["machine", "start"], {
+		encoding: "utf8",
+		timeout: PODMAN_MACHINE_START_TIMEOUT_MS,
+	});
+	if (result.stdout) process.stderr.write(result.stdout);
+	if (result.stderr) process.stderr.write(result.stderr);
+
+	if (result.status !== 0) {
+		const detail = result.error?.message ?? result.stderr?.trim() ?? "podman machine start failed";
+		note(`container-engine — ${detail}`);
+		return false;
+	}
+
+	return inspectPodmanMachine()?.running === true;
+}
+
+function applyPodmanDockerHost(engine: EngineState): void {
+	const dockerHost = `unix://${engine.socketPath}`;
+	process.env.DOCKER_HOST = dockerHost;
+	note(`container-engine — derived DOCKER_HOST from Podman machine socket: ${dockerHost}`);
+}
+
 /**
  * Ensure `DOCKER_HOST` points at a live local container engine, mutating `process.env` in place so
  * every child process the calling script spawns inherits it. Idempotent.
  *
- * - If `DOCKER_HOST` is already set (e.g. the `~/.zshrc` export), it's respected untouched — an
- *   explicit operator override wins.
- * - Otherwise the value is derived from a running Podman machine's socket.
- * - If no engine is reachable, prints the actionable, vendor-neutral hint and `process.exit(1)`s
- *   (the doctor.ts pattern: a clean hint-only exit, no Node stack trace burying it) instead of
- *   letting the CLI emit the misleading "Cannot connect to the Docker daemon … install Docker
- *   Desktop" error. The clean exit still fires `process.on("exit")` handlers, so reset.ts's test
- *   lock releases normally.
+ * - Validates an existing `DOCKER_HOST` (shell exports go stale after Podman machine restarts).
+ * - On local machines, starts a stopped Podman VM before deriving the socket path.
+ * - If no engine is reachable, prints the actionable hint and `process.exit(1)`s.
  */
 export function ensureContainerEngineEnv(): void {
-	if (process.env.DOCKER_HOST) {
-		note(`container-engine — using DOCKER_HOST from environment: ${process.env.DOCKER_HOST}`);
+	const existing = process.env.DOCKER_HOST?.trim();
+	if (existing && isDockerHostReachable(existing)) {
+		note(`container-engine — using DOCKER_HOST from environment: ${existing}`);
 		return;
+	}
+
+	if (existing) {
+		note(
+			`container-engine — ignoring stale DOCKER_HOST (${existing}); deriving from Podman machine`,
+		);
+		delete process.env.DOCKER_HOST;
+	}
+
+	if (!ensurePodmanMachineRunning()) {
+		process.stderr.write(NO_ENGINE_HINT);
+		process.exit(1);
 	}
 
 	const engine = inspectPodmanMachine();
@@ -135,7 +239,5 @@ export function ensureContainerEngineEnv(): void {
 		process.exit(1);
 	}
 
-	const dockerHost = `unix://${engine.socketPath}`;
-	process.env.DOCKER_HOST = dockerHost;
-	note(`container-engine — derived DOCKER_HOST from Podman machine socket: ${dockerHost}`);
+	applyPodmanDockerHost(engine);
 }

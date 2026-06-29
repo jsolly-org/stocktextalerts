@@ -1,5 +1,6 @@
 #!/usr/bin/env npx tsx
 import { spawnSync } from "node:child_process";
+import { assertLocalDbTestsAllowed } from "./guard-local-db-tests";
 import {
 	acquireTestLockWithRetry,
 	formatContentionMessage,
@@ -8,6 +9,7 @@ import {
 } from "./lock";
 
 async function main() {
+	assertLocalDbTestsAllowed("playwright");
 	try {
 		await acquireTestLockWithRetry("playwright");
 	} catch (err) {
@@ -33,7 +35,12 @@ async function main() {
 	process.exit(exitCode);
 }
 
-main().catch((err) => {
-	process.stderr.write(`${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`);
-	process.exit(1);
-});
+const isMain =
+	typeof process.argv[1] === "string" && import.meta.url === `file://${process.argv[1]}`;
+
+if (isMain) {
+	main().catch((err) => {
+		process.stderr.write(`${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`);
+		process.exit(1);
+	});
+}

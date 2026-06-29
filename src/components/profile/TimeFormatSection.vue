@@ -57,8 +57,8 @@
 import { ref, watch } from "vue";
 
 import ClockIcon from "../../icons/clock.svg?component";
-import { createSaveSequencer, type SequencedResult } from "../../lib/async/save-sequencer";
 import type { User } from "../../lib/db";
+import { createSaveSequencer, type SequencedResult } from "../../lib/forms/save-sequencer";
 import { rootLogger } from "../../lib/logging";
 import StatusMessage from "../StatusMessage.vue";
 import ToggleSwitch from "../ToggleSwitch.vue";

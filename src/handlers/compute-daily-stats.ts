@@ -1,5 +1,4 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
-import { enqueueDailyCloseBackfill } from "../lib/backfill/queue";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
 import { runLambda } from "../lib/logging/request-context";
@@ -11,6 +10,7 @@ import {
 	getBenchmarkCacheSymbols,
 	storeDailyCloseRows,
 } from "../lib/market-notifications/price-history-cache";
+import { enqueueDailyCloseBackfill } from "../lib/vendors/backfill/enqueue";
 
 /** Batch size for Massive API calls to stay under ~100 req/s. */
 const BATCH_SIZE = 50;

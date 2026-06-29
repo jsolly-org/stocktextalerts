@@ -1,11 +1,11 @@
 import { DateTime } from "luxon";
 import type { Database } from "../db/generated/database.types";
-import type { AppSupabaseClient, createSupabaseAdminClient } from "../db/supabase";
+import type { AppSupabaseClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { recordNotification } from "../messaging/shared";
-import type { UserAssetRow } from "../messaging/types";
-import { toIsoOrThrow } from "../time/format";
+import { toIsoOrThrow } from "../time/display";
 import type { ScheduledSlotKey } from "../types";
+import type { UserAssetRow } from "../user-record-types";
 import { computeDeliveryRetryDelayMs } from "./retry-delays";
 
 export const MAX_NOTIFICATION_RETRIES = 3;
@@ -22,9 +22,9 @@ export type ScheduledNotificationType = Database["public"]["Enums"]["scheduled_n
 export type ScheduledNotificationStatus =
 	Database["public"]["Enums"]["scheduled_notification_status"];
 
-/** Supabase admin client type used by schedule jobs/RPCs. */
-export type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
+import type { SupabaseAdminClient } from "../db/supabase";
 
+export type { SupabaseAdminClient } from "../db/supabase";
 /** Aggregate counters for a scheduler run (used for logging/metrics). */
 export interface ScheduledNotificationTotals {
 	skipped: number;

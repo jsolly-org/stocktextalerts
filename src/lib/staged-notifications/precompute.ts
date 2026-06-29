@@ -20,17 +20,9 @@ import { createEmailSender } from "../messaging/email/utils";
 import { createLogoCache } from "../messaging/logo-fetcher";
 import { createSmsSenderFactory } from "../messaging/sms/sender-factory";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
-import { toIsoOrThrow } from "../time/format";
-
-/** Pre-compute window in seconds (look ahead this far). */
-const PRECOMPUTE_WINDOW_SECONDS = 30;
-
-/** Daily fan-out batch size for pre-compute dispatching. */
-const DAILY_DISPATCH_BATCH_SIZE = (() => {
-	const raw = process.env.SCHEDULE_DAILY_DISPATCH_BATCH_SIZE;
-	const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
-	return Number.isFinite(parsed) && parsed > 0 ? parsed : 25;
-})();
+import { DAILY_DISPATCH_BATCH_SIZE } from "../scheduler-constants";
+import { toIsoOrThrow } from "../time/display";
+import { PRECOMPUTE_WINDOW_SECONDS } from "./constants";
 
 /** Pre-compute daily digest notifications for users due in the next 30 seconds. */
 export async function precomputeDailyDigest(options: {

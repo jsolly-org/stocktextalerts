@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ExtendedAssetQuote } from "../../../src/lib/market-data/types";
+import type { ExtendedAssetQuote } from "../../../src/lib/market-data-types";
 import type { PrefChannel } from "../../../src/lib/messaging/notification-prefs";
 
 // Mock external dependencies

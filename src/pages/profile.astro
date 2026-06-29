@@ -11,11 +11,11 @@ import Layout from "../layouts/Layout.astro";
 import { isUserApproved } from "../lib/auth/approval/status";
 import { getAuthErrorMessage } from "../lib/auth/messages";
 import { buildSigninRedirectUrl } from "../lib/auth/redirects";
-import { formatMessage } from "../lib/constants";
+import { formatMessage } from "../lib/messaging/status-messages";
 import { createUserService } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
-import { getTimezoneOptions } from "../lib/time/cache";
+import { getTimezoneOptions } from "../lib/time/timezone/cache";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);

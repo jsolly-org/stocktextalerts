@@ -1,6 +1,6 @@
 import type { Logger } from "../../logging";
 import { createErrorForLogging, extractErrorMessage } from "../../logging/errors";
-import type { AssetPriceMap, MarketSession } from "../../market-data/types";
+import type { AssetPriceMap, MarketSession } from "../../market-data-types";
 import { processEmailUpdate } from "../../messaging/email/delivery";
 import type { EmailSender } from "../../messaging/email/utils";
 import { formatMarketScheduledTelegram } from "../../messaging/notifications/market-scheduled";
@@ -10,11 +10,11 @@ import { processSmsUpdate } from "../../messaging/sms/delivery";
 import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
 import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../../messaging/telegram/sender-factory";
-import type { UserAssetRow, UserRecord } from "../../messaging/types";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../../schedule/helpers";
 import { claimNotification, updateScheduledNotificationRow } from "../../schedule/helpers";
-import type { MarketClosureInfo } from "../../time/market-calendar";
+import type { MarketClosureInfo } from "../../time/market/calendar";
 import type { IsoDateString, MinuteOfDay } from "../../types";
+import type { UserAssetRow, UserRecord } from "../../user-record-types";
 
 /**
  * Deliver a scheduled market asset update via email and record the result.

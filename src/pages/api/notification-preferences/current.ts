@@ -3,10 +3,10 @@ import {
 	buildChannelPreferenceSnapshot,
 	loadUserPreferenceRows,
 } from "../../../lib/api/notification-preferences-channels";
-import type { ApiJsonBody } from "../../../lib/api/types";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
+import type { ApiJsonBody } from "../types";
 
 /**
  * Read the authenticated user's current notification-preferences.

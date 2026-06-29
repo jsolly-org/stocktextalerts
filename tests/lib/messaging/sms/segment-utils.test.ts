@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { SMS_UCS2_SEGMENT_SIZE } from "../../../../src/lib/constants";
 import { formatDailyDigestSmsMessages } from "../../../../src/lib/daily-digest/delivery";
+import { SMS_UCS2_SEGMENT_SIZE } from "../../../../src/lib/messaging/sms/constants";
 import {
 	finalizeSmsBodyForUcs2Segments,
 	findDailyDigestProtectedSpans,

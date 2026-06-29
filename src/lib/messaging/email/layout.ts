@@ -1,4 +1,4 @@
-import { DASHBOARD_SECTION_HASHES } from "../../constants";
+import { DASHBOARD_SECTION_HASHES } from "../../dashboard-link-constants";
 import { getSiteUrl } from "../../db/env";
 import { NOT_FINANCIAL_ADVICE } from "../parts/footer";
 import { escapeHtml } from "../parts/html-utils";

@@ -7,16 +7,16 @@ import { shouldSendSms } from "../messaging/sms";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
-import type { UserRecord } from "../messaging/types";
 import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
 	UserAssetsMap,
 } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
-import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
-import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
+import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market/calendar";
+import { getLocalMinutesFromDateTime } from "../time/schedule/next-send";
 import { assertIsoDateString } from "../types";
+import type { UserRecord } from "../user-record-types";
 import { type AssetEventsTelegramFacets, buildAssetEventsContentForChannels } from "./content";
 import {
 	processAssetEventsEmailDelivery,

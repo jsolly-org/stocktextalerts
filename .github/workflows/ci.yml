@@ -201,8 +201,6 @@ jobs:
 
       - name: Build application
         run: npm run build
-        env:
-          SKIP_VENDOR_HTTP_IN_TEST: "1"
 
       - name: Upload Playwright traces
         if: failure()

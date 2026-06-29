@@ -1,11 +1,11 @@
+import { marketDataFetch } from "../vendors/massive";
 import {
-	COMPANY_NEWS_REQUEST_TIMEOUT_MS,
 	isOptionalVendorUnavailable,
 	noteOptionalVendorSkip,
 	recordOptionalVendorFailure,
 	recordOptionalVendorSuccess,
-} from "../resilience/optional-vendors";
-import { marketDataFetch } from "../vendors/massive";
+} from "../vendors/optional-vendors";
+import { COMPANY_NEWS_REQUEST_TIMEOUT_MS } from "./constants";
 import type { CompanyNewsItem } from "./types";
 
 /**

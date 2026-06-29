@@ -2,8 +2,8 @@ import { fetchUsersWithRetry } from "../db/user-query";
 import type { Logger } from "../logging";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
 import { anyFacetEnabled, isFacetEnabled } from "../messaging/notification-prefs";
-import type { UserRecord } from "../messaging/types";
 import type { SupabaseAdminClient } from "../schedule/helpers";
+import type { UserRecord } from "../user-record-types";
 
 /** Channel-level user columns (per-option facets live in notification_preferences). */
 const ASSET_EVENTS_USER_SELECT = `

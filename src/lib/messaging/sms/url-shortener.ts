@@ -1,8 +1,8 @@
-import { SHORT_URL_TTL_DAYS } from "../../constants";
 import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import { isSafeRedirectUrl } from "../../validation";
+import { SHORT_URL_TTL_DAYS } from "./constants";
 
 const SHORT_ID_LENGTH = 6;
 const BASE62_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";

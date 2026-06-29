@@ -16,8 +16,9 @@ Local gate before push: pre-push hook steps in `.git-hooks/pre-push` (lint/types
 npm run dev                # Dev server at http://localhost:4321
 npm run dev:stop           # Stop Astro 7 background dev server / clear lock
 npm run build              # Production build
-npm test                   # Vitest (requires local Supabase running)
-npm run test:e2e           # Playwright E2E tests
+npm test                   # Vitest — blocked locally unless ALLOW_LOCAL_DB_TESTS=1 (CI is canonical)
+npm run test:local         # Local opt-in + auto preflight (Podman start, db:doctor, db:start retry)
+npm run test:e2e           # Playwright E2E — same opt-in
 npm run check:ts           # TypeScript check
 npm run check:knip         # Find unused exports / files / dependencies
 npm run check:biome        # Biome format + lint check
@@ -31,8 +32,8 @@ npm run db:gen-types       # Regenerate src/lib/db/generated/database.types.ts
 supabase migration new <name>  # Create new migration (never rename timestamps)
 ```
 
-**Single test file:** `npm test -- tests/lib/some-file.test.ts`
-Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-if-exists`.
+**Single test file (debugging only):** `ALLOW_LOCAL_DB_TESTS=1 npm test -- tests/lib/some-file.test.ts` (or `npm run test:local -- tests/lib/some-file.test.ts`)
+Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-if-exists`. Do **not** run local DB tests as a merge gate — wait for GitHub CI.
 
 ## Architecture
 
@@ -50,9 +51,9 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 
 ## Local development
 
-- **Services for dev/test:** Local Supabase (Postgres + Auth + Mailpit at <http://127.0.0.1:54324>) must be running before `npm test` / `npm run dev` (`predev` / `pretest` call `db:doctor`). Start or repair with `npm run db:bootstrap`. Astro dev server: `npm run dev` → <http://localhost:4321>. Astro 7 dev lock: `npm run dev:stop` / `astro dev stop` before E2E or when tests contend on `.astro/dev.json`.
+- **Services for dev/test:** Local Supabase (Postgres + Auth + Mailpit at <http://127.0.0.1:54324>) must be running before `npm run dev` (`predev` calls `db:doctor`, failures are non-fatal). DB-backed tests (`npm test`, `npm run test:e2e`) are **blocked locally unless `ALLOW_LOCAL_DB_TESTS=1`** — GitHub CI is the canonical runner. Prefer `npm run test:local` / `npm run test:e2e:local` (opt-in + auto preflight: Podman start, `db:doctor`, `db:start` retry). Full repair when preflight still fails: `npm run db:bootstrap`. Astro dev server: `npm run dev` → <http://localhost:4321>. Astro 7 dev lock: `npm run dev:stop` / `astro dev stop` before opt-in E2E or when tests contend on `.astro/dev.json`.
 - **E2E:** Playwright uses port **4322** (`MODE=test npm run dev -- --port 4322`); preview E2E uses **4323** (`npm run test:e2e:preview`). See `docs/tooling-setup.md` for the full port map.
-- **Smoke checks:** `npm run check:biome`, `npm run check:ts`, `npm test` (needs Supabase), `npm run build`. Full browser E2E: `npm run test:e2e` (needs Playwright + Supabase + dev on 4322).
+- **Smoke checks:** `npm run check:biome`, `npm run check:ts`, `npm run build`. Full test battery runs in GitHub CI — local `npm test` / E2E require `ALLOW_LOCAL_DB_TESTS=1` (debugging only).
 
 ## Project-Specific Style
 
@@ -74,13 +75,15 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 
 ## Testing (Project-Specific)
 
+**Scope:** The local DB test opt-in (`ALLOW_LOCAL_DB_TESTS`), `test:local` preflight chain, and `.cursor/skills/local-tests` are **StockTextAlerts-only** — shared Supabase stack, Podman wiring, and CI-as-canonical model for this repo. Fleet-wide agent conventions (skills distribution, `/ship`, tool hygiene) live in `~/code/dotagents`; other repos do not copy this test guard unless they document the same pattern.
+
 - Tests share DB state — `fileParallelism: false`. Use `registerTestUserForCleanup` for test users.
 - **Use the real Supabase client** with seeded data via helpers in `tests/helpers/`. Exception: `formatPriceAlertSms` (async, hits the URL shortener) — see below.
 - **Console spies**: Tests fail on unexpected `console.warn`/`console.error`. Use `expectConsoleWarning()`/`expectConsoleError()` from `tests/setup.ts`.
 - **Schema version**: When adding migrations, update `app_metadata.schema_version` in SQL and `EXPECTED_DB_SCHEMA_VERSION` in `tests/helpers/constants.ts`.
 - `formatPriceAlertSms` is **async** (shortens Grok link URLs via the `short_urls` table). Mock supabase for it must include a `.from().select().eq().gt().limit().single()` chain for the shortener dedup lookup. All other SMS formatters are sync.
 - **No local live provider tests.** Provider keys (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`, `XAI_API_KEY`, `TELEGRAM_BOT_TOKEN`) live in the Lambda runtime and are always stubbed in the local suite. `MASSIVE_API_KEY` is **also** present in the Vercel runtime — the logo endpoint (`src/pages/api/assets/logo/[symbol].ts`) reads it at request time; `TELEGRAM_BOT_TOKEN` is also on Vercel (the webhook reply); `FINNHUB_API_KEY`/`XAI_API_KEY` are Lambda-only. Real Massive/Finnhub round-trips — plus a **read-only Telegram token check** (`getMe()`/`getWebhookInfo()` only, never a send; `src/lib/messaging/telegram/health.ts`) — are validated in production by the scheduled `stocktextalerts-live-provider-check` Lambda (`src/handlers/live-provider-check.ts`); invoke it with `aws lambda invoke` to test on demand. There is no local Telegram live-send target — the only real-message check is the one-time manual post-deploy `/start` E2E.
-- **Test concurrency lock:** `npm test` and `npm run test:e2e` acquire a per-repo lock at `<git-common-dir>/test.lock` (cross-worktree). If another worktree is already running tests, the runner waits **2 minutes** and retries, up to **3 attempts** total, before printing the contention banner and exiting. Stale locks (dead PID) are taken over silently on the next attempt. **Agents:** let this retry loop run — do not force-clear the lock or spawn parallel test runs while waiting. If all 3 attempts fail, stop and report the contention message to the user (another worktree's suite is still running). Force-clear only when you're sure the holder PID is dead: `rm $(git rev-parse --git-common-dir)/test.lock`.
+- **Test concurrency lock:** When `ALLOW_LOCAL_DB_TESTS=1`, `npm test` and `npm run test:e2e` acquire a per-repo lock at `<git-common-dir>/test.lock` (cross-worktree). If another worktree is already running tests, the runner waits **2 minutes** and retries, up to **3 attempts** total, before printing the contention banner and exiting. Stale locks (dead PID) are taken over silently on the next attempt. **Agents:** do not run local DB tests unless the user explicitly opts in (`ALLOW_LOCAL_DB_TESTS=1` or `npm run test:local` / `test:e2e:local`); prefer those wrappers so preflight repairs Podman/Supabase first. Let the retry loop run if they do — do not force-clear the lock or spawn parallel test runs while waiting. If all 3 attempts fail, stop and report the contention message to the user (another worktree's suite is still running). Force-clear only when you're sure the holder PID is dead: `rm $(git rev-parse --git-common-dir)/test.lock`.
 - **Fresh worktree?** A committed `.git-hooks/post-checkout` now AUTO-provisions a manual `git worktree add` (via dotagents' shared provisioner it runs `npm run worktree:provision` — carry `.env.local` + real `npm ci` + mise; never symlink `node_modules`, Vite `server.fs.allow` 403s on a symlink). For a first run that also needs the local DB seeded, run `npm run worktree:init` (`worktree:provision` + `db:bootstrap`) — the post-checkout deliberately runs only `worktree:provision`, NOT `worktree:init`, so a routine worktree add never triggers `db:bootstrap`'s destructive reset of the shared stack. A new worktree branches from `origin/main` and lacks gitignored `.env.local` + `scripts/data/users.json` and `node_modules`. **All worktrees share ONE local Supabase stack** (default ports, project_id `stocktextalerts`); the cross-worktree `test.lock` serializes DB access (a second `npm test` waits), and `db:reset` acquires that lock so it can't reset the shared DB under another worktree's running suite. `.env.local` is copied (not port-patched) — the shared default ports are already correct. Migrating an old per-worktree-stack worktree: `npm run db:collapse-worktree-stacks` (dry-run; `-- --apply` to execute). See `docs/local-supabase.md`.
 
 See `tests/README.md` for the production-credential gating model and Mailpit dev/test routing.
@@ -159,7 +162,7 @@ See `docs/tooling-setup.md` for Production Supabase access (psql, env vars, proj
 
 ## UI Conventions
 
-- **All times shown to the user must respect `use_24_hour_time`** — pass `hour12: !is24` to `toLocaleTimeString` / `Intl.DateTimeFormat`. Stored on `users.use_24_hour_time` in DB, exposed as `user.value.use_24_hour_time` in Vue composables. Helper: `formatMinutesAsLocalTime(minutes, is24)` in `src/lib/time/format.ts`.
+- **All times shown to the user must respect `use_24_hour_time`** — pass `hour12: !is24` to `toLocaleTimeString` / `Intl.DateTimeFormat`. Stored on `users.use_24_hour_time` in DB, exposed as `user.value.use_24_hour_time` in Vue composables. Helper: `formatMinutesAsLocalTime(minutes, is24)` in `src/lib/time/display.ts`.
 
 ## Astro 7 notes
 

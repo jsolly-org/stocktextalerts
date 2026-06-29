@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { VERIFICATION_RESEND_COOLDOWN_MS } from "../../../../src/lib/constants";
+import { VERIFICATION_RESEND_COOLDOWN_MS } from "../../../../src/lib/auth-constants";
 import { POST as sendVerificationPost } from "../../../../src/pages/api/auth/sms/send-verification";
 import { createApiContext } from "../../../helpers/api-context";
 import { adminClient, createAuthenticatedCookies } from "../../../helpers/test-env";

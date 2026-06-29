@@ -247,14 +247,17 @@ If you want Twilio inbound SMS webhooks (STOP/START/HELP) to hit your local dev 
 
 ## Testing
 
+GitHub CI runs the full test battery on every PR and `main` push. Local DB-backed tests are **opt-in** — see [tests/README.md](tests/README.md).
+
 ```bash
+# Debugging only (requires local Supabase + ALLOW_LOCAL_DB_TESTS=1):
 npm run db:start
 npm run db:reset
-npm run test
-npm run test:e2e
+ALLOW_LOCAL_DB_TESTS=1 npm test
+ALLOW_LOCAL_DB_TESTS=1 npm run test:e2e
 ```
 
-For local development, run `npm run db:reset` before `npm run test` to ensure your Supabase DB matches the current migrations and seed data.
+For local debugging, run `npm run db:reset` before tests to ensure your Supabase DB matches the current migrations and seed data.
 
 ### CI (GitHub Actions + local pre-push gate)
 

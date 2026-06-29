@@ -1,13 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { APIContext } from "astro";
 import { sendRegistrationAdminEmail } from "../../../../lib/auth/approval/registration-admin-email";
-import { MIN_PASSWORD_LENGTH, REGISTRATION_ENABLED } from "../../../../lib/constants";
+import { MIN_PASSWORD_LENGTH, REGISTRATION_ENABLED } from "../../../../lib/auth-constants";
 import { getSiteUrl } from "../../../../lib/db/env";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
 import { createLogger, type Logger } from "../../../../lib/logging";
 import { buildDefaultPreferenceRows } from "../../../../lib/messaging/notification-prefs";
-import { resolveTimezone } from "../../../../lib/time/cache";
+import { resolveTimezone } from "../../../../lib/time/timezone/cache";
 
 async function cleanupOrphanedAuthUser(
 	adminSupabase: SupabaseClient,

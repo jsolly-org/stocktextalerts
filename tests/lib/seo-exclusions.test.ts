@@ -4,7 +4,7 @@ import {
 	isExcludedFromSitemap,
 	ROBOTS_DISALLOW_PREFIXES,
 	SITEMAP_EXCLUDED_ROUTE_PREFIXES,
-} from "../../src/lib/seo/excluded-routes";
+} from "../../seo-routes";
 import { GET as getRobotsTxt } from "../../src/pages/robots.txt";
 import { createApiContext } from "../helpers/api-context";
 

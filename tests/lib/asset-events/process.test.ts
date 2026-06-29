@@ -34,7 +34,7 @@ vi.mock("../../../src/lib/asset-events/delivery", async () => {
 	};
 });
 
-vi.mock("../../../src/lib/time/market-calendar", () => ({
+vi.mock("../../../src/lib/time/market/calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
 
@@ -46,7 +46,7 @@ vi.mock("../../../src/lib/asset-events/next-send-at", () => ({
 	updateUserAssetEventsNextSendAt: vi.fn().mockResolvedValue(undefined),
 }));
 
-import type { UserRecord } from "../../../src/lib/messaging/types";
+import type { UserRecord } from "../../../src/lib/user-record-types";
 import { makePrefRows, makeUserRecord } from "../../helpers/user-record-fixture";
 
 function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {

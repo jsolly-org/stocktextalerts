@@ -5,8 +5,8 @@ import {
 	buildDefaultPreferenceRows,
 	type PrefChannel,
 } from "../../src/lib/messaging/notification-prefs";
-import { userLocalToEtMinute } from "../../src/lib/time/format";
-import { calculateNextSendAtFromTimes } from "../../src/lib/time/scheduled-times";
+import { userLocalToEtMinute } from "../../src/lib/time/conversion";
+import { calculateNextSendAtFromTimes } from "../../src/lib/time/schedule/next-send";
 import { getAssetData } from "./asset-data";
 import { upsertAssets } from "./asset-db";
 import { PRESERVED_TEST_EMAIL, TEST_RUN_ID } from "./constants";

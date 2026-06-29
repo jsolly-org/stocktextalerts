@@ -10,7 +10,7 @@ import { fetchTopMovers, type TopMover } from "../market-data/movers";
 import { fetchAssetPricesWithSessionState } from "../market-data/prices";
 import { getCurrentMarketSession } from "../market-data/session";
 import { fetchIntradaySparklines, fetchSparklines } from "../market-data/sparklines";
-import type { AssetPriceMap, MarketSession } from "../market-data/types";
+import type { AssetPriceMap, MarketSession } from "../market-data-types";
 import type { EmailSender } from "../messaging/email/utils";
 import { type LogoCache, safePrefetchLogos } from "../messaging/logo-fetcher";
 import { anyFacetEnabled, enabledFacets, isFacetEnabled } from "../messaging/notification-prefs";
@@ -24,14 +24,12 @@ import { shouldSendSms } from "../messaging/sms";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
-import type { UserRecord } from "../messaging/types";
-import { withOptionalVendorBudget } from "../resilience/optional-vendors";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
+import type { StagedDailyData } from "../staged-notification-types";
 import { upsertStagedNotification } from "../staged-notifications/db";
-import type { StagedDailyData } from "../staged-notifications/types";
-import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
-import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
+import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market/calendar";
+import { getLocalMinutesFromDateTime } from "../time/schedule/next-send";
 import {
 	assertIsoDateString,
 	assertYearMonthString,
@@ -39,6 +37,8 @@ import {
 	type MinuteOfDay,
 	type ScheduledSlotKey,
 } from "../types";
+import type { UserRecord } from "../user-record-types";
+import { withOptionalVendorBudget } from "../vendors/optional-vendors";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsMessageBodies,

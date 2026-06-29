@@ -7,7 +7,7 @@ vi.mock("../../../src/lib/vendors/massive", () => ({
 	marketDataFetch: marketDataFetchMock,
 }));
 
-type CalendarModule = typeof import("../../../src/lib/time/market-calendar");
+type CalendarModule = typeof import("../../../src/lib/time/market/calendar");
 
 describe("getUsMarketClosureInfoForInstant", () => {
 	let calendar: CalendarModule;
@@ -18,7 +18,7 @@ describe("getUsMarketClosureInfoForInstant", () => {
 		// The module caches `/v1/marketstatus/upcoming` for 12 hours; resetting
 		// modules between tests forces a fresh fetch with each test's mock state.
 		vi.resetModules();
-		calendar = await import("../../../src/lib/time/market-calendar");
+		calendar = await import("../../../src/lib/time/market/calendar");
 	});
 
 	afterEach(() => {

@@ -1,8 +1,8 @@
 import { getSiteUrl } from "../../db/env";
+import type { DeliveryResult } from "../../delivery-types";
 import type { Logger } from "../../logging";
 import { sendAppTransactionalEmail } from "../../messaging/email/dispatch-client";
 import { renderEmailButton, renderEmailShell } from "../../messaging/email/layout";
-import type { DeliveryResult } from "../../messaging/types";
 
 type ApprovedUser = {
 	id: string;

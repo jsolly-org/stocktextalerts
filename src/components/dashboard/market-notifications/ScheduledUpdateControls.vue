@@ -149,12 +149,12 @@ import { computed } from "vue";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import PlusIcon from "../../../icons/plus.svg?component";
 import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
+import { userLocalToEtMinute } from "../../../lib/time/conversion";
 import {
 	getScheduledMarketSession,
-	parseTimeToMinutes,
 	type ScheduledMarketSession,
-	userLocalToEtMinute,
-} from "../../../lib/time/format";
+} from "../../../lib/time/market/session";
+import { parseTimeToMinutes } from "../../../lib/time/parse";
 import { useHydrated } from "../../composables/useHydrated";
 import StatusMessage from "../../StatusMessage.vue";
 import TimePicker from "../shared/TimePicker.vue";

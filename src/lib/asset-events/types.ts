@@ -4,23 +4,6 @@ export interface ProviderResult<T> {
 	failed: boolean;
 }
 
-export interface RecommendationTrend {
-	buy: number;
-	hold: number;
-	sell: number;
-	strongBuy: number;
-	strongSell: number;
-	period: string;
-}
-
-export interface InsiderTransaction {
-	name: string;
-	share: number;
-	change: number;
-	transactionType: string;
-	transactionDate: string;
-}
-
 export interface EarningsEvent {
 	ticker: string;
 	date: string;

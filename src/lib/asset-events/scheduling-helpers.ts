@@ -1,7 +1,7 @@
 import { DateTime } from "luxon";
 import type { User, UserUpdateInput } from "../db";
-import { userLocalToEtMinute } from "../time/format";
-import { calculateNextSendAt } from "../time/scheduled-times";
+import { userLocalToEtMinute } from "../time/conversion";
+import { calculateNextSendAt } from "../time/schedule/next-send";
 
 /** Default local delivery minute when asset events is enabled but daily_digest_time is unset. */
 export const DEFAULT_ASSET_EVENTS_DELIVERY_MINUTES = 540; // 9:00 AM

@@ -63,6 +63,8 @@ scripts/data/users.json
 !.cursor/worktrees.json
 !.cursor/rules/
 !.cursor/rules/**
+!.cursor/skills/local-tests/
+!.cursor/skills/local-tests/**
 
 
 # Materialized agent config (fetched by .dotagents/bootstrap.sh; not committed)

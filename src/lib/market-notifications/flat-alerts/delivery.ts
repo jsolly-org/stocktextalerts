@@ -1,7 +1,7 @@
 import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
-import type { ExtendedAssetQuote, IntradayBarsResult } from "../../market-data/types";
+import type { ExtendedAssetQuote, IntradayBarsResult } from "../../market-data-types";
 import { sendUserEmail } from "../../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
 import type { EmailSender } from "../../messaging/email/utils";

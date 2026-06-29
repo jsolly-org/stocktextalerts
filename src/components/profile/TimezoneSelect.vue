@@ -25,7 +25,7 @@
 <script lang="ts" setup>
 import { computed } from "vue";
 
-import type { TimezoneOption } from "../../lib/time/types";
+import type { TimezoneOption } from "../../lib/timezone-types";
 
 interface Props {
 	id: string;

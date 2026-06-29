@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_MARKET_UPDATE_TIME_MINUTES } from "../../../src/lib/constants";
+import { DEFAULT_MARKET_UPDATE_TIME_MINUTES } from "../../../src/lib/market-constants";
 import { POST } from "../../../src/pages/api/notification-preferences/update";
 import { createApiContext, createFormPostRequest } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";

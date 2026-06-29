@@ -1,14 +1,13 @@
 import { setTimeout as realDelay } from "node:timers/promises";
-import { FINNHUB_BASE_URL } from "../constants";
 import { requireEnv } from "../db/env";
 import { rootLogger } from "../logging";
-import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "../resilience/optional-vendors";
 import {
+	FINNHUB_BASE_URL,
 	VENDOR_FETCH_MAX_RETRIES as MAX_RETRIES,
 	VENDOR_FETCH_REQUEST_TIMEOUT_MS as REQUEST_TIMEOUT_MS,
 	VENDOR_FETCH_RETRY_DELAY_MS as RETRY_DELAY_MS,
-	shouldSkipVendorHttpInTestMode,
-} from "./fetch";
+} from "./constants";
+import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "./optional-vendors";
 
 export type FinnhubFetchPolicy = {
 	/** When true, terminal failures log as optional degradation (warn), not vendor_retry_exhausted. */
@@ -64,10 +63,6 @@ export async function finnhubFetch(
 	label: string,
 	policy?: FinnhubFetchPolicy,
 ): Promise<unknown> {
-	if (shouldSkipVendorHttpInTestMode("finnhub")) {
-		return null;
-	}
-
 	const optional = policy?.optional === true;
 	const failureCategory = optional ? OPTIONAL_VENDOR_DEGRADED_CATEGORY : "vendor_retry_exhausted";
 	const apiKey = getFinnhubApiKey();

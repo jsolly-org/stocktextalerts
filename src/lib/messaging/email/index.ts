@@ -1,5 +1,6 @@
+import type { DeliveryResult } from "../../delivery-types";
 import { rootLogger } from "../../logging";
-import type { DeliveryResult, EmailUser } from "../types";
+import type { EmailUser } from "../types";
 import type { EmailSender } from "./utils";
 
 // Errors are caught and returned as DeliveryResult so callers can log outcomes consistently.

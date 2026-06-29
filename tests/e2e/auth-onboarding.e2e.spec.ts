@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { REGISTRATION_ENABLED } from "../../src/lib/constants";
+import { REGISTRATION_ENABLED } from "../../src/lib/auth-constants";
 import { rootLogger } from "../../src/lib/logging";
 import { NEW_PASSWORD, TEST_PASSWORD } from "../helpers/constants";
 import { expectCurrentPath, fillEmailInput, signIn, signOut } from "../helpers/e2e/auth";

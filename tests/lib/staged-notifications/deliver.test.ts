@@ -9,10 +9,11 @@ import type { MessageEntity } from "grammy/types";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../src/lib/time/market-calendar", () => ({
+vi.mock("../../../src/lib/time/market/calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
 
+import type { DeliveryResult } from "../../../src/lib/delivery-types";
 import type { Logger } from "../../../src/lib/logging";
 import { createEmailSender, type EmailSender } from "../../../src/lib/messaging/email/utils";
 import {
@@ -30,7 +31,6 @@ import {
 	createTelegramSenderFactory,
 	type TelegramSenderFactory,
 } from "../../../src/lib/messaging/telegram/sender-factory";
-import type { DeliveryResult } from "../../../src/lib/messaging/types";
 import { deliverStagedNotifications } from "../../../src/lib/staged-notifications/deliver";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";

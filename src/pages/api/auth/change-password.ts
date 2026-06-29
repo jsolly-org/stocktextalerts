@@ -4,7 +4,7 @@ import {
 } from "astro:env/server";
 import type { APIRoute } from "astro";
 import { enforceAuthRateLimit } from "../../../lib/auth/enforce-rate-limit";
-import { MIN_PASSWORD_LENGTH } from "../../../lib/constants";
+import { MIN_PASSWORD_LENGTH } from "../../../lib/auth-constants";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";

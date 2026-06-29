@@ -1,5 +1,6 @@
 #!/usr/bin/env npx tsx
 import { spawnSync } from "node:child_process";
+import { assertLocalDbTestsAllowed } from "./guard-local-db-tests";
 import { stopAstroDevLockAfterHttpTests } from "./helpers/http/server";
 import { normalizeDirectVitestProcessEnv } from "./helpers/test-process-env";
 import {
@@ -28,6 +29,7 @@ function ensureNoWatch(vitestArgs: string[]): string[] {
  * - exits with the child process status code
  */
 async function main() {
+	assertLocalDbTestsAllowed("vitest");
 	normalizeDirectVitestProcessEnv();
 
 	try {
@@ -59,7 +61,12 @@ async function main() {
 	process.exit(exitCode);
 }
 
-main().catch((err) => {
-	process.stderr.write(`${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`);
-	process.exit(1);
-});
+const isMain =
+	typeof process.argv[1] === "string" && import.meta.url === `file://${process.argv[1]}`;
+
+if (isMain) {
+	main().catch((err) => {
+		process.stderr.write(`${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`);
+		process.exit(1);
+	});
+}

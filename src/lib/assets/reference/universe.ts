@@ -1,5 +1,4 @@
 import { rootLogger } from "../../logging";
-import { shouldSkipVendorHttpInTestMode } from "../../vendors/fetch";
 import { marketDataFetch } from "../../vendors/massive";
 import type { ActiveTicker } from "./types";
 
@@ -132,7 +131,6 @@ async function listActiveTickersForType(
 
 /** Fetch the complete, de-duplicated active US stock/ETF universe from Massive. */
 export async function fetchActiveTickers(): Promise<ActiveTicker[]> {
-	if (shouldSkipVendorHttpInTestMode("massive")) return [];
 	const collected: ActiveTicker[] = [];
 	for (const { apiType, normalizedType } of ACTIVE_TICKER_TYPES) {
 		collected.push(...(await listActiveTickersForType(apiType, normalizedType)));

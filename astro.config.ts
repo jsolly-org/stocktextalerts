@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import sitemap from "@astrojs/sitemap";
 import vercel from "@astrojs/vercel";
 import { cacheVercel } from "@astrojs/vercel/cache";
@@ -7,10 +8,19 @@ import { defineConfig, envField, memoryCache } from "astro/config";
 import icon from "astro-icon";
 import { loadEnv } from "vite";
 import svgLoader from "vite-svg-loader";
-import { isExcludedFromSitemap } from "./src/lib/seo/excluded-routes";
+import { isExcludedFromSitemap } from "./seo-routes";
+
+const vendorMassivePath = fileURLToPath(new URL("./src/lib/vendors/massive.ts", import.meta.url));
+const vendorFinnhubPath = fileURLToPath(new URL("./src/lib/vendors/finnhub.ts", import.meta.url));
+const stubVendorMassivePath = fileURLToPath(
+	new URL("./tests/stubs/vendors/massive.ts", import.meta.url),
+);
+const stubVendorFinnhubPath = fileURLToPath(
+	new URL("./tests/stubs/vendors/finnhub.ts", import.meta.url),
+);
 
 // Config runs before Vite loads .env*; loadEnv makes .env / .env.local available here.
-const mode = process.env.NODE_ENV || process.env.MODE || "development";
+const mode = process.env.MODE || process.env.NODE_ENV || "development";
 const env = loadEnv(mode, process.cwd(), "");
 // Prefer loaded env (.env.local), then process.env (shell, Vercel).
 // VERCEL_PROJECT_PRODUCTION_URL is the canonical production domain (e.g. "www.stocktextalerts.com").
@@ -76,6 +86,10 @@ function sitemapFilter(page: string): boolean {
 	const pathname = new URL(page).pathname;
 	return !isExcludedFromSitemap(pathname);
 }
+
+// E2E / HTTP-test Astro servers use dummy API keys; swap vendor modules for no-op stubs.
+// Vitest unit tests keep real modules (VITEST=true) so fetch spies exercise retry logic.
+const useVendorStubs = mode === "test" && process.env.VITEST !== "true";
 
 // https://astro.build/config
 export default defineConfig({
@@ -160,6 +174,14 @@ export default defineConfig({
 	],
 
 	vite: {
+		resolve: useVendorStubs
+			? {
+					alias: [
+						{ find: vendorMassivePath, replacement: stubVendorMassivePath },
+						{ find: vendorFinnhubPath, replacement: stubVendorFinnhubPath },
+					],
+				}
+			: undefined,
 		server: {
 			// Allow Vite dev server to be accessed through ngrok.
 			// Vite treats leading-dot entries as wildcard subdomains.

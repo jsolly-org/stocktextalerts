@@ -12,10 +12,10 @@ import { setTimeout as realDelay } from "node:timers/promises";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import nodemailer, { type Transporter } from "nodemailer";
 import { readEnv, requireEnv } from "../../db/env";
+import type { DeliveryResult } from "../../delivery-types";
 import { rootLogger } from "../../logging";
 import { withDeliveryRetry } from "../delivery-retry";
 import { escapeHtml } from "../parts/html-utils";
-import type { DeliveryResult } from "../types";
 
 const EMAIL_MAX_PER_SECOND = 14;
 const recentSendTimestamps: number[] = [];

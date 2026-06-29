@@ -32,12 +32,11 @@ import { setTimeout as realDelay } from "node:timers/promises";
 import { DateTime } from "luxon";
 import { processAssetEventsUser } from "../asset-events/process";
 import { fetchAssetEventsUsers } from "../asset-events/query";
-import { enqueuePriceHistoryStoreRetry } from "../backfill/queue";
 import { dispatchDailyDigestUser } from "../daily-digest/dispatch";
 import { fetchDailyDigestUsers } from "../daily-digest/query";
 import type { Logger } from "../logging";
 import { fetchAssetPricesWithSessionState, fetchExtendedQuotes } from "../market-data/prices";
-import type { AssetPriceMap, ExtendedQuoteMap, MarketSession } from "../market-data/types";
+import type { AssetPriceMap, ExtendedQuoteMap, MarketSession } from "../market-data-types";
 import {
 	type FlatPriceAlertTotals,
 	processFlatPriceAlerts,
@@ -56,10 +55,12 @@ import { createLogoCache, type LogoCache } from "../messaging/logo-fetcher";
 import { createSmsSenderFactory } from "../messaging/sms/sender-factory";
 import { createTelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import { type PriceTargetTotals, processPriceTargets } from "../price-targets/process";
+import { DAILY_DISPATCH_BATCH_SIZE } from "../scheduler-constants";
 import { deliverStagedNotifications } from "../staged-notifications/deliver";
 import { precomputeDailyDigest } from "../staged-notifications/precompute";
-import { toIsoOrThrow } from "../time/format";
-import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
+import { toIsoOrThrow } from "../time/display";
+import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market/calendar";
+import { enqueuePriceHistoryStoreRetry } from "../vendors/backfill/enqueue";
 import {
 	batchLoadUserAssets,
 	type ScheduledNotificationTotals,
@@ -68,13 +69,6 @@ import {
 	type UserAssetsMap,
 } from "./helpers";
 import { resolveMarketSessionWithFallback } from "./market-session";
-
-/** Daily fan-out batch size for dispatching digest processing. */
-const DAILY_DISPATCH_BATCH_SIZE = (() => {
-	const raw = process.env.SCHEDULE_DAILY_DISPATCH_BATCH_SIZE;
-	const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
-	return Number.isFinite(parsed) && parsed > 0 ? parsed : 25;
-})();
 
 /** Return the delay between pass 1 and pass 2 (ms). */
 function getPassDelayMs(): number {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ExtendedAssetQuote } from "../../../src/lib/market-data/types";
+import type { ExtendedAssetQuote } from "../../../src/lib/market-data-types";
 import { computeAnomalyScore } from "../../../src/lib/market-notifications/anomaly-detection";
 import type { AssetSnapshot } from "../../../src/lib/market-notifications/snapshot-store";
 

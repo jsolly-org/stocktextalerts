@@ -8,7 +8,7 @@ import { createAuthenticatedCookies } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
-vi.mock("../../../src/lib/time/market-scheduled-next-send", () => ({
+vi.mock("../../../src/lib/time/schedule/market-next-send", () => ({
 	calculateNextMarketScheduledSendAtFromTimes: vi.fn().mockResolvedValue({
 		nextSendAt: DateTime.fromISO("2026-02-16T14:30:00.000Z"),
 		delayReasons: [],

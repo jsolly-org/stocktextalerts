@@ -4,7 +4,7 @@ import {
 	type PrefRow,
 	parsePrefRow,
 } from "../../src/lib/messaging/notification-prefs";
-import type { UserRecord } from "../../src/lib/messaging/types";
+import type { UserRecord } from "../../src/lib/user-record-types";
 
 /**
  * Build notification_preferences rows for a test user from a compact spec.

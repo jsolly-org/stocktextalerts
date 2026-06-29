@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setupDetectedTimezoneOption } from "../../../src/lib/time/detected-timezone";
+import { setupDetectedTimezoneOption } from "../../../src/lib/time/timezone/browser-detected";
 
 type SelectOption = { value: string };
 

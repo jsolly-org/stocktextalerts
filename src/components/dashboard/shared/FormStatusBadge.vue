@@ -22,8 +22,8 @@
 
 <script lang="ts" setup>
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
-import { STATUS_TONE_CLASSES, type StatusTone } from "../../../lib/constants";
 import FadeTransition from "../../FadeTransition.vue";
+import { STATUS_TONE_CLASSES, type StatusTone } from "../../ui-constants";
 
 defineProps<{
 	statusMessage: string | null;

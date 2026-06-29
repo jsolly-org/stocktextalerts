@@ -111,25 +111,18 @@ import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import { fetchCurrentNotificationPreferences } from "../../../lib/api/notification-preferences";
+import { formatMessage } from "../../../lib/messaging/status-messages";
+import { etMinuteToUserLocal, getUsBeforeOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
-	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
-	DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID,
-	type FlashMessage,
-	type FlashTone,
-	formatMessage,
-} from "../../../lib/constants";
-import {
-	etMinuteToUserLocal,
 	formatCountdownWithSeconds,
 	formatMinutesAsLocalTime,
 	getSecondsUntilNextSend,
-	getUsBeforeOpenLocalMinutes,
 	minutesToTimeInputValue,
-	parseTimeToMinutes,
-} from "../../../lib/time/format";
+} from "../../../lib/time/display";
+import { parseTimeToMinutes } from "../../../lib/time/parse";
 import { useHydrated } from "../../composables/useHydrated";
 import StatusMessage from "../../StatusMessage.vue";
-import type { InitialAsset } from "../assets/types";
+import type { FlashMessage, FlashTone } from "../../ui-constants";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
@@ -137,10 +130,15 @@ import {
 import { useDashboardUser } from "../composables/useDashboardUser";
 import { provideSmsVerificationContext } from "../composables/useSmsVerificationContext";
 import { useSmsVerificationSubmission } from "../composables/useSmsVerificationSubmission";
+import {
+	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
+	DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID,
+} from "../constants";
 import { DEMO_ASSETS, type PreviewAsset } from "../daily-digest/preview/preview-data";
 import SmsPreview from "../daily-digest/preview/SmsPreview.vue";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
+import type { InitialAsset } from "../types";
 import NotificationChannelsFieldset from "./NotificationChannelsFieldset.vue";
 
 interface Props {

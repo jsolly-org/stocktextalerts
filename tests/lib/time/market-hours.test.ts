@@ -1,12 +1,11 @@
 import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
+import { etMinuteToUserLocal, userLocalToEtMinute } from "../../../src/lib/time/conversion";
 import {
-	etMinuteToUserLocal,
 	getLastMarketClose,
 	getScheduledMarketSession,
 	isOutsideMarketHours,
-	userLocalToEtMinute,
-} from "../../../src/lib/time/format";
+} from "../../../src/lib/time/market/session";
 
 describe("isOutsideMarketHours", () => {
 	// Notification window: 4:30 AM – 7:30 PM ET (ET-minutes [270, 1170])

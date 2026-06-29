@@ -1,9 +1,11 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import type { buildAssetEventsContent } from "../../asset-events/content";
-import { US_MARKET_TIMEZONE } from "../../constants";
 import { getSiteUrl } from "../../db/env";
-import type { AssetPriceMap } from "../../market-data/types";
-import type { MarketClosureInfo } from "../../time/market-calendar";
+import type { DeliveryResult } from "../../delivery-types";
+import { US_MARKET_TIMEZONE } from "../../market-constants";
+import type { AssetPriceMap } from "../../market-data-types";
+import type { MarketClosureInfo } from "../../time/market/calendar";
+import type { UserAssetRow } from "../../user-record-types";
 import { renderEmailSection } from "../email/html-section";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
 import {
@@ -22,7 +24,6 @@ import {
 } from "../parts/market-closure";
 import { packSmsBlocks, type SmsBlock } from "../sms/block-packing";
 import { padDailyDigestSmsSegmentBoundaries } from "../sms/segment-utils";
-import type { DeliveryResult, UserAssetRow } from "../types";
 
 const TICKER_LINE_RE = /^[A-Z][A-Z0-9.-]{0,9}:\s/;
 const QUOTE_TIMESTAMP_FORMAT_BASE: Intl.DateTimeFormatOptions = {

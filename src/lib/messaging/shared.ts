@@ -1,7 +1,7 @@
 import type { Database } from "../db/generated/database.types";
 import type { AppSupabaseClient } from "../db/supabase";
+import type { DeliveryResult } from "../delivery-types";
 import { rootLogger } from "../logging";
-import type { DeliveryResult } from "./types";
 
 /** Map a delivery result to notification_log error/error_code fields. */
 export function deliveryResultToLogFields(result: DeliveryResult): {

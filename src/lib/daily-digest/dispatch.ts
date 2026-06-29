@@ -8,9 +8,9 @@ import {
 	createTelegramSenderFactory,
 	type TelegramSenderFactory,
 } from "../messaging/telegram/sender-factory";
-import type { UserRecord } from "../messaging/types";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
-import type { MarketClosureInfo } from "../time/market-calendar";
+import type { MarketClosureInfo } from "../time/market/calendar";
+import type { UserRecord } from "../user-record-types";
 import { processDailyDigestUser } from "./process";
 import { fetchOneDailyDigestUser } from "./query";
 

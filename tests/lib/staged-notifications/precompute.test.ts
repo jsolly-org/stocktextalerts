@@ -5,8 +5,8 @@ import type { EmailSender } from "../../../src/lib/messaging/email/utils";
 import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { TelegramSender } from "../../../src/lib/messaging/telegram/sender";
-import type { UserRecord } from "../../../src/lib/messaging/types";
 import { precomputeDailyDigest } from "../../../src/lib/staged-notifications/precompute";
+import type { UserRecord } from "../../../src/lib/user-record-types";
 import { getRealAssetSymbols } from "../../helpers/asset-data";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
@@ -28,7 +28,7 @@ const {
 	getCurrentMarketSessionMock: vi.fn(),
 }));
 
-vi.mock("../../../src/lib/time/market-calendar", () => ({
+vi.mock("../../../src/lib/time/market/calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
 

@@ -1,8 +1,8 @@
 import { DateTime } from "luxon";
 import { rootLogger } from "../logging";
-import { getUsMarketClosureInfoForInstant } from "../time/market-calendar";
+import type { MarketSession } from "../market-data-types";
+import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
 import { marketDataFetch } from "../vendors/massive";
-import type { MarketSession } from "./types";
 
 export function parseMarketSession(payload: unknown): MarketSession {
 	if (typeof payload !== "object" || payload === null) {

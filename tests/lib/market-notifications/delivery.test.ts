@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../src/lib/db/supabase";
+import type { DeliveryResult } from "../../../src/lib/delivery-types";
 import {
 	deliverPriceAlert,
 	type PriceAlertDeliveryStats,
@@ -10,7 +11,6 @@ import type { PriceAlertUser } from "../../../src/lib/market-notifications/users
 import type { EmailSender } from "../../../src/lib/messaging/email/utils";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { TelegramMessage, TelegramSender } from "../../../src/lib/messaging/telegram/sender";
-import type { DeliveryResult } from "../../../src/lib/messaging/types";
 import { makePrefRows } from "../../helpers/user-record-fixture";
 
 function makeSupabaseMock(): AppSupabaseClient {

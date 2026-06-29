@@ -137,19 +137,17 @@ import { computed, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles these to Vue components.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import XMarkIcon from "../../../icons/x-mark.svg?component";
-import {
-	DASHBOARD_ASSETS_STATUS_ID,
-	DASHBOARD_SECTION_IDS,
-	type FlashMessage,
-} from "../../../lib/constants";
+import { DASHBOARD_SECTION_IDS } from "../../../lib/dashboard-link-constants";
 import { MAX_TRACKED_ASSETS } from "../../../lib/db/database-errors";
 import FadeTransition from "../../FadeTransition.vue";
 import StatusMessage from "../../StatusMessage.vue";
+import type { FlashMessage } from "../../ui-constants";
+import { DASHBOARD_ASSETS_STATUS_ID } from "../constants";
+import type { InitialAsset } from "../types";
 import AssetBadge from "./AssetBadge.vue";
 import type { AssetSearchResult } from "./AssetInput.vue";
 import AssetInput from "./AssetInput.vue";
 import SparklineSvg from "./SparklineSvg.vue";
-import type { InitialAsset } from "./types";
 
 interface Props {
 	initialAssets: InitialAsset[];

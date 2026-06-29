@@ -2,15 +2,13 @@ import { setTimeout as realDelay } from "node:timers/promises";
 import { requireEnv } from "../db/env";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
-import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "../resilience/optional-vendors";
 import {
 	VENDOR_FETCH_MAX_RETRIES as DEFAULT_MAX_RETRIES,
 	VENDOR_FETCH_REQUEST_TIMEOUT_MS as DEFAULT_REQUEST_TIMEOUT_MS,
+	MASSIVE_BASE_URL,
 	VENDOR_FETCH_RETRY_DELAY_MS as RETRY_DELAY_MS,
-	shouldSkipVendorHttpInTestMode,
-} from "./fetch";
-
-const MASSIVE_BASE_URL = "https://api.massive.com";
+} from "./constants";
+import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "./optional-vendors";
 
 function getMassiveApiKey(): string {
 	return requireEnv("MASSIVE_API_KEY");
@@ -54,10 +52,6 @@ export async function marketDataFetch(
 	logContext?: Record<string, unknown>,
 	policy?: MarketDataFetchPolicy,
 ): Promise<unknown> {
-	if (shouldSkipVendorHttpInTestMode("massive")) {
-		return null;
-	}
-
 	const maxRetries = policy?.maxRetries ?? DEFAULT_MAX_RETRIES;
 	const requestTimeoutMs = policy?.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
 	const optional = policy?.optional === true;
