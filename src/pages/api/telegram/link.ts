@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
-import type { ApiJsonBody } from "../../../lib/api/json-response";
 import { mintLinkToken } from "../../../lib/auth/deep-link-token";
+import type { ApiJsonBody } from "../../../lib/client/json-response";
 import { createUserService } from "../../../lib/db";
 import { requireEnv } from "../../../lib/db/env";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";

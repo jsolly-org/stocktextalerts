@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import type { ApiJsonBody } from "../../../lib/api/json-response";
+import type { ApiJsonBody } from "../../../lib/client/json-response";
 import { createUserService, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";

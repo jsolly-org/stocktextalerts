@@ -1,9 +1,9 @@
 import { onBeforeUnmount, type Ref, ref, watch } from "vue";
-import type { ApiJsonBody } from "../../../lib/api/json-response";
 import {
 	isUnauthorizedResponse,
 	redirectToSignIn,
 } from "../../../lib/auth/session/session-expired";
+import type { ApiJsonBody } from "../../../lib/client/json-response";
 import { createSaveSequencer, type SequencedResult } from "../../../lib/forms/save-sequencer";
 import { rootLogger } from "../../../lib/logging";
 import { formatMessage } from "../../../lib/messaging/status-messages";

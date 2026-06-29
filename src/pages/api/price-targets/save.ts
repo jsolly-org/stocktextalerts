@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import type { ApiJsonBody } from "../../../lib/api/json-response";
+import type { ApiJsonBody } from "../../../lib/client/json-response";
 import { ASSET_SYMBOL_MAX_LENGTH } from "../../../lib/constants";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
