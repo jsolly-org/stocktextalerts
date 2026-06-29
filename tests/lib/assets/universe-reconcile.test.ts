@@ -522,7 +522,7 @@ describe("runUniverseReconcile", () => {
 			}),
 		]);
 		fetchActiveTickersMock.mockImplementation(fakeActiveTickers(active));
-		fetchTickerDetailMock.mockImplementation(makeFakeDetail().fn);
+		fetchTickerDetailMock.mockImplementation(detail.fn);
 		enqueueNewSymbolWarmupMock.mockImplementation(makeFakeWarmup().fn);
 		await runUniverseReconcile({
 			supabase: adminClient,
