@@ -12,7 +12,7 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 | **Auto Merge** | [`.github/workflows/auto-merge.yml`](../.github/workflows/auto-merge.yml) | PR open/sync/ready | Enables squash auto-merge on every non-draft same-repo PR |
 | **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | Successful CI on `main`, manual | Production Supabase migrations, Lambda code updates, live-provider check |
 
-After a PR merges to `main`, CI verifies the landed SHA, Vercel's GitHub integration deploys the web tier, and the deploy workflow applies production migrations plus Lambda code updates automatically. `npm run deploy:code` remains a local break-glass path, not the default release path.
+**Integration:** `/ship` (gated direct push to `main`, no PR) is the primary path; the PR + squash auto-merge path is the alternative for concurrent/collaborative work (see "Concurrent merges" below). After a change lands on `main` either way, CI verifies the landed SHA, Vercel's GitHub integration deploys the web tier, and the deploy workflow applies production migrations plus Lambda code updates automatically. `npm run deploy:code` remains a local break-glass path, not the default release path.
 
 ## Local pre-push gate
 
@@ -28,16 +28,35 @@ After a PR merges to `main`, CI verifies the landed SHA, Vercel's GitHub integra
 
 After the first CI workflow run (so the check name appears):
 
-1. **Settings → General → Pull Requests** — enable **Allow auto-merge**.
-2. Protect `main` (branch protection rule or ruleset):
-   - Require pull requests before merging
-   - Require status check **`CI / ci`** to pass
-   - Restrict direct pushes to `main` (recommended)
+1. **Settings → General → Pull Requests** — enable **Allow auto-merge** and **Always suggest updating pull request branches** (makes the one-click "Update branch" prominent when a concurrent PR goes out-of-date).
+2. Protect `main` (branch protection rule or ruleset). `enforce_admins` stays **off** so the owner's `/ship` gated push lands directly (gated by the pre-push hook); these rules guard the PR path and block non-admin/accidental pushes:
+   - Require status check **`CI / ci`** to pass, **strict** (branches up to date before merging) — this serializes the PR path
+   - Require a PR for non-admins; block force-push and deletion
    - Enable merge queue when the repository plan/UI supports the `merge_queue` rule
 
 The auto-merge workflow calls `gh pr merge --auto --squash`; GitHub merges when all required checks pass.
 
-The CI workflow listens for `merge_group` events so merge queue can validate the integrated commit before landing if the feature becomes available. As of 2026-06-28, GitHub rejects `merge_queue` through both REST and GraphQL for this private GitHub Team repository, and neither legacy branch protection nor repository rulesets expose the option in the UI.
+The CI workflow listens for `merge_group` events so merge queue can validate the integrated commit before landing if the feature becomes available. As of 2026-06-28, GitHub rejects `merge_queue` through both REST and GraphQL for this private GitHub Team repository, and neither legacy branch protection nor repository rulesets expose the option in the UI. **Native merge queue requires GitHub Enterprise Cloud for private repos** — unavailable on Free/Pro/Team — so the `merge_group` wiring is forward-compat, not active.
+
+## Concurrent merges
+
+This concerns the **PR path** (the alternative to `/ship` direct push). `/ship` lands one gated commit at a time, so it has no concurrent-merge problem; the machinery below makes the PR path safe when two changes are in flight.
+
+The risk with two PRs in flight is a **semantic (logical) conflict**: each passes CI against an older `main`, but `main` breaks when both land (e.g. PR A renames a function, PR B adds a call to the old name — no textual conflict, both green, broken `main`). A merge queue is the canonical fix, but it's Enterprise-only here (above).
+
+**Strict required checks are the native substitute, and they're already on.** Branch protection requires the `CI / ci` check with **strict mode** (`required_status_checks.strict: true` — "require branches up to date before merging"). GitHub processes merges sequentially and re-checks strictness at merge time, so:
+
+1. PR #1 (up to date, green) auto-merges.
+2. PR #2 is now **out-of-date**; GitHub refuses to merge it. Its auto-merge waits.
+3. Click **Update branch** on PR #2 → it rebases onto the new `main` → `ci` re-runs against the combined tree → auto-merge completes only if still green.
+
+So a second concurrent PR **cannot silently land an untested combined SHA**. The cost is one manual *Update branch* click per stalled PR (GitHub's `--auto` merge does not auto-update branches); the **Always suggest updating pull request branches** setting (above) makes it one click. This catches only conflicts the test suite exercises — strict mode buys merge-queue-grade *safety* at low concurrency, not merge-queue *throughput*.
+
+**Upgrade path** when concurrent PRs become routine:
+
+- Automate the *Update branch* step with a `push: main` workflow running `gh pr update-branch` on open auto-merge PRs — but it **must** use a PAT or GitHub App token, not the default `GITHUB_TOKEN`, or the branch update won't trigger a fresh `ci` run (loop-prevention) and you'd auto-merge an unvalidated SHA.
+- Or adopt **Kodiak** (free GitHub App): auto-updates branches and merges when green — the closest no-Enterprise equivalent of a merge queue.
+- Team growth → evaluate **Mergify/Graphite** (batching, priorities) or **GitHub Enterprise Cloud** for the native `merge_group` queue this CI is already wired for. Batching only pays off at high merge volume.
 
 ## CI environment
 
@@ -70,6 +89,6 @@ When CI succeeds for the current `main` tip:
 1. Vercel's GitHub integration deploys the web tier from the landed `main` commit.
 2. `aws/deploy-web.sh --deploy-ci` builds Lambda code, applies Supabase migrations, and updates existing Lambda code.
 3. The workflow invokes `stocktextalerts-live-provider-check`.
-4. A red deploy means production needs a forward-fix PR; do not rerun manual production DDL outside the deploy workflow.
+4. A red deploy means production needs a forward-fix change; do not rerun manual production DDL outside the deploy workflow.
 
 Infra changes (`aws/template.yaml`, `aws/deploy.sh`) still need `npm run deploy:infra` (full SAM, admin creds).

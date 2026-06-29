@@ -2,6 +2,8 @@
 
 Ship profile: `aws-sam`
 
+`/ship` integrates by pushing the gated commit directly to `main` (no PR); the PR + squash auto-merge path is the alternative for concurrent/collaborative work. See the [CI](#ci-github-actions--local-pre-push-gate) section ("Integration model") for the full model.
+
 **Post-push (step 12):** Production deploy is **GitHub-managed** — after push to `main`, CI then `.github/workflows/deploy.yml` runs migrations, Lambda updates, and the live-provider check. Babysit those workflows; local `npm run deploy:code` is break-glass only. Vercel deploys the web tier via Git integration — verify production if web paths changed. Run `npm run deploy:infra` manually (human MFA) when `aws/template.yaml` or `aws/deploy.sh` changes — never auto-run from `/ship`.
 
 Local gate before push: pre-push hook steps in `.git-hooks/pre-push` (lint/types/static; unit tests run in GitHub CI, not the hook).
@@ -104,7 +106,7 @@ Agents (Cursor, Claude Code, Codex) **must not** apply production Supabase schem
 
 **Allowed production data fixes:** direct `UPDATE` / `INSERT` / `DELETE` only when the user explicitly approves the exact statement or well-scoped operation in the current conversation. Prefer a transaction, include a preflight `SELECT`, report affected row counts, and avoid broad predicates. Never use this path for schema changes or migration history changes.
 
-**Allowed agent workflow:** `supabase migration new <name>` → edit `supabase/migrations/*.sql` → `npm run db:reset` / `db:gen-types` → commit → push PR → GitHub CI/merge queue when available → `main` CI → GitHub production deploy (the deploy workflow runs `supabase db push`).
+**Allowed agent workflow:** `supabase migration new <name>` → edit `supabase/migrations/*.sql` → `npm run db:reset` / `db:gen-types` → commit → integrate to `main` via `/ship` (or a PR for concurrent work) → `main` CI → GitHub production deploy (the deploy workflow runs `supabase db push`).
 
 **Codex:** mark this repo as a **trusted** project so `.codex/config.toml` and `.codex/execpolicy.rules` load (see [Codex config basics](https://developers.openai.com/codex/config-basic)).
 
@@ -136,7 +138,7 @@ Because Vercel Git deployments start independently on `main` pushes, schema-affe
 
 The pre-push hook (`.git-hooks/pre-push`) runs lint/types/static checks locally — **not** unit or E2E tests, and **not** anything that needs local Supabase (Podman/Postgres). It does **not** deploy. Deploy is GitHub-managed after merge.
 
-**PRs should merge via GitHub** (CI + auto-merge + merge queue where available), not direct pushes to `main`. After merge, babysit GitHub CI/deploy plus the Vercel GitHub deployment and fix failures with a forward-fix PR.
+**Integration model.** `/ship` is the **primary** path — a gated direct push to `main` (no PR), per the fleet standard. The pre-push hook runs lint/types/static; full unit/E2E/build run in GitHub CI *after* landing, so a bad push can leave `main` transiently red → forward-fix. The **PR + squash auto-merge** path is the **alternative** for concurrent/collaborative changes, or when you want full CI to gate *before* landing: strict required checks (`CI / ci`, branch-up-to-date) serialize those landings so two separately-green PRs can't break `main` (see [docs/github-ci.md](docs/github-ci.md) → "Concurrent merges"). Either way `main` only receives gated code and the deploy workflow only ships a green tip. After integrating, babysit GitHub CI/deploy plus the Vercel deployment and fix failures with a forward-fix change.
 
 ## AWS IAM
 
