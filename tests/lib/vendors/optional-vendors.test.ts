@@ -5,13 +5,13 @@ import {
 	noteOptionalVendorSkip,
 	recordOptionalVendorFailure,
 	recordOptionalVendorSuccess,
-	resetOptionalVendorCircuitsForTests,
 	withOptionalVendorBudget,
 } from "../../../src/lib/vendors/optional-vendors";
+import { resetOptionalVendorCircuits } from "../../helpers/reset-optional-vendor-circuits";
 
 describe("optional-vendors", () => {
 	afterEach(() => {
-		resetOptionalVendorCircuitsForTests();
+		resetOptionalVendorCircuits();
 		vi.useRealTimers();
 	});
 

@@ -26,9 +26,7 @@ export type TelegramSender = (message: TelegramMessage) => Promise<DeliveryResul
  * Perform the real Telegram send for a single message via grammY's `bot.api`.
  *
  * This is the production send path — `sendPhoto` when a chart Buffer is
- * present, `sendMessage` otherwise. Tests exercise this via a grammY
- * capturing transformer (see tests/lib/messaging/telegram-send-path.test.ts)
- * or the test doubles wired in tests/setup.ts.
+ * present, `sendMessage` otherwise.
  *
  * grammY maps a Bot-API error response to a thrown `GrammyError` (see
  * `core/client.ts#callApi`), which we translate to a `{ success: false, errorCode }`
@@ -67,7 +65,7 @@ export async function sendViaBot(bot: Bot, message: TelegramMessage): Promise<De
 	}
 }
 
-/** Read the bot token (a write credential — Lambda/Vercel runtime only, never tests). */
+/** Read the bot token (a write credential — Lambda/Vercel runtime only). */
 export function readTelegramBotToken(): string {
 	return requireEnv("TELEGRAM_BOT_TOKEN");
 }

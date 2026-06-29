@@ -3,6 +3,11 @@ import {
 	OPTIONAL_VENDOR_CIRCUIT_FAILURE_THRESHOLD,
 	OPTIONAL_VENDOR_CIRCUIT_OPEN_MS,
 } from "./constants";
+import {
+	type CircuitState,
+	optionalVendorCircuits,
+	optionalVendorSkipState,
+} from "./optional-vendor-circuit-store";
 
 /** Log category for optional vendor work skipped without paging. */
 export const OPTIONAL_VENDOR_DEGRADED_CATEGORY = "optional_vendor_degraded";
@@ -13,23 +18,8 @@ type OptionalVendorResult<T> =
 	| { status: "ok"; value: T }
 	| { status: "skipped"; reason: OptionalVendorSkipReason };
 
-type CircuitState = {
-	failures: number;
-	openUntilMs: number;
-};
-
-const circuits = new Map<string, CircuitState>();
-
-let optionalVendorSkipCount = 0;
-
-/** Reset in-process circuit state (tests only). */
-export function resetOptionalVendorCircuitsForTests(): void {
-	circuits.clear();
-	optionalVendorSkipCount = 0;
-}
-
 function recordOptionalVendorSkip(): void {
-	optionalVendorSkipCount += 1;
+	optionalVendorSkipState.count += 1;
 }
 
 /** Count a skip outside `withOptionalVendorBudget` (e.g. circuit check before fetch). */
@@ -39,16 +29,16 @@ export function noteOptionalVendorSkip(): void {
 
 /** Optional vendor skips this scheduler invocation (resets after read). */
 export function getAndResetOptionalVendorSkipCount(): number {
-	const count = optionalVendorSkipCount;
-	optionalVendorSkipCount = 0;
+	const count = optionalVendorSkipState.count;
+	optionalVendorSkipState.count = 0;
 	return count;
 }
 
 function getCircuit(label: string): CircuitState {
-	let state = circuits.get(label);
+	let state = optionalVendorCircuits.get(label);
 	if (!state) {
 		state = { failures: 0, openUntilMs: 0 };
-		circuits.set(label, state);
+		optionalVendorCircuits.set(label, state);
 	}
 	return state;
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	extractClosesAndTimestampsFromBars,
 	extractClosesFromBars,
-} from "../../../src/lib/market-data/bars";
+} from "../../../src/lib/market-data/bars-parse";
 
 describe("extractClosesFromBars", () => {
 	it("returns null for non-object payloads", () => {

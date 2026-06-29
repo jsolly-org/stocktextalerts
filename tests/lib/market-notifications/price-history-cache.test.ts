@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-	dailyBarsToCloseRows,
-	formatChartAsOfLabel,
-	INTRADAY_CACHE_MAX_AGE_MS,
-	listTradingDatesBetween,
-	REQUIRED_DAILY_CLOSES,
-} from "../../../src/lib/market-data/price-history-cache";
+import { formatChartAsOfLabel } from "../../../src/lib/market-data/chart-as-of-label";
+import { dailyBarsToCloseRows } from "../../../src/lib/market-data/price-history-cache";
+import { listTradingDatesBetween } from "../../helpers/market-data";
 
 describe("price history cache helpers", () => {
 	it("lists weekday trading dates between two ISO dates", () => {
@@ -17,11 +13,6 @@ describe("price history cache helpers", () => {
 		const label = formatChartAsOfLabel("2026-06-07T13:42:00.000Z", "America/New_York", false);
 		expect(label).toMatch(/^chart as of /);
 		expect(label).toMatch(/EDT|EST/);
-	});
-
-	it("uses the configured freshness and close-count cutoffs", () => {
-		expect(INTRADAY_CACHE_MAX_AGE_MS).toBe(15 * 60 * 1000);
-		expect(REQUIRED_DAILY_CLOSES).toBe(7);
 	});
 
 	it("maps OHLCV bars to dated close rows using bar tradingDate", () => {

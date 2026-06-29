@@ -1,9 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchCompanyNews } from "../../src/lib/company-news/fetch";
-import {
-	recordOptionalVendorFailure,
-	resetOptionalVendorCircuitsForTests,
-} from "../../src/lib/vendors/optional-vendors";
+import { recordOptionalVendorFailure } from "../../src/lib/vendors/optional-vendors";
+import { resetOptionalVendorCircuits } from "../helpers/reset-optional-vendor-circuits";
 
 // Mock retry delays so error/retry tests don't wait real seconds
 vi.mock("node:timers/promises", () => ({
@@ -12,7 +10,7 @@ vi.mock("node:timers/promises", () => ({
 
 describe("fetchCompanyNews", () => {
 	afterEach(() => {
-		resetOptionalVendorCircuitsForTests();
+		resetOptionalVendorCircuits();
 		vi.restoreAllMocks();
 		vi.unstubAllEnvs();
 	});

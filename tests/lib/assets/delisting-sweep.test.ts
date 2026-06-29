@@ -6,7 +6,19 @@
  * `Z`-prefix pattern that won't collide with real tickers.
  */
 import { randomUUID } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const fetchTickerReferencesMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../../../src/lib/assets/reference/delistings", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("../../../src/lib/assets/reference/delistings")>();
+	return {
+		...actual,
+		fetchTickerReferences: fetchTickerReferencesMock,
+	};
+});
+
 import { runDelistingSweep } from "../../../src/lib/assets/delisting-sweep";
 import type { TickerReferenceStatus } from "../../../src/lib/assets/reference/delistings";
 import type { DeliveryResult } from "../../../src/lib/delivery-types";
@@ -124,6 +136,7 @@ describe("runDelistingSweep", () => {
 
 	beforeEach(() => {
 		createdSymbols.length = 0;
+		fetchTickerReferencesMock.mockReset();
 	});
 
 	afterEach(async () => {
@@ -158,12 +171,8 @@ describe("runDelistingSweep", () => {
 
 		const fakeEmail = makeFakeEmailSender();
 		const fakeSms = makeFakeSmsSender();
-		const result = await runDelistingSweep({
-			supabase: adminClient,
-			logger: rootLogger,
-			sendEmail: fakeEmail.sender,
-			getSmsSender: fakeSms.provider,
-			lookupTickerReferences: makeFakeLookup(
+		fetchTickerReferencesMock.mockImplementation(
+			makeFakeLookup(
 				new Map([
 					[
 						delistedSymbol,
@@ -175,6 +184,12 @@ describe("runDelistingSweep", () => {
 					],
 				]),
 			),
+		);
+		const result = await runDelistingSweep({
+			supabase: adminClient,
+			logger: rootLogger,
+			sendEmail: fakeEmail.sender,
+			getSmsSender: fakeSms.provider,
 		});
 
 		expect(result.newlyDetectedDelistings).toBe(1);
@@ -269,12 +284,12 @@ describe("runDelistingSweep", () => {
 
 		const fakeEmail = makeFakeEmailSender();
 		const fakeSms = makeFakeSmsSender();
+		fetchTickerReferencesMock.mockImplementation(makeFakeLookup(delistedMap));
 		const result = await runDelistingSweep({
 			supabase: adminClient,
 			logger: rootLogger,
 			sendEmail: fakeEmail.sender,
 			getSmsSender: fakeSms.provider,
-			lookupTickerReferences: makeFakeLookup(delistedMap),
 		});
 
 		expect(result.newlyDetectedDelistings).toBe(3);
@@ -321,12 +336,8 @@ describe("runDelistingSweep", () => {
 
 		const fakeEmail = makeFakeEmailSender();
 		const fakeSms = makeFakeSmsSender();
-		const result = await runDelistingSweep({
-			supabase: adminClient,
-			logger: rootLogger,
-			sendEmail: fakeEmail.sender,
-			getSmsSender: fakeSms.provider,
-			lookupTickerReferences: makeFakeLookup(
+		fetchTickerReferencesMock.mockImplementation(
+			makeFakeLookup(
 				new Map([
 					[
 						delistedSymbol,
@@ -338,6 +349,12 @@ describe("runDelistingSweep", () => {
 					],
 				]),
 			),
+		);
+		const result = await runDelistingSweep({
+			supabase: adminClient,
+			logger: rootLogger,
+			sendEmail: fakeEmail.sender,
+			getSmsSender: fakeSms.provider,
 		});
 
 		// No new email sent (dedupe path), SMS channel not usable — cleanup
@@ -369,12 +386,8 @@ describe("runDelistingSweep", () => {
 
 		const fakeEmail = makeFakeEmailSender();
 		const fakeSms = makeFakeSmsSender();
-		const result = await runDelistingSweep({
-			supabase: adminClient,
-			logger: rootLogger,
-			sendEmail: fakeEmail.sender,
-			getSmsSender: fakeSms.provider,
-			lookupTickerReferences: makeFakeLookup(
+		fetchTickerReferencesMock.mockImplementation(
+			makeFakeLookup(
 				new Map([
 					[
 						delistedSymbol,
@@ -386,6 +399,12 @@ describe("runDelistingSweep", () => {
 					],
 				]),
 			),
+		);
+		const result = await runDelistingSweep({
+			supabase: adminClient,
+			logger: rootLogger,
+			sendEmail: fakeEmail.sender,
+			getSmsSender: fakeSms.provider,
 		});
 
 		// Both channels opted out: no sends, both skip rows logged, cleanup runs.
@@ -432,12 +451,8 @@ describe("runDelistingSweep", () => {
 			errorCode: "Throttling",
 		});
 
-		const result1 = await runDelistingSweep({
-			supabase: adminClient,
-			logger: rootLogger,
-			sendEmail: fakeEmail.sender,
-			getSmsSender: fakeSms.provider,
-			lookupTickerReferences: makeFakeLookup(
+		fetchTickerReferencesMock.mockImplementation(
+			makeFakeLookup(
 				new Map([
 					[
 						delistedSymbol,
@@ -449,6 +464,12 @@ describe("runDelistingSweep", () => {
 					],
 				]),
 			),
+		);
+		const result1 = await runDelistingSweep({
+			supabase: adminClient,
+			logger: rootLogger,
+			sendEmail: fakeEmail.sender,
+			getSmsSender: fakeSms.provider,
 		});
 
 		expect(result1.emailsFailed).toBe(1);
@@ -463,12 +484,8 @@ describe("runDelistingSweep", () => {
 
 		// Second run with the sender flipped to success should complete cleanup.
 		fakeEmail.setResult({ success: true, messageSid: "test-msg-retry" });
-		const result2 = await runDelistingSweep({
-			supabase: adminClient,
-			logger: rootLogger,
-			sendEmail: fakeEmail.sender,
-			getSmsSender: fakeSms.provider,
-			lookupTickerReferences: makeFakeLookup(
+		fetchTickerReferencesMock.mockImplementation(
+			makeFakeLookup(
 				new Map([
 					[
 						delistedSymbol,
@@ -480,6 +497,12 @@ describe("runDelistingSweep", () => {
 					],
 				]),
 			),
+		);
+		const result2 = await runDelistingSweep({
+			supabase: adminClient,
+			logger: rootLogger,
+			sendEmail: fakeEmail.sender,
+			getSmsSender: fakeSms.provider,
 		});
 		expect(result2.usersNotified).toBe(1);
 		expect(result2.userAssetRowsDeleted).toBeGreaterThanOrEqual(1);
@@ -506,12 +529,12 @@ describe("runDelistingSweep", () => {
 
 		const fakeEmail = makeFakeEmailSender();
 		const fakeSms = makeFakeSmsSender();
+		fetchTickerReferencesMock.mockImplementation(makeFakeLookup(new Map()));
 		const result = await runDelistingSweep({
 			supabase: adminClient,
 			logger: rootLogger,
 			sendEmail: fakeEmail.sender,
 			getSmsSender: fakeSms.provider,
-			lookupTickerReferences: makeFakeLookup(new Map()),
 		});
 
 		expect(result.newlyDetectedDelistings).toBe(0);
@@ -551,12 +574,12 @@ describe("runDelistingSweep", () => {
 		]);
 		const fakeEmail = makeFakeEmailSender();
 		const fakeSms = makeFakeSmsSender();
+		fetchTickerReferencesMock.mockImplementation(makeFakeLookup(new Map(), overrides));
 		const result = await runDelistingSweep({
 			supabase: adminClient,
 			logger: rootLogger,
 			sendEmail: fakeEmail.sender,
 			getSmsSender: fakeSms.provider,
-			lookupTickerReferences: makeFakeLookup(new Map(), overrides),
 		});
 
 		expect(result.providerErrors).toBeGreaterThanOrEqual(1);
@@ -593,17 +616,17 @@ describe("runDelistingSweep", () => {
 		let lookupCallCount = 0;
 		const fakeEmail = makeFakeEmailSender();
 		const fakeSms = makeFakeSmsSender();
+		fetchTickerReferencesMock.mockImplementation(async (symbols) => {
+			lookupCallCount += 1;
+			// Should NOT be called for the already-flagged symbol.
+			expect(symbols).not.toContain(preFlaggedSymbol);
+			return symbols.map((s: string) => ({ status: "unknown" as const, symbol: s }));
+		});
 		const result = await runDelistingSweep({
 			supabase: adminClient,
 			logger: rootLogger,
 			sendEmail: fakeEmail.sender,
 			getSmsSender: fakeSms.provider,
-			lookupTickerReferences: async (symbols) => {
-				lookupCallCount += 1;
-				// Should NOT be called for the already-flagged symbol.
-				expect(symbols).not.toContain(preFlaggedSymbol);
-				return symbols.map((s) => ({ status: "unknown" as const, symbol: s }));
-			},
 		});
 
 		expect(lookupCallCount).toBeLessThanOrEqual(1);
@@ -641,12 +664,8 @@ describe("runDelistingSweep", () => {
 
 		const fakeEmail = makeFakeEmailSender();
 		const fakeSms = makeFakeSmsSender();
-		const result = await runDelistingSweep({
-			supabase: adminClient,
-			logger: rootLogger,
-			sendEmail: fakeEmail.sender,
-			getSmsSender: fakeSms.provider,
-			lookupTickerReferences: makeFakeLookup(
+		fetchTickerReferencesMock.mockImplementation(
+			makeFakeLookup(
 				new Map([
 					[
 						delistedSymbol,
@@ -658,6 +677,12 @@ describe("runDelistingSweep", () => {
 					],
 				]),
 			),
+		);
+		const result = await runDelistingSweep({
+			supabase: adminClient,
+			logger: rootLogger,
+			sendEmail: fakeEmail.sender,
+			getSmsSender: fakeSms.provider,
 		});
 
 		expect(fakeEmail.captured).toHaveLength(0);
@@ -698,12 +723,8 @@ describe("runDelistingSweep", () => {
 
 		const fakeEmail = makeFakeEmailSender();
 		const fakeSms = makeFakeSmsSender();
-		const result = await runDelistingSweep({
-			supabase: adminClient,
-			logger: rootLogger,
-			sendEmail: fakeEmail.sender,
-			getSmsSender: fakeSms.provider,
-			lookupTickerReferences: makeFakeLookup(
+		fetchTickerReferencesMock.mockImplementation(
+			makeFakeLookup(
 				new Map([
 					[
 						delistedSymbol,
@@ -715,6 +736,12 @@ describe("runDelistingSweep", () => {
 					],
 				]),
 			),
+		);
+		const result = await runDelistingSweep({
+			supabase: adminClient,
+			logger: rootLogger,
+			sendEmail: fakeEmail.sender,
+			getSmsSender: fakeSms.provider,
 		});
 
 		expect(fakeEmail.captured).toHaveLength(1);
@@ -761,12 +788,8 @@ describe("runDelistingSweep", () => {
 
 		const fakeEmail = makeFakeEmailSender();
 		const fakeSms = makeFakeSmsSender();
-		const result = await runDelistingSweep({
-			supabase: adminClient,
-			logger: rootLogger,
-			sendEmail: fakeEmail.sender,
-			getSmsSender: fakeSms.provider,
-			lookupTickerReferences: makeFakeLookup(
+		fetchTickerReferencesMock.mockImplementation(
+			makeFakeLookup(
 				new Map([
 					[
 						delistedSymbol,
@@ -778,6 +801,12 @@ describe("runDelistingSweep", () => {
 					],
 				]),
 			),
+		);
+		const result = await runDelistingSweep({
+			supabase: adminClient,
+			logger: rootLogger,
+			sendEmail: fakeEmail.sender,
+			getSmsSender: fakeSms.provider,
 		});
 
 		// Email was deduped (no re-send). SMS was delivered fresh.
@@ -813,12 +842,8 @@ describe("runDelistingSweep", () => {
 
 		const fakeEmail = makeFakeEmailSender();
 		const fakeSms = makeFakeSmsSender();
-		const result = await runDelistingSweep({
-			supabase: adminClient,
-			logger: rootLogger,
-			sendEmail: fakeEmail.sender,
-			getSmsSender: fakeSms.provider,
-			lookupTickerReferences: makeFakeLookup(
+		fetchTickerReferencesMock.mockImplementation(
+			makeFakeLookup(
 				new Map([
 					[
 						delistedSymbol,
@@ -830,6 +855,12 @@ describe("runDelistingSweep", () => {
 					],
 				]),
 			),
+		);
+		const result = await runDelistingSweep({
+			supabase: adminClient,
+			logger: rootLogger,
+			sendEmail: fakeEmail.sender,
+			getSmsSender: fakeSms.provider,
 		});
 
 		expect(fakeEmail.captured).toHaveLength(0);
@@ -873,12 +904,8 @@ describe("runDelistingSweep", () => {
 			errorCode: "20500",
 		});
 
-		const result1 = await runDelistingSweep({
-			supabase: adminClient,
-			logger: rootLogger,
-			sendEmail: fakeEmail.sender,
-			getSmsSender: fakeSms.provider,
-			lookupTickerReferences: makeFakeLookup(
+		fetchTickerReferencesMock.mockImplementation(
+			makeFakeLookup(
 				new Map([
 					[
 						delistedSymbol,
@@ -890,6 +917,12 @@ describe("runDelistingSweep", () => {
 					],
 				]),
 			),
+		);
+		const result1 = await runDelistingSweep({
+			supabase: adminClient,
+			logger: rootLogger,
+			sendEmail: fakeEmail.sender,
+			getSmsSender: fakeSms.provider,
 		});
 
 		expect(result1.emailsDelivered).toBe(1);
@@ -905,12 +938,8 @@ describe("runDelistingSweep", () => {
 
 		// Second run: email should dedupe, SMS retried and now succeeds.
 		fakeSms.setResult({ success: true, messageSid: "test-sms-retry" });
-		const result2 = await runDelistingSweep({
-			supabase: adminClient,
-			logger: rootLogger,
-			sendEmail: fakeEmail.sender,
-			getSmsSender: fakeSms.provider,
-			lookupTickerReferences: makeFakeLookup(
+		fetchTickerReferencesMock.mockImplementation(
+			makeFakeLookup(
 				new Map([
 					[
 						delistedSymbol,
@@ -922,6 +951,12 @@ describe("runDelistingSweep", () => {
 					],
 				]),
 			),
+		);
+		const result2 = await runDelistingSweep({
+			supabase: adminClient,
+			logger: rootLogger,
+			sendEmail: fakeEmail.sender,
+			getSmsSender: fakeSms.provider,
 		});
 
 		// Email deduped (already delivered), SMS fresh send.

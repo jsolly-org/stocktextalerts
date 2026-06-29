@@ -10,7 +10,6 @@ export type SmsSenderFactory = () => SmsSenderResult;
  * Create a lazily-initialized, cached SMS sender factory for batch notification runs.
  *
  * Caches config/sender to avoid per-user Twilio init during cron passes.
- * Tests stub `createSmsSender` in tests/setup.ts — no production gate here.
  */
 export function createSmsSenderFactory(): SmsSenderFactory {
 	let twilioConfig: ReturnType<typeof readTwilioSenderConfig> | null = null;

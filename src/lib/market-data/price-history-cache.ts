@@ -3,18 +3,18 @@ import { SECTOR_ETF_MAP } from "../assets/sector-mapping";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
-import { US_MARKET_TIMEZONE } from "../market-constants";
 import type { DailyOHLCVBar, ExtendedQuoteMap } from "../market-data-types";
 import {
 	downsampleEvenly,
 	type SparklineData,
 	toSparkline,
 } from "../messaging/parts/charts/sparkline";
+import { formatChartAsOfLabel } from "./chart-as-of-label";
 
 const MINUTE_RETENTION_HOURS = 36;
 const DAILY_RETENTION_DAYS = 30;
-export const INTRADAY_CACHE_MAX_AGE_MS = 15 * 60 * 1000;
-export const REQUIRED_DAILY_CLOSES = 7;
+const INTRADAY_CACHE_MAX_AGE_MS = 15 * 60 * 1000;
+const REQUIRED_DAILY_CLOSES = 7;
 
 const MARKET_BENCHMARK_SYMBOL = "SPY";
 
@@ -46,39 +46,6 @@ export async function getPriceCacheSymbols(supabase: SupabaseAdminClient): Promi
 		symbols.add(row.symbol);
 	}
 	return [...symbols];
-}
-
-export function listTradingDatesBetween(from: string, to: string): string[] {
-	const start = DateTime.fromISO(from, { zone: US_MARKET_TIMEZONE });
-	const end = DateTime.fromISO(to, { zone: US_MARKET_TIMEZONE });
-	if (!start.isValid || !end.isValid) return [];
-	const dates: string[] = [];
-	let day = start.startOf("day");
-	const endDay = end.startOf("day");
-	while (day <= endDay) {
-		if (day.weekday <= 5) {
-			const iso = day.toISODate();
-			if (iso) dates.push(iso);
-		}
-		day = day.plus({ days: 1 });
-	}
-	return dates;
-}
-
-export function formatChartAsOfLabel(
-	isoTimestamp: string,
-	timezone: string,
-	use24HourTime: boolean,
-): string {
-	const dt = DateTime.fromISO(isoTimestamp, { zone: "utc" }).setZone(timezone);
-	if (!dt.isValid) return "";
-	const formatted = dt.toLocaleString({
-		hour: "numeric",
-		minute: "2-digit",
-		hour12: !use24HourTime,
-		timeZoneName: "short",
-	});
-	return `chart as of ${formatted}`;
 }
 
 export async function storePriceHistoryRows(

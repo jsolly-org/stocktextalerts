@@ -55,15 +55,6 @@ export function asMinuteOfDay(n: number): MinuteOfDay | null {
 	return Number.isInteger(n) && n >= 0 && n <= 1439 ? (n as MinuteOfDay) : null;
 }
 
-/** Assert minute-of-day at scheduling boundaries (DB CHECK 0–1439). */
-export function assertMinuteOfDay(n: number): MinuteOfDay {
-	const parsed = asMinuteOfDay(n);
-	if (parsed === null) {
-		throw new Error(`Invalid minute-of-day: ${n}`);
-	}
-	return parsed;
-}
-
 /* =============
 Dates & timestamps
 ============= */

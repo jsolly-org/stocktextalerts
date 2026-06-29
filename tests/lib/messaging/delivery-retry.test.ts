@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DeliveryResult } from "../../../src/lib/delivery-types";
-import {
-	isTransientDeliveryError,
-	withDeliveryRetry,
-} from "../../../src/lib/messaging/delivery-retry";
+import { withDeliveryRetry } from "../../../src/lib/messaging/delivery-retry";
 import { expectConsoleError } from "../../setup";
 
 const noSleep = () => Promise.resolve();
@@ -56,12 +53,5 @@ describe("withDeliveryRetry", () => {
 
 		expect(result.success).toBe(false);
 		expect(send).toHaveBeenCalledTimes(3);
-	});
-
-	it("classifies Twilio rate-limit code 20429 as transient", () => {
-		expect(isTransientDeliveryError({ success: false, error: "x", errorCode: "20429" })).toBe(true);
-		expect(isTransientDeliveryError({ success: false, error: "x", errorCode: "21211" })).toBe(
-			false,
-		);
 	});
 });

@@ -11,9 +11,6 @@
  * test tier for Telegram (real chats = real delivery), so this is side-effect-free
  * and safe to run as a standing live check (it cannot mutate state or message a user).
  *
- * The result-shaping (`shapeHealthReport`) is pure and exported so a unit test can
- * exercise it with a transformer-mocked bot (no real network in the suite).
- *
  * `checkTelegramLive` is bounded by a hard timeout: a Telegram API call that stalls
  * (the Lambda→api.telegram.org reachability problem under investigation — see
  * `createTelegramBot`) must fail loudly and fast so the alarm carries a useful
@@ -37,12 +34,7 @@ interface TelegramHealthReport {
 	lastError: string | null;
 }
 
-/**
- * Shape the two read-only API responses into a flat report. Pure — no I/O — so it
- * is unit-testable with a transformer-mocked bot. `ok` is true when the token
- * resolved to a bot (getMe returned an id); webhook fields are informational.
- */
-export function shapeHealthReport(me: UserFromGetMe, webhook: WebhookInfo): TelegramHealthReport {
+function shapeHealthReport(me: UserFromGetMe, webhook: WebhookInfo): TelegramHealthReport {
 	return {
 		ok: Number.isFinite(me.id) && me.id > 0,
 		botId: me.id,

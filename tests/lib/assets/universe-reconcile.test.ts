@@ -3,7 +3,7 @@
  *
  * Uses real local Supabase (via the service-role `adminClient`, which the reconcile
  * itself writes through) + a fully STUBBED Massive provider via the module's
- * injection seams (`getActiveTickers`, `getTickerDetail`, `enqueueWarmup`) — no
+ * vi.mock stubs on the Massive reference + warmup modules — no
  * network, no live provider keys.
  *
  * Asset fixture seeding goes through a direct `pg` connection (postgres owner),
@@ -15,7 +15,29 @@
  */
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const fetchActiveTickersMock = vi.hoisted(() => vi.fn());
+const fetchTickerDetailMock = vi.hoisted(() => vi.fn());
+const enqueueNewSymbolWarmupMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../../../src/lib/assets/reference/universe", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("../../../src/lib/assets/reference/universe")>();
+	return { ...actual, fetchActiveTickers: fetchActiveTickersMock };
+});
+
+vi.mock("../../../src/lib/assets/reference/ticker-detail", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("../../../src/lib/assets/reference/ticker-detail")>();
+	return { ...actual, fetchTickerDetail: fetchTickerDetailMock };
+});
+
+vi.mock("../../../src/lib/vendors/backfill/enqueue", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../../../src/lib/vendors/backfill/enqueue")>();
+	return { ...actual, enqueueNewSymbolWarmup: enqueueNewSymbolWarmupMock };
+});
+
 import type { ActiveTicker } from "../../../src/lib/assets/reference/universe";
 import { runUniverseReconcile } from "../../../src/lib/assets/universe-reconcile";
 import { rootLogger } from "../../../src/lib/logging";
@@ -234,6 +256,9 @@ describe("runUniverseReconcile", () => {
 	const createdSymbols: string[] = [];
 
 	beforeEach(() => {
+		fetchActiveTickersMock.mockReset();
+		fetchTickerDetailMock.mockReset();
+		enqueueNewSymbolWarmupMock.mockReset();
 		createdSymbols.length = 0;
 	});
 
@@ -272,12 +297,12 @@ describe("runUniverseReconcile", () => {
 				compositeFigi: "BBG00FRESH01",
 			}),
 		]);
+		fetchActiveTickersMock.mockImplementation(fakeActiveTickers(active));
+		fetchTickerDetailMock.mockImplementation(detail.fn);
+		enqueueNewSymbolWarmupMock.mockImplementation(warmup.fn);
 		const result = await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
-			getActiveTickers: fakeActiveTickers(active),
-			getTickerDetail: detail.fn,
-			enqueueWarmup: warmup.fn,
 			enrichmentCap: 1,
 		});
 
@@ -332,12 +357,12 @@ describe("runUniverseReconcile", () => {
 				lastUpdatedUtc: "2026-06-01T00:00:00Z",
 			}),
 		]);
+		fetchActiveTickersMock.mockImplementation(fakeActiveTickers(active));
+		fetchTickerDetailMock.mockImplementation(detail.fn);
+		enqueueNewSymbolWarmupMock.mockImplementation(warmup.fn);
 		const result = await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
-			getActiveTickers: fakeActiveTickers(active),
-			getTickerDetail: detail.fn,
-			enqueueWarmup: warmup.fn,
 			enrichmentCap: 0,
 		});
 
@@ -382,12 +407,12 @@ describe("runUniverseReconcile", () => {
 				lastUpdatedUtc: "2026-06-18T00:00:00Z",
 			}),
 		]);
+		fetchActiveTickersMock.mockImplementation(fakeActiveTickers(active));
+		fetchTickerDetailMock.mockImplementation(makeFakeDetail().fn);
+		enqueueNewSymbolWarmupMock.mockImplementation(makeFakeWarmup().fn);
 		const result = await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
-			getActiveTickers: fakeActiveTickers(active),
-			getTickerDetail: makeFakeDetail().fn,
-			enqueueWarmup: makeFakeWarmup().fn,
 			enrichmentCap: 0,
 		});
 
@@ -410,12 +435,12 @@ describe("runUniverseReconcile", () => {
 		// instead of stamping the entire shared seed table delisted.
 		const active = await activeSetCoveringSeedExcept([goneSymbol]);
 
+		fetchActiveTickersMock.mockImplementation(fakeActiveTickers(active));
+		fetchTickerDetailMock.mockImplementation(makeFakeDetail().fn);
+		enqueueNewSymbolWarmupMock.mockImplementation(makeFakeWarmup().fn);
 		const result = await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
-			getActiveTickers: fakeActiveTickers(active),
-			getTickerDetail: makeFakeDetail().fn,
-			enqueueWarmup: makeFakeWarmup().fn,
 			enrichmentCap: 0, // don't enrich (and mutate) thousands of seed rows
 		});
 
@@ -448,12 +473,12 @@ describe("runUniverseReconcile", () => {
 		// The carve-out must flag the untracked one and spare the tracked one.
 		const active = await activeSetCoveringSeedExcept([trackedGone, untrackedGone]);
 
+		fetchActiveTickersMock.mockImplementation(fakeActiveTickers(active));
+		fetchTickerDetailMock.mockImplementation(makeFakeDetail().fn);
+		enqueueNewSymbolWarmupMock.mockImplementation(makeFakeWarmup().fn);
 		const result = await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
-			getActiveTickers: fakeActiveTickers(active),
-			getTickerDetail: makeFakeDetail().fn,
-			enqueueWarmup: makeFakeWarmup().fn,
 			enrichmentCap: 0,
 		});
 
@@ -496,12 +521,12 @@ describe("runUniverseReconcile", () => {
 				lastUpdatedUtc: "2026-06-10T00:00:00Z",
 			}),
 		]);
+		fetchActiveTickersMock.mockImplementation(fakeActiveTickers(active));
+		fetchTickerDetailMock.mockImplementation(detail.fn);
+		enqueueNewSymbolWarmupMock.mockImplementation(makeFakeWarmup().fn);
 		await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
-			getActiveTickers: fakeActiveTickers(active),
-			getTickerDetail: detail.fn,
-			enqueueWarmup: makeFakeWarmup().fn,
 			enrichmentCap: 1,
 		});
 
@@ -545,12 +570,12 @@ describe("runUniverseReconcile", () => {
 				lastUpdatedUtc: "2026-06-15T00:00:00Z",
 			}),
 		]);
+		fetchActiveTickersMock.mockImplementation(fakeActiveTickers(active));
+		fetchTickerDetailMock.mockImplementation(detail.fn);
+		enqueueNewSymbolWarmupMock.mockImplementation(makeFakeWarmup().fn);
 		const result = await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
-			getActiveTickers: fakeActiveTickers(active),
-			getTickerDetail: detail.fn,
-			enqueueWarmup: makeFakeWarmup().fn,
 			enrichmentCap: 1,
 		});
 
@@ -589,12 +614,12 @@ describe("runUniverseReconcile", () => {
 				lastUpdatedUtc: "2026-06-19T00:00:00Z",
 			}),
 		]);
+		fetchActiveTickersMock.mockImplementation(fakeActiveTickers(active));
+		fetchTickerDetailMock.mockImplementation(detail.fn);
+		enqueueNewSymbolWarmupMock.mockImplementation(makeFakeWarmup().fn);
 		const result = await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
-			getActiveTickers: fakeActiveTickers(active),
-			getTickerDetail: detail.fn,
-			enqueueWarmup: makeFakeWarmup().fn,
 			enrichmentCap: 1,
 		});
 
@@ -625,12 +650,12 @@ describe("runUniverseReconcile", () => {
 			symbols.map((symbol) => makeActiveTicker({ symbol, name: `Capped Listing ${symbol}` })),
 		);
 		const detail = makeFakeDetail();
+		fetchActiveTickersMock.mockImplementation(fakeActiveTickers(active));
+		fetchTickerDetailMock.mockImplementation(detail.fn);
+		enqueueNewSymbolWarmupMock.mockImplementation(makeFakeWarmup().fn);
 		await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
-			getActiveTickers: fakeActiveTickers(active),
-			getTickerDetail: detail.fn,
-			enqueueWarmup: makeFakeWarmup().fn,
 			enrichmentCap: 2,
 			enrichmentConcurrency: 2,
 		});
@@ -657,13 +682,13 @@ describe("runUniverseReconcile", () => {
 
 		const detail = makeFakeDetail();
 		const warmup = makeFakeWarmup();
+		fetchActiveTickersMock.mockImplementation(fakeActiveTickers([]));
+		fetchTickerDetailMock.mockImplementation(detail.fn);
+		enqueueNewSymbolWarmupMock.mockImplementation(warmup.fn);
 		const result = await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
 			// Empty set ⇒ treated as provider failure (a genuinely empty universe is impossible).
-			getActiveTickers: fakeActiveTickers([]),
-			getTickerDetail: detail.fn,
-			enqueueWarmup: warmup.fn,
 		});
 
 		expect(result.providerFetchFailed).toBe(true);
@@ -697,6 +722,7 @@ describe("runUniverseReconcile", () => {
 		// Detail seam reports a miss (Massive 5xx / not-found). The guarantee under test:
 		// a miss must NOT null out the row's existing enrichment.
 		const detail = makeFakeDetail(new Map([[symbol, { ok: false, iconUrl: null, sector: null }]]));
+		const warmup = makeFakeWarmup();
 		// Advance the reference so the symbol qualifies as a candidate; target-first +
 		// cap 1 → exactly this one detail call happens, so the counters are exact.
 		const active = await activeSetTargetsFirst([
@@ -707,12 +733,12 @@ describe("runUniverseReconcile", () => {
 				lastUpdatedUtc: "2026-06-16T00:00:00Z",
 			}),
 		]);
+		fetchActiveTickersMock.mockImplementation(fakeActiveTickers(active));
+		fetchTickerDetailMock.mockImplementation(detail.fn);
+		enqueueNewSymbolWarmupMock.mockImplementation(warmup.fn);
 		const result = await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
-			getActiveTickers: fakeActiveTickers(active),
-			getTickerDetail: detail.fn,
-			enqueueWarmup: makeFakeWarmup().fn,
 			enrichmentCap: 1,
 		});
 
@@ -742,12 +768,12 @@ describe("runUniverseReconcile", () => {
 			makeActiveTicker({ symbol: throwSymbol, name: "Flaky Detail Co", type: "stock" }),
 			makeActiveTicker({ symbol: okSymbol, name: "Healthy Detail Co", type: "stock" }),
 		]);
+		fetchActiveTickersMock.mockImplementation(fakeActiveTickers(active));
+		fetchTickerDetailMock.mockImplementation(detailFn);
+		enqueueNewSymbolWarmupMock.mockImplementation(makeFakeWarmup().fn);
 		const result = await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
-			getActiveTickers: fakeActiveTickers(active),
-			getTickerDetail: detailFn,
-			enqueueWarmup: makeFakeWarmup().fn,
 			enrichmentCap: 2,
 			enrichmentConcurrency: 2,
 		});
@@ -774,13 +800,13 @@ describe("runUniverseReconcile", () => {
 		};
 		const detail = makeFakeDetail();
 		const warmup = makeFakeWarmup();
+		fetchActiveTickersMock.mockImplementation(throwingFetch);
+		fetchTickerDetailMock.mockImplementation(detail.fn);
+		enqueueNewSymbolWarmupMock.mockImplementation(warmup.fn);
 		await expect(
 			runUniverseReconcile({
 				supabase: adminClient,
 				logger: rootLogger,
-				getActiveTickers: throwingFetch,
-				getTickerDetail: detail.fn,
-				enqueueWarmup: warmup.fn,
 			}),
 		).rejects.toThrow(/Incomplete active-ticker fetch/);
 
@@ -807,12 +833,12 @@ describe("runUniverseReconcile", () => {
 		// floor, so step 3's flagging is skipped. `untrackedGone` is absent from this set and
 		// would normally be flagged delisted — the floor spares it.
 		const active = [makeActiveTicker({ symbol: live, name: "Still Active Co", type: "stock" })];
+		fetchActiveTickersMock.mockImplementation(fakeActiveTickers(active));
+		fetchTickerDetailMock.mockImplementation(makeFakeDetail().fn);
+		enqueueNewSymbolWarmupMock.mockImplementation(makeFakeWarmup().fn);
 		const result = await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
-			getActiveTickers: fakeActiveTickers(active),
-			getTickerDetail: makeFakeDetail().fn,
-			enqueueWarmup: makeFakeWarmup().fn,
 			enrichmentCap: 0,
 		});
 

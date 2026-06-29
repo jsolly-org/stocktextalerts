@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-	__resetApprovalCacheForTests,
-	getApprovalCached,
-} from "../../../src/lib/db/approval-cache";
+import { getApprovalCached } from "../../../src/lib/db/approval-cache";
+import { resetApprovalCache } from "../../helpers/reset-approval-cache";
 
 describe("getApprovalCached", () => {
-	beforeEach(() => __resetApprovalCacheForTests());
+	beforeEach(() => resetApprovalCache());
 
 	it("An approved user is cached without expiry on the instance", async () => {
 		const lookup = vi.fn(async () => true);

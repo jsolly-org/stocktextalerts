@@ -49,7 +49,7 @@ export type MintLinkTokenOptions = {
 	userId: string;
 	/** Token lifetime in milliseconds (e.g. 10 minutes). */
 	ttlMs: number;
-	/** Override the clock for tests. */
+	/** Optional clock override for determinism. */
 	now?: number;
 };
 

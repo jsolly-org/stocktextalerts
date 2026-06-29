@@ -31,6 +31,10 @@ vi.mock("../src/lib/db/env", async (importOriginal) => {
 	};
 });
 
+vi.mock("../src/lib/schedule/pass-delay", () => ({
+	getPassDelayMs: () => 0,
+}));
+
 vi.mock("../src/lib/messaging/email/dispatch-client", async (importOriginal) => {
 	const actual =
 		await importOriginal<typeof import("../src/lib/messaging/email/dispatch-client")>();

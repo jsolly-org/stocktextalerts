@@ -5,16 +5,14 @@ vi.mock("../../../src/lib/market-data/session", () => ({
 }));
 
 import { getCurrentMarketSession } from "../../../src/lib/market-data/session";
-import {
-	__resetMarketSessionCacheForTests,
-	resolveMarketSessionWithFallback,
-} from "../../../src/lib/schedule/market-session";
+import { resolveMarketSessionWithFallback } from "../../../src/lib/schedule/market-session";
+import { resetMarketSessionCache } from "../../helpers/reset-market-session-cache";
 
 const mockGet = vi.mocked(getCurrentMarketSession);
 
 describe("resolveMarketSessionWithFallback", () => {
 	beforeEach(() => {
-		__resetMarketSessionCacheForTests();
+		resetMarketSessionCache();
 		mockGet.mockReset();
 	});
 

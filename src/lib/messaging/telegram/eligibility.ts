@@ -1,9 +1,5 @@
 import {
-	type AssetEventsContent,
 	anyFacetEnabled,
-	type DailyDigestContent,
-	enabledFacets,
-	type FacetlessContent,
 	type NotificationPreferenceType,
 	type PrefRow,
 } from "../notification-prefs";
@@ -13,9 +9,6 @@ interface TelegramEligibilityUser {
 	telegram_chat_id: number | null;
 	telegram_opted_out: boolean;
 }
-
-/** A telegram preference row (kept for back-compat with call sites). */
-export type TelegramPrefRow = PrefRow;
 
 /**
  * True when the user can receive Telegram messages at all: a chat is linked and
@@ -29,17 +22,6 @@ export type TelegramPrefRow = PrefRow;
  */
 export function isTelegramChannelUsable(user: TelegramEligibilityUser): boolean {
 	return user.telegram_chat_id != null && !user.telegram_opted_out;
-}
-
-/**
- * The set of content facets enabled for Telegram for a given notification type
- * (e.g. {"prices","top_movers"} for daily_digest). Facet-less types use "".
- */
-export function enabledTelegramFacets(
-	prefs: readonly PrefRow[],
-	notificationType: NotificationPreferenceType,
-): Set<DailyDigestContent | AssetEventsContent | FacetlessContent> {
-	return enabledFacets(prefs, notificationType, "telegram");
 }
 
 /**

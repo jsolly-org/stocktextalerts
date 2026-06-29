@@ -12,8 +12,8 @@ import type {
 import {
 	isOptionalVendorUnavailable,
 	recordOptionalVendorFailure,
-	resetOptionalVendorCircuitsForTests,
 } from "../../src/lib/vendors/optional-vendors";
+import { resetOptionalVendorCircuits } from "../helpers/reset-optional-vendor-circuits";
 
 describe("buildNewsContextForGrok formats Finnhub headlines into a Grok context string.", () => {
 	it("Builds context lines from multiple tickers with headlines.", () => {
@@ -226,7 +226,7 @@ describe("formatInsiderSection formats insider transactions per ticker.", () => 
 
 describe("fetchFinnhubExtras company-news degradation", () => {
 	afterEach(() => {
-		resetOptionalVendorCircuitsForTests();
+		resetOptionalVendorCircuits();
 		vi.restoreAllMocks();
 	});
 
