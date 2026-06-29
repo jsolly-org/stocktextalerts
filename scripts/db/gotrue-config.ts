@@ -137,6 +137,18 @@ export function readExpectedTemplates(configToml: string): ExpectedTemplate[] {
 	return out;
 }
 
+/** Resolve a config.toml `content_path` to the on-disk HTML file. */
+export function resolveTemplateContentPath(configPath: string, contentPath: string): string {
+	const supabaseDir = path.dirname(configPath);
+	const repoRoot = path.dirname(supabaseDir);
+	// Auth templates use repo-root-relative `./supabase/...` paths; security notifications use
+	// paths relative to the supabase/ directory (e.g. `./templates/...` or legacy `./auth-*.html`).
+	if (contentPath.startsWith("./supabase/")) {
+		return path.resolve(repoRoot, contentPath);
+	}
+	return path.resolve(supabaseDir, contentPath);
+}
+
 /**
  * Extract `GOTRUE_MAILER_TEMPLATES_*` values from a container's env, given as `KEY=value` lines (the
  * `podman inspect .Config.Env` shape). Splits on the FIRST `=` so URLs containing `=` survive.
@@ -292,14 +304,15 @@ export function detectGoTrueDrift(configPath: string): DriftVerdict {
 	// Nothing declared → nothing to enforce (a config that defers to GoTrue defaults).
 	if (expected.length === 0) return { status: "in_sync" };
 
-	// content_path is relative to the supabase/ directory that holds config.toml (GoTrue resolves
-	// paths from there — e.g. `./templates/foo.html` → `supabase/templates/foo.html`).
-	const supabaseDir = path.dirname(configPath);
+	// See resolveTemplateContentPath — auth templates vs notification templates use different bases.
 	const [canary] = expected;
 	if (canary === undefined) return { status: "in_sync" };
 	let localContent: string;
 	try {
-		localContent = fs.readFileSync(path.resolve(supabaseDir, canary.contentPath), "utf8");
+		localContent = fs.readFileSync(
+			resolveTemplateContentPath(configPath, canary.contentPath),
+			"utf8",
+		);
 	} catch (err) {
 		return {
 			status: "auth_unavailable",

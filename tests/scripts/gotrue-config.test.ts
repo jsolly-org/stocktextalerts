@@ -20,15 +20,15 @@ enable_confirmations = true
 
 [auth.email.template.confirmation]
 subject = "Confirm your email — StockTextAlerts"
-content_path = "./templates/auth-confirmation.html"
+content_path = "./supabase/templates/auth-confirmation.html"
 
 [auth.email.template.recovery]
 subject = "Reset your password — StockTextAlerts"
-content_path = "./templates/auth-recovery.html"
+content_path = "./supabase/templates/auth-recovery.html"
 
 [auth.email.template.email_change]
 subject = "Confirm your email change — StockTextAlerts"
-content_path = "./templates/auth-email-change.html"
+content_path = "./supabase/templates/auth-email-change.html"
 
 [auth.email.notification.password_changed]
 enabled = true
@@ -39,7 +39,7 @@ content_path = "./templates/auth-password-changed.html"
 const CONFIRMATION: ExpectedTemplate = {
 	key: "confirmation",
 	envKey: "GOTRUE_MAILER_TEMPLATES_CONFIRMATION",
-	contentPath: "./templates/auth-confirmation.html",
+	contentPath: "./supabase/templates/auth-confirmation.html",
 };
 const TEMPLATE_URL = "http://supabase_kong_stocktextalerts:8088/email/confirmation.html";
 const OUR_TEMPLATE = "<html><body>Confirm your email — StockTextAlerts</body></html>";
@@ -62,7 +62,7 @@ describe("readExpectedTemplates — which branded templates config.toml expects 
 	it("only enforces templates that declare a content_path (a removed one stops being checked)", () => {
 		const partial = `
 [auth.email.template.confirmation]
-content_path = "./templates/auth-confirmation.html"
+content_path = "./supabase/templates/auth-confirmation.html"
 `;
 		const templates = readExpectedTemplates(partial);
 		expect(templates).toHaveLength(1);
@@ -76,7 +76,7 @@ content_path = "./templates/auth-confirmation.html"
 	it("does not mis-assign a content_path under a table that isn't one of the four enforced ones", () => {
 		const withStray = `
 [auth.email.template.confirmation]
-content_path = "./templates/auth-confirmation.html"
+content_path = "./supabase/templates/auth-confirmation.html"
 
 [auth.sms.template.confirm]
 content_path = "./irrelevant.txt"
