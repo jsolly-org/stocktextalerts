@@ -22,6 +22,27 @@ export async function fetchSparklines(
 	const result: SparklineMap = new Map();
 	if (symbols.length === 0) return result;
 
+	let symbolsToFetch = symbols;
+
+	if (cacheOptions?.supabase) {
+		await Promise.all(
+			symbols.map(async (symbol) => {
+				const cached = await getSevenDaySparklineFromCache(cacheOptions.supabase, symbol, {
+					timezone: cacheOptions.timezone,
+					use24HourTime: cacheOptions.use24HourTime,
+				});
+				if (cached) {
+					result.set(symbol, cached);
+				}
+			}),
+		);
+		symbolsToFetch = symbols.filter((symbol) => !result.has(symbol));
+	}
+
+	if (symbolsToFetch.length === 0) {
+		return result;
+	}
+
 	const todayET = new Date().toLocaleDateString("en-CA", {
 		timeZone: US_MARKET_TIMEZONE,
 	});
@@ -31,7 +52,7 @@ export async function fetchSparklines(
 		.slice(0, 10);
 
 	const CONCURRENCY = 5;
-	const queue = [...symbols];
+	const queue = [...symbolsToFetch];
 	const pending: Promise<void>[] = [];
 
 	async function processSymbol(symbol: string): Promise<void> {
@@ -58,23 +79,10 @@ export async function fetchSparklines(
 		}
 	}
 
-	for (let i = 0; i < Math.min(CONCURRENCY, symbols.length); i++) {
+	for (let i = 0; i < Math.min(CONCURRENCY, symbolsToFetch.length); i++) {
 		pending.push(worker());
 	}
 	await Promise.all(pending);
-
-	if (cacheOptions?.supabase) {
-		for (const symbol of symbols) {
-			if (result.get(symbol)) continue;
-			const cached = await getSevenDaySparklineFromCache(cacheOptions.supabase, symbol, {
-				timezone: cacheOptions.timezone,
-				use24HourTime: cacheOptions.use24HourTime,
-			});
-			if (cached) {
-				result.set(symbol, cached);
-			}
-		}
-	}
 
 	return result;
 }
