@@ -66,7 +66,7 @@ describe("Daily digest email prices", () => {
 			grok_sends_in_window: 0,
 			telegram_chat_id: null,
 			telegram_opted_out: false,
-			prefs: makePrefRows([["daily_digest", "prices", "sms", true]]),
+			prefs: makePrefRows([["daily_notification", "prices", "sms", true]]),
 		};
 	}
 

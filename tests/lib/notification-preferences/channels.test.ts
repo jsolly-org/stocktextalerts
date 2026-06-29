@@ -20,8 +20,8 @@ describe("notification_preferences round-trips through the read path", () => {
 
 		await setTestUserPrefs(user.id, [
 			["price_targets", "", "telegram", true],
-			["daily_digest", "news", "telegram", true],
-			["daily_digest", "prices", "email", false], // explicitly OFF (overrides any default)
+			["daily_notification", "news", "telegram", true],
+			["daily_notification", "prices", "email", false], // explicitly OFF (overrides any default)
 		]);
 
 		const rows = await loadUserPreferenceRows(adminClient, user.id);
@@ -34,7 +34,7 @@ describe("notification_preferences round-trips through the read path", () => {
 					enabled: true,
 				}),
 				expect.objectContaining({
-					notification_type: "daily_digest",
+					notification_type: "daily_notification",
 					content: "news",
 					channel: "telegram",
 					enabled: true,
