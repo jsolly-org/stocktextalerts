@@ -78,7 +78,7 @@ async function fetchUsMarketCalendar(): Promise<Map<string, CalendarRecord>> {
 			// Prefer the LATEST close among multiple exchanges' early-close
 			// records — implausibly different times resolve in favor of the
 			// later threshold (more conservative override window).
-			if (!existing || existing.kind !== "early-close" || closeDt > existing.closeUtc) {
+			if (existing?.kind !== "early-close" || closeDt > existing.closeUtc) {
 				records.set(date, {
 					kind: "early-close",
 					closeUtc: closeDt,
