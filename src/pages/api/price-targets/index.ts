@@ -1,10 +1,10 @@
 import type { APIRoute } from "astro";
+import type { ApiJsonBody } from "../../../lib/api/json-response";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { fetchAssetPrices } from "../../../lib/market-data/prices";
 import { getCurrentMarketSession } from "../../../lib/market-data/session";
-import type { ApiJsonBody } from "../types";
 
 /**
  * GET /api/price-targets
