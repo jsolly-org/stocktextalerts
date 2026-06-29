@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { POST } from "../../../src/pages/api/auth/update-password";
-import { createApiContext } from "../../helpers/api-context";
+import { POST } from "../../../../src/pages/api/auth/account-management/update-password";
+import { createApiContext } from "../../../helpers/api-context";
 
 describe("A user submits the password recovery form.", () => {
 	it("The request is rejected when the form is incomplete.", async () => {
-		const request = new Request("http://localhost/api/auth/update-password", {
+		const request = new Request("http://localhost/api/auth/account-management/update-password", {
 			method: "POST",
 			body: new URLSearchParams({
 				password: "",

@@ -34,7 +34,7 @@ const { email } = Astro.props;
 			</div>
 			<form
 				class="space-y-4"
-				action="/api/auth/update-email"
+				action="/api/auth/account-management/update-email"
 				method="post"
 				data-current-email={email}
 			>
@@ -80,7 +80,7 @@ const { email } = Astro.props;
 
 			<form
 				class="space-y-4 border-t border-edge pt-6"
-				action="/api/auth/change-password"
+				action="/api/auth/account-management/change-password"
 				method="post"
 			>
 				<input type="hidden" name="email" autocomplete="username" value={email} />
@@ -125,7 +125,7 @@ const { email } = Astro.props;
 </section>
 <script>
 	const form = document.querySelector(
-		'form[action="/api/auth/update-email"]',
+		'form[action="/api/auth/account-management/update-email"]',
 	) as HTMLFormElement | null;
 	if (form) {
 		const input = form.querySelector<HTMLInputElement>("#new-email");

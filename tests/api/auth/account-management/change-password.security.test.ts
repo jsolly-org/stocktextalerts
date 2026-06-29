@@ -1,15 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { POST } from "../../../src/pages/api/auth/change-password";
-import { createApiContext } from "../../helpers/api-context";
-import { NEW_PASSWORD } from "../../helpers/constants";
-import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
-import { createTestUser } from "../../helpers/test-user";
-import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
+import { POST } from "../../../../src/pages/api/auth/account-management/change-password";
+import { createApiContext } from "../../../helpers/api-context";
+import { NEW_PASSWORD } from "../../../helpers/constants";
+import { adminClient, createAuthenticatedCookies } from "../../../helpers/test-env";
+import { createTestUser } from "../../../helpers/test-user";
+import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 
 describe("Password change endpoint enforces authentication, form validation, and rate limiting.", () => {
 	it("Unauthenticated requests are redirected to sign-in.", async () => {
-		const request = new Request("http://localhost/api/auth/change-password", {
+		const request = new Request("http://localhost/api/auth/account-management/change-password", {
 			method: "POST",
 			body: new URLSearchParams({
 				password: NEW_PASSWORD,
@@ -33,7 +33,7 @@ describe("Password change endpoint enforces authentication, form validation, and
 
 		const cookies = await createAuthenticatedCookies(testUser.email, originalPassword);
 
-		const request = new Request("http://localhost/api/auth/change-password", {
+		const request = new Request("http://localhost/api/auth/account-management/change-password", {
 			method: "POST",
 			body: new URLSearchParams({
 				password: "",
@@ -69,7 +69,7 @@ describe("Password change endpoint enforces rate limiting.", () => {
 
 		const cookies = await createAuthenticatedCookies(testUser.email, originalPassword);
 
-		const request = new Request("http://localhost/api/auth/change-password", {
+		const request = new Request("http://localhost/api/auth/account-management/change-password", {
 			method: "POST",
 			body: new URLSearchParams({
 				password: NEW_PASSWORD,

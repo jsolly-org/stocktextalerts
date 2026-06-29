@@ -14,7 +14,7 @@ describe("Profile password form posts over HTTP", () => {
 
 	it("change-password without a session redirects to sign-in", async () => {
 		const { response } = await postForm(baseUrl, {
-			path: "/api/auth/change-password",
+			path: "/api/auth/account-management/change-password",
 			fields: { password: NEW_PASSWORD },
 		});
 
@@ -41,7 +41,7 @@ describe("Profile password form posts over HTTP", () => {
 		expect(signIn.response.status).toBe(302);
 
 		const { response } = await postForm(baseUrl, {
-			path: "/api/auth/change-password",
+			path: "/api/auth/account-management/change-password",
 			fields: { password: "short" },
 			cookies: signIn.cookies,
 		});
@@ -69,7 +69,7 @@ describe("Profile password form posts over HTTP", () => {
 		expect(signIn.response.status).toBe(302);
 
 		const { response } = await postForm(baseUrl, {
-			path: "/api/auth/change-password",
+			path: "/api/auth/account-management/change-password",
 			fields: { password: NEW_PASSWORD },
 			cookies: signIn.cookies,
 		});

@@ -65,7 +65,7 @@ describe("Auth form posts over HTTP", () => {
 
 	it("update-password with an invalid token redirects with an error", async () => {
 		const { response } = await postForm(baseUrl, {
-			path: "/api/auth/update-password",
+			path: "/api/auth/account-management/update-password",
 			fields: {
 				password: TEST_PASSWORD,
 				token_hash: "invalid-token-hash",

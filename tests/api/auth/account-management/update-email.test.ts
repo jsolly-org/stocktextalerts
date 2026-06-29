@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { POST } from "../../../src/pages/api/auth/update-email";
-import { createApiContext } from "../../helpers/api-context";
-import { createAuthenticatedCookies } from "../../helpers/test-env";
-import { createTestUser } from "../../helpers/test-user";
-import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
+import { POST } from "../../../../src/pages/api/auth/account-management/update-email";
+import { createApiContext } from "../../../helpers/api-context";
+import { createAuthenticatedCookies } from "../../../helpers/test-env";
+import { createTestUser } from "../../../helpers/test-user";
+import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 
 describe("A signed-in user requests to change their email address.", () => {
 	it("A valid request triggers the email change flow and returns the user to their profile with success.", async () => {
@@ -17,7 +17,7 @@ describe("A signed-in user requests to change their email address.", () => {
 
 		const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
-		const request = new Request("http://localhost/api/auth/update-email", {
+		const request = new Request("http://localhost/api/auth/account-management/update-email", {
 			method: "POST",
 			body: new URLSearchParams({ email: "  new@example.com " }),
 		});
@@ -38,7 +38,7 @@ describe("A signed-in user requests to change their email address.", () => {
 
 		const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
-		const request = new Request("http://localhost/api/auth/update-email", {
+		const request = new Request("http://localhost/api/auth/account-management/update-email", {
 			method: "POST",
 			body: new URLSearchParams({ email: testUser.email }),
 		});

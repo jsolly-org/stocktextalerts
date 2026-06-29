@@ -1,15 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { POST } from "../../../src/pages/api/auth/delete-account";
-import { createApiContext } from "../../helpers/api-context";
-import { TEST_PASSWORD } from "../../helpers/constants";
-import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
-import { createTestUser } from "../../helpers/test-user";
-import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
+import { POST } from "../../../../src/pages/api/auth/account-management/delete-account";
+import { createApiContext } from "../../../helpers/api-context";
+import { TEST_PASSWORD } from "../../../helpers/constants";
+import { adminClient, createAuthenticatedCookies } from "../../../helpers/test-env";
+import { createTestUser } from "../../../helpers/test-user";
+import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 
 describe("Delete account requires authentication.", () => {
 	it("An unauthenticated request is redirected to the home page.", async () => {
-		const request = new Request("http://localhost/api/auth/delete-account", {
+		const request = new Request("http://localhost/api/auth/account-management/delete-account", {
 			method: "POST",
 		});
 
@@ -41,7 +41,7 @@ describe("Delete account endpoint enforces rate limiting.", () => {
 
 		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
-		const request = new Request("http://localhost/api/auth/delete-account", {
+		const request = new Request("http://localhost/api/auth/account-management/delete-account", {
 			method: "POST",
 		});
 

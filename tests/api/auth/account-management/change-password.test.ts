@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { POST } from "../../../src/pages/api/auth/change-password";
-import { createApiContext } from "../../helpers/api-context";
-import { NEW_PASSWORD } from "../../helpers/constants";
-import { createAuthenticatedCookies } from "../../helpers/test-env";
-import { createTestUser } from "../../helpers/test-user";
-import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
+import { POST } from "../../../../src/pages/api/auth/account-management/change-password";
+import { createApiContext } from "../../../helpers/api-context";
+import { NEW_PASSWORD } from "../../../helpers/constants";
+import { createAuthenticatedCookies } from "../../../helpers/test-env";
+import { createTestUser } from "../../../helpers/test-user";
+import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 
 describe("A signed-in user changes their password from profile.", () => {
 	it("A valid password update redirects with success and allows sign-in with the new password.", async () => {
@@ -19,7 +19,7 @@ describe("A signed-in user changes their password from profile.", () => {
 
 		const cookies = await createAuthenticatedCookies(testUser.email, originalPassword);
 
-		const request = new Request("http://localhost/api/auth/change-password", {
+		const request = new Request("http://localhost/api/auth/account-management/change-password", {
 			method: "POST",
 			body: new URLSearchParams({
 				password: NEW_PASSWORD,
@@ -47,7 +47,7 @@ describe("A signed-in user changes their password from profile.", () => {
 
 		const cookies = await createAuthenticatedCookies(testUser.email, originalPassword);
 
-		const request = new Request("http://localhost/api/auth/change-password", {
+		const request = new Request("http://localhost/api/auth/account-management/change-password", {
 			method: "POST",
 			body: new URLSearchParams({
 				password: "short",

@@ -295,10 +295,11 @@ Real Massive/Finnhub round-trips are exercised in production by the scheduled `s
 - `POST /api/auth/signin`
 - `GET /api/auth/signout` (renders a confirmation page; does not sign you out)
 - `POST /api/auth/signout`
-- `POST /api/auth/delete-account`
-- `POST /api/auth/update-email`
-- `POST /api/auth/update-password`
-- `POST /api/auth/change-password`
+- Account management:
+  - `POST /api/auth/account-management/update-email`
+  - `POST /api/auth/account-management/change-password`
+  - `POST /api/auth/account-management/delete-account`
+  - `POST /api/auth/account-management/update-password`
 - `POST /api/auth/sms/send-verification`
 - `POST /api/auth/sms/verify-code`
 

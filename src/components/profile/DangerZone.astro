@@ -4,7 +4,7 @@ import { Icon } from "astro-icon/components";
 interface Props {
 	action?: string;
 }
-const { action = "/api/auth/delete-account" } = Astro.props;
+const { action = "/api/auth/account-management/delete-account" } = Astro.props;
 ---
 <section class="bg-error-bg/50 rounded-xl shadow-sm border border-error-border p-6 sm:p-8" aria-labelledby="danger-zone-heading">
 	<div class="flex items-start gap-4">

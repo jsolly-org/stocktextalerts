@@ -3,12 +3,12 @@ import {
 	DELETE_ACCOUNT_RATE_LIMIT_MINUTES,
 } from "astro:env/server";
 import type { APIRoute } from "astro";
-import { deleteUserAccount } from "../../../lib/auth/delete-account";
-import { enforceAuthRateLimit } from "../../../lib/auth/enforce-rate-limit";
-import { clearAuthCookies } from "../../../lib/auth/session/cookies";
-import { createUserService } from "../../../lib/db";
-import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";
-import { createLogger } from "../../../lib/logging";
+import { deleteUserAccount } from "../../../../lib/auth/delete-account";
+import { enforceAuthRateLimit } from "../../../../lib/auth/enforce-rate-limit";
+import { clearAuthCookies } from "../../../../lib/auth/session/cookies";
+import { createUserService } from "../../../../lib/db";
+import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../../lib/db/supabase";
+import { createLogger } from "../../../../lib/logging";
 
 /*
  * Rate limit: N attempts per user per time window.

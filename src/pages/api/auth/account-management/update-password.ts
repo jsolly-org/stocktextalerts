@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
-import { verifySupabaseOtp } from "../../../lib/auth/supabase-otp";
-import { MIN_PASSWORD_LENGTH } from "../../../lib/constants";
-import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";
-import { parseWithSchema } from "../../../lib/forms/parse";
-import { createLogger } from "../../../lib/logging";
+import { verifySupabaseOtp } from "../../../../lib/auth/supabase-otp";
+import { MIN_PASSWORD_LENGTH } from "../../../../lib/constants";
+import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../../lib/db/supabase";
+import { parseWithSchema } from "../../../../lib/forms/parse";
+import { createLogger } from "../../../../lib/logging";
 
 function buildRecoverRedirect(error: string, tokenHash?: string | null) {
 	const params = new URLSearchParams({ error, type: "recovery" });

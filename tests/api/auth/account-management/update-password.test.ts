@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { POST } from "../../../src/pages/api/auth/update-password";
-import { createApiContext } from "../../helpers/api-context";
-import { NEW_PASSWORD } from "../../helpers/constants";
-import { adminClient } from "../../helpers/test-env";
-import { cleanupTestUser, createTestUser } from "../../helpers/test-user";
+import { POST } from "../../../../src/pages/api/auth/account-management/update-password";
+import { createApiContext } from "../../../helpers/api-context";
+import { NEW_PASSWORD } from "../../../helpers/constants";
+import { adminClient } from "../../../helpers/test-env";
+import { cleanupTestUser, createTestUser } from "../../../helpers/test-user";
 
 describe("A user resets their password from the recovery flow.", () => {
 	it("With a valid token and password, the user is redirected to the sign-in page.", async () => {
@@ -28,7 +28,7 @@ describe("A user resets their password from the recovery flow.", () => {
 
 			const tokenHash = linkData.properties.hashed_token;
 
-			const request = new Request("http://localhost/api/auth/update-password", {
+			const request = new Request("http://localhost/api/auth/account-management/update-password", {
 				method: "POST",
 				body: new URLSearchParams({
 					password: NEW_PASSWORD,
@@ -52,7 +52,7 @@ describe("A user resets their password from the recovery flow.", () => {
 	});
 
 	it("If the new password is too short, the user sees a strength error.", async () => {
-		const request = new Request("http://localhost/api/auth/update-password", {
+		const request = new Request("http://localhost/api/auth/account-management/update-password", {
 			method: "POST",
 			body: new URLSearchParams({
 				password: "short",

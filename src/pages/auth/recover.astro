@@ -65,7 +65,7 @@ if (!hasValidToken) {
         )}
 
         {showForm && (
-          <form id="reset-form" class="space-y-4" action="/api/auth/update-password" method="post">
+          <form id="reset-form" class="space-y-4" action="/api/auth/account-management/update-password" method="post">
             <input type="hidden" name="token_hash" value={tokenHash ?? ""} />
             <fieldset class="space-y-4">
               <legend class="sr-only">Set a new password</legend>

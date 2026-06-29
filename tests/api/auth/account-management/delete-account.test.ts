@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { POST } from "../../../src/pages/api/auth/delete-account";
-import { createApiContext } from "../../helpers/api-context";
-import { TEST_PASSWORD } from "../../helpers/constants";
-import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
-import { cleanupTestUser, createTestUser } from "../../helpers/test-user";
+import { POST } from "../../../../src/pages/api/auth/account-management/delete-account";
+import { createApiContext } from "../../../helpers/api-context";
+import { TEST_PASSWORD } from "../../../helpers/constants";
+import { adminClient, createAuthenticatedCookies } from "../../../helpers/test-env";
+import { cleanupTestUser, createTestUser } from "../../../helpers/test-user";
 
 describe("A signed-in user deletes their account from the profile page.", () => {
 	it("The account is removed, auth cookies are cleared, and the user is redirected home with a success message.", async () => {
@@ -17,7 +17,7 @@ describe("A signed-in user deletes their account from the profile page.", () => 
 			const authCookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 			const deleteSpy = vi.fn();
 
-			const request = new Request("http://localhost/api/auth/delete-account", {
+			const request = new Request("http://localhost/api/auth/account-management/delete-account", {
 				method: "POST",
 			});
 
