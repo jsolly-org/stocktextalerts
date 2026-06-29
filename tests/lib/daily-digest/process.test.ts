@@ -197,7 +197,7 @@ describe("Daily digest process scenarios", () => {
 			})
 			.eq("id", id);
 		expect(updateError).toBeNull();
-		await setTestUserPrefs(id, [["daily_digest", "rumors", "email", true]]);
+		await setTestUserPrefs(id, [["daily_notification", "rumors", "email", true]]);
 
 		const { data: userRow, error: selectError } = await adminClient
 			.from("users")
@@ -345,7 +345,7 @@ describe("Daily digest process scenarios", () => {
 				daily_notification_next_send_at: nowIso,
 			})
 			.eq("id", id);
-		await setTestUserPrefs(id, [["daily_digest", "news", "email", true]]);
+		await setTestUserPrefs(id, [["daily_notification", "news", "email", true]]);
 
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
 			prices: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 }]]),
@@ -398,7 +398,7 @@ describe("Daily digest process scenarios", () => {
 				grok_sends_in_window: 0,
 			})
 			.eq("id", id);
-		await setTestUserPrefs(id, [["daily_digest", "news", "email", true]]);
+		await setTestUserPrefs(id, [["daily_notification", "news", "email", true]]);
 
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
 			prices: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 }]]),
@@ -520,7 +520,7 @@ describe("Daily digest process scenarios", () => {
 				grok_window_start: nowIso,
 			})
 			.eq("id", id);
-		await setTestUserPrefs(id, [["daily_digest", "news", "email", true]]);
+		await setTestUserPrefs(id, [["daily_notification", "news", "email", true]]);
 
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
 			prices: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 }]]),

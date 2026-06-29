@@ -1,11 +1,11 @@
 import type { APIRoute } from "astro";
 import { sendVerification } from "../../../../lib/auth/sms-verification";
+import type { ApiJsonBody } from "../../../../lib/client/json-response";
 import { VERIFICATION_RESEND_COOLDOWN_MS } from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
 import { createLogger } from "../../../../lib/logging";
-import type { ApiJsonBody } from "../../types";
 
 /**
  * POST /api/auth/sms/send-verification

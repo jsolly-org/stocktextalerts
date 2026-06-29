@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import type { ApiJsonBody } from "../../../lib/client/json-response";
 import { ASSET_SYMBOL_MAX_LENGTH } from "../../../lib/constants";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
@@ -6,7 +7,6 @@ import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
 import { fetchAssetPrices } from "../../../lib/market-data/prices";
 import { getCurrentMarketSession } from "../../../lib/market-data/session";
-import type { ApiJsonBody } from "../types";
 
 /**
  * POST /api/price-targets/save

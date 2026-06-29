@@ -95,6 +95,6 @@ describe("A signed-in opted-out user attempts to re-enable SMS options.", () => 
 		expect(payload.message).toBe("settings_updated");
 
 		expect(await readPref(testUser.id, "market_scheduled_asset_price", "", "sms")).toBe(true);
-		expect(await readPref(testUser.id, "daily_digest", "news", "email")).toBe(true);
+		expect(await readPref(testUser.id, "daily_notification", "news", "email")).toBe(true);
 	});
 });

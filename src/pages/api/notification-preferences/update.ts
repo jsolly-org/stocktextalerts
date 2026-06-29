@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import type { ApiJsonBody } from "../../../lib/client/json-response";
 import {
 	DAILY_NOTIFICATION_FACETS,
 	hasAnyDailyNotificationFacet,
@@ -24,7 +25,6 @@ import { userLocalToEtMinute } from "../../../lib/time/conversion";
 import { isOutsideMarketHours } from "../../../lib/time/market/session";
 import { parseScheduledTimes } from "../../../lib/time/schedule/next-send";
 import type { DailyNotificationContent, PrefChannel } from "../../../lib/types";
-import type { ApiJsonBody } from "../types";
 
 const NOTIFICATION_PREFERENCES_SCHEMA = {
 	market_scheduled_asset_price_enabled: { type: "boolean" },

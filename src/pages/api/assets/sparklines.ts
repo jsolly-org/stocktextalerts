@@ -1,10 +1,10 @@
 import type { APIRoute } from "astro";
+import type { ApiJsonBody } from "../../../lib/client/json-response";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { fetchSparklines } from "../../../lib/market-data/sparklines";
 import { isValidAssetSymbol } from "../../../lib/validation";
-import type { ApiJsonBody } from "../types";
 
 /**
  * GET /api/assets/sparklines

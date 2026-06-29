@@ -52,7 +52,7 @@ import { makePrefRows, makeUserRecord } from "../../helpers/user-record-fixture"
 function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
 	return makeUserRecord({
 		sms_opted_out: true,
-		prefs: makePrefRows([["asset_events", "ipo", "email", true]]),
+		prefs: makePrefRows([["daily_notification", "ipo", "email", true]]),
 		daily_notification_next_send_at: "2026-02-10T10:00:00.000Z",
 		...overrides,
 	});
@@ -145,8 +145,8 @@ describe("processAssetEventsUser", () => {
 			sms_notifications_enabled: true,
 			phone_verified: true,
 			prefs: makePrefRows([
-				["asset_events", "insider", "email", true],
-				["asset_events", "insider", "sms", true],
+				["daily_notification", "insider", "email", true],
+				["daily_notification", "insider", "sms", true],
 			]),
 		});
 		const supabase = {

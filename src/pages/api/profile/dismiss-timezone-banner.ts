@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
+import type { ApiJsonBody } from "../../../lib/client/json-response";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
-import type { ApiJsonBody } from "../types";
 
 export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({

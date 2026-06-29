@@ -3,17 +3,12 @@ import {
 	isUnauthorizedResponse,
 	redirectToSignIn,
 } from "../../../lib/auth/session/session-expired";
+import type { ApiJsonBody } from "../../../lib/client/json-response";
 import { createSaveSequencer, type SequencedResult } from "../../../lib/forms/save-sequencer";
 import { rootLogger } from "../../../lib/logging";
 import { formatMessage } from "../../../lib/messaging/status-messages";
 
 /* ============= Types ============= */
-type FormSaveResponse = {
-	ok: boolean;
-	message: string;
-	[key: string]: unknown;
-};
-
 export type AutoSaveFormOptions = {
 	formRef: Ref<HTMLFormElement | null>;
 	debounceMs?: number;
@@ -101,7 +96,7 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 	/** Discriminated result of the in-flight save task handed to the sequencer. */
 	type SaveTaskResult =
 		| { kind: "unauthorized" }
-		| { kind: "json"; ok: boolean; payload: FormSaveResponse };
+		| { kind: "json"; ok: boolean; payload: ApiJsonBody };
 
 	/**
 	 * POST the current form data through the sequencer and update local state from
@@ -138,7 +133,7 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 					return { kind: "unauthorized" };
 				}
 
-				const payload = (await response.json()) as FormSaveResponse;
+				const payload = (await response.json()) as ApiJsonBody;
 				return { kind: "json", ok: response.ok, payload };
 			});
 		} catch (error) {

@@ -101,7 +101,7 @@ describe("A signed-in user updates their timezone.", () => {
 			.eq("id", testUser.id);
 		expect(dailyDigestError).toBeNull();
 		// Per-option facet now lives in notification_preferences (default off).
-		await setTestUserPrefs(testUser.id, [["daily_digest", "news", "email", true]]);
+		await setTestUserPrefs(testUser.id, [["daily_notification", "news", "email", true]]);
 
 		const { data: beforeUpdate } = await adminClient
 			.from("users")

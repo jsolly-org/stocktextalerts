@@ -56,7 +56,7 @@ async function seedTelegramAssetEventsUser(facetEnabled: boolean) {
 
 	// Per-option prefs live in notification_preferences (createTestUser seeded the
 	// asset_events Telegram facets off); set the calendar facet for this test.
-	await setTestUserPrefs(id, [["asset_events", "calendar", "telegram", facetEnabled]]);
+	await setTestUserPrefs(id, [["daily_notification", "calendar", "telegram", facetEnabled]]);
 
 	const { data: userRow, error: selectError } = await adminClient
 		.from("users")
