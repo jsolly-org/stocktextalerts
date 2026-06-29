@@ -109,7 +109,7 @@
 		"github-actionlint": "^1.7.12",
 		"knip": "^6.23.0",
 		"lighthouse": "^13.0.3",
-		"lint-staged": "^16.4.0",
+		"lint-staged": "^17.0.8",
 		"markdownlint-cli2": "^0.22.1",
 		"pg": "^8.22.0",
 		"squawk-cli": "^2.59.0",
