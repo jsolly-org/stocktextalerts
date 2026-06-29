@@ -86,7 +86,7 @@
 		"luxon": "^3.7.2",
 		"nodemailer": "^9.0.1",
 		"pg-copy-streams": "^7.0.0",
-		"twilio": "^5.13.1",
+		"twilio": "^6.0.2",
 		"vue": "^3.5.39"
 	},
 	"devDependencies": {
