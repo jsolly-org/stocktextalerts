@@ -63,7 +63,7 @@
 		]
 	},
 	"dependencies": {
-		"@astrojs/vercel": "^10.0.3",
+		"@astrojs/vercel": "^11.0.0",
 		"@aws-sdk/client-cloudwatch": "^3.1075.0",
 		"@aws-sdk/client-s3": "^3.1075.0",
 		"@aws-sdk/client-sesv2": "^3.1075.0",
@@ -86,10 +86,10 @@
 	},
 	"devDependencies": {
 		"@astrojs/check": "^0.9.9",
-		"@astrojs/node": "10.1.4",
+		"@astrojs/node": "^11.0.0",
 		"@astrojs/sitemap": "^3.7.3",
 		"@astrojs/ts-plugin": "^1.10.9",
-		"@astrojs/vue": "^6.0.1",
+		"@astrojs/vue": "^7.0.0",
 		"@axe-core/playwright": "^4.12.1",
 		"@biomejs/biome": "2.4.10",
 		"@playwright/test": "^1.61.1",
@@ -99,7 +99,7 @@
 		"@types/nodemailer": "^8.0.1",
 		"@types/pg": "^8.20.0",
 		"@types/pg-copy-streams": "^1.2.5",
-		"astro": "~6.4.8",
+		"astro": "^7.0.3",
 		"chrome-launcher": "^1.2.1",
 		"github-actionlint": "^1.7.12",
 		"knip": "^6.23.0",
@@ -113,7 +113,7 @@
 		"tsx": "^4.22.4",
 		"typescript": "^6.0.2",
 		"vercel": "^54.18.1",
-		"vite": "^7.3.6",
+		"vite": "^8.1.0",
 		"vite-svg-loader": "^5.1.1",
 		"vitest": "^4.1.9"
 	},

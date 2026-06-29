@@ -1,4 +1,4 @@
-import { getContainerRenderer as getVueRenderer } from "@astrojs/vue";
+import { getContainerRenderer as getVueRenderer } from "@astrojs/vue/container-renderer";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { loadRenderers } from "astro/virtual-modules/container.js";
 import { beforeAll, describe, expect, it } from "vitest";

@@ -1,6 +1,6 @@
+/// <reference types="vitest/config" />
 import { getViteConfig } from "astro/config";
 import { loadEnv } from "vite";
-import type {} from "vitest/config";
 import { normalizeDirectVitestProcessEnv } from "./tests/helpers/test-process-env";
 
 // Load .env / .env.local into process.env so tests work regardless of
