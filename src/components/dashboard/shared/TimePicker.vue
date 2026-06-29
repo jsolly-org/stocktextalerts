@@ -200,7 +200,7 @@ const timeConfig = computed(() => {
 });
 
 const DISABLED_SELECTORS =
-	".dp__overlay_cell_disabled, .dp__overlay_cell_active_disabled, .dp__inc_dec_button_disabled";
+	".dp--overlay-cell-disabled, .dp--overlay-cell-active-disabled, .dp--inc-dec-button-disabled";
 let disabledTooltipObserver: MutationObserver | null = null;
 
 function applyDisabledTooltips(root: ParentNode) {
@@ -350,15 +350,15 @@ onBeforeUnmount(() => {
 	z-index: 10000;
 }
 
-.dp__outer_menu_wrap,
-.dp__menu {
+.dp--outer-menu-wrap,
+.dp--menu {
 	z-index: 10001;
 }
 
 /* Prevent iOS double-tap zoom on repeated time-stepper taps. */
-.dp__inc_dec_button,
-.dp__button,
-.dp__pm_am_button {
+.dp--inc-dec-button,
+.dp--button,
+.dp--pm-am-button {
 	touch-action: manipulation;
 }
 
@@ -372,26 +372,26 @@ onBeforeUnmount(() => {
  * rules without resorting to !important. The matching :hover variant
  * pins the same look so the cell doesn't brighten on hover.
  */
-.dp__overlay_cell_disabled.dp__overlay_cell_pad,
-.dp__overlay_cell_active_disabled.dp__overlay_cell_pad {
+.dp--overlay-cell-disabled.dp--overlay-cell-pad,
+.dp--overlay-cell-active-disabled.dp--overlay-cell-pad {
 	opacity: 0.4;
 	background-color: var(--surface-alt);
 	color: var(--muted);
 	text-decoration: line-through;
 }
-.dp__overlay_cell_disabled.dp__overlay_cell_pad:hover,
-.dp__overlay_cell_active_disabled.dp__overlay_cell_pad:hover {
+.dp--overlay-cell-disabled.dp--overlay-cell-pad:hover,
+.dp--overlay-cell-active-disabled.dp--overlay-cell-pad:hover {
 	background-color: var(--surface-alt);
 	color: var(--muted);
 }
 
 /*
  * Override VueDatePicker theme to use our design tokens.
- * The library always renders dp__theme_light; we remap its CSS
+ * The library always renders dp--theme-light; we remap its CSS
  * variables so both light and dark mode stay consistent with the
  * `.input` utility class used by the rest of the app.
  */
-.dp__theme_light {
+.dp--theme-light {
 	--dp-background-color: var(--surface);
 	--dp-text-color: var(--heading);
 	--dp-border-color: var(--edge-strong);

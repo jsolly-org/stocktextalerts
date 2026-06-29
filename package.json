@@ -74,7 +74,7 @@
 		"@grammyjs/parse-mode": "^2.3.0",
 		"@resvg/resvg-js": "^2.6.2",
 		"@supabase/supabase-js": "^2.108.2",
-		"@vuepic/vue-datepicker": "^12.1.0",
+		"@vuepic/vue-datepicker": "^14.0.0",
 		"@vueuse/core": "^14.3.0",
 		"astro-icon": "^1.1.5",
 		"grammy": "^1.44.0",
