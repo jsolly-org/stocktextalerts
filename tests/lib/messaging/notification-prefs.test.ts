@@ -10,19 +10,19 @@ import { makePrefRows } from "../../helpers/user-record-fixture";
 
 describe("notification-prefs channel-parametric helpers", () => {
 	const prefs = makePrefRows([
-		["daily_digest", "prices", "email", true],
-		["daily_digest", "top_movers", "email", true],
-		["daily_digest", "prices", "sms", false],
-		["daily_digest", "news", "telegram", true],
+		["daily_notification", "prices", "email", true],
+		["daily_notification", "top_movers", "email", true],
+		["daily_notification", "prices", "sms", false],
+		["daily_notification", "news", "telegram", true],
 		["market_asset_price_alerts", "", "telegram", true],
 		["price_targets", "", "sms", true],
 	]);
 
 	describe("isFacetEnabled", () => {
 		it("is true only when a matching enabled row exists for (type, channel, content)", () => {
-			expect(isFacetEnabled(prefs, "daily_digest", "email", "prices")).toBe(true);
-			expect(isFacetEnabled(prefs, "daily_digest", "sms", "prices")).toBe(false); // row disabled
-			expect(isFacetEnabled(prefs, "daily_digest", "email", "news")).toBe(false); // no such row
+			expect(isFacetEnabled(prefs, "daily_notification", "email", "prices")).toBe(true);
+			expect(isFacetEnabled(prefs, "daily_notification", "sms", "prices")).toBe(false); // row disabled
+			expect(isFacetEnabled(prefs, "daily_notification", "email", "news")).toBe(false); // no such row
 		});
 
 		it("defaults content to '' for facet-less notification types", () => {
@@ -33,18 +33,18 @@ describe("notification-prefs channel-parametric helpers", () => {
 
 	describe("enabledFacets", () => {
 		it("returns only the enabled content facets for the requested (type, channel)", () => {
-			expect(enabledFacets(prefs, "daily_digest", "email")).toEqual(
+			expect(enabledFacets(prefs, "daily_notification", "email")).toEqual(
 				new Set(["prices", "top_movers"]),
 			);
-			expect(enabledFacets(prefs, "daily_digest", "sms")).toEqual(new Set());
-			expect(enabledFacets(prefs, "daily_digest", "telegram")).toEqual(new Set(["news"]));
+			expect(enabledFacets(prefs, "daily_notification", "sms")).toEqual(new Set());
+			expect(enabledFacets(prefs, "daily_notification", "telegram")).toEqual(new Set(["news"]));
 		});
 	});
 
 	describe("anyFacetEnabled", () => {
 		it("is true when at least one facet is enabled for (type, channel)", () => {
-			expect(anyFacetEnabled(prefs, "daily_digest", "email")).toBe(true);
-			expect(anyFacetEnabled(prefs, "daily_digest", "sms")).toBe(false);
+			expect(anyFacetEnabled(prefs, "daily_notification", "email")).toBe(true);
+			expect(anyFacetEnabled(prefs, "daily_notification", "sms")).toBe(false);
 			expect(anyFacetEnabled(prefs, "market_asset_price_alerts", "telegram")).toBe(true);
 		});
 	});
@@ -57,7 +57,7 @@ describe("notification-prefs channel-parametric helpers", () => {
 
 		it("is true once any non-price_targets SMS facet is enabled", () => {
 			const withDigestSms = makePrefRows([
-				["daily_digest", "prices", "sms", true],
+				["daily_notification", "prices", "sms", true],
 				["price_targets", "", "sms", true],
 			]);
 			expect(anySmsFacetEnabledExceptPriceTargets(withDigestSms)).toBe(true);
@@ -74,13 +74,13 @@ describe("notification-prefs channel-parametric helpers", () => {
 			expect(enabled).toEqual(
 				expect.arrayContaining([
 					expect.objectContaining({
-						notification_type: "daily_digest",
+						notification_type: "daily_notification",
 						content: "prices",
 						channel: "email",
 						enabled: true,
 					}),
 					expect.objectContaining({
-						notification_type: "daily_digest",
+						notification_type: "daily_notification",
 						content: "prices",
 						channel: "sms",
 						enabled: true,

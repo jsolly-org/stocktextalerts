@@ -60,10 +60,10 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		// whose preservation through STOP this test verifies.
 		await setTestUserPrefs(testUser.id, [
 			["market_scheduled_asset_price", "", "sms", true],
-			["asset_events", "calendar", "sms", true],
-			["asset_events", "ipo", "sms", true],
-			["asset_events", "analyst", "sms", true],
-			["asset_events", "insider", "sms", true],
+			["daily_notification", "calendar", "sms", true],
+			["daily_notification", "ipo", "sms", true],
+			["daily_notification", "analyst", "sms", true],
+			["daily_notification", "insider", "sms", true],
 			["market_asset_price_alerts", "", "sms", true],
 		]);
 
@@ -92,10 +92,10 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		expect(updated.sms_notifications_enabled).toBe(false);
 		// Individual preferences are preserved (not zeroed out)
 		expect(await readPref(testUser.id, "market_scheduled_asset_price", "", "sms")).toBe(true);
-		expect(await readPref(testUser.id, "asset_events", "calendar", "sms")).toBe(true);
-		expect(await readPref(testUser.id, "asset_events", "ipo", "sms")).toBe(true);
-		expect(await readPref(testUser.id, "asset_events", "analyst", "sms")).toBe(true);
-		expect(await readPref(testUser.id, "asset_events", "insider", "sms")).toBe(true);
+		expect(await readPref(testUser.id, "daily_notification", "calendar", "sms")).toBe(true);
+		expect(await readPref(testUser.id, "daily_notification", "ipo", "sms")).toBe(true);
+		expect(await readPref(testUser.id, "daily_notification", "analyst", "sms")).toBe(true);
+		expect(await readPref(testUser.id, "daily_notification", "insider", "sms")).toBe(true);
 		expect(await readPref(testUser.id, "market_asset_price_alerts", "", "sms")).toBe(true);
 	});
 
@@ -245,8 +245,8 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		// asset_events / market_asset_price_alerts sms facet = false, so only the
 		// non-default trues need explicit seeding here.
 		await setTestUserPrefs(testUser.id, [
-			["asset_events", "calendar", "sms", true],
-			["asset_events", "analyst", "sms", true],
+			["daily_notification", "calendar", "sms", true],
+			["daily_notification", "analyst", "sms", true],
 			["market_asset_price_alerts", "", "sms", true],
 		]);
 
@@ -288,10 +288,10 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		// Individual preferences fully preserved through the round trip
 		expect(await readPref(testUser.id, "market_scheduled_asset_price", "", "sms")).toBe(true);
-		expect(await readPref(testUser.id, "asset_events", "calendar", "sms")).toBe(true);
-		expect(await readPref(testUser.id, "asset_events", "ipo", "sms")).toBe(false);
-		expect(await readPref(testUser.id, "asset_events", "analyst", "sms")).toBe(true);
-		expect(await readPref(testUser.id, "asset_events", "insider", "sms")).toBe(false);
+		expect(await readPref(testUser.id, "daily_notification", "calendar", "sms")).toBe(true);
+		expect(await readPref(testUser.id, "daily_notification", "ipo", "sms")).toBe(false);
+		expect(await readPref(testUser.id, "daily_notification", "analyst", "sms")).toBe(true);
+		expect(await readPref(testUser.id, "daily_notification", "insider", "sms")).toBe(false);
 		expect(await readPref(testUser.id, "market_asset_price_alerts", "", "sms")).toBe(true);
 
 		validateRequestMock.mockReset();

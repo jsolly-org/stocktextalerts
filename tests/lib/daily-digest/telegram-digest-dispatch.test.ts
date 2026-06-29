@@ -117,7 +117,7 @@ describe("Telegram daily digest dispatch", () => {
 
 		// Select the daily-digest "prices" facet for the Telegram channel (createTestUser
 		// seeded it off by default; setTestUserPrefs upserts it on).
-		await setTestUserPrefs(id, [["daily_digest", "prices", "telegram", true]]);
+		await setTestUserPrefs(id, [["daily_notification", "prices", "telegram", true]]);
 
 		// Realistic NVDA quote during a regular session.
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
@@ -219,7 +219,7 @@ describe("Telegram daily digest dispatch", () => {
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		await setTestUserPrefs(id, [["daily_digest", "prices", "telegram", true]]);
+		await setTestUserPrefs(id, [["daily_notification", "prices", "telegram", true]]);
 
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
 			prices: new Map([["NVDA", { price: 178.42, changePercent: 1.37, prevClose: 176.01 }]]),
