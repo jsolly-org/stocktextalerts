@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { SECTOR_ETF_MAP } from "../assets/sector-mapping";
+import { SECTOR_ETF_MAP } from "../assets/constants";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";

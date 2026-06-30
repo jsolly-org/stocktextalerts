@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { SECTOR_ETF_MAP, sicCodeToSector } from "../../../src/lib/assets/sector-mapping";
+import { SECTOR_ETF_MAP } from "../../../src/lib/assets/constants";
+import { sicCodeToSector } from "../../../src/lib/assets/sector-mapping";
 
 describe("SIC codes map to realistic market sectors for onboarding examples.", () => {
 	it("Classifies common SIC ranges into expected sectors.", () => {
