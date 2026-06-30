@@ -4,15 +4,12 @@ import { Icon } from "astro-icon/components";
 import Footer from "../../components/Footer.astro";
 import SignInCard from "../../components/SignInCard.astro";
 import Layout from "../../layouts/Layout.astro";
-import {
-	getAuthErrorMessage,
-	getAuthSuccessMessage,
-} from "../../lib/auth/messages";
 import { REGISTRATION_ENABLED } from "../../lib/constants";
 import {
 	getPostSigninRedirect,
 	getSafeRedirectPath,
 } from "../../lib/auth/redirects";
+import { formatMessage } from "../../lib/messaging/status-messages";
 import { createUserService } from "../../lib/db";
 import { createSupabaseServerClient } from "../../lib/db/supabase";
 
@@ -20,9 +17,9 @@ const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
 const search = Astro.url.searchParams;
 const errorCode = search.get("error");
-const errorMessage = getAuthErrorMessage(errorCode);
+const errorMessage = formatMessage(errorCode);
 const successCode = search.get("success");
-const successMessage = getAuthSuccessMessage(successCode);
+const successMessage = formatMessage(successCode);
 const emailPrefill = search.get("email") ?? "";
 const redirectPath = getSafeRedirectPath(search.get("redirect"));
 const user = await users.getCurrentUser();
