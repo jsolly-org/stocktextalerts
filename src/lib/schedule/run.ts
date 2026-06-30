@@ -43,10 +43,13 @@ import {
 } from "../market-data/price-history-cache";
 import { fetchAssetPricesWithSessionState, fetchExtendedQuotes } from "../market-data/prices";
 import {
+	type PriceAlertTotals,
+	processPriceAlerts,
+} from "../market-notifications/anomaly-alerts/process";
+import {
 	type FlatPriceAlertTotals,
 	processFlatPriceAlerts,
 } from "../market-notifications/flat-alerts/process";
-import { type PriceAlertTotals, processPriceAlerts } from "../market-notifications/process";
 import { processMarketScheduledUser } from "../market-notifications/scheduled/process";
 import { fetchMarketScheduledUsers } from "../market-notifications/scheduled/query";
 import { purgeOldAssetSnapshots } from "../market-notifications/snapshot-store";
