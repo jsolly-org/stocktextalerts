@@ -38,7 +38,7 @@ vi.mock("../../../src/lib/vendors/backfill/enqueue", async (importOriginal) => {
 	return { ...actual, enqueueNewSymbolWarmup: enqueueNewSymbolWarmupMock };
 });
 
-import type { ActiveTicker } from "../../../src/lib/assets/reference/universe";
+import type { ActiveTicker } from "../../../src/lib/assets/types";
 import { runUniverseReconcile } from "../../../src/lib/assets/universe-reconcile";
 import { rootLogger } from "../../../src/lib/logging";
 import { deleteAssets } from "../../helpers/asset-db";

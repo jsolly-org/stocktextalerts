@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
+import { createUserService } from "../../../lib/auth/user-service";
 import type { ApiJsonBody } from "../../../lib/client/json-response";
-import { createUserService, getUserAssets } from "../../../lib/db";
+import { getUserAssets } from "../../../lib/db";
 import {
 	isAssetsLimitError,
 	isAssetsWhitespaceError,

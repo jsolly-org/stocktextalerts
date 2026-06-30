@@ -104,8 +104,6 @@ Users
 /** Allowed update payload for the `users` table. */
 export type UserUpdateInput = DbUserUpdate;
 
-export { createUserService } from "../auth/user-service";
-
 /* =============
 Assets
 ============= */

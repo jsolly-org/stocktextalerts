@@ -1,3 +1,4 @@
+import type { CompanyNewsItem } from "../types";
 import { marketDataFetch } from "../vendors/massive";
 import {
 	isOptionalVendorUnavailable,
@@ -6,7 +7,6 @@ import {
 	recordOptionalVendorSuccess,
 } from "../vendors/optional-vendors";
 import { COMPANY_NEWS_REQUEST_TIMEOUT_MS } from "./constants";
-import type { CompanyNewsItem } from "./types";
 
 /**
  * Maximum number of tickers an article can be tagged with before we consider

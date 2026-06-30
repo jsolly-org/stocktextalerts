@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { createUserService } from "../../../../lib/db";
+import { createUserService } from "../../../../lib/auth/user-service";
 import { requireEnv } from "../../../../lib/db/env";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { createLogger } from "../../../../lib/logging";

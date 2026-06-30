@@ -11,8 +11,6 @@ import {
 	type XaiAnnotation,
 } from "../vendors/grok-citations";
 
-export type { PriceAlertGrokResult } from "../price-alerts/types";
-
 /** Validate and normalize model-sourced URLs to http(s) only; reject other schemes. */
 function normalizeHttpUrl(raw: string): string | null {
 	try {

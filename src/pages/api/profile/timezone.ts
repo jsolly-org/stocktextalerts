@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
+import { createUserService } from "../../../lib/auth/user-service";
 import type { ApiJsonBody } from "../../../lib/client/json-response";
 import { hasAnyDailyNotificationFacet } from "../../../lib/daily-notification/eligibility";
-import { createUserService, type User } from "../../../lib/db";
+import type { User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";

@@ -1,43 +1,15 @@
-import type { SupabaseAdminClient } from "../db/supabase";
-import type { Logger } from "../logging";
 import { sendUserEmail } from "../messaging/email";
 import {
 	type DelistedHolding,
 	formatDelistingEmail,
 	summaryText,
 } from "../messaging/email/delisting";
-import type { EmailSender } from "../messaging/email/utils";
 import { deliveryResultToLogFields } from "../messaging/shared";
 import { isSmsChannelUsable, sendUserSms } from "../messaging/sms";
 import { formatDelistingSms } from "../messaging/sms/delisting";
-import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
+import { NOTIFICATION_DEDUPE_WINDOW_MS } from "./constants";
 import { fetchTickerReferences } from "./reference/delistings";
-
-/** Dependencies for `runDelistingSweep`. */
-interface DelistingSweepDeps {
-	supabase: SupabaseAdminClient;
-	logger: Logger;
-	sendEmail: EmailSender;
-	getSmsSender: SmsSenderFactory;
-}
-
-/** Summary counters returned by `runDelistingSweep`. */
-interface DelistingSweepResult {
-	symbolsChecked: number;
-	newlyDetectedDelistings: number;
-	reprocessedDelistings: number;
-	/** Users who received at least one successful delivery on any channel. */
-	usersNotified: number;
-	emailsDelivered: number;
-	emailsSkippedOptOut: number;
-	emailsFailed: number;
-	smsDelivered: number;
-	smsSkippedOptOut: number;
-	smsFailed: number;
-	userAssetRowsDeleted: number;
-	priceTargetRowsDeleted: number;
-	providerErrors: number;
-}
+import type { DelistingSweepDeps, DelistingSweepResult } from "./types";
 
 const EMPTY_RESULT: DelistingSweepResult = {
 	symbolsChecked: 0,
@@ -54,15 +26,6 @@ const EMPTY_RESULT: DelistingSweepResult = {
 	priceTargetRowsDeleted: 0,
 	providerErrors: 0,
 };
-
-/**
- * Milliseconds in the notification_log dedupe window. A successful
- * `type='delisting'` row within this window for a given user suppresses a
- * second email, even if the sweep re-runs due to a crash or retry. The
- * window is wider than the cron interval so a crash-across-midnight case
- * can't produce duplicate emails.
- */
-const NOTIFICATION_DEDUPE_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 /**
  * Daily delisting sweep. Intended to run inside the AssetMaintenance Lambda

@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { SECTOR_ETF_MAP } from "../assets/sector-mapping";
+import { SECTOR_ETF_MAP } from "../assets/constants";
 import {
 	US_MARKET_CLOSE_EASTERN_MINUTES,
 	US_MARKET_OPEN_EASTERN_MINUTES,
@@ -13,12 +13,13 @@ import { getCurrentMarketSession } from "../market-data/session";
 import { isFacetEnabled } from "../messaging/notification-prefs";
 import { createNotificationSenders } from "../messaging/runtime/senders";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
+import type { EnrichedAlert } from "../price-alerts/types";
 import type { ExtendedAssetQuote, ExtendedQuoteMap, IntradayCandle, MarketSession } from "../types";
 import { getAnomalyThreshold } from "./alert-profile";
 import { computeAnomalyScore } from "./anomaly-detection";
 import { fetchDailyStats } from "./daily-stats";
 import { deliverPriceAlert, type PriceAlertDeliveryStats } from "./delivery";
-import { type EnrichedAlert, enrichAlert } from "./enrichment";
+import { enrichAlert } from "./enrichment";
 import { getSnapshotsForSymbols, storeSnapshots } from "./snapshot-store";
 import {
 	fetchPriceAlertUsers,
