@@ -21,6 +21,13 @@ source "${DOTAGENTS_GATE_LIB:-$HOME/code/dotagents/gate/gate-lib.sh}" || {
   exit 1
 }
 
+# Opportunistic cleanup: reap merged + clean linked worktrees. github-handoff means a PR
+# auto-merges AFTER the session ends, so /ship can't reap its own worktree in-session.
+# Must run BEFORE gate_begin: that early-exits on a non-main push (the normal feature-branch
+# → PR flow here), so anything after it never runs on the pushes that actually happen.
+# `</dev/null` so it can't consume the hook's ref-update stdin; non-fatal — never blocks a push.
+bash scripts/reap-worktrees.sh </dev/null || true
+
 gate_begin "stocktextalerts"           # parse push; gitleaks; md-lint; doc-only fast path; banner; ERR trap
 gate_require_clean_tree                # refuse dirty tree / pushed-SHA≠HEAD / non-fast-forward (the gate validates the tree)
 gate_require_node                      # enforce the pinned Node (.nvmrc), not whatever's on PATH
@@ -48,6 +55,7 @@ run_step "migration grants (static)" npm run check:migration-grants
 # commit from .github/workflows/deploy.yml.
 echo "✓ pre-push gate passed — push will land; DB tests + unit/E2E run in GitHub CI on the PR."
 echo "  After merge: GitHub Actions deploys automatically after main CI passes."
+
 if gate_diff_matches '^aws/(template\.yaml|deploy\.sh)$'; then
   echo "⚠ aws/template.yaml or aws/deploy.sh changed — a full SAM infra deploy is needed:"
   echo "  npm run deploy:infra   (full SAM, admin creds)"
