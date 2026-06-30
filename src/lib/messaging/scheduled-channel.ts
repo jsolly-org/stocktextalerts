@@ -1,16 +1,16 @@
-import type { SupabaseAdminClient } from "../../db/supabase";
-import type { Logger } from "../../logging";
+import type { SupabaseAdminClient } from "../db/supabase";
+import type { Logger } from "../logging";
 import {
 	claimNotification,
 	updateScheduledNotificationRow,
-} from "../../scheduled-notifications/store";
+} from "../scheduled-notifications/store";
 import type {
 	DeliveryMethod,
 	ScheduledNotificationTotals,
 	ScheduledNotificationType,
-} from "../../scheduled-notifications/types";
-import type { DeliveryResult, IsoDateString, MinuteOfDay, ScheduledSlotKey } from "../../types";
-import { deliveryResultToLogFields, recordNotification } from "../shared";
+} from "../scheduled-notifications/types";
+import type { DeliveryResult, IsoDateString, MinuteOfDay, ScheduledSlotKey } from "../types";
+import { deliveryResultToLogFields, recordNotification } from "./shared";
 
 type ClaimResult = Awaited<ReturnType<typeof claimNotification>>;
 

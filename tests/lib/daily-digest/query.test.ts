@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fetchDailyDigestUsers } from "../../../src/lib/daily-digest/query";
+import { fetchDailyNotificationUsers } from "../../../src/lib/daily-notification/query";
 import { rootLogger } from "../../../src/lib/logging";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser, setTestUserPrefs } from "../../helpers/test-user";
@@ -11,7 +11,7 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
  * gated on channel-level columns — which must include a linked Telegram chat, or
  * Telegram-only subscribers are silently never selected.
  */
-describe("fetchDailyDigestUsers candidate selection", () => {
+describe("fetchDailyNotificationUsers daily-digest candidate selection", () => {
 	it("selects a Telegram-only subscriber (email + SMS off, Telegram linked)", async () => {
 		const user = await createTestUser({
 			emailNotificationsEnabled: false,
@@ -33,7 +33,7 @@ describe("fetchDailyDigestUsers candidate selection", () => {
 		expect(error).toBeNull();
 		await setTestUserPrefs(user.id, [["daily_notification", "prices", "telegram", true]]);
 
-		const users = await fetchDailyDigestUsers({
+		const users = await fetchDailyNotificationUsers({
 			supabase: adminClient,
 			logger: rootLogger,
 			forceSend: true,
@@ -67,7 +67,7 @@ describe("fetchDailyDigestUsers candidate selection", () => {
 			.eq("id", user.id);
 		expect(error).toBeNull();
 
-		const users = await fetchDailyDigestUsers({
+		const users = await fetchDailyNotificationUsers({
 			supabase: adminClient,
 			logger: rootLogger,
 			forceSend: true,

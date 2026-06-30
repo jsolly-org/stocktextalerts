@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatRelativeMinutesAgo } from "../../../../src/lib/market-notifications/flat-alerts/relative-time";
+import { formatRelativeMinutesAgo } from "../../../../src/lib/market-notifications/flat-alerts/delivery";
 
 /**
  * These tests describe what the "Since last alert (N ago)" label in a

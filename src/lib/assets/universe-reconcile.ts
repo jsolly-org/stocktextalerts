@@ -3,7 +3,6 @@ import type { Logger } from "../logging";
 import { enqueueNewSymbolWarmup } from "../vendors/backfill/enqueue";
 import { fetchTickerDetail } from "./reference/ticker-detail";
 import { type ActiveTicker, fetchActiveTickers } from "./reference/universe";
-import { activeSetTooSmallToFlag, MIN_PLAUSIBLE_ACTIVE_UNIVERSE } from "./universe-reconcile-floor";
 
 /** Default per-run enrichment cap — candidates beyond this defer to subsequent runs. */
 const DEFAULT_ENRICHMENT_CAP = 500;
@@ -11,6 +10,19 @@ const DEFAULT_ENRICHMENT_CAP = 500;
 const DEFAULT_ENRICHMENT_CONCURRENCY = 20;
 /** Upsert/flag chunk size — keeps `.in()` filter URLs under practical length limits. */
 const CHUNK_SIZE = 500;
+
+/**
+ * Absolute floor on the fetched active-set size below which step 3 skips delist-flagging as a
+ * suspected silent truncation. The real US stock+ETF active universe is ~11k; a truncated fetch
+ * degrades to one or a few 1000-row pages. Deliberately an ABSOLUTE floor, NOT a fraction of the
+ * stored active count — that count is inflated by the very backlog this job exists to drain.
+ */
+const MIN_PLAUSIBLE_ACTIVE_UNIVERSE = 5000;
+
+/** True when the fetched active set is below the plausibility floor. */
+export function activeSetTooSmallToFlag(activeCount: number): boolean {
+	return activeCount < MIN_PLAUSIBLE_ACTIVE_UNIVERSE;
+}
 
 /** Detail-fetch result returned by the Massive enrichment seam. */
 type TickerDetail = { ok: boolean; iconUrl: string | null; sector: string | null };

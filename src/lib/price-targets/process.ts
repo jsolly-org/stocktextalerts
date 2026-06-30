@@ -6,7 +6,7 @@ import { getCurrentMarketSession } from "../market-data/session";
 import { isEmailChannelUsable } from "../messaging/email/eligibility";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
 import { isFacetEnabled, type PrefRow } from "../messaging/notification-prefs";
-import { createNotificationSenders } from "../messaging/runtime/senders";
+import { createNotificationSenders } from "../messaging/senders";
 import { isSmsChannelUsable } from "../messaging/sms/index";
 import { isTelegramChannelUsable, shouldSendTelegram } from "../messaging/telegram/eligibility";
 import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
