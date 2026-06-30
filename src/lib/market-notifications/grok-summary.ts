@@ -7,8 +7,6 @@ import {
 	type XaiAnnotation,
 } from "../vendors/grok-citations";
 
-export type { PriceAlertGrokResult } from "../price-alerts/types";
-
 const GROK_TIMEOUT_MS = 60_000;
 
 /** Validate and normalize model-sourced URLs to http(s) only; reject other schemes. */

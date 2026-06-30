@@ -3,8 +3,6 @@ import type { EnrichedAlert } from "../price-alerts/types";
 import type { ExtendedAssetQuote } from "../types";
 import { generatePriceAlertSummary } from "./grok-summary";
 
-export type { EnrichedAlert } from "../price-alerts/types";
-
 /** Build a human-readable price context string. */
 function buildPriceContext(symbol: string, quote: ExtendedAssetQuote): string {
 	const direction = quote.changePercent >= 0 ? "up" : "down";

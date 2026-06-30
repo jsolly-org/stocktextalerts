@@ -1,11 +1,9 @@
 import type { SQSRecord } from "aws-lambda";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchAndStoreAssetEvents } from "../../../../src/lib/asset-events/fetch";
-import {
-	handleVendorBackfillBatch,
-	parseVendorBackfillMessage,
-	VENDOR_BACKFILL_MAX_ATTEMPTS,
-} from "../../../../src/lib/vendors/backfill/batch";
+import { handleVendorBackfillBatch } from "../../../../src/lib/vendors/backfill/batch";
+import { VENDOR_BACKFILL_MAX_ATTEMPTS } from "../../../../src/lib/vendors/backfill/constants";
+import { parseVendorBackfillMessage } from "../../../../src/lib/vendors/backfill/messages";
 
 vi.mock("../../../../src/lib/asset-events/fetch", () => ({
 	fetchAndStoreAssetEvents: vi.fn(),

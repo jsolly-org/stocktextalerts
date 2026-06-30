@@ -3,7 +3,7 @@ import type { AssetPriceMap, NoSessionTrade } from "../../types";
 import type { EmailFormatContext } from "../types";
 import { EMAIL_SPARKLINE_LABEL, SMS_SPARKLINE_LABEL, type SparklineData } from "./charts/sparkline";
 import { toSvgSparklineImg } from "./charts/svg-sparkline";
-import { escapeHtml, getSafeHrefUrl } from "./html-utils";
+import { escapeHtml } from "./html-utils";
 import type { ActiveMarketSession } from "./session-label";
 
 export type AssetPrice = {
@@ -27,8 +27,6 @@ type AssetPriceLookup = AssetPrice | NoSessionTrade | undefined;
 type AssetWithName = { symbol: string; name: string };
 
 export const NO_TRACKED_ASSETS_MESSAGE = "You don't have any tracked assets";
-
-export { escapeHtml, getSafeHrefUrl };
 
 /** Canonical USD price rendering, shared across every channel: thousands separators +
  *  2 decimals ("$1,234.56"). Use everywhere a price is shown so SMS/email/Telegram/alerts

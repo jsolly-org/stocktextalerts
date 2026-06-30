@@ -5,9 +5,9 @@ import {
 	formatAssetTextLine,
 	formatSignedChangePercent,
 	formatUsdPrice,
-	getSafeHrefUrl,
 } from "../../../../src/lib/messaging/parts/asset-price-list";
 import type { SparklineData } from "../../../../src/lib/messaging/parts/charts/sparkline";
+import { getSafeHrefUrl } from "../../../../src/lib/messaging/parts/html-utils";
 
 describe("getSafeHrefUrl prevents XSS via dangerous URL schemes.", () => {
 	it("Returns trimmed URL for valid https URLs.", () => {
