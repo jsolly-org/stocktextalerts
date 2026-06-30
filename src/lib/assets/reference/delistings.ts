@@ -63,5 +63,3 @@ export async function fetchTickerReferences(
 	await Promise.all(Array.from({ length: workerCount }, () => worker()));
 	return results;
 }
-
-export type { TickerReferenceStatus } from "./types";

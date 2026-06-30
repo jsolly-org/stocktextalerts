@@ -1,15 +1,15 @@
 import type { PriceAlertGrokResult } from "../price-alerts/types";
-import { fetchGrokResponseOnce, type GrokResponsesResponse } from "../vendors/grok";
+import {
+	fetchGrokResponseOnce,
+	GROK_SINGLE_SHOT_TIMEOUT_MS,
+	type GrokResponsesResponse,
+} from "../vendors/grok";
 import {
 	applyAnnotationsInline,
 	isXUrl,
 	linkLabelFromUrl,
 	type XaiAnnotation,
 } from "../vendors/grok-citations";
-
-export type { PriceAlertGrokResult } from "../price-alerts/types";
-
-const GROK_TIMEOUT_MS = 60_000;
 
 /** Validate and normalize model-sourced URLs to http(s) only; reject other schemes. */
 function normalizeHttpUrl(raw: string): string | null {
@@ -155,7 +155,7 @@ export async function generatePriceAlertSummary(options: {
 			symbol: options.symbol,
 			action: "grok_price_alert",
 		},
-		timeoutMs: GROK_TIMEOUT_MS,
+		timeoutMs: GROK_SINGLE_SHOT_TIMEOUT_MS,
 	});
 	if (!data) return null;
 

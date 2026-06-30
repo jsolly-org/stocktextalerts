@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { EXPECTED_DB_SCHEMA_VERSION } from "../../src/lib/db/schema-version";
 
-export { EXPECTED_DB_SCHEMA_VERSION };
 export const POSTGRES_UNDEFINED_TABLE = "42P01";
 export const PRESERVED_USER_ID = "00000000-0000-0000-0000-000000000000";
 // Non-routable by design. Was previously "test@jsolly.com" — a real inbox

@@ -3,7 +3,6 @@ import type { FieldSpec, FormIssue } from "./schema";
 const DEFAULT_TRUTHY_VALUES = ["on", "true", "1"];
 const DEFAULT_FALSY_VALUES = ["off", "false", "0"];
 const TIME_PATTERN = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
-const FLOAT_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 
 /**
  * Coerce a raw string form value into the typed value defined by the field spec.
@@ -107,52 +106,6 @@ export function coerceValue(spec: FieldSpec, raw: string): { value: unknown; err
 				};
 			}
 			return { value: raw };
-		}
-		case "integer": {
-			if (raw === "") {
-				return { value: undefined };
-			}
-
-			if (!/^-?\d+$/.test(raw)) {
-				return {
-					value: undefined,
-					error: { reason: "invalid_integer", key: "", value: raw },
-				};
-			}
-
-			const parsedValue = Number.parseInt(raw, 10);
-			const rawBigInt = BigInt(raw);
-			const maxSafe = BigInt(Number.MAX_SAFE_INTEGER);
-			const minSafe = BigInt(Number.MIN_SAFE_INTEGER);
-			if (rawBigInt > maxSafe || rawBigInt < minSafe) {
-				return {
-					value: undefined,
-					error: { reason: "integer_out_of_range", key: "", value: raw },
-				};
-			}
-
-			return { value: parsedValue };
-		}
-		case "number": {
-			if (raw === "") {
-				return { value: undefined };
-			}
-
-			if (!FLOAT_PATTERN.test(raw)) {
-				return {
-					value: undefined,
-					error: { reason: "invalid_number", key: "", value: raw },
-				};
-			}
-
-			const parsedValue = Number.parseFloat(raw);
-			if (!Number.isFinite(parsedValue)) {
-				return {
-					value: undefined,
-					error: { reason: "invalid_number", key: "", value: raw },
-				};
-			}
-			return { value: parsedValue };
 		}
 		case "json_string_array": {
 			if (raw === "") {

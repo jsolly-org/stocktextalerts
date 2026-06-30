@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
+import { createUserService } from "../../../lib/auth/user-service";
 import type { ApiJsonBody } from "../../../lib/client/json-response";
-import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { userLocalToEtMinute } from "../../../lib/time/conversion";

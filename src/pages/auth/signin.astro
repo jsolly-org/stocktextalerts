@@ -10,7 +10,7 @@ import {
 	getSafeRedirectPath,
 } from "../../lib/auth/redirects";
 import { formatMessage } from "../../lib/messaging/status-messages";
-import { createUserService } from "../../lib/db";
+import { createUserService } from "../../lib/auth/user-service";
 import { createSupabaseServerClient } from "../../lib/db/supabase";
 
 const supabase = createSupabaseServerClient();

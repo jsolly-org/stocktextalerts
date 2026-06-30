@@ -11,7 +11,7 @@ import Layout from "../layouts/Layout.astro";
 import { isUserApproved } from "../lib/auth/approval/status";
 import { buildSigninRedirectUrl } from "../lib/auth/redirects";
 import { formatMessage } from "../lib/messaging/status-messages";
-import { createUserService } from "../lib/db";
+import { createUserService } from "../lib/auth/user-service";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
 import { getTimezoneOptions } from "../lib/time/timezone/cache";

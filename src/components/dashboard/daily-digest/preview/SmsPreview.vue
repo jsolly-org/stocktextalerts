@@ -1,5 +1,5 @@
 <template>
-	<div class="sms-preview" aria-label="SMS notification preview">
+	<figure class="sms-preview" aria-label="SMS notification preview">
 		<div class="phone-mockup">
 			<div class="phone-frame-border">
 				<div class="phone-screen">
@@ -20,7 +20,7 @@
 				</div>
 			</div>
 		</div>
-	</div>
+	</figure>
 </template>
 
 <script lang="ts" setup>
