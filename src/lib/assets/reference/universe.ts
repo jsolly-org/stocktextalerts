@@ -1,24 +1,11 @@
 import { rootLogger } from "../../logging";
 import { marketDataFetch } from "../../vendors/massive";
-import type { ActiveTicker } from "./types";
-
-export type { ActiveTicker };
-
-const MASSIVE_ALLOWED_HOST = "api.massive.com";
-const MASSIVE_TICKERS_PATH_PREFIX = "/v3/reference/tickers";
-
-const ACTIVE_TICKER_TYPES: ReadonlyArray<{
-	apiType: string;
-	normalizedType: "stock" | "etf";
-}> = [
-	{ apiType: "CS", normalizedType: "stock" },
-	{ apiType: "ADRC", normalizedType: "stock" },
-	{ apiType: "OS", normalizedType: "stock" },
-	{ apiType: "ETF", normalizedType: "etf" },
-	{ apiType: "ETN", normalizedType: "etf" },
-	{ apiType: "ETV", normalizedType: "etf" },
-	{ apiType: "ETS", normalizedType: "etf" },
-];
+import type { ActiveTicker } from "../types";
+import {
+	ACTIVE_TICKER_TYPES,
+	MASSIVE_ALLOWED_HOST,
+	MASSIVE_TICKERS_PATH_PREFIX,
+} from "./constants";
 
 function validateNextUrl(nextUrl: string): URL {
 	let parsed: URL;

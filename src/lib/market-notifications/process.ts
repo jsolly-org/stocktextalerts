@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { SECTOR_ETF_MAP } from "../assets/sector-mapping";
+import { SECTOR_ETF_MAP } from "../assets/constants";
 import {
 	US_MARKET_CLOSE_EASTERN_MINUTES,
 	US_MARKET_OPEN_EASTERN_MINUTES,
