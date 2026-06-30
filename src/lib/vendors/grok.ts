@@ -52,6 +52,14 @@ export type GrokResponsesResponse = {
 const GROK_TIMEOUT_BY_ATTEMPT_MS = [30_000, 45_000, 60_000] as const;
 
 /**
+ * Timeout for a single-shot Grok call (`fetchGrokResponseOnce`, no retry).
+ * A no-retry call gets the full 60s budget — there's no later attempt to fall
+ * back on, so it can't afford to give up early. Independent of the escalation
+ * array above; not derived from it.
+ */
+export const GROK_SINGLE_SHOT_TIMEOUT_MS = 60_000;
+
+/**
  * Call the xAI Responses API with retry logic.
  *
  * Returns the parsed JSON response on success, `null` on failure after retries.
