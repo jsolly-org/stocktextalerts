@@ -1,61 +1,22 @@
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { enqueueNewSymbolWarmup } from "../vendors/backfill/enqueue";
+import {
+	CHUNK_SIZE,
+	DEFAULT_ENRICHMENT_CAP,
+	DEFAULT_ENRICHMENT_CONCURRENCY,
+	MIN_PLAUSIBLE_ACTIVE_UNIVERSE,
+} from "./constants";
 import { fetchTickerDetail } from "./reference/ticker-detail";
-import { type ActiveTicker, fetchActiveTickers } from "./reference/universe";
-import { activeSetTooSmallToFlag, MIN_PLAUSIBLE_ACTIVE_UNIVERSE } from "./universe-reconcile-floor";
-
-/** Default per-run enrichment cap — candidates beyond this defer to subsequent runs. */
-const DEFAULT_ENRICHMENT_CAP = 500;
-/** Default bounded concurrency for the per-symbol detail fetch. */
-const DEFAULT_ENRICHMENT_CONCURRENCY = 20;
-/** Upsert/flag chunk size — keeps `.in()` filter URLs under practical length limits. */
-const CHUNK_SIZE = 500;
-
-/** Detail-fetch result returned by the Massive enrichment seam. */
-type TickerDetail = { ok: boolean; iconUrl: string | null; sector: string | null };
-
-/** Dependencies for `runUniverseReconcile`. */
-interface UniverseReconcileDeps {
-	supabase: SupabaseAdminClient;
-	logger: Logger;
-	/** Per-run enrichment cap. Defaults to 500. */
-	enrichmentCap?: number;
-	/** Bounded detail-fetch concurrency. Defaults to 20. */
-	enrichmentConcurrency?: number;
-}
-
-/** Summary counters returned by `runUniverseReconcile`. */
-interface UniverseReconcileResult {
-	/** Size of the de-duplicated active set fetched from Massive. */
-	activeTickersFetched: number;
-	/** Active symbols that did not previously exist in `assets`. */
-	newListingsInserted: number;
-	/** Existing rows whose `name` changed in the active set. */
-	namesUpdated: number;
-	/** Upsert chunks that failed to write (partial coverage — surfaced in the summary). */
-	upsertChunksFailed: number;
-	/** Previously-flagged rows set back to `delisted_at = null` (reappeared). */
-	delistedCleared: number;
-	/** Untracked stored symbols absent from the active set, newly flagged delisted. */
-	untrackedDelistedFlagged: number;
-	/** True when step 3 skipped flagging because the active set was implausibly small. */
-	delistFlagSkippedShrunkActive: boolean;
-	/** Candidates for enrichment (new ∪ stale-reference ∪ missing-enrichment), pre-cap. */
-	enrichmentCandidates: number;
-	/** Detail calls that succeeded and wrote sector/icon. */
-	enriched: number;
-	/** Detail calls that returned `ok:false` or threw. */
-	enrichmentFailed: number;
-	/** Candidates beyond the cap, deferred to a subsequent run. */
-	enrichmentSkippedCap: number;
-	/** New symbols successfully enqueued for warmup. */
-	warmupEnqueued: number;
-	/** New symbols whose warmup enqueue returned false. */
-	warmupEnqueueFailed: number;
-	/** True when step 1 returned an empty set — the run aborted before any mutation. */
-	providerFetchFailed: boolean;
-}
+import { fetchActiveTickers } from "./reference/universe";
+import type {
+	ActiveTicker,
+	StoredAsset,
+	TickerDetail,
+	UniverseReconcileDeps,
+	UniverseReconcileResult,
+} from "./types";
+import { activeSetTooSmallToFlag } from "./universe-reconcile-floor";
 
 const EMPTY_RESULT: UniverseReconcileResult = {
 	activeTickersFetched: 0,
@@ -73,16 +34,6 @@ const EMPTY_RESULT: UniverseReconcileResult = {
 	warmupEnqueueFailed: 0,
 	providerFetchFailed: false,
 };
-
-/** A stored `assets` row, the subset reconcile reads for classification + enrichment gating. */
-interface StoredAsset {
-	symbol: string;
-	name: string;
-	delisted_at: string | null;
-	sector: string | null;
-	icon_url: string | null;
-	reference_updated_utc: string | null;
-}
 
 function chunksOf<T>(items: T[], size: number): T[][] {
 	const chunks: T[][] = [];
