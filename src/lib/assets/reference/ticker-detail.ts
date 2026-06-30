@@ -1,12 +1,10 @@
 import { marketDataFetch } from "../../vendors/massive";
 import { sicCodeToSector } from "../sector-mapping";
-
-const MASSIVE_TICKERS_PATH_PREFIX = "/v3/reference/tickers";
+import type { TickerDetail } from "../types";
+import { MASSIVE_TICKERS_PATH_PREFIX } from "./constants";
 
 /** Fetch enrichment detail for a single ticker: icon URL and sector. */
-export async function fetchTickerDetail(
-	symbol: string,
-): Promise<{ ok: boolean; iconUrl: string | null; sector: string | null }> {
+export async function fetchTickerDetail(symbol: string): Promise<TickerDetail> {
 	const data = await marketDataFetch(
 		`${MASSIVE_TICKERS_PATH_PREFIX}/${encodeURIComponent(symbol)}`,
 		{},
