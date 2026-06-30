@@ -25,16 +25,6 @@ type TimezoneFieldSpec = {
 	required?: boolean;
 };
 
-type IntegerFieldSpec = {
-	type: "integer";
-	required?: boolean;
-};
-
-type NumberFieldSpec = {
-	type: "number";
-	required?: boolean;
-};
-
 type TimeFieldSpec = {
 	type: "time";
 	required?: boolean;
@@ -54,8 +44,6 @@ export type FieldSpec<TValues extends readonly string[] = readonly string[]> =
 	| StringFieldSpec
 	| EnumFieldSpec<TValues>
 	| TimezoneFieldSpec
-	| IntegerFieldSpec
-	| NumberFieldSpec
 	| TimeFieldSpec
 	| JsonStringArrayFieldSpec;
 
@@ -64,8 +52,6 @@ export type FormSchema = Record<string, FieldSpec>;
 
 type NonEnumFieldTypeMap = {
 	boolean: boolean;
-	integer: number;
-	number: number;
 	time: number;
 	timezone: string;
 	json_string_array: string[];
