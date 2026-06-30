@@ -38,7 +38,7 @@
 				/>
 			</div>
 
-			<div class="space-y-6" role="group" aria-label="Timezone settings">
+			<fieldset class="space-y-6" aria-label="Timezone settings">
 				<TimezoneSelect
 					id="profile-timezone"
 					v-model="selectedTimezone"
@@ -56,7 +56,7 @@
 					@timezone-updated="handleTimezoneUpdated"
 					@notification-preferences-updated="handleNotificationPreferencesUpdated"
 				/>
-			</div>
+			</fieldset>
 		</div>
 	</section>
 </template>
