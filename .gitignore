@@ -63,6 +63,7 @@ scripts/data/users.json
 !.cursor/worktrees.json
 !.cursor/rules/
 !.cursor/rules/**
+!.cursor/skills/
 !.cursor/skills/local-tests/
 !.cursor/skills/local-tests/**
 
