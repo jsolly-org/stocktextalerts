@@ -34,22 +34,6 @@
 		"enabled": true,
 		"rules": {
 			"preset": "recommended",
-			// a11y rules newly added to Biome's "recommended" preset in 2.5.1. The dashboard
-			// Vue components violate them in ~28 places that each need real semantic markup
-			// changes (roles, keyboard handlers, label/control wiring). Deferred from this
-			// version bump to a dedicated accessibility pass so the upgrade stays a clean,
-			// non-behavioral tooling change. Re-enable as the components are remediated.
-			"a11y": {
-				"noNoninteractiveElementToInteractiveRole": "off",
-				"noRedundantRoles": "off",
-				"noStaticElementInteractions": "off",
-				"useAriaPropsSupportedByRole": "off",
-				"useFocusableInteractive": "off",
-				"useKeyWithClickEvents": "off",
-				"noLabelWithoutControl": "off",
-				"useSemanticElements": "off",
-				"useValidAnchor": "off"
-			},
 			"correctness": {
 				"noUnusedImports": "error",
 				"noUnusedVariables": "error"
@@ -73,11 +57,61 @@
 			"linter": {
 				"rules": {
 					"a11y": {
-						"useAriaPropsForRole": "off"
+						"useAriaPropsForRole": "off",
+						// biome's Vue analyzer lints <template> as HTML but does not resolve
+						// v-bind attributes (:href, :for, :id) to their static names, so these
+						// two rules false-positive on every correct Vue anchor / label binding.
+						// Template-level suppression comments are not honored in 2.5.1, so the
+						// exception must live here in config.
+						"useValidAnchor": "off",
+						"noLabelWithoutControl": "off"
 					},
 					"correctness": {
 						"noUnusedVariables": "off",
 						"noUnusedImports": "off"
+					}
+				}
+			}
+		},
+		{
+			// AssetInput (combobox) and ChannelMultiSelect (multi-select listbox) implement
+			// the W3C APG aria-activedescendant pattern: <ul role="listbox"> / <li role="option">
+			// where the input/listbox owns keyboard handling and options are intentionally NOT
+			// individually focusable. Biome's generic a11y rules don't model this pattern.
+			"includes": ["**/AssetInput.vue", "**/ChannelMultiSelect.vue"],
+			"linter": {
+				"rules": {
+					"a11y": {
+						"noNoninteractiveElementToInteractiveRole": "off",
+						"useFocusableInteractive": "off",
+						"useKeyWithClickEvents": "off"
+					}
+				}
+			}
+		},
+		{
+			// <ul role="list">: Safari + VoiceOver drop list semantics when list markers are
+			// removed (Tailwind's reset sets list-style: none). The explicit role restores
+			// them, so it is NOT redundant here despite biome's noRedundantRoles.
+			"includes": ["**/WatchlistPanel.vue"],
+			"linter": {
+				"rules": {
+					"a11y": {
+						"noRedundantRoles": "off"
+					}
+				}
+			}
+		},
+		{
+			// The carousel track is a swipe-gesture + in-page-anchor-click-delegation container,
+			// not a widget. Keyboard navigation is provided by the real <button> tab bar and by
+			// the anchors themselves; the div handlers only enhance touch scrolling.
+			"includes": ["**/DashboardCarousel.vue"],
+			"linter": {
+				"rules": {
+					"a11y": {
+						"noStaticElementInteractions": "off",
+						"useKeyWithClickEvents": "off"
 					}
 				}
 			}
