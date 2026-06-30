@@ -9,10 +9,9 @@ import TimezoneSection from "../components/profile/TimezoneSection.vue";
 import StatusMessage from "../components/StatusMessage.astro";
 import Layout from "../layouts/Layout.astro";
 import { isUserApproved } from "../lib/auth/approval/status";
-import { getAuthErrorMessage } from "../lib/auth/messages";
 import { buildSigninRedirectUrl } from "../lib/auth/redirects";
 import { formatMessage } from "../lib/messaging/status-messages";
-import { createUserService } from "../lib/db";
+import { createUserService } from "../lib/auth/user-service";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
 import { getTimezoneOptions } from "../lib/time/timezone/cache";
@@ -79,7 +78,7 @@ if (error) {
 	if (error === "rate_limit" && minutes) {
 		errorMessage = `You've made too many requests. Please wait ${minutes} minutes and try again.`;
 	} else {
-		errorMessage = getAuthErrorMessage(error);
+		errorMessage = formatMessage(error);
 	}
 }
 const successMessage = formatMessage(success);

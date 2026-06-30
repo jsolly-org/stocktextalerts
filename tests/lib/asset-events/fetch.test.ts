@@ -1,17 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchAndStoreAssetEvents } from "../../../src/lib/asset-events/fetch";
 import {
 	fetchDividends,
-	fetchEarnings,
 	fetchIpos,
 	fetchSplits,
-} from "../../../src/lib/asset-events/providers";
+} from "../../../src/lib/asset-events/corporate-actions";
+import { fetchEarnings } from "../../../src/lib/asset-events/earnings";
+import { fetchAndStoreAssetEvents } from "../../../src/lib/asset-events/fetch";
 
-vi.mock("../../../src/lib/asset-events/providers", () => ({
-	fetchEarnings: vi.fn(),
+vi.mock("../../../src/lib/asset-events/corporate-actions", () => ({
 	fetchDividends: vi.fn(),
 	fetchSplits: vi.fn(),
 	fetchIpos: vi.fn(),
+}));
+vi.mock("../../../src/lib/asset-events/earnings", () => ({
+	fetchEarnings: vi.fn(),
 }));
 
 type AssetEventRow = {

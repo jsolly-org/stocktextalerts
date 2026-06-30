@@ -4,7 +4,7 @@ import StatusMessage from "../../components/StatusMessage.astro";
 import Layout from "../../layouts/Layout.astro";
 import { isApprovalAdminEmail } from "../../lib/auth/approval/admin";
 import { buildSigninRedirectUrl } from "../../lib/auth/redirects";
-import { createUserService } from "../../lib/db";
+import { createUserService } from "../../lib/auth/user-service";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../lib/db/supabase";
 import { rootLogger } from "../../lib/logging";
 

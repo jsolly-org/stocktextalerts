@@ -6,8 +6,6 @@ import { shouldSendSms } from "../messaging/sms/index";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { shouldAdvanceScheduledNotificationSchedule } from "../schedule/delivery-terminal";
 import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
-import { getMaxDailyDigestSlotAttempts } from "../scheduled-notifications/store";
-import { MAX_NOTIFICATION_RETRIES } from "../scheduled-notifications/types";
 import { toIsoOrThrow } from "../time/display";
 import type { ScheduledSlotKey, UserRecord } from "../types";
 
@@ -163,5 +161,3 @@ export async function recordDailyDigestProcessingFailure(
 		}
 	}
 }
-
-export { getMaxDailyDigestSlotAttempts, MAX_NOTIFICATION_RETRIES };

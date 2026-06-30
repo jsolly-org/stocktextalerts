@@ -8,7 +8,7 @@ import HowItWorks from "../components/landing/HowItWorks.astro";
 import Navigation from "../components/Navigation.astro";
 import StatusMessage from "../components/StatusMessage.astro";
 import Layout from "../layouts/Layout.astro";
-import { createUserService } from "../lib/db";
+import { createUserService } from "../lib/auth/user-service";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { formatMessage } from "../lib/messaging/status-messages";
 
