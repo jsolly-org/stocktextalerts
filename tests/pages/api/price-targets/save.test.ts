@@ -7,8 +7,11 @@ vi.mock("../../../../src/lib/db/supabase", () => ({
 }));
 
 vi.mock("../../../../src/lib/db", () => ({
-	createUserService: vi.fn(),
 	getUserAssets: vi.fn(),
+}));
+
+vi.mock("../../../../src/lib/auth/user-service", () => ({
+	createUserService: vi.fn(),
 }));
 
 vi.mock("../../../../src/lib/market-data/prices", () => ({
@@ -18,7 +21,8 @@ vi.mock("../../../../src/lib/market-data/session", () => ({
 	getCurrentMarketSession: vi.fn().mockResolvedValue("regular"),
 }));
 
-import { createUserService, getUserAssets } from "../../../../src/lib/db";
+import { createUserService } from "../../../../src/lib/auth/user-service";
+import { getUserAssets } from "../../../../src/lib/db";
 import { createSupabaseServerClient } from "../../../../src/lib/db/supabase";
 import { fetchAssetPrices } from "../../../../src/lib/market-data/prices";
 

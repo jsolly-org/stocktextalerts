@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { exportSnapshot } from "../../../src/lib/backup/export";
-import { EXPECTED_DB_SCHEMA_VERSION } from "../../helpers/constants";
+import { EXPECTED_DB_SCHEMA_VERSION } from "../../../src/lib/db/schema-version";
 
 describe("exportSnapshot", () => {
 	it("returns COPY text for every table plus a consistent manifest", async () => {

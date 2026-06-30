@@ -8,7 +8,6 @@ import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messagin
 import type { EmailSender } from "../messaging/email/utils";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
 import { isFacetEnabled } from "../messaging/notification-prefs";
-import { escapeHtml, getSafeHrefUrl } from "../messaging/parts/asset-price-list";
 import { renderIntradaySparklineImg } from "../messaging/parts/charts/intraday-sparkline";
 import {
 	downsampleEvenly,
@@ -18,6 +17,7 @@ import {
 	toSparkline,
 } from "../messaging/parts/charts/sparkline";
 import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../messaging/parts/footer";
+import { escapeHtml, getSafeHrefUrl } from "../messaging/parts/html-utils";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
