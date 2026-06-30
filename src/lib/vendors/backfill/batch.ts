@@ -10,9 +10,6 @@ export type VendorBackfillBatchFailure = {
 	itemIdentifier: string;
 };
 
-export { VENDOR_BACKFILL_MAX_ATTEMPTS } from "./constants";
-export { parseVendorBackfillMessage } from "./messages";
-
 export async function handleVendorBackfillBatch(options: {
 	records: SQSRecord[];
 	supabase: SupabaseAdminClient;

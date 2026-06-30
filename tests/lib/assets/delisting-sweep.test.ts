@@ -20,7 +20,7 @@ vi.mock("../../../src/lib/assets/reference/delistings", async (importOriginal) =
 });
 
 import { runDelistingSweep } from "../../../src/lib/assets/delisting-sweep";
-import type { TickerReferenceStatus } from "../../../src/lib/assets/reference/delistings";
+import type { TickerReferenceStatus } from "../../../src/lib/assets/reference/types";
 import { rootLogger } from "../../../src/lib/logging";
 import type { EmailRequest, EmailSender } from "../../../src/lib/messaging/email/utils";
 import type { SmsSenderFactory } from "../../../src/lib/messaging/sms/sender-factory";

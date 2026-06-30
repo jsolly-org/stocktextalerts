@@ -7,8 +7,9 @@ import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messagin
 import type { EmailSender } from "../messaging/email/utils";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
 import { isFacetEnabled } from "../messaging/notification-prefs";
-import { escapeHtml, formatUsdPrice } from "../messaging/parts/asset-price-list";
+import { formatUsdPrice } from "../messaging/parts/asset-price-list";
 import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../messaging/parts/footer";
+import { escapeHtml } from "../messaging/parts/html-utils";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { isSmsChannelUsable, sendUserSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";

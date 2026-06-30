@@ -6,7 +6,7 @@ import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messa
 import type { EmailSender } from "../../messaging/email/utils";
 import { type createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
-import { escapeHtml, formatUsdPrice, getChangeColor } from "../../messaging/parts/asset-price-list";
+import { formatUsdPrice, getChangeColor } from "../../messaging/parts/asset-price-list";
 import { renderIntradaySparklineImg } from "../../messaging/parts/charts/intraday-sparkline";
 import {
 	downsampleEvenly,
@@ -17,6 +17,7 @@ import {
 } from "../../messaging/parts/charts/sparkline";
 import { toSvgSparklineImg } from "../../messaging/parts/charts/svg-sparkline";
 import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../../messaging/parts/footer";
+import { escapeHtml } from "../../messaging/parts/html-utils";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";

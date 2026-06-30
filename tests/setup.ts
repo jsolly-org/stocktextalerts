@@ -3,9 +3,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "pg";
 import { afterAll, afterEach, beforeAll, expect, vi } from "vitest";
+import { EXPECTED_DB_SCHEMA_VERSION } from "../src/lib/db/schema-version";
 import { getRealAssetSymbols } from "./helpers/asset-data";
 import {
-	EXPECTED_DB_SCHEMA_VERSION,
 	POSTGRES_UNDEFINED_TABLE,
 	PRESERVED_TEST_EMAIL,
 	PRESERVED_USER_ID,
