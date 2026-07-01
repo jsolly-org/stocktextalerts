@@ -93,7 +93,7 @@ vi.mock("../../../src/lib/staged-notifications/precompute", () => ({
 	}),
 }));
 
-vi.mock("../../../src/lib/market-notifications/process", () => ({
+vi.mock("../../../src/lib/market-notifications/anomaly-alerts/process", () => ({
 	processPriceAlerts: processPriceAlertsMock,
 }));
 

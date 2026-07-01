@@ -1,15 +1,15 @@
-import type { PriceAlertGrokResult } from "../price-alerts/types";
+import type { PriceAlertGrokResult } from "../../price-alerts/types";
 import {
 	fetchGrokResponseOnce,
 	GROK_SINGLE_SHOT_TIMEOUT_MS,
 	type GrokResponsesResponse,
-} from "../vendors/grok";
+} from "../../vendors/grok";
 import {
 	applyAnnotationsInline,
 	isXUrl,
 	linkLabelFromUrl,
 	type XaiAnnotation,
-} from "../vendors/grok-citations";
+} from "../../vendors/grok-citations";
 
 /** Validate and normalize model-sourced URLs to http(s) only; reject other schemes. */
 function normalizeHttpUrl(raw: string): string | null {

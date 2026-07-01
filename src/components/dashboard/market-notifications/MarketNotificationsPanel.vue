@@ -427,7 +427,7 @@ import { DASHBOARD_SECTION_IDS,
 import {
 	type AlertMoveSize,
 	normalizeMoveSize,
-} from "../../../lib/market-notifications/alert-profile";
+} from "../../../lib/market-notifications/anomaly-alerts/alert-profile";
 import { etMinuteToUserLocal, getUsAfterOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
 	formatMinutesAsLocalTime,
