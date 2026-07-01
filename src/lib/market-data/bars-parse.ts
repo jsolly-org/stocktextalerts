@@ -1,28 +1,36 @@
 import { US_MARKET_TIMEZONE } from "../constants";
 import type { DailyOHLCVBar, IntradayBarsResult, IntradayCandle } from "../types";
 
-export function extractClosesFromBars(payload: unknown): number[] | null {
+function toFiniteNumber(value: unknown): number | null {
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function getBarResults(payload: unknown): Record<string, unknown>[] | null {
 	if (typeof payload !== "object" || payload === null) return null;
 
 	const results = (payload as Record<string, unknown>).results;
 	if (!Array.isArray(results)) return null;
 
+	return results.filter(
+		(bar): bar is Record<string, unknown> => typeof bar === "object" && bar !== null,
+	);
+}
+
+export function extractClosesFromBars(payload: unknown): number[] | null {
+	const results = getBarResults(payload);
+	if (!results) return null;
+
 	const closes: number[] = [];
 	for (const bar of results) {
-		if (typeof bar !== "object" || bar === null) continue;
-		const c = (bar as Record<string, unknown>).c;
-		if (typeof c === "number" && Number.isFinite(c)) {
-			closes.push(c);
-		}
+		const c = toFiniteNumber(bar.c);
+		if (c !== null) closes.push(c);
 	}
 	return closes.length > 0 ? closes : null;
 }
 
 export function extractClosesAndTimestampsFromBars(payload: unknown): IntradayBarsResult | null {
-	if (typeof payload !== "object" || payload === null) return null;
-
-	const results = (payload as Record<string, unknown>).results;
-	if (!Array.isArray(results)) return null;
+	const results = getBarResults(payload);
+	if (!results) return null;
 
 	const closes: number[] = [];
 	const timestamps: (number | null)[] = [];
@@ -32,12 +40,9 @@ export function extractClosesAndTimestampsFromBars(payload: unknown): IntradayBa
 	let lastValidTimestampIndex = -1;
 
 	for (const bar of results) {
-		if (typeof bar !== "object" || bar === null) continue;
-		const rec = bar as Record<string, unknown>;
-		const c = rec.c;
-		const t = rec.t;
-		if (typeof c !== "number" || !Number.isFinite(c)) continue;
-		const ts = typeof t === "number" && Number.isFinite(t) ? t : null;
+		const c = toFiniteNumber(bar.c);
+		if (c === null) continue;
+		const ts = toFiniteNumber(bar.t);
 		closes.push(c);
 		if (ts !== null) {
 			timestamps.push(ts);
@@ -79,32 +84,17 @@ export function extractClosesAndTimestampsFromBars(payload: unknown): IntradayBa
 }
 
 export function extractIntradayOHLCV(payload: unknown): IntradayCandle[] | null {
-	if (typeof payload !== "object" || payload === null) return null;
-
-	const results = (payload as Record<string, unknown>).results;
-	if (!Array.isArray(results)) return null;
+	const results = getBarResults(payload);
+	if (!results) return null;
 
 	const candles: IntradayCandle[] = [];
 	for (const bar of results) {
-		if (typeof bar !== "object" || bar === null) continue;
-		const rec = bar as Record<string, unknown>;
-		const o = rec.o;
-		const h = rec.h;
-		const l = rec.l;
-		const c = rec.c;
-		const t = rec.t;
-		if (
-			typeof o === "number" &&
-			Number.isFinite(o) &&
-			typeof h === "number" &&
-			Number.isFinite(h) &&
-			typeof l === "number" &&
-			Number.isFinite(l) &&
-			typeof c === "number" &&
-			Number.isFinite(c) &&
-			typeof t === "number" &&
-			Number.isFinite(t)
-		) {
+		const o = toFiniteNumber(bar.o);
+		const h = toFiniteNumber(bar.h);
+		const l = toFiniteNumber(bar.l);
+		const c = toFiniteNumber(bar.c);
+		const t = toFiniteNumber(bar.t);
+		if (o !== null && h !== null && l !== null && c !== null && t !== null) {
 			candles.push({ o, h, l, c, t });
 		}
 	}
@@ -112,7 +102,6 @@ export function extractIntradayOHLCV(payload: unknown): IntradayCandle[] | null 
 }
 
 function barTimestampToTradingDate(timestampMs: number): string | undefined {
-	if (!Number.isFinite(timestampMs)) return undefined;
 	const date = new Date(timestampMs).toLocaleDateString("en-CA", {
 		timeZone: US_MARKET_TIMEZONE,
 	});
@@ -120,34 +109,19 @@ function barTimestampToTradingDate(timestampMs: number): string | undefined {
 }
 
 export function extractOHLCVFromBars(payload: unknown): DailyOHLCVBar[] | null {
-	if (typeof payload !== "object" || payload === null) return null;
-
-	const results = (payload as Record<string, unknown>).results;
-	if (!Array.isArray(results)) return null;
+	const results = getBarResults(payload);
+	if (!results) return null;
 
 	const bars: DailyOHLCVBar[] = [];
 	for (const bar of results) {
-		if (typeof bar !== "object" || bar === null) continue;
-		const rec = bar as Record<string, unknown>;
-		const o = rec.o;
-		const h = rec.h;
-		const l = rec.l;
-		const c = rec.c;
-		const v = rec.v;
-		const t = rec.t;
-		if (
-			typeof o === "number" &&
-			Number.isFinite(o) &&
-			typeof h === "number" &&
-			Number.isFinite(h) &&
-			typeof l === "number" &&
-			Number.isFinite(l) &&
-			typeof c === "number" &&
-			Number.isFinite(c) &&
-			typeof v === "number" &&
-			Number.isFinite(v)
-		) {
-			const tradingDate = typeof t === "number" ? barTimestampToTradingDate(t) : undefined;
+		const o = toFiniteNumber(bar.o);
+		const h = toFiniteNumber(bar.h);
+		const l = toFiniteNumber(bar.l);
+		const c = toFiniteNumber(bar.c);
+		const v = toFiniteNumber(bar.v);
+		if (o !== null && h !== null && l !== null && c !== null && v !== null) {
+			const t = toFiniteNumber(bar.t);
+			const tradingDate = t !== null ? barTimestampToTradingDate(t) : undefined;
 			bars.push({
 				open: o,
 				high: h,
