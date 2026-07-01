@@ -1,17 +1,17 @@
 import { DateTime } from "luxon";
+import { fetchOneDailyNotificationUser } from "../daily-notification/query";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { createSupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import type { EmailSender } from "../messaging/email/utils";
 import type { LogoCache } from "../messaging/logo-fetcher";
-import { createNotificationSenders } from "../messaging/runtime/senders";
+import { createNotificationSenders } from "../messaging/senders";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../time/market/calendar";
 import type { UserRecord } from "../types";
 import { processDailyDigestUser } from "./process";
-import { fetchOneDailyDigestUser } from "./query";
 
 const EMPTY_STATS: ScheduledNotificationTotals = {
 	skipped: 1,
@@ -82,7 +82,7 @@ export async function dispatchDailyDigestUser(options: {
 		// canonical select the batch fetch uses (no hand-maintained second column list).
 		let dailyDigestUser = options.user;
 		if (!dailyDigestUser) {
-			const fetched = await fetchOneDailyDigestUser(supabase, userId);
+			const fetched = await fetchOneDailyNotificationUser(supabase, userId);
 			if (!fetched) {
 				rootLogger.error("User not found for daily dispatch", {
 					action: "dispatch_daily_user",

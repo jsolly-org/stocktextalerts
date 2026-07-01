@@ -7,15 +7,15 @@
  */
 import twilio from "twilio";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkVerification, sendVerification } from "../../../../src/lib/auth/sms-verification";
-import { createEmailSender } from "../../../../src/lib/messaging/email/utils";
-import { createSmsSender } from "../../../../src/lib/messaging/sms/twilio-utils";
+import { checkVerification, sendVerification } from "../../../src/lib/auth/sms-verification";
+import { createEmailSender } from "../../../src/lib/messaging/email/utils";
+import { createSmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import {
 	createTelegramBot,
 	createTelegramSender,
-} from "../../../../src/lib/messaging/telegram/sender";
-import { clearMailpit, waitForMailpitMessageTo } from "../../../helpers/mailpit";
-import { TEST_VERIFICATION_CODE } from "../../../helpers/messaging-doubles";
+} from "../../../src/lib/messaging/telegram/sender";
+import { clearMailpit, waitForMailpitMessageTo } from "../../helpers/mailpit";
+import { TEST_VERIFICATION_CODE } from "../../helpers/messaging-doubles";
 
 const STUB_TELEGRAM_TOKEN = "123456:AA-fake-token-for-sender-gate-tests-only";
 const STUB_TWILIO_ACCOUNT_SID = "ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -52,7 +52,7 @@ describe("messaging test doubles — no real SES/Twilio/Telegram/Verify in tests
 			const result = await send({
 				to: recipient,
 				subject: "sender-gate smoke test",
-				body: "This message was produced by tests/lib/messaging/runtime/senders.test.ts",
+				body: "This message was produced by tests/lib/messaging/senders.test.ts",
 				html: "<p>smoke</p>",
 			});
 			expect(result.success).toBe(true);
@@ -61,7 +61,7 @@ describe("messaging test doubles — no real SES/Twilio/Telegram/Verify in tests
 				timeoutMs: 5_000,
 			});
 			expect(delivered.subject).toBe("sender-gate smoke test");
-			expect(delivered.text).toContain("runtime/senders.test.ts");
+			expect(delivered.text).toContain("senders.test.ts");
 		});
 	});
 
