@@ -54,8 +54,8 @@ import { processMarketScheduledUser } from "../market-notifications/scheduled/pr
 import { fetchMarketScheduledUsers } from "../market-notifications/scheduled/query";
 import { purgeOldAssetSnapshots } from "../market-notifications/snapshot-store";
 import type { LogoCache } from "../messaging/logo-fetcher";
-import type { NotificationSenders } from "../messaging/runtime/senders";
-import { createNotificationSenders } from "../messaging/runtime/senders";
+import type { NotificationSenders } from "../messaging/senders";
+import { createNotificationSenders } from "../messaging/senders";
 import { type PriceTargetTotals, processPriceTargets } from "../price-targets/process";
 import {
 	type ScheduledNotificationTotals,

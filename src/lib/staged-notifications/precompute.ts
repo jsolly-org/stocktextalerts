@@ -18,7 +18,7 @@ import { fetchUpcomingDailyDigestUsers } from "../daily-digest/query-upcoming";
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { getCurrentMarketSession } from "../market-data/session";
-import { createNotificationSenders } from "../messaging/runtime/senders";
+import { createNotificationSenders } from "../messaging/senders";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { toIsoOrThrow } from "../time/display";
 import { PRECOMPUTE_WINDOW_SECONDS } from "./constants";

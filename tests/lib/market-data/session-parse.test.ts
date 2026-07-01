@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMarketSession } from "../../../src/lib/market-data/session-parse";
+import { parseMarketSession } from "../../../src/lib/market-data/session";
 import { warnSpy } from "../../setup";
 
 /** True when any console.warn logged during this test matches `pattern`. */

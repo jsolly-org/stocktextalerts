@@ -11,7 +11,7 @@ import { fetchIntradayBars } from "../../market-data/bars";
 import { fetchExtendedQuotes } from "../../market-data/prices";
 import { getCurrentMarketSession } from "../../market-data/session";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
-import { createNotificationSenders } from "../../messaging/runtime/senders";
+import { createNotificationSenders } from "../../messaging/senders";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import type { EnrichedAlert } from "../../price-alerts/types";
 import type {
