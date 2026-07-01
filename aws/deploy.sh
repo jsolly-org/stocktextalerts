@@ -17,8 +17,6 @@ cd "$SCRIPT_DIR"
 command -v mise >/dev/null 2>&1 && eval "$(mise activate bash --shims)"
 # Ground the SAM CLI: not an npm dep — fail loud if absent (rules/dependency-grounding.md).
 command -v sam >/dev/null 2>&1 || { echo "✗ sam CLI not found — brew install aws-sam-cli" >&2; exit 1; }
-# The post-deploy provenance tagging below shells out to aws (also a system CLI, not an npm dep).
-command -v aws >/dev/null 2>&1 || { echo "✗ aws CLI not found — brew install awscli" >&2; exit 1; }
 # Reproducible bundle: reinstall exactly the committed lockfile before `sam build`
 # bundles the Lambda from gitignored node_modules. This MANUAL path runs from a
 # possibly-stale checkout — the read-only `main` mirror is never `npm ci`'d in the
@@ -32,8 +30,8 @@ PATH="$REPO_ROOT/node_modules/.bin:$PATH" sam build
 # Deploy-after-landing: a full SAM deploy ships Lambda code, so deploy ONLY what has landed on
 # origin/main — never the local tree before the ref lands (the same invariant the code-only
 # deploy:code path enforces; rules/agent-cloud-access.md, docs/plans/2026-06-24-deploy-after-landing.md).
-# gate-lib is sourced here and reused for the provenance tagging after the deploy. Runs after the
-# reversible npm ci + sam build, before the irreversible sam deploy.
+# gate-lib is sourced here for the landing guard below. Runs after the reversible
+# npm ci + sam build, before the irreversible sam deploy.
 # shellcheck source=/dev/null
 source "${DOTAGENTS_GATE_LIB:-$HOME/code/dotagents/gate/gate-lib.sh}" || {
   echo "✗ dotagents gate-lib not found (expected ~/code/dotagents/gate/gate-lib.sh) — re-run install-local-agent-runtime.sh." >&2
@@ -42,23 +40,3 @@ source "${DOTAGENTS_GATE_LIB:-$HOME/code/dotagents/gate/gate-lib.sh}" || {
 gate_require_landed main
 
 sam deploy --parameter-overrides "${SAM_PARAMS[@]}"
-
-# Re-stamp Deploy-Sha256/Deploy-Commit on every function. A full SAM deploy rebuilds the bundle
-# (→ a new CodeSha256) through CloudFormation but does NOT run deploy-web.sh's per-function tag
-# step, so without this the provenance tags desync from live code and scripts/check-deploy-drift.ts
-# false-fires its INTEGRITY check on this legitimate, on-pipeline deploy. Same two tags the
-# code-only deploy writes; reads each function's post-deploy CodeSha256 from list-functions (no
-# hardcoded function list to drift from the template). Fail-closed: set -e + gate_lambda_tag_provenance
-# abort if tagging can't complete (a stale tag would make the audit lie). gate-lib is already
-# sourced above (before the landing guard).
-_commit="$(git -C "$REPO_ROOT" rev-parse HEAD)"
-_fns="$(aws lambda list-functions \
-  --query "Functions[?starts_with(FunctionName, 'stocktextalerts-')].[FunctionName, CodeSha256, FunctionArn]" \
-  --output text)"
-[ -n "$_fns" ] || { echo "✗ no stocktextalerts-* functions found to tag after deploy" >&2; exit 1; }
-echo "• stamp deploy provenance tags (Deploy-Sha256 / Deploy-Commit)"
-while read -r _name _sha _arn; do
-  [ -n "$_name" ] || continue
-  gate_lambda_tag_provenance "$_arn" "$_sha" "$_commit"
-  echo "  ✓ $_name ($_sha)"
-done <<<"$_fns"
