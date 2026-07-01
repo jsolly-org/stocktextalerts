@@ -5,7 +5,7 @@ import {
 	computeAssetEventsNextSendAt,
 	DEFAULT_ASSET_EVENTS_DELIVERY_MINUTES,
 } from "../../../src/lib/asset-events/scheduling-helpers";
-import type { User, UserUpdateInput } from "../../../src/lib/db";
+import type { User, UserUpdateInput } from "../../../src/lib/db/types";
 
 function makeUser(overrides: Partial<User> = {}): User {
 	return {

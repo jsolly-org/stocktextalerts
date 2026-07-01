@@ -1,5 +1,6 @@
 import type { UserAssetRow } from "../types";
 import type { AppSupabaseClient } from "./supabase";
+import type { UserAssetsMap } from "./types";
 
 /**
  * Load a user's tracked assets (symbol + asset name) from the database.
@@ -38,9 +39,6 @@ export async function loadUserAssets(
 		return base;
 	});
 }
-
-/** Map of user id to that user's tracked assets. */
-export type UserAssetsMap = Map<string, UserAssetRow[]>;
 
 /** Max IDs per in() filter to stay under PostgREST/URL length limits (414 URI Too Long). */
 const IN_FILTER_CHUNK_SIZE = 50;

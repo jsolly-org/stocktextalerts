@@ -1,11 +1,6 @@
 import type { Bot } from "grammy";
 import { createTelegramBot, createTelegramSender, readTelegramBotToken } from "./sender";
-
-interface TelegramSenderResult {
-	sender: ReturnType<typeof createTelegramSender>;
-}
-
-export type TelegramSenderFactory = () => TelegramSenderResult;
+import type { TelegramSenderFactory } from "./types";
 
 /**
  * Create a lazily-initialized, cached Telegram sender factory for batch notification runs.

@@ -1,8 +1,6 @@
 import { marketDataFetch } from "../vendors/massive";
 import type { TopMover } from "./types";
 
-export type { TopMover };
-
 interface SnapshotTicker {
 	ticker: string;
 	todaysChangePerc?: number;

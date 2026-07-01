@@ -1,11 +1,4 @@
-// xAI Responses API (OpenAPI `ModelResponse`)
-export type XaiAnnotation = {
-	type: string;
-	url: string;
-	title?: string;
-	start_index?: number | null;
-	end_index?: number | null;
-};
+import type { XaiAnnotation } from "./types";
 
 /** Well-known domains → short display names for news citation links. */
 const DOMAIN_LABELS: Record<string, string> = {

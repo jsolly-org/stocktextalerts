@@ -13,23 +13,21 @@ vi.mock("../../../src/lib/time/market/calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
 
-import type { Logger } from "../../../src/lib/logging";
-import { createEmailSender, type EmailSender } from "../../../src/lib/messaging/email/utils";
+import type { Logger } from "../../../src/lib/logging/types";
+import type { EmailSender } from "../../../src/lib/messaging/email/types";
+import { createEmailSender } from "../../../src/lib/messaging/email/utils";
 import {
 	buildDelayBannerText,
 	prependDelayBannerToSms,
 } from "../../../src/lib/messaging/parts/delay";
 import { findUrls, spanStraddlesBoundary } from "../../../src/lib/messaging/sms/segment-utils";
-import {
-	createSmsSenderFactory,
-	type SmsSenderFactory,
-} from "../../../src/lib/messaging/sms/sender-factory";
-import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
-import type { TelegramMessage } from "../../../src/lib/messaging/telegram/sender";
-import {
-	createTelegramSenderFactory,
-	type TelegramSenderFactory,
-} from "../../../src/lib/messaging/telegram/sender-factory";
+import { createSmsSenderFactory } from "../../../src/lib/messaging/sms/sender-factory";
+import type { SmsSender, SmsSenderFactory } from "../../../src/lib/messaging/sms/types";
+import { createTelegramSenderFactory } from "../../../src/lib/messaging/telegram/sender-factory";
+import type {
+	TelegramMessage,
+	TelegramSenderFactory,
+} from "../../../src/lib/messaging/telegram/types";
 import { deliverStagedNotifications } from "../../../src/lib/staged-notifications/deliver";
 import type { DeliveryResult } from "../../../src/lib/types";
 import { adminClient } from "../../helpers/test-env";

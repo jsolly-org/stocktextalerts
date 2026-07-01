@@ -5,11 +5,9 @@ import {
 } from "../daily-notification/query";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { fetchUsersWithRetry } from "../db/user-query";
-import type { Logger } from "../logging";
+import type { Logger } from "../logging/types";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
-import type { UserRecord } from "../types";
-
-type UserRecordWithoutPrefs = Omit<UserRecord, "prefs">;
+import type { UserRecord, UserRecordWithoutPrefs } from "../types";
 
 /** Fetch users whose daily notification is due in an upcoming time window. */
 export async function fetchUpcomingDailyDigestUsers(options: {

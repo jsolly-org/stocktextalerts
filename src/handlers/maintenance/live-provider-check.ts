@@ -7,8 +7,9 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { HttpError } from "grammy";
 import { fetchEarnings } from "../../lib/asset-events/earnings";
-import { createLogger, type Logger } from "../../lib/logging";
+import { createLogger } from "../../lib/logging";
 import { runLambda } from "../../lib/logging/request-context";
+import type { Logger } from "../../lib/logging/types";
 import { fetchDailyCloses, fetchPrevClose } from "../../lib/market-data/bars";
 import { fetchAssetPrices } from "../../lib/market-data/prices";
 import { getCurrentMarketSession } from "../../lib/market-data/session";

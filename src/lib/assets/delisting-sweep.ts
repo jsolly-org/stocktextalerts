@@ -1,12 +1,9 @@
 import { sendUserEmail } from "../messaging/email";
-import {
-	type DelistedHolding,
-	formatDelistingEmail,
-	summaryText,
-} from "../messaging/email/delisting";
+import { formatDelistingEmail, summaryText } from "../messaging/email/delisting";
 import { deliveryResultToLogFields } from "../messaging/shared";
 import { isSmsChannelUsable, sendUserSms } from "../messaging/sms";
 import { formatDelistingSms } from "../messaging/sms/delisting";
+import type { DelistedHolding } from "../messaging/types";
 import { NOTIFICATION_DEDUPE_WINDOW_MS } from "./constants";
 import { fetchTickerReferences } from "./reference/delistings";
 import type { DelistingSweepDeps, DelistingSweepResult } from "./types";

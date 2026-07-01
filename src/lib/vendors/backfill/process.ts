@@ -1,7 +1,7 @@
 import { DateTime } from "luxon";
 import { fetchAndStoreAssetEvents } from "../../asset-events/fetch";
 import type { SupabaseAdminClient } from "../../db/supabase";
-import type { Logger } from "../../logging";
+import type { Logger } from "../../logging/types";
 import { fetchDailyOHLCV } from "../../market-data/bars";
 import {
 	dailyBarsToCloseRows,

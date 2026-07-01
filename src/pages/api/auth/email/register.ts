@@ -5,7 +5,8 @@ import { MIN_PASSWORD_LENGTH, REGISTRATION_ENABLED } from "../../../../lib/const
 import { getSiteUrl } from "../../../../lib/db/env";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
-import { createLogger, type Logger } from "../../../../lib/logging";
+import { createLogger } from "../../../../lib/logging";
+import type { Logger } from "../../../../lib/logging/types";
 import { buildDefaultPreferenceRows } from "../../../../lib/messaging/notification-prefs";
 import { resolveTimezone } from "../../../../lib/time/timezone/cache";
 

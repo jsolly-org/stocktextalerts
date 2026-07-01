@@ -1,5 +1,5 @@
 import { readEnv } from "../../db/env";
-import type { Logger } from "../../logging";
+import type { Logger } from "../../logging/types";
 import type { DeliveryResult } from "../../types";
 import { signEmailDispatchBody } from "./dispatch-auth";
 import {
@@ -7,7 +7,8 @@ import {
 	EMAIL_DISPATCH_TIMESTAMP_HEADER,
 	type EmailDispatchResponse,
 } from "./dispatch-contract";
-import { createEmailSender, type EmailRequest } from "./utils";
+import type { EmailRequest } from "./types";
+import { createEmailSender } from "./utils";
 
 function isEmailDispatchResponse(value: unknown): value is EmailDispatchResponse {
 	if (typeof value !== "object" || value === null) return false;

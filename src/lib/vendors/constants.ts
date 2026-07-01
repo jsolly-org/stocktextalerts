@@ -16,3 +16,6 @@ export const OPTIONAL_VENDOR_CIRCUIT_FAILURE_THRESHOLD = 2;
 
 /** How long an optional vendor circuit stays open after tripping. */
 export const OPTIONAL_VENDOR_CIRCUIT_OPEN_MS = 15 * 60 * 1000;
+
+/** Log category for optional vendor work skipped without paging. */
+export const OPTIONAL_VENDOR_DEGRADED_CATEGORY = "optional_vendor_degraded";

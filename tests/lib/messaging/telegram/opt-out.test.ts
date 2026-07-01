@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../../src/lib/db/supabase";
-import type { Logger } from "../../../../src/lib/logging";
+import type { Logger } from "../../../../src/lib/logging/types";
 import { optOutIfBotBlocked } from "../../../../src/lib/messaging/telegram/opt-out";
 import type { DeliveryResult } from "../../../../src/lib/types";
 

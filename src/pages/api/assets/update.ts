@@ -2,11 +2,8 @@ import type { APIRoute } from "astro";
 import { createUserService } from "../../../lib/auth/user-service";
 import type { ApiJsonBody } from "../../../lib/client/json-response";
 import { getUserAssets } from "../../../lib/db";
-import {
-	isAssetsLimitError,
-	isAssetsWhitespaceError,
-	MAX_TRACKED_ASSETS,
-} from "../../../lib/db/database-errors";
+import { MAX_TRACKED_ASSETS } from "../../../lib/db/constants";
+import { isAssetsLimitError, isAssetsWhitespaceError } from "../../../lib/db/database-errors";
 import { readEnv } from "../../../lib/db/env";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";

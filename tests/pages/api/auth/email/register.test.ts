@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_TIMEZONE } from "../../../../../src/lib/constants";
-import type { EmailRequest, EmailSender } from "../../../../../src/lib/messaging/email/utils";
+import type { EmailRequest, EmailSender } from "../../../../../src/lib/messaging/email/types";
 import { POST } from "../../../../../src/pages/api/auth/email/register";
 import { createApiContext } from "../../../../helpers/api-context";
 import { TEST_PASSWORD } from "../../../../helpers/constants";

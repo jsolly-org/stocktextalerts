@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../src/lib/db/supabase";
-import {
-	deliverPriceAlert,
-	type PriceAlertDeliveryStats,
-} from "../../../src/lib/market-notifications/delivery";
-import type { PriceAlertUser } from "../../../src/lib/market-notifications/users";
-import type { EmailSender } from "../../../src/lib/messaging/email/utils";
-import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
-import type { TelegramMessage, TelegramSender } from "../../../src/lib/messaging/telegram/sender";
+import { deliverPriceAlert } from "../../../src/lib/market-notifications/delivery";
+import type {
+	PriceAlertDeliveryStats,
+	PriceAlertUser,
+} from "../../../src/lib/market-notifications/types";
+import type { EmailSender } from "../../../src/lib/messaging/email/types";
+import type { SmsSender } from "../../../src/lib/messaging/sms/types";
+import type { TelegramMessage, TelegramSender } from "../../../src/lib/messaging/telegram/types";
 import type { EnrichedAlert, PriceAlertGrokResult } from "../../../src/lib/price-alerts/types";
 import type { DeliveryResult } from "../../../src/lib/types";
 import { makePrefRows } from "../../helpers/user-record-fixture";

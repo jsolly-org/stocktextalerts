@@ -1,7 +1,7 @@
 import { DateTime, type DateTime as DateTimeType } from "luxon";
 import { persistDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
-import type { Logger } from "../logging";
+import type { Logger } from "../logging/types";
 import { shouldSendSms } from "../messaging/sms/index";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { shouldAdvanceScheduledNotificationSchedule } from "../schedule/delivery-terminal";

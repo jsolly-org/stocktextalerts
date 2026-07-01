@@ -6,9 +6,9 @@
  */
 
 import type { MessageEntity } from "grammy/types";
-import type { StagedNotificationType } from "./db";
 import type { Database } from "./db/generated/database.types";
 import { Constants } from "./db/generated/database.types";
+import type { StagedNotificationType } from "./db/types";
 
 declare const brand: unique symbol;
 type Brand<B extends string> = { readonly [brand]: B };
@@ -236,6 +236,9 @@ export type UserRecord = Pick<
 	prefs: PrefRow[];
 } & GrokRumorsPreferences;
 
+/** A base user record without per-option channel preferences. Query helpers fetch this shape, then attach `prefs`. */
+export type UserRecordWithoutPrefs = Omit<UserRecord, "prefs">;
+
 /** User asset joined with its canonical asset name. */
 export type UserAssetRow = Pick<Database["public"]["Tables"]["user_assets"]["Row"], "symbol"> & {
 	name: Database["public"]["Tables"]["assets"]["Row"]["name"];
@@ -328,12 +331,6 @@ export type TimezoneOption = Pick<
 	Database["public"]["Tables"]["timezones"]["Row"],
 	"value" | "label" | "display_order"
 >;
-
-/* =============
-Staged notifications
-============= */
-
-export type { StagedNotificationType };
 
 interface StagedEmailContent {
 	subject: string;

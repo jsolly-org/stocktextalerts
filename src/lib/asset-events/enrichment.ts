@@ -1,6 +1,7 @@
 import { rootLogger } from "../logging";
 import type { InsiderTransaction, RecommendationTrend } from "../types";
-import { type FinnhubFetchPolicy, finnhubFetch } from "../vendors/finnhub";
+import { finnhubFetch } from "../vendors/finnhub";
+import type { FinnhubFetchPolicy } from "../vendors/types";
 
 /** Fetch the latest analyst recommendation trend for a ticker (or `null`). */
 export async function fetchRecommendationTrends(

@@ -1,5 +1,5 @@
 import type { ExtendedAssetQuote } from "../types";
-import type { AssetSnapshot } from "./snapshot-store";
+import type { AssetSnapshot } from "./types";
 
 /* =============
 Configuration

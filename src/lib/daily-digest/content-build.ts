@@ -1,8 +1,10 @@
 import { DateTime, type DateTime as DateTimeType } from "luxon";
+import { GROK_WINDOW_HOURS } from "../constants";
 import { readDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
-import type { Logger } from "../logging";
-import { fetchTopMovers, type TopMover } from "../market-data/movers";
+import type { Logger } from "../logging/types";
+import { fetchTopMovers } from "../market-data/movers";
+import type { TopMover } from "../market-data/types";
 import { formatSignedChangePercent, formatUsdPrice } from "../messaging/parts/asset-price-list";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { getLocalMinutesFromDateTime } from "../time/schedule/next-send";
@@ -15,7 +17,6 @@ import {
 } from "../types";
 import { withOptionalVendorBudget } from "../vendors/optional-vendors";
 
-const GROK_WINDOW_HOURS = 24;
 const GROK_MAX_SENDS_PER_WINDOW = 10;
 
 function formatMoverLine(mover: TopMover): string {

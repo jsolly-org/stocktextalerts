@@ -6,16 +6,16 @@ import {
 	processDailyDigestSmsDelivery,
 } from "../../../src/lib/daily-digest/delivery";
 import type { SupabaseAdminClient } from "../../../src/lib/db/supabase";
-import type { Logger } from "../../../src/lib/logging";
+import type { Logger } from "../../../src/lib/logging/types";
 import type { SparklineData } from "../../../src/lib/messaging/parts/charts/sparkline";
-import type { NotificationExtras } from "../../../src/lib/messaging/parts/extras";
 import { SMS_UCS2_SEGMENT_SIZE } from "../../../src/lib/messaging/sms/constants";
 import {
 	finalizeSmsBodyForUcs2Segments,
 	findDailyDigestProtectedSpans,
 	spanStraddlesBoundary,
 } from "../../../src/lib/messaging/sms/segment-utils";
-import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
+import type { SmsSender } from "../../../src/lib/messaging/sms/types";
+import type { NotificationExtras } from "../../../src/lib/messaging/types";
 import type { ScheduledNotificationTotals } from "../../../src/lib/scheduled-notifications/types";
 import type { AssetPriceMap, UserAssetRow, UserRecord } from "../../../src/lib/types";
 import { assertIsoDateString } from "../../../src/lib/types";

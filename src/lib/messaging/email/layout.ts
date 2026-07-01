@@ -1,6 +1,6 @@
 import { DASHBOARD_SECTION_HASHES } from "../../constants";
 import { getSiteUrl } from "../../db/env";
-import { NOT_FINANCIAL_ADVICE } from "../parts/footer";
+import { NOT_FINANCIAL_ADVICE } from "../constants";
 import { escapeHtml } from "../parts/html-utils";
 import { createEmailUnsubscribeUrl } from "./unsubscribe";
 

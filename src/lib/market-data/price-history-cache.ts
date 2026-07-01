@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import { SECTOR_ETF_MAP } from "../assets/constants";
+import { US_MARKET_BENCHMARK_SYMBOL } from "../constants";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
@@ -10,19 +11,12 @@ import {
 } from "../messaging/parts/charts/sparkline";
 import type { DailyOHLCVBar, ExtendedQuoteMap } from "../types";
 import { formatChartAsOfLabel } from "./chart-as-of-label";
+import type { PriceHistoryRow } from "./types";
 
 const MINUTE_RETENTION_HOURS = 36;
 const DAILY_RETENTION_DAYS = 30;
 const INTRADAY_CACHE_MAX_AGE_MS = 15 * 60 * 1000;
 const REQUIRED_DAILY_CLOSES = 7;
-
-const MARKET_BENCHMARK_SYMBOL = "SPY";
-
-export type PriceHistoryRow = {
-	symbol: string;
-	price: number;
-	captured_at: string;
-};
 
 type DailyCloseRow = {
 	symbol: string;
@@ -32,7 +26,7 @@ type DailyCloseRow = {
 
 /** Benchmark + sector ETF symbols used for price-alert context charts. */
 export function getBenchmarkCacheSymbols(): string[] {
-	return [MARKET_BENCHMARK_SYMBOL, ...new Set(Object.values(SECTOR_ETF_MAP))];
+	return [US_MARKET_BENCHMARK_SYMBOL, ...new Set(Object.values(SECTOR_ETF_MAP))];
 }
 
 export async function getPriceCacheSymbols(supabase: SupabaseAdminClient): Promise<string[]> {

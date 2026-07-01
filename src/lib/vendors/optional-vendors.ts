@@ -2,15 +2,10 @@ import { rootLogger } from "../logging";
 import {
 	OPTIONAL_VENDOR_CIRCUIT_FAILURE_THRESHOLD,
 	OPTIONAL_VENDOR_CIRCUIT_OPEN_MS,
+	OPTIONAL_VENDOR_DEGRADED_CATEGORY,
 } from "./constants";
-import {
-	type CircuitState,
-	optionalVendorCircuits,
-	optionalVendorSkipState,
-} from "./optional-vendor-circuit-store";
-
-/** Log category for optional vendor work skipped without paging. */
-export const OPTIONAL_VENDOR_DEGRADED_CATEGORY = "optional_vendor_degraded";
+import { optionalVendorCircuits, optionalVendorSkipState } from "./optional-vendor-circuit-store";
+import type { CircuitState } from "./types";
 
 type OptionalVendorSkipReason = "circuit_open" | "budget_exceeded" | "unavailable";
 

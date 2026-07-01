@@ -1,7 +1,4 @@
-export type CircuitState = {
-	failures: number;
-	openUntilMs: number;
-};
+import type { CircuitState } from "./types";
 
 export const optionalVendorCircuits = new Map<string, CircuitState>();
 

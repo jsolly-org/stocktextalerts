@@ -21,3 +21,9 @@ export type SparklineCacheOptions = {
 	timezone?: string;
 	use24HourTime?: boolean;
 };
+
+export type PriceHistoryRow = {
+	symbol: string;
+	price: number;
+	captured_at: string;
+};

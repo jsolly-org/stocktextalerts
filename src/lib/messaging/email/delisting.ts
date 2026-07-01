@@ -1,17 +1,7 @@
-import { NOT_FINANCIAL_ADVICE } from "../parts/footer";
+import { NOT_FINANCIAL_ADVICE } from "../constants";
 import { escapeHtml } from "../parts/html-utils";
-import type { EmailUser } from "../types";
+import type { DelistedHolding, EmailUser } from "../types";
 import { buildEmailUrls, renderEmailFooter } from "./layout";
-
-/** A single holding being reported as delisted in a notification email. */
-export interface DelistedHolding {
-	symbol: string;
-	name: string;
-	/** YYYY-MM-DD date the exchange marked the ticker as delisted. */
-	delistedDate: string;
-	/** Primary exchange label (e.g. "NASDAQ"). Optional; omitted when unknown. */
-	exchange?: string | null;
-}
 
 const MAX_SUMMARY_LENGTH = 500;
 

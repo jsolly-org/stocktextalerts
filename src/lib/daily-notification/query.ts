@@ -1,8 +1,8 @@
 import type { SupabaseAdminClient } from "../db/supabase";
 import { fetchUsersWithRetry } from "../db/user-query";
-import type { Logger } from "../logging";
+import type { Logger } from "../logging/types";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
-import type { UserRecord } from "../types";
+import type { UserRecord, UserRecordWithoutPrefs } from "../types";
 import { hasAnyDailyNotificationFacet } from "./eligibility";
 
 /** Channel-level user columns for the daily notification pipeline. */
@@ -29,8 +29,6 @@ export const DAILY_NOTIFICATION_USER_SELECT = `
 	grok_window_start,
 	grok_sends_in_window
 `;
-
-type UserRecordWithoutPrefs = Omit<UserRecord, "prefs">;
 
 export const HAS_DELIVERY_CHANNEL_OR =
 	"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true,telegram_chat_id.not.is.null";

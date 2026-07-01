@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { MAX_TRACKED_ASSETS } from "../../../../src/lib/db/database-errors";
+import { MAX_TRACKED_ASSETS } from "../../../../src/lib/db/constants";
 import { POST } from "../../../../src/pages/api/assets/update";
 import { createApiContext } from "../../../helpers/api-context";
 import { getAssetData, getRealAssetSymbols } from "../../../helpers/asset-data";

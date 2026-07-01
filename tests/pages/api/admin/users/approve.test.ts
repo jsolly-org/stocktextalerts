@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { EmailRequest, EmailSender } from "../../../../../src/lib/messaging/email/utils";
+import type { EmailRequest, EmailSender } from "../../../../../src/lib/messaging/email/types";
 import { POST } from "../../../../../src/pages/api/admin/users/approve";
 import { createApiContext } from "../../../../helpers/api-context";
 import { TEST_PASSWORD } from "../../../../helpers/constants";

@@ -1,5 +1,5 @@
 import type { SupabaseAdminClient } from "../../db/supabase";
-import type { Logger } from "../../logging";
+import type { Logger } from "../../logging/types";
 import {
 	claimNotification,
 	updateScheduledNotificationRow,

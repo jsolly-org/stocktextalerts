@@ -4,15 +4,11 @@ import { rootLogger } from "../logging";
 import {
 	FINNHUB_BASE_URL,
 	VENDOR_FETCH_MAX_RETRIES as MAX_RETRIES,
+	OPTIONAL_VENDOR_DEGRADED_CATEGORY,
 	VENDOR_FETCH_REQUEST_TIMEOUT_MS as REQUEST_TIMEOUT_MS,
 	VENDOR_FETCH_RETRY_DELAY_MS as RETRY_DELAY_MS,
 } from "./constants";
-import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "./optional-vendors";
-
-export type FinnhubFetchPolicy = {
-	/** When true, terminal failures log as optional degradation (warn), not vendor_retry_exhausted. */
-	optional?: boolean;
-};
+import type { FinnhubFetchPolicy } from "./types";
 
 /** Read the Finnhub API key from env. Throws if not set. */
 function getFinnhubApiKey(): string {

@@ -1,7 +1,7 @@
 import type { DateTime } from "luxon";
 import { updateUserDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
-import type { Logger } from "../logging";
+import type { Logger } from "../logging/types";
 import type { UserRecord } from "../types";
 
 /** @deprecated Standalone asset-events cron removed; use {@link updateUserDailyNotificationNextSendAt}. */

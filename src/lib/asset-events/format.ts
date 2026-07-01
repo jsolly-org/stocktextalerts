@@ -1,6 +1,5 @@
 import type { InsiderTransaction, RecommendationTrend } from "../types";
-
-type DeliveryChannel = "sms" | "email";
+import type { DeliveryChannel } from "./types";
 
 /**
  * Format a revenue estimate compactly for display.

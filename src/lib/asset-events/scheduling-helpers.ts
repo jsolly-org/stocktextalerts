@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import type { User, UserUpdateInput } from "../db";
+import type { User, UserUpdateInput } from "../db/types";
 import { userLocalToEtMinute } from "../time/conversion";
 import { calculateNextSendAt } from "../time/schedule/next-send";
 

@@ -1,11 +1,12 @@
 import { getSiteUrl } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
+import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../messaging/constants";
 import { isEmailChannelUsable } from "../messaging/email/eligibility";
 import { markdownLinksToHtml, stripMarkdownLinks } from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messaging/email/layout";
-import type { EmailSender } from "../messaging/email/utils";
+import type { EmailSender } from "../messaging/email/types";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
 import { isFacetEnabled } from "../messaging/notification-prefs";
 import { renderIntradaySparklineImg } from "../messaging/parts/charts/intraday-sparkline";
@@ -16,19 +17,18 @@ import {
 	type SparklineWindow,
 	toSparkline,
 } from "../messaging/parts/charts/sparkline";
-import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../messaging/parts/footer";
 import { escapeHtml, getSafeHrefUrl } from "../messaging/parts/html-utils";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
-import type { SmsSender } from "../messaging/sms/twilio-utils";
+import type { SmsSender } from "../messaging/sms/types";
 import { shortenUrls } from "../messaging/sms/url-shortener";
 import { isTelegramChannelUsable, shouldSendTelegram } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../messaging/telegram/price-alert";
-import type { TelegramSender } from "../messaging/telegram/sender";
+import type { TelegramSender } from "../messaging/telegram/types";
 import type { EnrichedAlert } from "../price-alerts/types";
-import type { PriceAlertUser } from "./users";
+import type { PriceAlertDeliveryStats, PriceAlertUser } from "./types";
 
 /** Cap Grok summary length in SMS to avoid segment/cost spikes from long model output. */
 const MAX_SMS_SUMMARY_CHARS = 280;
@@ -66,17 +66,6 @@ function formatPriceContextWithSparkline(
 	return sparkline
 		? `${priceContext} ${SMS_SPARKLINE_LABEL[chart.window]}: ${sparkline}`
 		: priceContext;
-}
-
-/** Per-run delivery counters for price alerts (email/SMS/Telegram success/fail and log failures). */
-export interface PriceAlertDeliveryStats {
-	emailsSent: number;
-	emailsFailed: number;
-	smsSent: number;
-	smsFailed: number;
-	telegramSent: number;
-	telegramFailed: number;
-	logFailures: number;
 }
 
 /**

@@ -1,27 +1,7 @@
-import type { AlertMoveSize } from "../db";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
-import type { PrefRow } from "../messaging/notification-prefs";
-
-export interface PriceAlertUser {
-	id: string;
-	email: string;
-	phone_country_code: string | null;
-	phone_number: string | null;
-	phone_verified: boolean;
-	sms_notifications_enabled: boolean;
-	sms_opted_out: boolean;
-	email_notifications_enabled: boolean;
-	market_asset_price_alert_move_size: AlertMoveSize;
-	use_24_hour_time: boolean;
-	/** Linked Telegram chat (null when never linked); gates the Telegram delivery branch. */
-	telegram_chat_id: number | null;
-	/** True after a verified outbound 403 ("bot blocked"); suppresses Telegram delivery. */
-	telegram_opted_out: boolean;
-	/** Per-option channel preferences (single source of truth for all channels). */
-	prefs: PrefRow[];
-}
+import type { PriceAlertUser } from "./types";
 
 /**
  * Fetch users who have price alerts enabled and at least one usable channel.

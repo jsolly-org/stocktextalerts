@@ -1,5 +1,5 @@
 import type { AppSupabaseClient } from "../db/supabase";
-import type { Logger } from "../logging";
+import type { Logger } from "../logging/types";
 import { loadPrefsByUser } from "../messaging/load-prefs";
 import {
 	isFacetEnabled,

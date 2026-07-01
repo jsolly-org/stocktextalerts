@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { packSmsBlocks } from "../../../../src/lib/messaging/sms/block-packing";
+import { SMS_BODY_CHAR_BUDGET } from "../../../../src/lib/messaging/sms/constants";
 import type {
 	AtomicSmsBlock,
 	SmsBlock,
 	SplittableSmsBlock,
-} from "../../../../src/lib/messaging/sms/block-packing";
-import {
-	packSmsBlocks,
-	SMS_BODY_CHAR_BUDGET,
-} from "../../../../src/lib/messaging/sms/block-packing";
+} from "../../../../src/lib/messaging/sms/types";
 
 describe("packSmsBlocks", () => {
 	it("moves an atomic block to the next SMS body when it would exceed the budget", () => {

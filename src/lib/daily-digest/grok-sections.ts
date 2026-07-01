@@ -1,15 +1,8 @@
 import { rootLogger } from "../logging";
-import {
-	fetchGrokResponse,
-	type GrokResponsesRequest,
-	type GrokResponsesResponse,
-} from "../vendors/grok";
-import { applyAnnotationsInline, type XaiAnnotation } from "../vendors/grok-citations";
-
-export type GrokSectionResult = {
-	content: string;
-	citations: string[];
-};
+import { fetchGrokResponse } from "../vendors/grok";
+import { applyAnnotationsInline } from "../vendors/grok-citations";
+import type { GrokResponsesRequest, GrokResponsesResponse, XaiAnnotation } from "../vendors/types";
+import type { GrokSectionResult } from "./types";
 
 type XaiOutputContentPart =
 	| {

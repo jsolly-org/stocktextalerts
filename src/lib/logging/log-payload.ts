@@ -1,22 +1,8 @@
+import { EMAIL_RE, PHONE_CANDIDATE_RE, SENSITIVE_KEY_PATTERNS } from "./constants";
+
 const DEFAULT_MAX_FULL_BYTES = 4096;
 const DEFAULT_MAX_PREVIEW_BYTES = 8192;
 const DEFAULT_MAX_STRING_CHARS = 500;
-
-const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
-const PHONE_CANDIDATE_RE = /(?:\+\d{1,3}[\s().-]*)?\(?\d{3}\)?[\s().-]*\d{3}[\s().-]*\d{4}/g;
-
-const SENSITIVE_KEY_PATTERNS = [
-	"secret",
-	"password",
-	"apikey",
-	"api_key",
-	"credential",
-	"authtoken",
-	"auth_token",
-	"access_token",
-	"refresh_token",
-	"authorization",
-];
 
 function isSensitiveKey(key: string): boolean {
 	const lower = key.toLowerCase();

@@ -1,6 +1,6 @@
-import type { EmailRequest, EmailSender } from "../../src/lib/messaging/email/utils";
-import type { SmsSender } from "../../src/lib/messaging/sms/twilio-utils";
-import type { TelegramMessage, TelegramSender } from "../../src/lib/messaging/telegram/sender";
+import type { EmailRequest, EmailSender } from "../../src/lib/messaging/email/types";
+import type { SmsSender } from "../../src/lib/messaging/sms/types";
+import type { TelegramMessage, TelegramSender } from "../../src/lib/messaging/telegram/types";
 import type { DeliveryResult } from "../../src/lib/types";
 
 /** OTP accepted by the test double for {@link testCheckVerification}. */

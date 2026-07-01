@@ -1,9 +1,9 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import { getSiteUrl } from "../../db/env";
-import type { MarketClosureInfo } from "../../time/market/calendar";
+import type { MarketClosureInfo } from "../../time/types";
+import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT, TELEGRAM_FOOTER } from "../constants";
 import { renderEmailSection } from "../email/html-section";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
-import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
 import { buildMarketClosedBannerHtml, buildMarketClosedBannerText } from "../parts/market-closure";
 import { padUrlsToSegmentBoundaries } from "../sms/segment-utils";
 

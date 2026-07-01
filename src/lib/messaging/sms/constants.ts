@@ -3,3 +3,6 @@ export const SMS_UCS2_SEGMENT_SIZE = 67;
 
 /** Number of days before short URLs expire and are purged. */
 export const SHORT_URL_TTL_DAYS = 30;
+
+/** Soft character budget for an SMS body before block-packing splits it. */
+export const SMS_BODY_CHAR_BUDGET = 1500;

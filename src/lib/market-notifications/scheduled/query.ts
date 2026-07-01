@@ -1,11 +1,9 @@
 import type { SupabaseAdminClient } from "../../db/supabase";
 import { fetchUsersWithRetry } from "../../db/user-query";
-import type { Logger } from "../../logging";
+import type { Logger } from "../../logging/types";
 import { attachPrefsToUsers } from "../../messaging/load-prefs";
-import type { UserRecord } from "../../types";
+import type { UserRecord, UserRecordWithoutPrefs } from "../../types";
 import { HAS_DELIVERY_CHANNEL_OR, MARKET_SCHEDULED_USER_SELECT } from "./select";
-
-type UserRecordWithoutPrefs = Omit<UserRecord, "prefs">;
 
 /**
  * Fetch users eligible for a scheduled asset price update run.

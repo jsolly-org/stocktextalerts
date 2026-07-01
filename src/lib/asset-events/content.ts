@@ -1,37 +1,11 @@
 import { DateTime } from "luxon";
 import { isDailyNotificationFacetEnabled } from "../daily-notification/eligibility";
 import type { SupabaseAdminClient } from "../db/supabase";
-import type { Logger } from "../logging";
+import type { Logger } from "../logging/types";
 import type { UserRecord } from "../types";
 import { loadStoredFinnhubExtras } from "./enrichment-store";
 import { formatAnalystSection, formatAssetEventsSection, formatInsiderSection } from "./format";
-
-type DeliveryChannel = "email" | "sms";
-
-/**
- * Telegram facet selection for asset events, sourced from notification_preferences
- * (NOT the per-column email/sms flags). When present, the content builder renders a
- * `telegram` AssetEventsContent using the rich email-style section formatting, gated
- * by these facets. Additive: email/SMS rendering is unchanged.
- */
-export type AssetEventsTelegramFacets = {
-	calendar: boolean;
-	ipo: boolean;
-	insider: boolean;
-	analyst: boolean;
-};
-
-export type AssetEventsContent = {
-	eventsSection: {
-		earnings: string | null;
-		dividends: string | null;
-		splits: string | null;
-		ipos: string | null;
-	} | null;
-	insiderSection: string | null;
-	analystSection: string | null;
-	hasAnyContent: boolean;
-};
+import type { AssetEventsContent, AssetEventsTelegramFacets, DeliveryChannel } from "./types";
 
 const emptyContent = (): AssetEventsContent => ({
 	eventsSection: null,

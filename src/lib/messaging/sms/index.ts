@@ -4,7 +4,7 @@ import type { DeliveryResult, UserRecord } from "../../types";
 import { anySmsFacetEnabledExceptPriceTargets, type PrefRow } from "../notification-prefs";
 import type { SmsUser } from "../types";
 import { finalizeSmsBodyForUcs2Segments } from "./segment-utils";
-import type { SmsSender } from "./twilio-utils";
+import type { SmsSender } from "./types";
 
 /** Channel-level SMS usability (opted in, verified phone, not opted out). Does
  *  NOT read per-option facets, so it doesn't require `prefs`. */

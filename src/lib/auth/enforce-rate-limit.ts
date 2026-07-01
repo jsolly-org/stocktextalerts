@@ -1,5 +1,5 @@
 import type { AppSupabaseClient } from "../db/supabase";
-import type { Logger } from "../logging";
+import type { Logger } from "../logging/types";
 
 type AuthRateLimitEndpoint = "change_password" | "change_email" | "delete_account";
 

@@ -1,5 +1,6 @@
 import type { AppSupabaseClient } from "../../db/supabase";
-import { type Logger, rootLogger } from "../../logging";
+import { rootLogger } from "../../logging";
+import type { Logger } from "../../logging/types";
 import type { DeliveryResult } from "../../types";
 
 /** Telegram Bot API error_code for "Forbidden: bot was blocked by the user" (and

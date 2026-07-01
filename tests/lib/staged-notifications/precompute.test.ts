@@ -1,10 +1,10 @@
 import { DateTime } from "luxon";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { processDailyDigestUser } from "../../../src/lib/daily-digest/process";
-import type { EmailSender } from "../../../src/lib/messaging/email/utils";
+import type { EmailSender } from "../../../src/lib/messaging/email/types";
 import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
-import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
-import type { TelegramSender } from "../../../src/lib/messaging/telegram/sender";
+import type { SmsSender } from "../../../src/lib/messaging/sms/types";
+import type { TelegramSender } from "../../../src/lib/messaging/telegram/types";
 import { precomputeDailyDigest } from "../../../src/lib/staged-notifications/precompute";
 import type { UserRecord } from "../../../src/lib/types";
 import { getRealAssetSymbols } from "../../helpers/asset-data";

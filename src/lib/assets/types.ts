@@ -1,7 +1,7 @@
 import type { SupabaseAdminClient } from "../db/supabase";
-import type { Logger } from "../logging";
-import type { EmailSender } from "../messaging/email/utils";
-import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
+import type { Logger } from "../logging/types";
+import type { EmailSender } from "../messaging/email/types";
+import type { SmsSenderFactory } from "../messaging/sms/types";
 
 // --- Sector mapping ---
 

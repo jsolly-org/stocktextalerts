@@ -2,19 +2,7 @@ import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
 import type { ExtendedQuoteMap } from "../types";
-
-/** Single captured quote row from `asset_snapshots`. */
-export interface AssetSnapshot {
-	symbol: string;
-	price: number;
-	changePercent: number;
-	dayHigh: number | null;
-	dayLow: number | null;
-	dayOpen: number | null;
-	prevClose: number | null;
-	volume: number | null;
-	capturedAt: string;
-}
+import type { AssetSnapshot } from "./types";
 
 /** Minutes to retain asset snapshots; rows older than this are purged by `purgeOldAssetSnapshots`. */
 const RETENTION_MINUTES = 60;

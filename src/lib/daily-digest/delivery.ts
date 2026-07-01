@@ -1,13 +1,13 @@
-import type { buildAssetEventsContent } from "../asset-events/content";
+import type { AssetEventsResult } from "../asset-events/types";
 import type { SupabaseAdminClient } from "../db/supabase";
-import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
+import type { Logger } from "../logging/types";
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,
 } from "../messaging/delivery/scheduled-channel";
 import { sendUserEmail } from "../messaging/email/index";
-import type { EmailSender } from "../messaging/email/utils";
+import type { EmailSender } from "../messaging/email/types";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsLogMessage,
@@ -18,19 +18,19 @@ import {
 	summarizeDailyDigestSmsResults,
 } from "../messaging/notifications/daily-digest";
 import type { SparklineMap } from "../messaging/parts/charts/sparkline";
-import type { NotificationExtras } from "../messaging/parts/extras";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
-import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
+import type { SmsSenderFactory } from "../messaging/sms/types";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
-import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
+import type { TelegramSenderFactory } from "../messaging/telegram/types";
+import type { NotificationExtras } from "../messaging/types";
 import {
 	claimNotification,
 	updateScheduledNotificationRow,
 } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
-import type { MarketClosureInfo } from "../time/market/calendar";
+import type { MarketClosureInfo } from "../time/types";
 import type {
 	AssetPriceMap,
 	DeliveryResult,
@@ -48,8 +48,6 @@ export {
 	formatDigestQuoteAsOf,
 	summarizeDailyDigestSmsResults,
 };
-
-type AssetEventsResult = Awaited<ReturnType<typeof buildAssetEventsContent>> | null;
 
 /** Deliver a daily digest via email and record the result. */
 export async function processDailyDigestEmailDelivery(options: {

@@ -138,7 +138,7 @@ import { computed, ref, toRefs, watch } from "vue";
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import XMarkIcon from "../../../icons/x-mark.svg?component";
 import { DASHBOARD_SECTION_IDS } from "../../../lib/constants";
-import { MAX_TRACKED_ASSETS } from "../../../lib/db/database-errors";
+import { MAX_TRACKED_ASSETS } from "../../../lib/db/constants";
 import FadeTransition from "../../FadeTransition.vue";
 import StatusMessage from "../../StatusMessage.vue";
 import type { FlashMessage } from "../../ui-constants";

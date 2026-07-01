@@ -1,4 +1,4 @@
-import type { DelistedHolding } from "../email/delisting";
+import type { DelistedHolding } from "../types";
 
 /** SMS segment-friendly upper bound for a single message. */
 const SMS_MAX_LENGTH = 320;

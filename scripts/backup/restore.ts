@@ -5,7 +5,7 @@ import { gunzipSync } from "node:zlib";
 import { Client } from "pg";
 import { from as copyFrom } from "pg-copy-streams";
 import { sslFor } from "../../src/lib/backup/export";
-import type { BackupPayload } from "../../src/lib/backup/storage";
+import type { BackupPayload } from "../../src/lib/backup/types";
 import { BACKUP_TABLES } from "../../src/lib/backup/tables";
 
 /** True for a local/scratch target (loopback host). */

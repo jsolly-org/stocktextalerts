@@ -1,6 +1,7 @@
 import { setTimeout as realDelay } from "node:timers/promises";
 import { readEnv } from "../db/env";
 import { rootLogger } from "../logging";
+import type { GrokResponsesRequest, GrokResponsesResponse } from "./types";
 
 const BASE_RETRY_DELAY_MS = 1_000;
 
@@ -11,37 +12,6 @@ const BASE_RETRY_DELAY_MS = 1_000;
  * `vi.useFakeTimers()` has replaced the global `setTimeout`.
  */
 const delay = (attempt: number) => realDelay(BASE_RETRY_DELAY_MS * 2 ** (attempt - 1));
-
-export type GrokResponsesRequest = {
-	model: string;
-	input: string;
-	instructions: string;
-	temperature?: number;
-	max_output_tokens?: number;
-	tools?: Array<{ type: "web_search" | "x_search" }>;
-	include?: string[];
-};
-
-export type GrokResponsesResponse = {
-	id: string;
-	object: "response" | (string & {});
-	created_at: number;
-	model: string;
-	status: string;
-	output: Array<{
-		id?: string;
-		type?: string;
-		role?: string;
-		status?: string;
-		content?: Array<{
-			type?: string;
-			text?: string;
-			annotations?: unknown;
-		}>;
-		summary?: Array<{ type?: string; text?: string }>;
-		[key: string]: unknown;
-	}>;
-};
 
 /**
  * Per-attempt timeouts for Grok API calls (escalating).

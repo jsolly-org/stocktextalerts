@@ -1,20 +1,5 @@
-export const SMS_BODY_CHAR_BUDGET = 1500;
-
-export type AtomicSmsBlock = {
-	id: string;
-	boundary: "atomic";
-	text: string | null | undefined;
-};
-
-export type SplittableSmsBlock = {
-	id: string;
-	boundary: "split-between-children";
-	header: string;
-	children: Array<string | null | undefined>;
-	childSeparator?: string;
-};
-
-export type SmsBlock = AtomicSmsBlock | SplittableSmsBlock;
+import { SMS_BODY_CHAR_BUDGET } from "./constants";
+import type { SmsBlock } from "./types";
 
 const BODY_BLOCK_SEPARATOR = "\n\n";
 

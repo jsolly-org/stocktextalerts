@@ -1,9 +1,10 @@
 import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
+import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../../messaging/constants";
 import { sendUserEmail } from "../../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
-import type { EmailSender } from "../../messaging/email/utils";
+import type { EmailSender } from "../../messaging/email/types";
 import { type createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
 import { formatUsdPrice, getChangeColor } from "../../messaging/parts/asset-price-list";
@@ -16,31 +17,19 @@ import {
 	toSparkline,
 } from "../../messaging/parts/charts/sparkline";
 import { toSvgSparklineImg } from "../../messaging/parts/charts/svg-sparkline";
-import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../../messaging/parts/footer";
 import { escapeHtml } from "../../messaging/parts/html-utils";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
-import type { SmsSender } from "../../messaging/sms/twilio-utils";
+import type { SmsSender } from "../../messaging/sms/types";
 import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../../messaging/telegram/price-alert";
-import type { TelegramSender } from "../../messaging/telegram/sender";
+import type { TelegramSender } from "../../messaging/telegram/types";
 import { buildFlatAlertEnriched } from "../../price-alerts/compose";
 import type { ExtendedAssetQuote, IntradayBarsResult } from "../../types";
 import { formatRelativeMinutesAgo } from "./relative-time";
-import type { FlatPriceAlertUser } from "./users";
-
-/** Per-run delivery counters. */
-export interface FlatPriceAlertDeliveryStats {
-	emailsSent: number;
-	emailsFailed: number;
-	smsSent: number;
-	smsFailed: number;
-	telegramSent: number;
-	telegramFailed: number;
-	logFailures: number;
-}
+import type { FlatPriceAlertDeliveryStats, FlatPriceAlertUser } from "./types";
 
 /** Unicode-block sparkline cap for SMS. UCS-2 segments fit 70 chars; keep the
  *  sparkline short so it + price rows stay within 1–2 segments. */

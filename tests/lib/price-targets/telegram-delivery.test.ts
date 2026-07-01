@@ -10,13 +10,14 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../src/lib/db/supabase";
-import type { EmailSender } from "../../../src/lib/messaging/email/utils";
-import type { TelegramMessage, TelegramSender } from "../../../src/lib/messaging/telegram/sender";
-import {
-	deliverPriceTargetAlert,
-	type PriceTargetDeliveryStats,
-} from "../../../src/lib/price-targets/delivery";
-import type { PriceTargetUser, TriggeredPriceTarget } from "../../../src/lib/price-targets/process";
+import type { EmailSender } from "../../../src/lib/messaging/email/types";
+import type { TelegramMessage, TelegramSender } from "../../../src/lib/messaging/telegram/types";
+import { deliverPriceTargetAlert } from "../../../src/lib/price-targets/delivery";
+import type {
+	PriceTargetDeliveryStats,
+	PriceTargetUser,
+	TriggeredPriceTarget,
+} from "../../../src/lib/price-targets/types";
 import { makePrefRows } from "../../helpers/user-record-fixture";
 
 type RecordedInsert = { table: string; row: Record<string, unknown> };

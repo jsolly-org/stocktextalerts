@@ -13,6 +13,7 @@
  */
 
 import { DateTime } from "luxon";
+import { GROK_WINDOW_HOURS } from "../constants";
 import {
 	formatDailyDigestSmsLogMessage,
 	summarizeDailyDigestSmsResults,
@@ -20,9 +21,9 @@ import {
 import { shouldAdvanceDailyDigestSchedule } from "../daily-digest/schedule-state";
 import { updateUserDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
-import type { Logger } from "../logging";
+import type { Logger } from "../logging/types";
 import { sendUserEmail } from "../messaging/email/index";
-import type { EmailSender } from "../messaging/email/utils";
+import type { EmailSender } from "../messaging/email/types";
 import { loadPrefsByUser } from "../messaging/load-prefs";
 import {
 	buildDelayBannerHtml,
@@ -32,13 +33,13 @@ import {
 	prependDelayBannerToTelegram,
 } from "../messaging/parts/delay";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
-import { SMS_BODY_CHAR_BUDGET } from "../messaging/sms/block-packing";
+import { SMS_BODY_CHAR_BUDGET } from "../messaging/sms/constants";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padDailyDigestSmsSegmentBoundaries } from "../messaging/sms/segment-utils";
-import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
+import type { SmsSenderFactory } from "../messaging/sms/types";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
-import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
+import type { TelegramSenderFactory } from "../messaging/telegram/types";
 import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
 import {
 	claimNotification,
@@ -47,14 +48,21 @@ import {
 } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { toIsoOrThrow } from "../time/display";
-import type { DeliveryResult, IsoDateString, MinuteOfDay, UserRecord } from "../types";
+import type {
+	DeliveryResult,
+	IsoDateString,
+	MinuteOfDay,
+	StagedDailyData,
+	StagedNotificationRow,
+	StagedSmsContent,
+	UserRecord,
+} from "../types";
 import {
 	deleteStagedNotification,
 	fetchDueStagedNotifications,
 	purgeStaleStaged,
 	rescheduleStagedNotification,
 } from "./db";
-import type { StagedDailyData, StagedNotificationRow, StagedSmsContent } from "./types";
 
 const STALE_MAX_AGE_MINUTES = 5;
 const TWILIO_SMS_HARD_LIMIT = 1600;
@@ -707,7 +715,6 @@ async function deliverStagedDaily(options: {
 	// otherwise increment the counter.
 	const localDelivered = localEmailDelivered || localSmsDelivered || localTelegramDelivered;
 	if (stagedData.grokAllowed && localDelivered) {
-		const GROK_WINDOW_HOURS = 24;
 		const now = currentTime.toISO();
 		if (now) {
 			const windowStart = user.grok_window_start

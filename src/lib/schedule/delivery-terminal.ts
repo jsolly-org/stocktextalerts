@@ -1,11 +1,11 @@
 import type { SupabaseAdminClient } from "../db/supabase";
 import { shouldSendSms } from "../messaging/sms/index";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
-import {
-	type DeliveryMethod,
-	MAX_NOTIFICATION_RETRIES,
-	type ScheduledNotificationStatus,
-	type ScheduledNotificationType,
+import { MAX_NOTIFICATION_RETRIES } from "../scheduled-notifications/constants";
+import type {
+	DeliveryMethod,
+	ScheduledNotificationStatus,
+	ScheduledNotificationType,
 } from "../scheduled-notifications/types";
 import type { ScheduledSlotKey, UserRecord } from "../types";
 

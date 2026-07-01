@@ -1,12 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../src/lib/db/supabase";
-import type { EmailSender } from "../../../src/lib/messaging/email/utils";
+import type { EmailSender } from "../../../src/lib/messaging/email/types";
 import {
 	deliverPriceTargetAlert,
 	formatPriceTargetSms,
-	type PriceTargetDeliveryStats,
 } from "../../../src/lib/price-targets/delivery";
-import type { PriceTargetUser, TriggeredPriceTarget } from "../../../src/lib/price-targets/process";
+import type {
+	PriceTargetDeliveryStats,
+	PriceTargetUser,
+	TriggeredPriceTarget,
+} from "../../../src/lib/price-targets/types";
 import type { DeliveryResult } from "../../../src/lib/types";
 import { makePrefRows } from "../../helpers/user-record-fixture";
 

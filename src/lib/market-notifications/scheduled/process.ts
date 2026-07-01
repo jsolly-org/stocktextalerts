@@ -1,11 +1,12 @@
 import { DateTime } from "luxon";
 import type { SupabaseAdminClient } from "../../db/supabase";
-import { loadUserAssets, type UserAssetsMap } from "../../db/user-assets";
-import type { Logger } from "../../logging";
+import type { UserAssetsMap } from "../../db/types";
+import { loadUserAssets } from "../../db/user-assets";
 import { createErrorForLogging, extractErrorMessage } from "../../logging/errors";
+import type { Logger } from "../../logging/types";
 import { fetchIntradaySparklines } from "../../market-data/sparklines";
-import type { EmailSender } from "../../messaging/email/utils";
-import { type LogoCache, safePrefetchLogos } from "../../messaging/logo-fetcher";
+import type { EmailSender } from "../../messaging/email/types";
+import { safePrefetchLogos } from "../../messaging/logo-fetcher";
 import { anyFacetEnabled, isFacetEnabled } from "../../messaging/notification-prefs";
 import { formatAssetsTextList } from "../../messaging/parts/asset-price-list";
 import type { SparklineMap } from "../../messaging/parts/charts/sparkline";
@@ -14,18 +15,19 @@ import { buildMarketClosedBannerText } from "../../messaging/parts/market-closur
 import { buildSessionFirstLine } from "../../messaging/parts/session-label";
 import { recordNotification } from "../../messaging/shared";
 import { shouldSendSms } from "../../messaging/sms";
-import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
+import type { SmsSenderFactory } from "../../messaging/sms/types";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
-import type { TelegramSenderFactory } from "../../messaging/telegram/sender-factory";
+import type { TelegramSenderFactory } from "../../messaging/telegram/types";
+import type { LogoCache } from "../../messaging/types";
 import type {
 	DeliveryMethod,
 	ScheduledNotificationTotals,
 } from "../../scheduled-notifications/types";
 import { userLocalToEtMinute } from "../../time/conversion";
-import type { MarketClosureInfo } from "../../time/market/calendar";
 import { getUsMarketClosureInfoForInstant } from "../../time/market/calendar";
 import { isOutsideMarketHours } from "../../time/market/session";
 import { getLocalMinutesFromDateTime } from "../../time/schedule/next-send";
+import type { MarketClosureInfo } from "../../time/types";
 import type { AssetPriceMap, MarketSession, UserRecord } from "../../types";
 import { assertIsoDateString, NO_SESSION_TRADE } from "../../types";
 import {

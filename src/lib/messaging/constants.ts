@@ -15,3 +15,5 @@ export const SMS_OPT_OUT = "Reply STOP to opt out.";
 /** Telegram footer: disclaimer + opt-out hint. `/stop` is a real bot command that pauses
  *  alerts (see src/pages/api/messaging/telegram.ts), so the hint is actionable. */
 export const TELEGRAM_FOOTER = `${NOT_FINANCIAL_ADVICE} Send /stop to pause alerts.`;
+
+export const NO_TRACKED_ASSETS_MESSAGE = "You don't have any tracked assets";

@@ -1,12 +1,12 @@
 import type { SupabaseAdminClient } from "../db/supabase";
-import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
+import type { Logger } from "../logging/types";
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,
 } from "../messaging/delivery/scheduled-channel";
 import { sendUserEmail } from "../messaging/email/index";
-import type { EmailSender } from "../messaging/email/utils";
+import type { EmailSender } from "../messaging/email/types";
 import {
 	formatAssetEventsEmail,
 	formatAssetEventsSms,
@@ -14,15 +14,15 @@ import {
 } from "../messaging/notifications/asset-events";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
-import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
+import type { SmsSenderFactory } from "../messaging/sms/types";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
-import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
+import type { TelegramSenderFactory } from "../messaging/telegram/types";
 import {
 	claimNotification,
 	updateScheduledNotificationRow,
 } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
-import type { MarketClosureInfo } from "../time/market/calendar";
+import type { MarketClosureInfo } from "../time/types";
 import type { IsoDateString, MinuteOfDay, UserRecord } from "../types";
 
 /* =============

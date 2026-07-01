@@ -71,6 +71,9 @@ export const US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES = 19 * 60 + 30; // 7:
 /** IANA timezone for the US market session constants (ET). */
 export const US_MARKET_TIMEZONE = "America/New_York";
 
+/** Broad-market benchmark ticker used for relative-move context (price-history cache + anomaly scoring). */
+export const US_MARKET_BENCHMARK_SYMBOL = "SPY";
+
 /* =============
 Time
 ============= */
@@ -81,6 +84,9 @@ export const DEFAULT_TIMEZONE = "America/New_York";
 /* =============
 Scheduler tuning
 ============= */
+
+/** Rolling window (hours) for the Grok rate limit shared by daily-digest and staged delivery. */
+export const GROK_WINDOW_HOURS = 24;
 
 /** Daily fan-out batch size for digest dispatch/precompute. Override via SCHEDULE_DAILY_DISPATCH_BATCH_SIZE. */
 export const DAILY_DISPATCH_BATCH_SIZE = (() => {

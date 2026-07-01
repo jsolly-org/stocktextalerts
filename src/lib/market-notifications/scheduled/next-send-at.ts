@@ -1,6 +1,6 @@
 import type { DateTime } from "luxon";
 import type { SupabaseAdminClient } from "../../db/supabase";
-import type { Logger } from "../../logging";
+import type { Logger } from "../../logging/types";
 import { calculateNextMarketScheduledSendAtFromTimes } from "../../time/schedule/market-next-send";
 import type { UserRecord } from "../../types";
 

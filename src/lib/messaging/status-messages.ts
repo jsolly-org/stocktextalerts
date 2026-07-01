@@ -1,4 +1,4 @@
-import { MAX_TRACKED_ASSETS } from "../db/database-errors";
+import { MAX_TRACKED_ASSETS } from "../db/constants";
 import { rootLogger } from "../logging";
 
 const MESSAGE_ALLOWLIST = {

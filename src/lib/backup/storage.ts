@@ -2,9 +2,7 @@ import { gzipSync } from "node:zlib";
 import { CloudWatchClient, PutMetricDataCommand } from "@aws-sdk/client-cloudwatch";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
-import type { BackupManifest } from "./manifest";
-
-export type BackupPayload = { manifest: BackupManifest; tables: Record<string, string> };
+import type { BackupPayload } from "./types";
 
 /** gzip(JSON envelope). Dependency-light container — restore parses JSON then
  * COPYs each table string FROM STDIN. */

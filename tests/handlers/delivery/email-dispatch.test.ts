@@ -6,7 +6,7 @@ import {
 	EMAIL_DISPATCH_TIMESTAMP_HEADER,
 	type EmailDispatchRequest,
 } from "../../../src/lib/messaging/email/dispatch-contract";
-import type { EmailSender } from "../../../src/lib/messaging/email/utils";
+import type { EmailSender } from "../../../src/lib/messaging/email/types";
 import { expectConsoleError } from "../../setup";
 
 const mockEmailSender = vi.hoisted(() =>

@@ -1,10 +1,10 @@
 import { requireEnv } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
-import { type Logger, rootLogger } from "../logging";
+import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
+import type { Logger } from "../logging/types";
 
-/** In-memory cache of fetched logo base64 data URIs (or null on failure). */
-export type LogoCache = Map<string, string | null>;
+import type { LogoCache } from "./types";
 
 /** Create a fresh logo cache for a scheduler run. */
 export function createLogoCache(): LogoCache {

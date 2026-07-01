@@ -1,10 +1,5 @@
 import { createSmsSender, createTwilioClient, readTwilioSenderConfig } from "./twilio-utils";
-
-interface SmsSenderResult {
-	sender: ReturnType<typeof createSmsSender>;
-}
-
-export type SmsSenderFactory = () => SmsSenderResult;
+import type { SmsSenderFactory } from "./types";
 
 /**
  * Create a lazily-initialized, cached SMS sender factory for batch notification runs.

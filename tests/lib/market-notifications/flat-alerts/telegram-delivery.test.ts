@@ -9,17 +9,14 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../../src/lib/db/supabase";
-import {
-	deliverFlatPriceAlert,
-	type FlatPriceAlertDeliveryStats,
-} from "../../../../src/lib/market-notifications/flat-alerts/delivery";
-import type { FlatPriceAlertUser } from "../../../../src/lib/market-notifications/flat-alerts/users";
-import type { EmailSender } from "../../../../src/lib/messaging/email/utils";
-import { createLogoCache } from "../../../../src/lib/messaging/logo-fetcher";
+import { deliverFlatPriceAlert } from "../../../../src/lib/market-notifications/flat-alerts/delivery";
 import type {
-	TelegramMessage,
-	TelegramSender,
-} from "../../../../src/lib/messaging/telegram/sender";
+	FlatPriceAlertDeliveryStats,
+	FlatPriceAlertUser,
+} from "../../../../src/lib/market-notifications/flat-alerts/types";
+import type { EmailSender } from "../../../../src/lib/messaging/email/types";
+import { createLogoCache } from "../../../../src/lib/messaging/logo-fetcher";
+import type { TelegramMessage, TelegramSender } from "../../../../src/lib/messaging/telegram/types";
 import type { ExtendedAssetQuote } from "../../../../src/lib/types";
 import { makePrefRows } from "../../../helpers/user-record-fixture";
 

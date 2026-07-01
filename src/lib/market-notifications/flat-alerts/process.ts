@@ -10,7 +10,7 @@ import { createNotificationSenders } from "../../messaging/runtime/senders";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import type { ExtendedQuoteMap, IntradayBarsResult } from "../../types";
 import { FLAT_PRICE_ALERT_THRESHOLD_PERCENT } from "./constants";
-import { deliverFlatPriceAlert, type FlatPriceAlertDeliveryStats } from "./delivery";
+import { deliverFlatPriceAlert } from "./delivery";
 import {
 	fetchFlatPriceAlertState,
 	finalizeFlatPriceAlert,
@@ -18,7 +18,8 @@ import {
 	reserveFlatPriceAlert,
 	stateKey,
 } from "./state";
-import { type FlatPriceAlertUser, fetchFlatPriceAlertUsers } from "./users";
+import type { FlatPriceAlertDeliveryStats, FlatPriceAlertUser } from "./types";
+import { fetchFlatPriceAlertUsers } from "./users";
 
 const logger = createLogger({ module: "flat-price-alerts" });
 

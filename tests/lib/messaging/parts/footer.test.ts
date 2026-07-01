@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildEmailUrls, renderEmailFooter } from "../../../../src/lib/messaging/email/layout";
 import {
 	NOT_FINANCIAL_ADVICE,
 	SMS_OPT_OUT,
 	TELEGRAM_FOOTER,
-} from "../../../../src/lib/messaging/parts/footer";
+} from "../../../../src/lib/messaging/constants";
+import { buildEmailUrls, renderEmailFooter } from "../../../../src/lib/messaging/email/layout";
 
 describe("Every channel's footer carries the disclaimer AND an opt-out path (fmt-4 contract)", () => {
 	it("The Telegram footer has both the disclaimer and the /stop opt-out hint", () => {

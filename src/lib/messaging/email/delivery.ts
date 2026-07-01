@@ -4,7 +4,7 @@ import { formatMarketScheduledEmail } from "../notifications/market-scheduled";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { EmailFormatContext, EmailUser } from "../types";
 import { sendUserEmail } from "./index";
-import type { EmailSender } from "./utils";
+import type { EmailSender } from "./types";
 
 /**
  * Format + send a scheduled email update for a user, then record the delivery outcome.

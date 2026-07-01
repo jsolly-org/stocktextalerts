@@ -34,8 +34,9 @@ import { DAILY_DISPATCH_BATCH_SIZE } from "../constants";
 import { dispatchDailyDigestUser } from "../daily-digest/dispatch";
 import { fetchDailyNotificationUsers } from "../daily-notification/query";
 import type { SupabaseAdminClient } from "../db/supabase";
-import { batchLoadUserAssets, type UserAssetsMap } from "../db/user-assets";
-import type { Logger } from "../logging";
+import type { UserAssetsMap } from "../db/types";
+import { batchLoadUserAssets } from "../db/user-assets";
+import type { Logger } from "../logging/types";
 import {
 	getPriceCacheSymbols,
 	purgeOldPriceHistoryCache,
@@ -50,18 +51,18 @@ import { type PriceAlertTotals, processPriceAlerts } from "../market-notificatio
 import { processMarketScheduledUser } from "../market-notifications/scheduled/process";
 import { fetchMarketScheduledUsers } from "../market-notifications/scheduled/query";
 import { purgeOldAssetSnapshots } from "../market-notifications/snapshot-store";
-import type { LogoCache } from "../messaging/logo-fetcher";
 import type { NotificationSenders } from "../messaging/runtime/senders";
 import { createNotificationSenders } from "../messaging/runtime/senders";
-import { type PriceTargetTotals, processPriceTargets } from "../price-targets/process";
-import {
-	type ScheduledNotificationTotals,
-	USER_PROCESS_BATCH_SIZE,
-} from "../scheduled-notifications/types";
+import type { LogoCache } from "../messaging/types";
+import { processPriceTargets } from "../price-targets/process";
+import type { PriceTargetTotals } from "../price-targets/types";
+import { USER_PROCESS_BATCH_SIZE } from "../scheduled-notifications/constants";
+import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { deliverStagedNotifications } from "../staged-notifications/deliver";
 import { precomputeDailyDigest } from "../staged-notifications/precompute";
 import { toIsoOrThrow } from "../time/display";
-import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market/calendar";
+import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
+import type { MarketClosureInfo } from "../time/types";
 import type { AssetPriceMap, ExtendedQuoteMap, MarketSession } from "../types";
 import { enqueuePriceHistoryStoreRetry } from "../vendors/backfill/enqueue";
 import { resolveMarketSessionWithFallback } from "./market-session";

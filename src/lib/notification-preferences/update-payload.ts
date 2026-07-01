@@ -1,6 +1,7 @@
 import { applyDailyNotificationNextSendAtToUserUpdate } from "../daily-notification/schedule";
-import { type AlertMoveSize, omitUndefined, type User, type UserUpdateInput } from "../db";
-import type { Logger } from "../logging";
+import { omitUndefined } from "../db";
+import type { AlertMoveSize, User, UserUpdateInput } from "../db/types";
+import type { Logger } from "../logging/types";
 import { userLocalToEtMinute } from "../time/conversion";
 import {
 	computeNextSendAtIso,

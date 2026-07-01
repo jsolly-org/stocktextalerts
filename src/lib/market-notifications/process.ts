@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { SECTOR_ETF_MAP } from "../assets/constants";
 import {
+	US_MARKET_BENCHMARK_SYMBOL,
 	US_MARKET_CLOSE_EASTERN_MINUTES,
 	US_MARKET_OPEN_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,
@@ -18,17 +19,16 @@ import type { ExtendedAssetQuote, ExtendedQuoteMap, IntradayCandle, MarketSessio
 import { getAnomalyThreshold } from "./alert-profile";
 import { computeAnomalyScore } from "./anomaly-detection";
 import { fetchDailyStats } from "./daily-stats";
-import { deliverPriceAlert, type PriceAlertDeliveryStats } from "./delivery";
+import { deliverPriceAlert } from "./delivery";
 import { enrichAlert } from "./enrichment";
 import { getSnapshotsForSymbols, storeSnapshots } from "./snapshot-store";
+import type { PriceAlertDeliveryStats } from "./types";
 import {
 	fetchPriceAlertUsers,
 	finalizeCooldownSlot,
 	releaseCooldownSlot,
 	reserveCooldownSlot,
 } from "./users";
-
-const MARKET_BENCHMARK_SYMBOL = "SPY";
 
 /**
  * Aggregated stats from a price-alert run: symbols checked, alerts sent,
@@ -253,7 +253,7 @@ export async function processPriceAlerts(options: {
 	}
 
 	// Build the full symbol list: user assets + SPY + needed sector ETFs
-	const benchmarkSymbols = new Set([MARKET_BENCHMARK_SYMBOL, ...neededSectorEtfs]);
+	const benchmarkSymbols = new Set([US_MARKET_BENCHMARK_SYMBOL, ...neededSectorEtfs]);
 	const symbolsWithBenchmarks = [
 		...uniqueSymbols,
 		...[...benchmarkSymbols].filter((s) => !uniqueSymbols.includes(s)),
@@ -348,7 +348,7 @@ export async function processPriceAlerts(options: {
 		benchmarkMoveSignedCache.set(etfSymbol, pctMove);
 	}
 
-	const spyMovePercentAbs = benchmarkMoveCache.get(MARKET_BENCHMARK_SYMBOL) ?? null;
+	const spyMovePercentAbs = benchmarkMoveCache.get(US_MARKET_BENCHMARK_SYMBOL) ?? null;
 
 	// Freeze early-day flag and time-of-day fraction once per run
 	const eastern = DateTime.now().setZone(US_MARKET_TIMEZONE);
@@ -383,18 +383,18 @@ export async function processPriceAlerts(options: {
 		const sectorEtf = assetSector ? (SECTOR_ETF_MAP[assetSector] ?? null) : null;
 
 		// For stocks: prefer sector ETF benchmark, fall back to SPY.
-		const benchmarkEtf = sectorEtf ?? MARKET_BENCHMARK_SYMBOL;
+		const benchmarkEtf = sectorEtf ?? US_MARKET_BENCHMARK_SYMBOL;
 		const benchmarkMovePercentAbs = benchmarkMoveCache.get(benchmarkEtf) ?? spyMovePercentAbs;
 		const benchmarkLabel = sectorEtf
 			? `${assetSector} sector (${sectorEtf})`
-			: `broader market (${MARKET_BENCHMARK_SYMBOL})`;
+			: `broader market (${US_MARKET_BENCHMARK_SYMBOL})`;
 
 		// Per-symbol anomaly scoring (score is universal; threshold is per-user)
 		const snapshots = snapshotMap.get(symbol) ?? [];
 		const hasEarningsNearby = earningsSymbols.has(symbol);
 		const benchmarkMoveSigned =
 			benchmarkMoveSignedCache.get(benchmarkEtf) ??
-			benchmarkMoveSignedCache.get(MARKET_BENCHMARK_SYMBOL) ??
+			benchmarkMoveSignedCache.get(US_MARKET_BENCHMARK_SYMBOL) ??
 			null;
 
 		const stats = dailyStatsMap.get(symbol);
