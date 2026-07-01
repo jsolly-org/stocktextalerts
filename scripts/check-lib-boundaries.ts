@@ -31,8 +31,9 @@ const RULES: Rule[] = [
 	},
 	{
 		fromPrefix: "messaging/",
-		forbiddenImport: /market-notifications\/enrichment/,
-		message: "messaging must not import market-notifications/enrichment (use price-alerts/types)",
+		forbiddenImport: /market-notifications\/anomaly-alerts\/enrichment/,
+		message:
+			"messaging must not import market-notifications/anomaly-alerts/enrichment (use price-alerts/types)",
 	},
 ];
 

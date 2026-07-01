@@ -3,7 +3,7 @@ import {
 	generateNewsWithGrok,
 	generateRumorsWithGrok,
 } from "../../../src/lib/daily-digest/grok-sections";
-import { generatePriceAlertSummary } from "../../../src/lib/market-notifications/grok-summary";
+import { generatePriceAlertSummary } from "../../../src/lib/market-notifications/anomaly-alerts/grok-summary";
 
 vi.mock("node:timers/promises", () => ({
 	setTimeout: vi.fn().mockResolvedValue(undefined),

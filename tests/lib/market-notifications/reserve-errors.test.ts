@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseAdminClient } from "../../../src/lib/db/supabase";
+import { processPriceAlerts } from "../../../src/lib/market-notifications/anomaly-alerts/process";
+import { reserveCooldownSlot } from "../../../src/lib/market-notifications/anomaly-alerts/users";
 import { reserveFlatPriceAlert } from "../../../src/lib/market-notifications/flat-alerts/state";
-import { processPriceAlerts } from "../../../src/lib/market-notifications/process";
-import { reserveCooldownSlot } from "../../../src/lib/market-notifications/users";
 import type { ExtendedAssetQuote } from "../../../src/lib/types";
 import { adminClient } from "../../helpers/test-env";
 import {
@@ -19,10 +19,10 @@ const mocks = vi.hoisted(() => ({
 	sendSms: vi.fn(),
 }));
 
-vi.mock("../../../src/lib/market-notifications/anomaly-detection", async () => {
+vi.mock("../../../src/lib/market-notifications/anomaly-alerts/anomaly-detection", async () => {
 	const actual = await vi.importActual<
-		typeof import("../../../src/lib/market-notifications/anomaly-detection")
-	>("../../../src/lib/market-notifications/anomaly-detection");
+		typeof import("../../../src/lib/market-notifications/anomaly-alerts/anomaly-detection")
+	>("../../../src/lib/market-notifications/anomaly-alerts/anomaly-detection");
 	return {
 		...actual,
 		computeAnomalyScore: mocks.computeAnomalyScore,

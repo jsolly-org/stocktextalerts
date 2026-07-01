@@ -1,33 +1,33 @@
-import { getSiteUrl } from "../db/env";
-import type { AppSupabaseClient } from "../db/supabase";
-import { rootLogger } from "../logging";
-import { isEmailChannelUsable } from "../messaging/email/eligibility";
-import { markdownLinksToHtml, stripMarkdownLinks } from "../messaging/email/html-section";
-import { sendUserEmail } from "../messaging/email/index";
-import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messaging/email/layout";
-import type { EmailSender } from "../messaging/email/utils";
-import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
-import { isFacetEnabled } from "../messaging/notification-prefs";
-import { renderIntradaySparklineImg } from "../messaging/parts/charts/intraday-sparkline";
+import { getSiteUrl } from "../../db/env";
+import type { AppSupabaseClient } from "../../db/supabase";
+import { rootLogger } from "../../logging";
+import { isEmailChannelUsable } from "../../messaging/email/eligibility";
+import { markdownLinksToHtml, stripMarkdownLinks } from "../../messaging/email/html-section";
+import { sendUserEmail } from "../../messaging/email/index";
+import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
+import type { EmailSender } from "../../messaging/email/utils";
+import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
+import { isFacetEnabled } from "../../messaging/notification-prefs";
+import { renderIntradaySparklineImg } from "../../messaging/parts/charts/intraday-sparkline";
 import {
 	downsampleEvenly,
 	EMAIL_SPARKLINE_LABEL,
 	SMS_SPARKLINE_LABEL,
 	type SparklineWindow,
 	toSparkline,
-} from "../messaging/parts/charts/sparkline";
-import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../messaging/parts/footer";
-import { escapeHtml, getSafeHrefUrl } from "../messaging/parts/html-utils";
-import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
-import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
-import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
-import type { SmsSender } from "../messaging/sms/twilio-utils";
-import { shortenUrls } from "../messaging/sms/url-shortener";
-import { isTelegramChannelUsable, shouldSendTelegram } from "../messaging/telegram/eligibility";
-import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
-import { formatPriceAlertTelegram } from "../messaging/telegram/price-alert";
-import type { TelegramSender } from "../messaging/telegram/sender";
-import type { EnrichedAlert } from "../price-alerts/types";
+} from "../../messaging/parts/charts/sparkline";
+import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../../messaging/parts/footer";
+import { escapeHtml, getSafeHrefUrl } from "../../messaging/parts/html-utils";
+import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
+import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
+import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
+import type { SmsSender } from "../../messaging/sms/twilio-utils";
+import { shortenUrls } from "../../messaging/sms/url-shortener";
+import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/telegram/eligibility";
+import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
+import { formatPriceAlertTelegram } from "../../messaging/telegram/price-alert";
+import type { TelegramSender } from "../../messaging/telegram/sender";
+import type { EnrichedAlert } from "../../price-alerts/types";
 import type { PriceAlertUser } from "./users";
 
 /** Cap Grok summary length in SMS to avoid segment/cost spikes from long model output. */

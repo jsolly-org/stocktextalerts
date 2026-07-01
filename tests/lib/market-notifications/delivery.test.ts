@@ -3,8 +3,8 @@ import type { AppSupabaseClient } from "../../../src/lib/db/supabase";
 import {
 	deliverPriceAlert,
 	type PriceAlertDeliveryStats,
-} from "../../../src/lib/market-notifications/delivery";
-import type { PriceAlertUser } from "../../../src/lib/market-notifications/users";
+} from "../../../src/lib/market-notifications/anomaly-alerts/delivery";
+import type { PriceAlertUser } from "../../../src/lib/market-notifications/anomaly-alerts/users";
 import type { EmailSender } from "../../../src/lib/messaging/email/utils";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { TelegramMessage, TelegramSender } from "../../../src/lib/messaging/telegram/sender";
