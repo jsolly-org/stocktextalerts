@@ -6,7 +6,7 @@ import { fetchIntradayBars } from "../../market-data/bars";
 import { fetchSparklines } from "../../market-data/sparklines";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
 import type { SparklineData } from "../../messaging/parts/charts/sparkline";
-import { createNotificationSenders } from "../../messaging/runtime/senders";
+import { createNotificationSenders } from "../../messaging/senders";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import type { ExtendedQuoteMap, IntradayBarsResult } from "../../types";
 import { FLAT_PRICE_ALERT_THRESHOLD_PERCENT } from "./constants";

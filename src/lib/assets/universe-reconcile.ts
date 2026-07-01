@@ -16,7 +16,11 @@ import type {
 	UniverseReconcileDeps,
 	UniverseReconcileResult,
 } from "./types";
-import { activeSetTooSmallToFlag } from "./universe-reconcile-floor";
+
+/** True when the fetched active set is below the plausibility floor. */
+export function activeSetTooSmallToFlag(activeCount: number): boolean {
+	return activeCount < MIN_PLAUSIBLE_ACTIVE_UNIVERSE;
+}
 
 const EMPTY_RESULT: UniverseReconcileResult = {
 	activeTickersFetched: 0,

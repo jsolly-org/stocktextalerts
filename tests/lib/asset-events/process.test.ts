@@ -42,8 +42,8 @@ vi.mock("../../../src/lib/asset-events/schedule-state", () => ({
 	shouldAdvanceAssetEventsSchedule: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock("../../../src/lib/asset-events/next-send-at", () => ({
-	updateUserAssetEventsNextSendAt: vi.fn().mockResolvedValue(undefined),
+vi.mock("../../../src/lib/daily-notification/schedule", () => ({
+	updateUserDailyNotificationNextSendAt: vi.fn().mockResolvedValue(undefined),
 }));
 
 import type { UserRecord } from "../../../src/lib/types";

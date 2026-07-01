@@ -1,10 +1,6 @@
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
-import {
-	claimScheduledChannel,
-	completeScheduledChannelFromResult,
-} from "../messaging/delivery/scheduled-channel";
 import { sendUserEmail } from "../messaging/email/index";
 import type { EmailSender } from "../messaging/email/utils";
 import {
@@ -12,6 +8,10 @@ import {
 	formatAssetEventsSms,
 	formatAssetEventsTelegram,
 } from "../messaging/notifications/asset-events";
+import {
+	claimScheduledChannel,
+	completeScheduledChannelFromResult,
+} from "../messaging/scheduled-channel";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";

@@ -4,6 +4,7 @@ import {
 	enabledDailyNotificationFacets,
 	hasAnyDailyAssetEventFacet,
 } from "../daily-notification/eligibility";
+import { updateUserDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { loadUserAssets, type UserAssetsMap } from "../db/user-assets";
 import type { Logger } from "../logging";
@@ -24,7 +25,6 @@ import {
 	processAssetEventsSmsDelivery,
 	processAssetEventsTelegramDelivery,
 } from "./delivery";
-import { updateUserAssetEventsNextSendAt } from "./next-send-at";
 import { shouldAdvanceAssetEventsSchedule } from "./schedule-state";
 
 /**
@@ -156,7 +156,7 @@ export async function processAssetEventsUser(options: {
 
 		if (!hasAnyAssetEventsOption) {
 			stats.skipped++;
-			await updateUserAssetEventsNextSendAt({
+			await updateUserDailyNotificationNextSendAt({
 				user,
 				supabase,
 				logger,
@@ -173,7 +173,7 @@ export async function processAssetEventsUser(options: {
 
 		if (!emailEnabled && !smsEnabled && !wantsTelegram) {
 			stats.skipped++;
-			await updateUserAssetEventsNextSendAt({
+			await updateUserDailyNotificationNextSendAt({
 				user,
 				supabase,
 				logger,
@@ -312,7 +312,7 @@ export async function processAssetEventsUser(options: {
 		});
 
 		if (canAdvance) {
-			await updateUserAssetEventsNextSendAt({
+			await updateUserDailyNotificationNextSendAt({
 				user,
 				supabase,
 				logger,
