@@ -72,14 +72,6 @@ export PATH="$REPO_ROOT/node_modules/.bin:$PATH"
 # Ground the SAM CLI: not an npm dep — fail loud if absent (rules/dependency-grounding.md).
 command -v sam >/dev/null 2>&1 || { echo "✗ sam CLI not found — brew install aws-sam-cli" >&2; exit 1; }
 
-if ! declare -F gate_lambda_tag_provenance >/dev/null 2>&1; then
-  gate_lambda_tag_provenance() { # <function-arn> <code-sha256> <commit>
-    aws lambda tag-resource \
-      --resource "$1" \
-      --tags "Deploy-Sha256=$2,Deploy-Commit=$3" >/dev/null
-  }
-fi
-
 deploy_vercel_production() {
   if [ "$CI_DEPLOY" = "true" ]; then
     echo "• Vercel web deploy handled by Vercel GitHub integration"
@@ -282,23 +274,12 @@ else
   echo "• deploy Lambda code  (AWS_PROFILE=$AWS_PROFILE)"
 fi
 build="aws/.aws-sam/build"
-# The git commit this deploy built from — stamped on each function as the Deploy-Commit tag (with
-# AWS's CodeSha256 as Deploy-Sha256) for CodeSha256-based drift detection (scripts/check-deploy-drift.ts).
-# Full SHA so the detector resolves it unambiguously against origin/main.
-COMMIT="$(git rev-parse HEAD)"
 deploy_code() { # <build-dir> <physical-name>
   (cd "$build/$1" && zip -qr "../$1.zip" .)
-  # Capture the CodeSha256 (base64 SHA256 of the exact zip AWS stored) + the function ARN that
-  # update-function-code returns — previously discarded to /dev/null — then stamp deploy provenance.
-  # out="$(…)" (not process substitution) keeps set -e fail-fast on the upload itself.
-  local out _sha _arn
-  out="$(aws lambda update-function-code \
-    --function-name "$2" --zip-file "fileb://$build/$1.zip" \
-    --query '[CodeSha256, FunctionArn]' --output text)"
+  aws lambda update-function-code \
+    --function-name "$2" --zip-file "fileb://$build/$1.zip" >/dev/null
   aws lambda wait function-updated-v2 --function-name "$2"
-  read -r _sha _arn <<<"$out"
-  gate_lambda_tag_provenance "$_arn" "$_sha" "$COMMIT"
-  echo "  ✓ $2  (tagged ${_sha})"
+  echo "  ✓ $2"
 }
 # Keep this list in sync with aws/template.yaml — ALL functions share src/lib,
 # so every function must ship on every push or stale code runs against the
