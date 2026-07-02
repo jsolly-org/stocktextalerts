@@ -438,17 +438,13 @@ import {
 import { parseTimeToMinutes } from "../../../lib/time/parse";
 import FadeTransition from "../../FadeTransition.vue";
 import AssetBadge from "../assets/AssetBadge.vue";
-import {
-	type NotificationPreferencesData,
-	useAutoSaveForm,
-} from "../composables/useAutoSaveNotificationPreferences";
+import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import { useScheduledUpdateTiming } from "../composables/useScheduledUpdateTiming";
 import {
 	DASHBOARD_MARKET_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 } from "../constants";
-import type { ChannelOption } from "../shared/ChannelMultiSelect.vue";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
 import {
 	getEmailChannelDisabledTitle,
@@ -456,7 +452,7 @@ import {
 } from "../shared/channel-disabled-titles";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
-import type { InitialAsset } from "../types";
+import type { ChannelOption, InitialAsset, NotificationPreferencesData } from "../types";
 import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
 
 interface Props {

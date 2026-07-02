@@ -141,12 +141,12 @@ import { computed, ref, toRefs, watch, watchEffect } from "vue";
 import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import { useDashboardUser } from "../composables/useDashboardUser";
-import type { ChannelOption } from "../shared/ChannelMultiSelect.vue";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
 import {
 	getEmailChannelDisabledTitle,
 	getSmsChannelDisabledTitle,
 } from "../shared/channel-disabled-titles";
+import type { ChannelOption } from "../types";
 
 interface Props {
 	emailEnabled: boolean;

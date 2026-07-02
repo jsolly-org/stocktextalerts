@@ -123,10 +123,7 @@ import { parseTimeToMinutes } from "../../../lib/time/parse";
 import StatusMessage from "../../StatusMessage.vue";
 import type { FlashMessage, FlashTone } from "../../ui-constants";
 import { useHydrated } from "../../useHydrated";
-import {
-	type NotificationPreferencesData,
-	useAutoSaveForm,
-} from "../composables/useAutoSaveNotificationPreferences";
+import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import { provideSmsVerificationContext } from "../composables/useSmsVerificationContext";
 import { useSmsVerificationSubmission } from "../composables/useSmsVerificationSubmission";
@@ -136,7 +133,7 @@ import {
 } from "../constants";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
-import type { InitialAsset } from "../types";
+import type { InitialAsset, NotificationPreferencesData } from "../types";
 import NotificationChannelsFieldset from "./NotificationChannelsFieldset.vue";
 import { DEMO_ASSETS, type PreviewAsset } from "./preview/preview-data";
 import SmsPreview from "./preview/SmsPreview.vue";

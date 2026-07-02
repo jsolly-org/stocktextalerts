@@ -256,16 +256,12 @@ import {
 	minutesToTimeInputValue,
 } from "../../../lib/time/display";
 import { useHydrated } from "../../useHydrated";
-import {
-	type NotificationPreferencesData,
-	useAutoSaveForm,
-} from "../composables/useAutoSaveNotificationPreferences";
+import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import {
 	DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 } from "../constants";
-import type { ChannelOption } from "../shared/ChannelMultiSelect.vue";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
 import {
 	getEmailChannelDisabledTitle,
@@ -273,6 +269,7 @@ import {
 } from "../shared/channel-disabled-titles";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
+import type { ChannelOption, NotificationPreferencesData } from "../types";
 import DailyAssetEventsFieldset from "./DailyAssetEventsFieldset.vue";
 
 interface Props {
