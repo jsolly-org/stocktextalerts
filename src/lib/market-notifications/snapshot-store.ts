@@ -83,27 +83,14 @@ export async function getSnapshotsForSymbols(
 
 	const cutoff = new Date(Date.now() - RETENTION_MINUTES * 60 * 1000).toISOString();
 
-	const { data, error } = await (supabase
+	const { data, error } = await supabase
 		.from("asset_snapshots")
 		.select(
 			"symbol, price, change_percent, day_high, day_low, day_open, prev_close, volume, captured_at",
 		)
 		.in("symbol", symbols)
 		.gte("captured_at", cutoff)
-		.order("captured_at", { ascending: true }) as unknown as Promise<{
-		data: Array<{
-			symbol: string;
-			price: number;
-			change_percent: number;
-			day_high: number | null;
-			day_low: number | null;
-			day_open: number | null;
-			prev_close: number | null;
-			volume: number | null;
-			captured_at: string;
-		}> | null;
-		error: unknown;
-	}>);
+		.order("captured_at", { ascending: true });
 
 	if (error) {
 		rootLogger.error("Failed to fetch asset snapshots", { symbolCount: symbols.length }, error);

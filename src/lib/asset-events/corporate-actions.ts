@@ -1,3 +1,4 @@
+import { isRecord } from "../types";
 import { marketDataFetch } from "../vendors/massive";
 import type { DividendEvent, IpoEvent, ProviderResult, SplitEvent } from "./types";
 
@@ -16,20 +17,19 @@ export async function fetchDividends(
 		"dividends",
 	);
 	if (data === null) return { data: [], failed: true };
-	if (typeof data !== "object") return { data: [], failed: false };
+	if (!isRecord(data)) return { data: [], failed: false };
 
-	const results = (data as Record<string, unknown>).results;
+	const results = data.results;
 	if (!Array.isArray(results)) return { data: [], failed: false };
 
 	return {
 		data: results
 			.filter(
 				(item: unknown) =>
-					typeof item === "object" &&
-					item !== null &&
-					typeof (item as Record<string, unknown>).ticker === "string" &&
-					typeof (item as Record<string, unknown>).ex_dividend_date === "string" &&
-					typeof (item as Record<string, unknown>).cash_amount === "number",
+					isRecord(item) &&
+					typeof item.ticker === "string" &&
+					typeof item.ex_dividend_date === "string" &&
+					typeof item.cash_amount === "number",
 			)
 			.map((item: Record<string, unknown>) => ({
 				ticker: item.ticker as string,
@@ -55,21 +55,20 @@ export async function fetchSplits(from: string, to: string): Promise<ProviderRes
 		"splits",
 	);
 	if (data === null) return { data: [], failed: true };
-	if (typeof data !== "object") return { data: [], failed: false };
+	if (!isRecord(data)) return { data: [], failed: false };
 
-	const results = (data as Record<string, unknown>).results;
+	const results = data.results;
 	if (!Array.isArray(results)) return { data: [], failed: false };
 
 	return {
 		data: results
 			.filter(
 				(item: unknown) =>
-					typeof item === "object" &&
-					item !== null &&
-					typeof (item as Record<string, unknown>).ticker === "string" &&
-					typeof (item as Record<string, unknown>).execution_date === "string" &&
-					typeof (item as Record<string, unknown>).split_from === "number" &&
-					typeof (item as Record<string, unknown>).split_to === "number",
+					isRecord(item) &&
+					typeof item.ticker === "string" &&
+					typeof item.execution_date === "string" &&
+					typeof item.split_from === "number" &&
+					typeof item.split_to === "number",
 			)
 			.map((item: Record<string, unknown>) => ({
 				ticker: item.ticker as string,
@@ -95,19 +94,18 @@ export async function fetchIpos(from: string, to: string): Promise<ProviderResul
 		"ipos",
 	);
 	if (data === null) return { data: [], failed: true };
-	if (typeof data !== "object") return { data: [], failed: false };
+	if (!isRecord(data)) return { data: [], failed: false };
 
-	const results = (data as Record<string, unknown>).results;
+	const results = data.results;
 	if (!Array.isArray(results)) return { data: [], failed: false };
 
 	return {
 		data: results
 			.filter(
 				(item: unknown) =>
-					typeof item === "object" &&
-					item !== null &&
-					typeof (item as Record<string, unknown>).ticker === "string" &&
-					typeof (item as Record<string, unknown>).listing_date === "string",
+					isRecord(item) &&
+					typeof item.ticker === "string" &&
+					typeof item.listing_date === "string",
 			)
 			.map((item: Record<string, unknown>) => ({
 				ticker: item.ticker as string,

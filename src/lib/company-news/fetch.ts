@@ -1,4 +1,4 @@
-import type { CompanyNewsItem } from "../types";
+import { type CompanyNewsItem, isRecord } from "../types";
 import { marketDataFetch } from "../vendors/massive";
 import {
 	isOptionalVendorUnavailable,
@@ -44,20 +44,20 @@ export async function fetchCompanyNews(
 			optional: true,
 		},
 	);
-	if (typeof data !== "object" || data === null) {
+	if (!isRecord(data)) {
 		recordOptionalVendorFailure("company-news");
 		return [];
 	}
 
 	recordOptionalVendorSuccess("company-news");
 
-	const results = (data as Record<string, unknown>).results;
+	const results = data.results;
 	if (!Array.isArray(results)) return [];
 
 	return results
 		.flatMap((item: unknown): CompanyNewsItem[] => {
-			if (typeof item !== "object" || item === null) return [];
-			const row = item as Record<string, unknown>;
+			if (!isRecord(item)) return [];
+			const row = item;
 
 			if (typeof row.title !== "string") return [];
 			if (typeof row.published_utc !== "string") return [];
@@ -79,10 +79,8 @@ export async function fetchCompanyNews(
 					datetime: Math.floor(parsed / 1000),
 					url: typeof row.article_url === "string" ? row.article_url : "",
 					source:
-						typeof row.publisher === "object" &&
-						row.publisher !== null &&
-						typeof (row.publisher as Record<string, unknown>).name === "string"
-							? ((row.publisher as Record<string, unknown>).name as string)
+						isRecord(row.publisher) && typeof row.publisher.name === "string"
+							? row.publisher.name
 							: "",
 					tickers,
 				},

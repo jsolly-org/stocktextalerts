@@ -1,5 +1,6 @@
 import type { AssetEventProvider } from "../../asset-events/types";
 import type { PriceHistoryRow } from "../../market-data/price-history-cache";
+import { isRecord } from "../../types";
 
 export type AssetEventsBackfillMessage = {
 	kind: "asset-events";
@@ -40,8 +41,8 @@ function isAssetEventProvider(value: unknown): value is AssetEventProvider {
 }
 
 function parsePriceHistoryRow(value: unknown): PriceHistoryRow | null {
-	if (typeof value !== "object" || value === null) return null;
-	const row = value as Record<string, unknown>;
+	if (!isRecord(value)) return null;
+	const row = value;
 	if (typeof row.symbol !== "string" || typeof row.captured_at !== "string") {
 		return null;
 	}
@@ -62,8 +63,8 @@ export function parseVendorBackfillMessage(body: string): VendorBackfillMessage 
 	} catch {
 		return null;
 	}
-	if (typeof parsed !== "object" || parsed === null) return null;
-	const record = parsed as Record<string, unknown>;
+	if (!isRecord(parsed)) return null;
+	const record = parsed;
 	const kind = record.kind;
 	if (kind === "asset-events") {
 		if (

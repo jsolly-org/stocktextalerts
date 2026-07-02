@@ -1,7 +1,7 @@
 import { DateTime } from "luxon";
 import { rootLogger } from "../logging";
 import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
-import type { MarketSession } from "../types";
+import { isRecord, type MarketSession } from "../types";
 import { marketDataFetch } from "../vendors/massive";
 
 export async function getCurrentMarketSession(): Promise<MarketSession> {
@@ -22,12 +22,12 @@ export async function getCurrentMarketSession(): Promise<MarketSession> {
 }
 
 export function parseMarketSession(payload: unknown): MarketSession {
-	if (typeof payload !== "object" || payload === null) {
+	if (!isRecord(payload)) {
 		rootLogger.warn("Massive market-status payload is not an object", { payload });
 		return "closed";
 	}
 
-	const record = payload as Record<string, unknown>;
+	const record = payload;
 	const market = typeof record.market === "string" ? record.market : null;
 
 	if (market === null) {

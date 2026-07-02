@@ -37,12 +37,8 @@ const FREQUENCY_LABELS: Record<number, string> = {
  * - 0 → "today"
  * - 1 → "tomorrow"
  * - 2+ → "in N days (MM-DD)"
- * - undefined → MM-DD (backward compatible)
  */
-function formatDateLabel(eventDate: string, daysUntil: number | undefined): string {
-	if (daysUntil === undefined) {
-		return eventDate.slice(5); // MM-DD
-	}
+function formatDateLabel(eventDate: string, daysUntil: number): string {
 	if (daysUntil === 0) return "today";
 	if (daysUntil === 1) return "tomorrow";
 	return `in ${daysUntil} days (${eventDate.slice(5)})`;
@@ -54,9 +50,8 @@ function formatDateLabel(eventDate: string, daysUntil: number | undefined): stri
  * Events are grouped by type (earnings, dividends, splits, IPOs).
  * Returns `null` when there are no events.
  *
- * Each event may include an optional `daysUntil` field for countdown display:
- * - 0 → "today", 1 → "tomorrow", 2+ → "in N days (MM-DD)"
- * - When absent, existing MM-DD format is used (backward compatible).
+ * Each event carries a `daysUntil` countdown for the date label:
+ * 0 → "today", 1 → "tomorrow", 2+ → "in N days (MM-DD)".
  */
 export function formatAssetEventsSection(
 	events: Array<{
@@ -64,7 +59,7 @@ export function formatAssetEventsSection(
 		event_type: "earnings" | "dividend" | "split" | "ipo";
 		event_date: string;
 		data: Record<string, unknown>;
-		daysUntil?: number;
+		daysUntil: number;
 	}>,
 	channel: DeliveryChannel,
 ): {

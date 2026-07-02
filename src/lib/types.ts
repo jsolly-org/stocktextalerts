@@ -14,6 +14,19 @@ declare const brand: unique symbol;
 type Brand<B extends string> = { readonly [brand]: B };
 
 /* =============
+Type guards
+============= */
+
+/**
+ * Narrow unknown to a non-null object. Arrays pass (typeof "object") — identical
+ * to the inline checks this replaces; pair with Array.isArray where element shape
+ * matters.
+ */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+/* =============
 Asset
 ============= */
 
@@ -216,6 +229,9 @@ export type UserRecord = Pick<
 	/** Per-option channel preferences (the single source of truth for all channels). */
 	prefs: PrefRow[];
 } & GrokRumorsPreferences;
+
+/** A user row as selected from the DB, before batch-attaching `prefs`. */
+export type UserRecordWithoutPrefs = Omit<UserRecord, "prefs">;
 
 /** User asset joined with its canonical asset name. */
 export type UserAssetRow = Pick<Database["public"]["Tables"]["user_assets"]["Row"], "symbol"> & {

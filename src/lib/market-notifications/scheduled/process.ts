@@ -1,4 +1,4 @@
-import { DateTime } from "luxon";
+import type { DateTime } from "luxon";
 import type { SupabaseAdminClient } from "../../db/supabase";
 import { loadUserAssets, type UserAssetsMap } from "../../db/user-assets";
 import type { Logger } from "../../logging";
@@ -24,10 +24,10 @@ import type {
 import { userLocalToEtMinute } from "../../time/conversion";
 import { getUsMarketClosureInfoForInstant } from "../../time/market/calendar";
 import { isOutsideMarketHours } from "../../time/market/session";
-import { getLocalMinutesFromDateTime } from "../../time/schedule/next-send";
+import { parseScheduledSlotContext } from "../../time/schedule/next-send";
 import type { MarketClosureInfo } from "../../time/types";
 import type { AssetPriceMap, MarketSession, UserRecord } from "../../types";
-import { assertIsoDateString, NO_SESSION_TRADE } from "../../types";
+import { NO_SESSION_TRADE } from "../../types";
 import {
 	processMarketScheduledEmailDelivery,
 	processMarketScheduledSmsDelivery,
@@ -120,69 +120,21 @@ export async function processMarketScheduledUser(options: {
 		may include users without market_scheduled_asset_price_next_send_at (e.g. newly enabled scheduled updates). In that case,
 		use "now" as the schedule anchor.
 		============= */
-		const dueAt = user.market_scheduled_asset_price_next_send_at
-			? DateTime.fromISO(user.market_scheduled_asset_price_next_send_at, {
-					zone: "utc",
-				})
-			: currentTime;
-		if (!dueAt.isValid) {
-			logger.error(
-				"Invalid market_scheduled_asset_price_next_send_at timestamp",
-				{
-					userId: user.id,
-					market_scheduled_asset_price_next_send_at: user.market_scheduled_asset_price_next_send_at,
-				},
-				new Error("Invalid market_scheduled_asset_price_next_send_at timestamp"),
-			);
+		const slotCtx = parseScheduledSlotContext({
+			cursorIso: user.market_scheduled_asset_price_next_send_at,
+			cursorField: "market_scheduled_asset_price_next_send_at",
+			timezone: user.timezone,
+			userId: user.id,
+			currentTime,
+			logger,
+			logLabel: "",
+			action: "market_notifications_run",
+		});
+		if (!slotCtx) {
 			stats.skipped++;
 			return stats;
 		}
-		const dueAtLocal = dueAt.setZone(user.timezone);
-		if (!dueAtLocal.isValid) {
-			logger.error(
-				"Failed to format local date for timezone",
-				{ userId: user.id, timezone: user.timezone },
-				new Error("Failed to format local date for timezone"),
-			);
-			stats.skipped++;
-			return stats;
-		}
-		const rawScheduledDate = dueAtLocal.toISODate();
-		if (!rawScheduledDate) {
-			logger.error(
-				"Failed to format scheduled date",
-				{
-					userId: user.id,
-					timezone: user.timezone,
-					market_scheduled_asset_price_next_send_at: user.market_scheduled_asset_price_next_send_at,
-					dueAt: dueAt.toISO(),
-					dueAtLocalIso: dueAtLocal.toISO(),
-				},
-				new Error("Failed to format scheduled date"),
-			);
-			stats.skipped++;
-			return stats;
-		}
-		const scheduledDate = assertIsoDateString(rawScheduledDate);
-		const scheduledMinutes = getLocalMinutesFromDateTime(user.timezone, dueAt);
-		if (scheduledMinutes === null) {
-			logger.error(
-				"Failed to calculate scheduled minutes",
-				{
-					action: "market_notifications_run",
-					phase: "getLocalMinutesFromDateTime",
-					userId: user.id,
-					timezone: user.timezone,
-					market_scheduled_asset_price_next_send_at: user.market_scheduled_asset_price_next_send_at,
-					dueAt: dueAt.toISO(),
-					dueAtLocalIso: dueAtLocal.toISO(),
-					scheduledDate,
-				},
-				new Error("Failed to calculate scheduled minutes"),
-			);
-			stats.skipped++;
-			return stats;
-		}
+		const { scheduledDate, scheduledMinutes, dueAt } = slotCtx;
 		const marketClosure = await getUsMarketClosureInfoForInstant(dueAt);
 		if (marketClosure) {
 			logger.info("Skipping scheduled market delivery for closed market date", {
