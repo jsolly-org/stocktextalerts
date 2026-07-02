@@ -21,14 +21,6 @@ import type {
 	PrefRow,
 } from "../types";
 
-export type {
-	DailyNotificationContent,
-	FacetlessContent,
-	NotificationPreferenceType,
-	PrefChannel,
-	PrefRow,
-} from "../types";
-
 const NOTIFICATION_PREFERENCE_TYPES = [
 	"daily_notification",
 	"market_asset_price_alerts",

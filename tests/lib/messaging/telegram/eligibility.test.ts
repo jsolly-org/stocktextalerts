@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { enabledFacets, type PrefRow } from "../../../../src/lib/messaging/notification-prefs";
+import { enabledFacets } from "../../../../src/lib/messaging/notification-prefs";
 import {
 	isTelegramChannelUsable,
 	shouldSendTelegram,
 } from "../../../../src/lib/messaging/telegram/eligibility";
 import { createTelegramSenderFactory } from "../../../../src/lib/messaging/telegram/sender-factory";
+import type { PrefRow } from "../../../../src/lib/types";
 
 const digestPrefs: PrefRow[] = [
 	{

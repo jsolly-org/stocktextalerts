@@ -1,10 +1,10 @@
-import {
-	type NotificationPreferenceType,
-	type PrefChannel,
-	type PrefRow,
-	parsePrefRow,
-} from "../../src/lib/messaging/notification-prefs";
-import type { UserRecord } from "../../src/lib/types";
+import { parsePrefRow } from "../../src/lib/messaging/notification-prefs";
+import type {
+	NotificationPreferenceType,
+	PrefChannel,
+	PrefRow,
+	UserRecord,
+} from "../../src/lib/types";
 
 /**
  * Build notification_preferences rows for a test user from a compact spec.

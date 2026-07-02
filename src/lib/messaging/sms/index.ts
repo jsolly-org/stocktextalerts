@@ -1,7 +1,7 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
-import type { DeliveryResult, UserRecord } from "../../types";
-import { anySmsFacetEnabledExceptPriceTargets, type PrefRow } from "../notification-prefs";
+import type { DeliveryResult, PrefRow, UserRecord } from "../../types";
+import { anySmsFacetEnabledExceptPriceTargets } from "../notification-prefs";
 import type { SmsUser } from "../types";
 import { finalizeSmsBodyForUcs2Segments } from "./segment-utils";
 import type { SmsSender } from "./twilio-utils";

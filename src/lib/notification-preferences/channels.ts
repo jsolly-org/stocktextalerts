@@ -1,12 +1,8 @@
 import type { AppSupabaseClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { loadPrefsByUser } from "../messaging/load-prefs";
-import {
-	isFacetEnabled,
-	NOTIFICATION_PREFERENCE_CATALOG,
-	type PrefChannel,
-	type PrefRow,
-} from "../messaging/notification-prefs";
+import { isFacetEnabled, NOTIFICATION_PREFERENCE_CATALOG } from "../messaging/notification-prefs";
+import type { PrefChannel, PrefRow } from "../types";
 
 /* =============
 Channel notification-preference persistence (email, sms, telegram).

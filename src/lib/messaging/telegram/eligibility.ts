@@ -1,8 +1,5 @@
-import {
-	anyFacetEnabled,
-	type NotificationPreferenceType,
-	type PrefRow,
-} from "../notification-prefs";
+import type { NotificationPreferenceType, PrefRow } from "../../types";
+import { anyFacetEnabled } from "../notification-prefs";
 
 /** Minimal user fields needed to decide Telegram deliverability. */
 interface TelegramEligibilityUser {
