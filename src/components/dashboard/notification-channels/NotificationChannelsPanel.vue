@@ -313,9 +313,7 @@ watch(phoneVerified, (isVerified) => {
 function getEarliestMarketNotificationTime(): number | null {
 	const times = user.value.market_scheduled_asset_price_times;
 	if (!times || times.length === 0) return null;
-	const tz = user.value.timezone ?? "";
-	if (tz === "") return Math.min(...times);
-	const local = times.map((et) => etMinuteToUserLocal(et, tz));
+	const local = times.map((et) => etMinuteToUserLocal(et, user.value.timezone));
 	return Math.min(...local);
 }
 
@@ -329,20 +327,15 @@ const dailyDeliveryTimeInput = computed(() =>
 		: null,
 );
 
-const beforeOpenLocalMinutes = computed(() =>
-	user.value.timezone ? getUsBeforeOpenLocalMinutes(user.value.timezone) : null,
-);
+const beforeOpenLocalMinutes = computed(() => getUsBeforeOpenLocalMinutes(user.value.timezone));
 
 const beforeOpenLabel = computed(() =>
-	beforeOpenLocalMinutes.value !== null
-		? formatMinutesAsLocalTime(beforeOpenLocalMinutes.value, user.value.use_24_hour_time)
-		: null,
+	formatMinutesAsLocalTime(beforeOpenLocalMinutes.value, user.value.use_24_hour_time),
 );
 
-const isBeforeOpenTime = computed(() => {
-	if (beforeOpenLocalMinutes.value === null) return true;
-	return dailyDeliveryTimeMinutes.value === beforeOpenLocalMinutes.value;
-});
+const isBeforeOpenTime = computed(
+	() => dailyDeliveryTimeMinutes.value === beforeOpenLocalMinutes.value,
+);
 
 function handleDailyTimeChange(value: string) {
 	const parsed = parseTimeToMinutes(value);
@@ -380,7 +373,7 @@ watch(
 
 /* ============= Next delivery countdown ============= */
 const nextDailyDeliveryText = computed(() => {
-	if (!isHydrated.value || !user.value.timezone) return null;
+	if (!isHydrated.value) return null;
 	void tick.value;
 	const hasDeliveryTime =
 		user.value.daily_notification_next_send_at != null ||

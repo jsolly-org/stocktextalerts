@@ -508,9 +508,7 @@ const dailyDeliveryTimeInput = computed(() => {
 function getEarliestMarketNotificationTime(): number | null {
 	const times = user.value.market_scheduled_asset_price_times;
 	if (!times || times.length === 0) return null;
-	const tz = user.value.timezone ?? "";
-	if (tz === "") return Math.min(...times);
-	const local = times.map((et) => etMinuteToUserLocal(et, tz));
+	const local = times.map((et) => etMinuteToUserLocal(et, user.value.timezone));
 	return Math.min(...local);
 }
 
@@ -560,8 +558,6 @@ const dailyNotificationEnabled = computed(
 const nextDailyDeliveryText = computed(() => {
 	if (!isHydrated.value || !dailyNotificationEnabled.value) return null;
 	void tick.value;
-
-	if (!user.value.timezone) return null;
 
 	const nextSendAtIso = user.value.daily_notification_next_send_at;
 
