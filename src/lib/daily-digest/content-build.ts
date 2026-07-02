@@ -3,7 +3,6 @@ import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { fetchTopMovers, type TopMover } from "../market-data/movers";
 import { formatSignedChangePercent, formatUsdPrice } from "../messaging/parts/asset-price-list";
-import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import type { IsoDateString, MinuteOfDay, UserRecord } from "../types";
 import { withOptionalVendorBudget } from "../vendors/optional-vendors";
 
@@ -103,11 +102,12 @@ export async function updateGrokSendCounter(
 	user: UserRecord,
 	supabase: SupabaseAdminClient,
 	grokAllowed: boolean,
-	stats: ScheduledNotificationTotals,
+	delivered: boolean,
 	currentTime: DateTimeType,
 	logger: Logger,
+	logLabel: string,
 ): Promise<void> {
-	if (!grokAllowed || (stats.emailsSent === 0 && stats.smsSent === 0 && stats.telegramSent === 0)) {
+	if (!grokAllowed || !delivered) {
 		return;
 	}
 
@@ -137,7 +137,7 @@ export async function updateGrokSendCounter(
 		.eq("id", user.id);
 	if (error) {
 		logger.error(
-			"Failed to update grok send counter (daily)",
+			`Failed to update grok send counter ${logLabel}`,
 			{ userId: user.id, newCount, newWindowStart },
 			error,
 		);

@@ -624,7 +624,15 @@ export async function processDailyDigestUser(options: {
 			});
 		}
 
-		await updateGrokSendCounter(user, supabase, grokAllowed, stats, currentTime, logger);
+		await updateGrokSendCounter(
+			user,
+			supabase,
+			grokAllowed,
+			stats.emailsSent > 0 || stats.smsSent > 0 || stats.telegramSent > 0,
+			currentTime,
+			logger,
+			"(daily)",
+		);
 
 		/* =============
 		Advance next-send-at for daily + asset events (only when delivery is terminal)
