@@ -40,15 +40,11 @@ function parseGrokPriceAlertResponse(data: GrokResponsesResponse): PriceAlertGro
 			) {
 				if (!summaryText) {
 					summaryText = part.text.trim();
-					summaryAnnotations = Array.isArray(part.annotations)
-						? (part.annotations as XaiAnnotation[])
-						: [];
+					summaryAnnotations = Array.isArray(part.annotations) ? part.annotations : [];
 				}
 
 				// Extract links from annotations for plaintext/SMS fallback
-				const annotations = Array.isArray(part.annotations)
-					? (part.annotations as XaiAnnotation[])
-					: [];
+				const annotations = Array.isArray(part.annotations) ? part.annotations : [];
 				for (const ann of annotations) {
 					const normalizedUrl =
 						typeof ann.url === "string" ? normalizeHttpUrl(ann.url.trim()) : null;

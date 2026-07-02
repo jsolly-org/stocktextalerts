@@ -11,38 +11,6 @@ export type GrokSectionResult = {
 	citations: string[];
 };
 
-type XaiOutputContentPart =
-	| {
-			type: "output_text" | "text";
-			text: string;
-			annotations?: XaiAnnotation[] | undefined;
-			logprobs?: unknown;
-	  }
-	| {
-			type: string;
-			[key: string]: unknown;
-	  };
-
-type XaiOutputItem =
-	| {
-			id?: string;
-			type: "message";
-			role?: "assistant" | "system" | "user" | (string & {});
-			status?: string;
-			content?: XaiOutputContentPart[] | undefined;
-	  }
-	| {
-			id?: string;
-			type: "reasoning";
-			status?: string;
-			summary?: Array<{ type?: string; text?: string }> | undefined;
-	  }
-	| {
-			id?: string;
-			type?: string;
-			[key: string]: unknown;
-	  };
-
 /**
  * Extract plain text and source URLs from an xAI Responses API payload.
  *
@@ -88,7 +56,7 @@ function extractTextAndCitationsFromXaiResponse(response: GrokResponsesResponse)
 	};
 
 	const output = Array.isArray(response.output) ? response.output : [];
-	for (const item of output as XaiOutputItem[]) {
+	for (const item of output) {
 		if (!item || typeof item !== "object") continue;
 
 		if (item.type === "message") {
