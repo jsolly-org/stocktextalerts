@@ -150,11 +150,9 @@ import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import PlusIcon from "../../../icons/plus.svg?component";
 import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
 import { userLocalToEtMinute } from "../../../lib/time/conversion";
-import {
-	getScheduledMarketSession,
-	type ScheduledMarketSession,
-} from "../../../lib/time/market/session";
+import { getScheduledMarketSession } from "../../../lib/time/market/session";
 import { parseTimeToMinutes } from "../../../lib/time/parse";
+import type { ActiveMarketSession } from "../../../lib/types";
 import StatusMessage from "../../StatusMessage.vue";
 import { useHydrated } from "../../useHydrated";
 import TimePicker from "../shared/TimePicker.vue";
@@ -208,7 +206,7 @@ const emit = defineEmits<{
 
 const serializedTimes = computed(() => JSON.stringify(props.scheduledUpdateTimes));
 
-function sessionFor(time: string): ScheduledMarketSession | null {
+function sessionFor(time: string): ActiveMarketSession | null {
 	if (!props.userTimezone) return null;
 	const localMin = parseTimeToMinutes(time);
 	if (localMin === null) return null;
@@ -219,7 +217,7 @@ function sessionFor(time: string): ScheduledMarketSession | null {
 type ChipItem = {
 	time: string;
 	index: number;
-	session: ScheduledMarketSession | null;
+	session: ActiveMarketSession | null;
 	hasBadge: boolean;
 	ariaLabel: string;
 };

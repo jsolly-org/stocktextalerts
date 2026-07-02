@@ -286,6 +286,8 @@ export type AssetPriceMap = Map<string, AssetPrice | null>;
 export type ExtendedQuoteMap = Map<string, ExtendedAssetQuote | null>;
 
 export type MarketSession = "pre" | "regular" | "after" | "closed";
+/** A session in which trading is actually happening (never "closed"). */
+export type ActiveMarketSession = Exclude<MarketSession, "closed">;
 
 /* =============
 Delivery
