@@ -1,9 +1,5 @@
 import { type ComputedRef, computed, onMounted, onUnmounted, ref, watch } from "vue";
-import {
-	formatCountdownWithSeconds,
-	getNowInTimezone,
-	getSecondsUntilNextSend,
-} from "../../../lib/time/display";
+import { formatCountdownWithSeconds, getSecondsUntilNextSend } from "../../../lib/time/display";
 import { useHydrated } from "../../useHydrated";
 
 // Defers time-dependent rendering until after mount to avoid hydration mismatches.
@@ -29,7 +25,7 @@ export function useScheduledUpdateTiming(options: {
 
 		const tz = options.timezone.value;
 		const inputs = options.timeInputs.value;
-		if (tz === "" || inputs.length === 0) {
+		if (inputs.length === 0) {
 			adjustedNextSendAtIso.value = null;
 			delayReasons.value = [];
 			holidayName.value = null;
@@ -118,15 +114,6 @@ export function useScheduledUpdateTiming(options: {
 		},
 	);
 
-	const currentTimeInTimezone = computed(() => {
-		if (!isHydrated.value) {
-			return null;
-		}
-		void tick.value;
-		const tz = options.timezone.value;
-		return tz !== "" ? getNowInTimezone(tz, options.is24?.value) : null;
-	});
-
 	const countdownText = computed(() => {
 		if (!isHydrated.value) {
 			return null;
@@ -152,7 +139,6 @@ export function useScheduledUpdateTiming(options: {
 	const countdownDstShift = computed(() => dstShift.value);
 
 	return {
-		currentTimeInTimezone,
 		countdownText,
 		countdownDelayReasons,
 		countdownHolidayName,

@@ -1,6 +1,5 @@
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
-import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
 import { sendUserEmail } from "../messaging/email/index";
 import {
 	formatAssetEventsEmail,
@@ -10,17 +9,13 @@ import {
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,
+	resolveScheduledSender,
 } from "../messaging/scheduled-channel";
-import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { EmailSender } from "../messaging/types";
-import {
-	claimNotification,
-	updateScheduledNotificationRow,
-} from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../time/types";
 import type { IsoDateString, MinuteOfDay, UserRecord } from "../types";
@@ -155,7 +150,7 @@ export async function processAssetEventsSmsDelivery(options: {
 		return;
 	}
 
-	const claim = await claimNotification({
+	const attemptCount = await claimScheduledChannel({
 		supabase,
 		userId: user.id,
 		notificationType: "asset_events",
@@ -163,39 +158,26 @@ export async function processAssetEventsSmsDelivery(options: {
 		scheduledMinutes,
 		channel: "sms",
 		logger,
+		stats,
 	});
-	if (claim.status === "claim_error") {
-		stats.smsFailed++;
-		return;
-	}
-	if (claim.status === "retries_exhausted" || claim.status === "not_ready") {
-		stats.skipped++;
+	if (attemptCount === null) {
 		return;
 	}
 
-	let smsSenderResult: ReturnType<SmsSenderFactory>;
-	try {
-		smsSenderResult = getSmsSender();
-	} catch (error) {
-		stats.smsFailed++;
-		const errorMessage = extractErrorMessage(error);
-		logger.error(
-			"Failed to resolve SMS sender for asset events",
-			{ userId: user.id, scheduledDate, scheduledMinutes },
-			createErrorForLogging(error),
-		);
-		await updateScheduledNotificationRow({
-			supabase,
-			userId: user.id,
-			notificationType: "asset_events",
-			scheduledDate,
-			scheduledMinutes,
-			channel: "sms",
-			status: "failed",
-			error: errorMessage,
-			attemptCount: claim.attemptCount,
-			logger,
-		});
+	const smsSenderResult = await resolveScheduledSender({
+		supabase,
+		userId: user.id,
+		notificationType: "asset_events",
+		scheduledDate,
+		scheduledMinutes,
+		channel: "sms",
+		logger,
+		stats,
+		attemptCount,
+		getSender: getSmsSender,
+		logMessage: "Failed to resolve SMS sender for asset events",
+	});
+	if (smsSenderResult === null) {
 		return;
 	}
 
@@ -210,35 +192,18 @@ export async function processAssetEventsSmsDelivery(options: {
 		delayBanner: options.delayBanner,
 	});
 	const result = await sendUserSms(user, smsMessage, smsSenderResult.sender, supabase);
-	const logged = await recordNotification(supabase, {
-		user_id: user.id,
-		type: "asset_events",
-		delivery_method: "sms",
-		message_delivered: result.success,
-		message: smsMessage,
-		...deliveryResultToLogFields(result),
-	});
-	if (!logged) {
-		stats.logFailures++;
-	}
-
-	if (result.success) {
-		stats.smsSent++;
-	} else {
-		stats.smsFailed++;
-	}
-
-	await updateScheduledNotificationRow({
+	await completeScheduledChannelFromResult({
 		supabase,
 		userId: user.id,
 		notificationType: "asset_events",
 		scheduledDate,
 		scheduledMinutes,
 		channel: "sms",
-		status: result.success ? "sent" : "failed",
-		error: result.success ? undefined : result.error,
-		attemptCount: claim.attemptCount,
 		logger,
+		stats,
+		attemptCount,
+		result,
+		logMessage: smsMessage,
 	});
 }
 
@@ -292,7 +257,7 @@ export async function processAssetEventsTelegramDelivery(options: {
 		return;
 	}
 
-	const claim = await claimNotification({
+	const attemptCount = await claimScheduledChannel({
 		supabase,
 		userId: user.id,
 		notificationType: "asset_events",
@@ -300,39 +265,26 @@ export async function processAssetEventsTelegramDelivery(options: {
 		scheduledMinutes,
 		channel: "telegram",
 		logger,
+		stats,
 	});
-	if (claim.status === "claim_error") {
-		stats.telegramFailed++;
-		return;
-	}
-	if (claim.status === "retries_exhausted" || claim.status === "not_ready") {
-		stats.skipped++;
+	if (attemptCount === null) {
 		return;
 	}
 
-	let telegramSenderResult: ReturnType<TelegramSenderFactory>;
-	try {
-		telegramSenderResult = getTelegramSender();
-	} catch (error) {
-		stats.telegramFailed++;
-		const errorMessage = extractErrorMessage(error);
-		logger.error(
-			"Failed to resolve Telegram sender for asset events",
-			{ userId: user.id, scheduledDate, scheduledMinutes },
-			createErrorForLogging(error),
-		);
-		await updateScheduledNotificationRow({
-			supabase,
-			userId: user.id,
-			notificationType: "asset_events",
-			scheduledDate,
-			scheduledMinutes,
-			channel: "telegram",
-			status: "failed",
-			error: errorMessage,
-			attemptCount: claim.attemptCount,
-			logger,
-		});
+	const telegramSenderResult = await resolveScheduledSender({
+		supabase,
+		userId: user.id,
+		notificationType: "asset_events",
+		scheduledDate,
+		scheduledMinutes,
+		channel: "telegram",
+		logger,
+		stats,
+		attemptCount,
+		getSender: getTelegramSender,
+		logMessage: "Failed to resolve Telegram sender for asset events",
+	});
+	if (telegramSenderResult === null) {
 		return;
 	}
 
@@ -365,34 +317,17 @@ export async function processAssetEventsTelegramDelivery(options: {
 
 	await optOutIfBotBlocked(supabase, user.id, result, logger);
 
-	const logged = await recordNotification(supabase, {
-		user_id: user.id,
-		type: "asset_events",
-		delivery_method: "telegram",
-		message_delivered: result.success,
-		message: formatted.text,
-		...deliveryResultToLogFields(result),
-	});
-	if (!logged) {
-		stats.logFailures++;
-	}
-
-	if (result.success) {
-		stats.telegramSent++;
-	} else {
-		stats.telegramFailed++;
-	}
-
-	await updateScheduledNotificationRow({
+	await completeScheduledChannelFromResult({
 		supabase,
 		userId: user.id,
 		notificationType: "asset_events",
 		scheduledDate,
 		scheduledMinutes,
 		channel: "telegram",
-		status: result.success ? "sent" : "failed",
-		error: result.success ? undefined : result.error,
-		attemptCount: claim.attemptCount,
 		logger,
+		stats,
+		attemptCount,
+		result,
+		logMessage: formatted.text,
 	});
 }

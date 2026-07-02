@@ -1,8 +1,14 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import type { MessageEntity } from "grammy/types";
+import type { AppSupabaseClient } from "../../db/supabase";
+import { rootLogger } from "../../logging";
 import type { EnrichedAlert } from "../../price-alerts/types";
+import type { ChannelDeliveryStats } from "../../types";
 import { buildCandlestickSvg, type Candle, renderChartPng } from "../parts/charts/candlestick";
 import { TELEGRAM_FOOTER } from "../parts/footer";
+import { deliveryResultToLogFields, recordNotification } from "../shared";
+import type { TelegramSender } from "../types";
+import { optOutIfBotBlocked } from "./opt-out";
 
 /** Rendered Telegram price alert: entity-formatted caption/text + optional candlestick PNG. */
 export interface TelegramPriceAlert {
@@ -59,4 +65,61 @@ export function formatPriceAlertTelegram(
 	}
 
 	return { text: msg.text, entities: msg.entities, photo };
+}
+
+/**
+ * Send a rendered price alert via Telegram and record the attempt.
+ *
+ * Shared tail of the three real-time alert pipelines (anomaly, flat, price
+ * target): format → send → stats + failure log → bot-blocked opt-out →
+ * notification_log. Callers must gate on channel usability
+ * (isTelegramChannelUsable / shouldSendTelegram) BEFORE calling — the chatId
+ * non-null cast relies on that invariant. Returns whether the send succeeded.
+ */
+export async function deliverTelegramPriceAlert(options: {
+	alert: EnrichedAlert;
+	user: { id: string; telegram_chat_id: number | null };
+	sendTelegram: TelegramSender;
+	supabase: AppSupabaseClient;
+	stats: ChannelDeliveryStats;
+	notificationType: "price_alert" | "flat_price_alert" | "price_target";
+	failureLogMessage: string;
+	failureErrorFallback: string;
+	failureLogContext: Record<string, unknown>;
+}): Promise<boolean> {
+	const { alert, user, sendTelegram, supabase, stats, notificationType } = options;
+
+	const { text, entities, photo } = formatPriceAlertTelegram(alert, alert.intradayCandles ?? []);
+	const result = await sendTelegram({
+		// telegram_chat_id is non-null here: every caller gates on isTelegramChannelUsable.
+		chatId: user.telegram_chat_id as number,
+		text,
+		entities,
+		...(photo ? { photo } : {}),
+	});
+
+	if (result.success) {
+		stats.telegramSent++;
+	} else {
+		stats.telegramFailed++;
+		rootLogger.error(
+			options.failureLogMessage,
+			{ userId: user.id, ...options.failureLogContext, errorCode: result.errorCode ?? null },
+			new Error(result.error ?? options.failureErrorFallback),
+		);
+	}
+
+	await optOutIfBotBlocked(supabase, user.id, result);
+
+	const logged = await recordNotification(supabase, {
+		user_id: user.id,
+		type: notificationType,
+		delivery_method: "telegram",
+		message_delivered: result.success,
+		message: text,
+		...deliveryResultToLogFields(result),
+	});
+	if (!logged) stats.logFailures++;
+
+	return result.success;
 }

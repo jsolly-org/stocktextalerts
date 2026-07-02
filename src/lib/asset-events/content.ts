@@ -46,11 +46,11 @@ type RawEvent = {
 	data: Record<string, unknown>;
 };
 
-function filterEventsForChannel(
-	events: RawEvent[],
+function filterEventsForChannel<T extends RawEvent>(
+	events: T[],
 	user: UserRecord,
 	channel: DeliveryChannel,
-): RawEvent[] {
+): T[] {
 	return events.filter((event) => {
 		if (event.event_type === "ipo") {
 			return channelWantsIpos(user, channel);

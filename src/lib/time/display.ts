@@ -55,24 +55,6 @@ export function resolveIs24(): boolean {
 	return hourCycle === "h23" || hourCycle === "h24";
 }
 
-export function getNowInTimezone(timezone: string, is24?: boolean): string | null {
-	const now = DateTime.now().setZone(timezone);
-	if (!now.isValid) {
-		return null;
-	}
-
-	if (is24 === true) {
-		return now.toLocaleString(DateTime.TIME_24_WITH_SECONDS);
-	}
-	if (is24 === false) {
-		return now.toLocaleString({
-			...DateTime.TIME_WITH_SECONDS,
-			hourCycle: "h12",
-		});
-	}
-	return now.toLocaleString(DateTime.TIME_WITH_SECONDS);
-}
-
 export function getSecondsUntilNextSend(options: {
 	timezone: string;
 	nextSendAtIso?: string | null;

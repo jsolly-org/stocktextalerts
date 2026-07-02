@@ -1,5 +1,5 @@
 import type { MarketSession, NoSessionTrade } from "../types";
-import { NO_SESSION_TRADE } from "../types";
+import { isRecord, NO_SESSION_TRADE } from "../types";
 import { marketDataFetch } from "../vendors/massive";
 
 interface SnapshotTicker {
@@ -129,11 +129,11 @@ async function fetchSnapshotQuotesChunk(options: {
 		policy,
 	);
 
-	if (typeof data !== "object" || data === null) {
+	if (!isRecord(data)) {
 		return chunkResult;
 	}
 
-	const tickers = (data as Record<string, unknown>).tickers;
+	const tickers = data.tickers;
 	if (!Array.isArray(tickers)) {
 		return chunkResult;
 	}
@@ -206,14 +206,14 @@ export async function fetchPrevDayBar(symbol: string): Promise<PrevDayBar | null
 		{ adjusted: "true" },
 		"prev-day-bar",
 	);
-	if (typeof data !== "object" || data === null) return null;
+	if (!isRecord(data)) return null;
 
-	const results = (data as Record<string, unknown>).results;
+	const results = data.results;
 	if (!Array.isArray(results) || results.length === 0) return null;
 
 	const first = results[0];
-	if (typeof first !== "object" || first === null) return null;
-	const row = first as Record<string, unknown>;
+	if (!isRecord(first)) return null;
+	const row = first;
 
 	const close = row.c;
 	if (typeof close !== "number" || !Number.isFinite(close) || close === 0) {

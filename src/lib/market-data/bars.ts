@@ -1,5 +1,5 @@
 import { US_MARKET_TIMEZONE } from "../constants";
-import type { DailyOHLCVBar, IntradayBarsResult } from "../types";
+import { type DailyOHLCVBar, type IntradayBarsResult, isRecord } from "../types";
 import { marketDataFetch } from "../vendors/massive";
 import {
 	extractClosesAndTimestampsFromBars,
@@ -63,15 +63,15 @@ export async function fetchPrevClose(symbol: string): Promise<number | null> {
 		{ adjusted: "true" },
 		"prev-close",
 	);
-	if (typeof data !== "object" || data === null) return null;
+	if (!isRecord(data)) return null;
 
-	const results = (data as Record<string, unknown>).results;
+	const results = data.results;
 	if (!Array.isArray(results) || results.length === 0) return null;
 
 	const first = results[0];
-	if (typeof first !== "object" || first === null) return null;
+	if (!isRecord(first)) return null;
 
-	const close = (first as Record<string, unknown>).c;
+	const close = first.c;
 	if (typeof close !== "number" || !Number.isFinite(close) || close === 0) {
 		return null;
 	}

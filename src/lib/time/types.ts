@@ -1,4 +1,10 @@
-import type { Hour24, MinuteOfHour, SecondOfMinute } from "../types";
+import type { DateTime } from "luxon";
+import type { Hour24, MinuteOfHour, ScheduledSlotKey, SecondOfMinute } from "../types";
+
+/** A scheduled slot key plus the UTC instant it was due (cursor value, or "now" when unset). */
+export interface ScheduledSlotContext extends ScheduledSlotKey {
+	dueAt: DateTime;
+}
 
 export type MarketClosureReason = "weekend" | "holiday" | "half-day-after-close";
 

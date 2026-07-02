@@ -1,5 +1,6 @@
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
+import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
 import {
 	claimNotification,
 	updateScheduledNotificationRow,
@@ -65,6 +66,58 @@ export async function claimScheduledChannel(
 ): Promise<number | null> {
 	const claim = await claimNotification(options);
 	return resolveScheduledClaim(claim, options.channel, options.stats);
+}
+
+/**
+ * Resolve a channel sender inside a claimed scheduled slot.
+ *
+ * On factory throw: bumps the channel failure stat, logs the resolution error, and
+ * marks the scheduled_notifications row failed. A sender that never initialized
+ * built/sent no message, so it does NOT get a notification_log row (which records
+ * actual message sends) — the failed row + error log are the record. Returns null
+ * when the caller should skip the channel.
+ */
+export async function resolveScheduledSender<T>(
+	options: {
+		supabase: SupabaseAdminClient;
+		userId: string;
+		notificationType: ScheduledNotificationType;
+		channel: DeliveryMethod;
+		logger: Logger;
+		stats: ScheduledNotificationTotals;
+		attemptCount: number;
+		getSender: () => T;
+		/** Pipeline-specific error message, e.g. "Failed to resolve SMS sender for daily digest". */
+		logMessage: string;
+	} & ScheduledSlotKey,
+): Promise<T | null> {
+	try {
+		return options.getSender();
+	} catch (error) {
+		incrementChannelFailure(options.channel, options.stats);
+		options.logger.error(
+			options.logMessage,
+			{
+				userId: options.userId,
+				scheduledDate: options.scheduledDate,
+				scheduledMinutes: options.scheduledMinutes,
+			},
+			createErrorForLogging(error),
+		);
+		await updateScheduledNotificationRow({
+			supabase: options.supabase,
+			userId: options.userId,
+			notificationType: options.notificationType,
+			scheduledDate: options.scheduledDate,
+			scheduledMinutes: options.scheduledMinutes,
+			channel: options.channel,
+			status: "failed",
+			error: extractErrorMessage(error),
+			attemptCount: options.attemptCount,
+			logger: options.logger,
+		});
+		return null;
+	}
 }
 
 /** Record delivery outcome, bump stats, and update the scheduled_notifications row. */

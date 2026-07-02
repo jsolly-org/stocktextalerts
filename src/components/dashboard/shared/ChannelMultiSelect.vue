@@ -78,19 +78,7 @@ import { computed, nextTick, onMounted, ref } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import CheckIcon from "../../../icons/check.svg?component";
 import ChevronDownIcon from "../../../icons/chevron-down.svg?component";
-
-/**
- * A single selectable channel inside the multiselect. `disabled` keeps the option
- * visible (so the user understands the channel exists) but blocks toggling, with
- * `disabledTitle` explaining why — mirroring the legacy per-channel checkbox hints.
- */
-export interface ChannelOption {
-	value: string;
-	label: string;
-	selected: boolean;
-	disabled?: boolean;
-	disabledTitle?: string;
-}
+import type { ChannelOption } from "../types";
 
 interface Props {
 	options: ChannelOption[];

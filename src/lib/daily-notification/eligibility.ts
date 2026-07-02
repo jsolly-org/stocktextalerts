@@ -4,28 +4,12 @@ Daily notification eligibility — one logical slot, many content facets.
 
 import { PREF_CHANNELS } from "../constants";
 import { enabledFacets, isFacetEnabled } from "../messaging/notification-prefs";
-import type {
-	AssetEventsContent,
-	DailyDigestContent,
-	DailyNotificationContent,
-	PrefChannel,
-	PrefRow,
-} from "../types";
-import { DAILY_NOTIFICATION_PREFERENCE_TYPE } from "./constants";
-
-const DAILY_DIGEST_FACETS = [
-	"prices",
-	"top_movers",
-	"news",
-	"rumors",
-] as const satisfies readonly DailyDigestContent[];
-
-const DAILY_ASSET_EVENT_FACETS = [
-	"calendar",
-	"ipo",
-	"analyst",
-	"insider",
-] as const satisfies readonly AssetEventsContent[];
+import type { DailyNotificationContent, PrefChannel, PrefRow } from "../types";
+import {
+	DAILY_ASSET_EVENT_FACETS,
+	DAILY_DIGEST_FACETS,
+	DAILY_NOTIFICATION_PREFERENCE_TYPE,
+} from "./constants";
 
 export const DAILY_NOTIFICATION_FACETS = [
 	...DAILY_DIGEST_FACETS,

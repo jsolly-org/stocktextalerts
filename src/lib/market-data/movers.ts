@@ -1,3 +1,4 @@
+import { isRecord } from "../types";
 import { marketDataFetch } from "../vendors/massive";
 import type { TopMover } from "./types";
 
@@ -29,9 +30,9 @@ export async function fetchTopMovers(
 		undefined,
 		policy,
 	);
-	if (typeof data !== "object" || data === null) return [];
+	if (!isRecord(data)) return [];
 
-	const tickers = (data as Record<string, unknown>).tickers;
+	const tickers = data.tickers;
 	if (!Array.isArray(tickers)) return [];
 
 	const movers: TopMover[] = [];

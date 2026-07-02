@@ -32,7 +32,7 @@ export interface PriceAlertUser {
 export async function fetchPriceAlertUsers(
 	supabase: SupabaseAdminClient,
 ): Promise<PriceAlertUser[]> {
-	const { data, error } = await (supabase
+	const { data, error } = await supabase
 		.from("users")
 		.select(
 			"id, email, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, email_notifications_enabled, market_asset_price_alert_move_size, use_24_hour_time, telegram_chat_id, telegram_opted_out",
@@ -43,10 +43,7 @@ export async function fetchPriceAlertUsers(
 		// The per-option market_asset_price_alerts facet is checked at delivery time.
 		.or(
 			"email_notifications_enabled.eq.true,and(sms_notifications_enabled.eq.true,phone_verified.eq.true),telegram_chat_id.not.is.null",
-		) as unknown as Promise<{
-		data: Omit<PriceAlertUser, "prefs">[] | null;
-		error: unknown;
-	}>);
+		);
 
 	if (error) {
 		rootLogger.error(
@@ -71,11 +68,7 @@ export async function reserveCooldownSlot(
 	absMovePercent: number,
 	absMoveDollar: number,
 ): Promise<boolean> {
-	const { data: reserved, error } = await (
-		supabase as unknown as {
-			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
-		}
-	).rpc("reserve_market_asset_price_alert_slot", {
+	const { data: reserved, error } = await supabase.rpc("reserve_market_asset_price_alert_slot", {
 		p_user_id: userId,
 		p_symbol: symbol,
 		p_abs_move_percent: absMovePercent,
@@ -95,11 +88,7 @@ export async function finalizeCooldownSlot(
 	userId: string,
 	symbol: string,
 ): Promise<void> {
-	const { error } = await (
-		supabase as unknown as {
-			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
-		}
-	).rpc("finalize_market_asset_price_alert_slot", {
+	const { error } = await supabase.rpc("finalize_market_asset_price_alert_slot", {
 		p_user_id: userId,
 		p_symbol: symbol,
 	});
@@ -114,11 +103,7 @@ export async function releaseCooldownSlot(
 	userId: string,
 	symbol: string,
 ): Promise<void> {
-	const { error } = await (
-		supabase as unknown as {
-			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
-		}
-	).rpc("release_market_asset_price_alert_slot", {
+	const { error } = await supabase.rpc("release_market_asset_price_alert_slot", {
 		p_user_id: userId,
 		p_symbol: symbol,
 	});
