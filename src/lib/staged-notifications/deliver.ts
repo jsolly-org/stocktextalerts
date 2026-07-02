@@ -49,14 +49,15 @@ import {
 } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { toIsoOrThrow } from "../time/display";
-import type {
-	DeliveryResult,
-	IsoDateString,
-	MinuteOfDay,
-	StagedDailyData,
-	StagedNotificationRow,
-	StagedSmsContent,
-	UserRecord,
+import {
+	type DeliveryResult,
+	type IsoDateString,
+	isRecord,
+	type MinuteOfDay,
+	type StagedDailyData,
+	type StagedNotificationRow,
+	type StagedSmsContent,
+	type UserRecord,
 } from "../types";
 import {
 	deleteStagedNotification,
@@ -264,8 +265,7 @@ export async function deliverStagedNotifications(options: {
 			});
 		} catch (error) {
 			const stagedRaw = row.staged_data;
-			const stagedKeys =
-				typeof stagedRaw === "object" && stagedRaw !== null ? Object.keys(stagedRaw as object) : [];
+			const stagedKeys = isRecord(stagedRaw) ? Object.keys(stagedRaw) : [];
 			const staged = stagedRaw as StagedDailyData | null;
 			const smsPartCount = staged?.sms ? normalizeStagedSmsMessages(staged.sms).length : 0;
 			logger.error(
