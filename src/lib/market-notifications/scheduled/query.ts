@@ -2,7 +2,7 @@ import type { SupabaseAdminClient } from "../../db/supabase";
 import { fetchUsersWithRetry } from "../../db/user-query";
 import type { Logger } from "../../logging";
 import { attachPrefsToUsers } from "../../messaging/load-prefs";
-import type { UserRecord } from "../../types";
+import type { UserRecord, UserRecordWithoutPrefs } from "../../types";
 
 /** User column projection for market-scheduled queries (channel-level columns only;
  *  per-option facets live in notification_preferences, attached separately). */
@@ -35,8 +35,6 @@ const MARKET_SCHEDULED_USER_SELECT = `
  *  market_scheduled_asset_price facet is checked per-channel in process.ts. */
 const HAS_DELIVERY_CHANNEL_OR =
 	"email_notifications_enabled.eq.true,and(sms_notifications_enabled.eq.true,phone_verified.eq.true),telegram_chat_id.not.is.null";
-
-type UserRecordWithoutPrefs = Omit<UserRecord, "prefs">;
 
 /**
  * Fetch users eligible for a scheduled asset price update run.
@@ -77,7 +75,7 @@ export async function fetchMarketScheduledUsers(options: {
 				options.supabase,
 				(data ?? []) as unknown as UserRecordWithoutPrefs[],
 			);
-			return { data: withPrefs as UserRecord[], error: null };
+			return { data: withPrefs, error: null };
 		},
 	});
 }

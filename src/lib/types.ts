@@ -230,6 +230,9 @@ export type UserRecord = Pick<
 	prefs: PrefRow[];
 } & GrokRumorsPreferences;
 
+/** A user row as selected from the DB, before batch-attaching `prefs`. */
+export type UserRecordWithoutPrefs = Omit<UserRecord, "prefs">;
+
 /** User asset joined with its canonical asset name. */
 export type UserAssetRow = Pick<Database["public"]["Tables"]["user_assets"]["Row"], "symbol"> & {
 	name: Database["public"]["Tables"]["assets"]["Row"]["name"];

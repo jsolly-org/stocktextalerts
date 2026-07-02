@@ -7,9 +7,7 @@ import type { SupabaseAdminClient } from "../db/supabase";
 import { fetchUsersWithRetry } from "../db/user-query";
 import type { Logger } from "../logging";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
-import type { UserRecord } from "../types";
-
-type UserRecordWithoutPrefs = Omit<UserRecord, "prefs">;
+import type { UserRecord, UserRecordWithoutPrefs } from "../types";
 
 /** Fetch users whose daily notification is due in an upcoming time window. */
 export async function fetchUpcomingDailyDigestUsers(options: {
@@ -38,9 +36,7 @@ export async function fetchUpcomingDailyDigestUsers(options: {
 				options.supabase,
 				(data ?? []) as unknown as UserRecordWithoutPrefs[],
 			);
-			const filtered = (withPrefs as UserRecord[]).filter((user) =>
-				hasAnyDailyNotificationFacet(user.prefs),
-			);
+			const filtered = withPrefs.filter((user) => hasAnyDailyNotificationFacet(user.prefs));
 			return { data: filtered, error: null };
 		},
 	});
