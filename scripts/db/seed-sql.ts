@@ -403,9 +403,6 @@ const SEED_DEFAULT_PREFERENCE_ROWS: ReadonlyArray<{
   { notification_type: "price_move_alerts", content: "", channel: "email", enabled: false },
   { notification_type: "price_move_alerts", content: "", channel: "sms", enabled: false },
   { notification_type: "price_move_alerts", content: "", channel: "telegram", enabled: false },
-  { notification_type: "price_targets", content: "", channel: "email", enabled: false },
-  { notification_type: "price_targets", content: "", channel: "sms", enabled: false },
-  { notification_type: "price_targets", content: "", channel: "telegram", enabled: false },
 ];
 
 /** Build the notification_preferences seed for a user: default rows + JSON overrides. */

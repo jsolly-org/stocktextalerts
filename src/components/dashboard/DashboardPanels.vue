@@ -50,7 +50,6 @@
 				:email-enabled="emailEnabled"
 				:phone-verified="phoneVerified"
 				:has-tracked-assets="hasTrackedAssets"
-				:tracked-assets="currentAssets"
 				:telegram-prefs="marketTelegramPrefs"
 			/>
 		</template>

@@ -23,7 +23,6 @@ const EMPTY_RESULT: DelistingSweepResult = {
 	smsSkippedOptOut: 0,
 	smsFailed: 0,
 	userAssetRowsDeleted: 0,
-	priceTargetRowsDeleted: 0,
 	providerErrors: 0,
 };
 
@@ -55,12 +54,9 @@ const EMPTY_RESULT: DelistingSweepResult = {
  *         opt-out row with error="sms_not_usable".
  *      c. Record each attempt in notification_log.
  *   9. Cleanup gate: if any channel had a transient failure (send or log
- *      insert), skip steps 10–11 so the next sweep retries. Opt-out rows
+ *      insert), skip step 10 so the next sweep retries. Opt-out rows
  *      and dedupe-skips are cleanup-safe.
- *  10. DELETE price_targets rows for (user, symbol) pairs — must run
- *      before the user_assets delete because price_targets.symbol FKs
- *      into assets(symbol) with CASCADE (not into user_assets).
- *  11. DELETE user_assets rows for the (user, symbol) pairs.
+ *  10. DELETE user_assets rows for the (user, symbol) pairs.
  *
  * Users with NO enabled channels (both email and SMS opted out / not
  * usable) still get cleanup — their data is removed silently and the
@@ -434,26 +430,8 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 
 		if (hasTransientFailure) continue;
 
-		// 9. Cleanup — delete price_targets first because price_targets.symbol
-		// FKs into assets(symbol) with CASCADE, NOT user_assets. Deleting
-		// user_assets alone leaves orphaned price_targets rows pointing at a
-		// delisted symbol whose asset row is still present.
+		// 9. Cleanup — remove the user's holdings of the delisted symbols.
 		const symbolsForUser = sortedHoldings.map((h) => h.symbol);
-
-		const { error: ptErr, count: ptCount } = await supabase
-			.from("price_targets")
-			.delete({ count: "exact" })
-			.eq("user_id", userId)
-			.in("symbol", symbolsForUser);
-		if (ptErr) {
-			logger.error(
-				"Delisting sweep failed to delete price_targets",
-				{ action: "delisting_sweep", userId, symbols: symbolsForUser },
-				ptErr,
-			);
-			continue;
-		}
-		result.priceTargetRowsDeleted += ptCount ?? 0;
 
 		const { error: uaErr, count: uaCount } = await supabase
 			.from("user_assets")

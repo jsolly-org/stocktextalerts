@@ -263,13 +263,8 @@ describe("runUniverseReconcile", () => {
 	});
 
 	afterEach(async () => {
-		// price_targets / user_assets FK assets(symbol); clear dependents first.
+		// user_assets FK assets(symbol); clear dependents first.
 		for (const symbol of createdSymbols) {
-			await adminClient
-				.from("price_targets")
-				.delete()
-				.eq("symbol", symbol)
-				.then(() => {});
 			await adminClient
 				.from("user_assets")
 				.delete()

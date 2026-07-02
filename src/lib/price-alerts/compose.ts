@@ -27,25 +27,3 @@ export function buildFlatAlertEnriched(options: {
 		isPositiveMove: triggerPercent >= 0,
 	};
 }
-
-export function buildPriceTargetEnriched(target: {
-	symbol: string;
-	direction: "above" | "below";
-	currentPrice: number;
-	targetPrice: number;
-}): EnrichedAlert {
-	const verb = target.direction === "above" ? "rose to" : "fell to";
-	return {
-		symbol: target.symbol,
-		priceContext: `${target.symbol} ${verb} ${formatUsdPrice(target.currentPrice)}, hitting your target of ${formatUsdPrice(target.targetPrice)}`,
-		signalContext: "",
-		grokContext: "",
-		grokResult: null,
-		intradayCloses: null,
-		intradayTimestamps: null,
-		intradayEndTimestamp: null,
-		intradayCandles: null,
-		prevClose: null,
-		isPositiveMove: target.direction === "above",
-	};
-}

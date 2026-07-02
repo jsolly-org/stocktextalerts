@@ -120,7 +120,6 @@ async function insertAsset(symbol: string, name: string): Promise<void> {
 }
 
 async function deleteAsset(symbol: string): Promise<void> {
-	await adminClient.from("price_targets").delete().eq("symbol", symbol);
 	await adminClient.from("user_assets").delete().eq("symbol", symbol);
 	await deleteAssets([symbol]);
 }
@@ -144,7 +143,7 @@ describe("runDelistingSweep", () => {
 		}
 	});
 
-	it("Detects a newly-delisted SPAC, notifies the user, and cleans up user_assets + price_targets.", async () => {
+	it("Detects a newly-delisted SPAC, notifies the user, and cleans up user_assets.", async () => {
 		const delistedSymbol = `${TEST_PREFIX}A`;
 		const activeSymbol = `${TEST_PREFIX}B`;
 		createdSymbols.push(delistedSymbol, activeSymbol);
@@ -161,12 +160,6 @@ describe("runDelistingSweep", () => {
 		registerTestUserForCleanup(user.id);
 		await attachUserAsset(user.id, delistedSymbol);
 		await attachUserAsset(user.id, activeSymbol);
-		await adminClient.from("price_targets").insert({
-			user_id: user.id,
-			symbol: delistedSymbol,
-			target_price: 11.5,
-			direction: "above",
-		});
 
 		const fakeEmail = makeFakeEmailSender();
 		const fakeSms = makeFakeSmsSender();
@@ -196,7 +189,6 @@ describe("runDelistingSweep", () => {
 		expect(result.emailsDelivered).toBe(1);
 		expect(result.smsSkippedOptOut).toBe(1); // test user has no phone
 		expect(result.userAssetRowsDeleted).toBeGreaterThanOrEqual(1);
-		expect(result.priceTargetRowsDeleted).toBeGreaterThanOrEqual(1);
 		expect(result.providerErrors).toBe(0);
 
 		// Email captured with the right shape
@@ -229,14 +221,6 @@ describe("runDelistingSweep", () => {
 		const remaining = new Set((userAssets ?? []).map((r) => r.symbol));
 		expect(remaining.has(delistedSymbol)).toBe(false);
 		expect(remaining.has(activeSymbol)).toBe(true);
-
-		// price_targets cleaned up
-		const { data: pt } = await adminClient
-			.from("price_targets")
-			.select("symbol")
-			.eq("user_id", user.id)
-			.eq("symbol", delistedSymbol);
-		expect(pt ?? []).toHaveLength(0);
 
 		// Two notification_log rows — one delivered email + one SMS
 		// opt-out row for the unusable channel.

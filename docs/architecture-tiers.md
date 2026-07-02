@@ -17,7 +17,7 @@ When adding a feature, ask: *does this need a browser session or a stable public
 **Responsibilities:**
 
 - Cookie/session auth via `createUserService()` and Supabase RLS
-- Dashboard CRUD (assets, notification preferences, price targets, profile)
+- Dashboard CRUD (assets, notification preferences, profile)
 - Public auth flows (sign-in, register, password reset) — mostly HTML redirects
 - Inbound webhooks (Twilio SMS, Telegram bot) — stable URLs on the app domain; CSRF middleware exempts these paths
 - User-initiated Massive fetches (prices, sparklines, logo proxy with CDN cache)

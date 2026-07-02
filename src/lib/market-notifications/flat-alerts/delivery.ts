@@ -128,7 +128,7 @@ export async function deliverFlatPriceAlert(options: {
 	if (isFacetEnabled(user.prefs, "price_move_alerts", "sms") && sendSms) {
 		if (!shouldSendSms(user)) {
 			// Channel ineligibility is a config skip, NOT a delivery failure — leave it
-			// uncounted, matching the scheduled paths and price targets.
+			// uncounted, matching the scheduled paths.
 			rootLogger.info("Flat price alert SMS skipped: user not eligible", {
 				userId: user.id,
 				symbol,

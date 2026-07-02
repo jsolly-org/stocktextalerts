@@ -531,66 +531,6 @@ export type Database = {
           },
         ]
       }
-      price_targets: {
-        Row: {
-          attempt_count: number
-          created_at: string
-          direction: Database["public"]["Enums"]["price_target_direction"]
-          email_delivered_at: string | null
-          next_retry_at: string | null
-          sms_delivered_at: string | null
-          symbol: string
-          target_price: number
-          telegram_delivered_at: string | null
-          triggered_at: string | null
-          triggered_price: number | null
-          user_id: string
-        }
-        Insert: {
-          attempt_count?: number
-          created_at?: string
-          direction: Database["public"]["Enums"]["price_target_direction"]
-          email_delivered_at?: string | null
-          next_retry_at?: string | null
-          sms_delivered_at?: string | null
-          symbol: string
-          target_price: number
-          telegram_delivered_at?: string | null
-          triggered_at?: string | null
-          triggered_price?: number | null
-          user_id: string
-        }
-        Update: {
-          attempt_count?: number
-          created_at?: string
-          direction?: Database["public"]["Enums"]["price_target_direction"]
-          email_delivered_at?: string | null
-          next_retry_at?: string | null
-          sms_delivered_at?: string | null
-          symbol?: string
-          target_price?: number
-          telegram_delivered_at?: string | null
-          triggered_at?: string | null
-          triggered_price?: number | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "price_targets_symbol_fkey"
-            columns: ["symbol"]
-            isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["symbol"]
-          },
-          {
-            foreignKeyName: "price_targets_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       rate_limit_log: {
         Row: {
           created_at: string
@@ -1079,7 +1019,6 @@ export type Database = {
       asset_type: "stock" | "etf"
       delivery_method: "email" | "sms" | "telegram"
       price_alert_delivery_status: "reserved" | "finalized"
-      price_target_direction: "above" | "below"
       scheduled_notification_status: "sending" | "sent" | "failed"
       scheduled_notification_type: "market" | "daily" | "asset_events"
       staged_notification_type: "daily"
@@ -1215,7 +1154,6 @@ export const Constants = {
       asset_type: ["stock", "etf"],
       delivery_method: ["email", "sms", "telegram"],
       price_alert_delivery_status: ["reserved", "finalized"],
-      price_target_direction: ["above", "below"],
       scheduled_notification_status: ["sending", "sent", "failed"],
       scheduled_notification_type: ["market", "daily", "asset_events"],
       staged_notification_type: ["daily"],

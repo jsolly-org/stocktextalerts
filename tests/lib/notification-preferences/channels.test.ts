@@ -19,7 +19,7 @@ describe("notification_preferences round-trips through the read path", () => {
 		registerTestUserForCleanup(user.id);
 
 		await setTestUserPrefs(user.id, [
-			["price_targets", "", "telegram", true],
+			["price_move_alerts", "", "telegram", true],
 			["daily_notification", "news", "telegram", true],
 			["daily_notification", "prices", "email", false], // explicitly OFF (overrides any default)
 		]);
@@ -28,7 +28,7 @@ describe("notification_preferences round-trips through the read path", () => {
 		expect(rows).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
-					notification_type: "price_targets",
+					notification_type: "price_move_alerts",
 					content: "",
 					channel: "telegram",
 					enabled: true,
@@ -44,7 +44,7 @@ describe("notification_preferences round-trips through the read path", () => {
 
 		const snapshot = buildChannelPreferenceSnapshot(rows);
 		// Facet-less type → `<type>_include_<channel>`; faceted → `<type>_include_<facet>_<channel>`.
-		expect(snapshot.price_targets_include_telegram).toBe(true);
+		expect(snapshot.price_move_alerts_include_telegram).toBe(true);
 		expect(snapshot.daily_digest_include_news_telegram).toBe(true);
 		expect(snapshot.daily_digest_include_prices_email).toBe(false);
 	});

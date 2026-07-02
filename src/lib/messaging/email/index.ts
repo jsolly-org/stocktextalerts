@@ -7,7 +7,7 @@ import type { EmailSender, EmailUser } from "../types";
 // Note: this is the DIRECT-SES path. It does NOT dedup — the SES sender ignores
 // `EmailRequest.idempotencyKey`, which only the email-dispatch Lambda honors. Dedup for
 // notification emails comes from the upstream claim/CAS (scheduled_notifications claim,
-// price-target CAS, flat-alert reserve). Do not pass an idempotency key here expecting
+// flat-alert reserve). Do not pass an idempotency key here expecting
 // SES to collapse duplicates — it won't.
 export async function sendUserEmail(
 	user: EmailUser,

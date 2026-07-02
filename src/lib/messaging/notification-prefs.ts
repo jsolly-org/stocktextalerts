@@ -28,7 +28,6 @@ const NOTIFICATION_PREFERENCE_TYPES = [
 	"market_asset_price_alerts",
 	"market_scheduled_asset_price",
 	"price_move_alerts",
-	"price_targets",
 ] as const satisfies readonly NotificationPreferenceType[];
 
 const DAILY_NOTIFICATION_CONTENTS = [
@@ -46,7 +45,6 @@ const FACETLESS_NOTIFICATION_TYPES = [
 	"market_asset_price_alerts",
 	"market_scheduled_asset_price",
 	"price_move_alerts",
-	"price_targets",
 ] as const satisfies readonly FacetlessNotificationType[];
 
 function isNotificationPreferenceType(value: string): value is NotificationPreferenceType {
@@ -170,11 +168,7 @@ export function anyFacetEnabled(
 	);
 }
 
-/** True when at least one SMS facet is enabled across ANY notification type EXCEPT
- *  `price_targets`. This mirrors the legacy `shouldSendSms` feature-gate: enabling
- *  only price-target SMS must not make a user eligible for unrelated flows. */
-export function anySmsFacetEnabledExceptPriceTargets(prefs: readonly PrefRow[]): boolean {
-	return prefs.some(
-		(p) => p.channel === "sms" && p.enabled && p.notification_type !== "price_targets",
-	);
+/** True when at least one SMS facet is enabled across ANY notification type. */
+export function anySmsFacetEnabled(prefs: readonly PrefRow[]): boolean {
+	return prefs.some((p) => p.channel === "sms" && p.enabled);
 }

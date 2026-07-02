@@ -56,8 +56,6 @@ import { purgeOldAssetSnapshots } from "../market-notifications/snapshot-store";
 import type { LogoCache } from "../messaging/logo-fetcher";
 import type { NotificationSenders } from "../messaging/senders";
 import { createNotificationSenders } from "../messaging/senders";
-import { processPriceTargets } from "../price-targets/process";
-import type { PriceTargetTotals } from "../price-targets/types";
 import { USER_PROCESS_BATCH_SIZE } from "../scheduled-notifications/constants";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { deliverStagedNotifications } from "../staged-notifications/deliver";
@@ -412,7 +410,6 @@ export async function runScheduledNotifications(options: {
 }): Promise<
 	ScheduledNotificationTotals & {
 		priceAlerts?: PriceAlertTotals;
-		priceTargets?: PriceTargetTotals;
 		flatPriceAlerts?: FlatPriceAlertTotals;
 	}
 > {
@@ -532,26 +529,6 @@ export async function runScheduledNotifications(options: {
 		);
 	}
 
-	// Run price target checks — piggybacks on the same market-hours window.
-	// Reuses the quote map and market status from price alerts to avoid duplicate API calls.
-	let priceTargetTotals: PriceTargetTotals | undefined;
-	try {
-		priceTargetTotals = await processPriceTargets({
-			supabase,
-			quoteMap: priceAlertQuoteMap,
-			isMarketOpen: priceAlertIsMarketOpen,
-		});
-
-		if (priceTargetTotals.targetsTriggered > 0) {
-			logger.info("Price targets processed", {
-				action: "price_targets",
-				...priceTargetTotals,
-			});
-		}
-	} catch (error) {
-		logger.warn("Price targets processing failed (non-fatal)", { action: "price_targets" }, error);
-	}
-
 	// Run flat price alerts — own state, own users, own emails; shares the
 	// quote map and market-hours gating from processPriceAlerts to avoid
 	// duplicate Massive snapshot calls. If processPriceAlerts threw, the
@@ -634,7 +611,6 @@ export async function runScheduledNotifications(options: {
 	return {
 		...combinedTotals,
 		priceAlerts: priceAlertTotals,
-		priceTargets: priceTargetTotals,
 		flatPriceAlerts: flatPriceAlertTotals,
 	};
 }

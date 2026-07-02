@@ -1,7 +1,7 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import type { DeliveryResult, PrefRow, UserRecord } from "../../types";
-import { anySmsFacetEnabledExceptPriceTargets } from "../notification-prefs";
+import { anySmsFacetEnabled } from "../notification-prefs";
 import type { SmsSender, SmsUser } from "../types";
 import { finalizeSmsBodyForUcs2Segments } from "./segment-utils";
 
@@ -87,14 +87,12 @@ export function shouldSendSms(user: SmsEligibilityUser): boolean {
 
 	const hasVerifiedPhone =
 		user.phone_verified && Boolean(user.phone_country_code) && Boolean(user.phone_number);
-	// Exclude price_targets SMS so that enabling only price-target SMS does not
-	// make users eligible for unrelated flows (e.g. daily digest) that gate on shouldSendSms.
-	const hasAnySmsFeatureEnabled = anySmsFacetEnabledExceptPriceTargets(user.prefs);
+	const hasAnySmsFeatureEnabled = anySmsFacetEnabled(user.prefs);
 
 	return hasVerifiedPhone && hasAnySmsFeatureEnabled;
 }
 
-/** True if SMS channel is usable (not opted out, enabled, verified phone). Use for flows that have their own feature-specific opt-in (e.g. price targets). */
+/** True if SMS channel is usable (not opted out, enabled, verified phone). Use for flows that have their own feature-specific opt-in (e.g. delisting notices). */
 export function isSmsChannelUsable(user: SmsChannelUser): boolean {
 	if (user.sms_opted_out) return false;
 	if (!user.sms_notifications_enabled) return false;

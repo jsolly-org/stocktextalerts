@@ -401,8 +401,7 @@ const hasAnySmsFeatureEnabled = computed(
 		user.value.asset_events_include_ipo_sms ||
 		user.value.asset_events_include_analyst_sms ||
 		user.value.asset_events_include_insider_sms ||
-		user.value.market_asset_price_alerts_include_sms ||
-		user.value.price_targets_include_sms,
+		user.value.market_asset_price_alerts_include_sms,
 );
 const hasNotificationChannel = computed(
 	() => emailEnabledProp.value || (smsNotificationsEnabled.value && hasAnySmsFeatureEnabled.value && phoneVerified.value && !smsOptedOut.value),
