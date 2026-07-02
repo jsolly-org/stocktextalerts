@@ -14,7 +14,7 @@ vi.mock("../../../src/lib/time/market/calendar", () => ({
 }));
 
 import type { Logger } from "../../../src/lib/logging";
-import { createEmailSender, type EmailSender } from "../../../src/lib/messaging/email/utils";
+import { createEmailSender } from "../../../src/lib/messaging/email/utils";
 import {
 	buildDelayBannerText,
 	prependDelayBannerToSms,
@@ -24,12 +24,11 @@ import {
 	createSmsSenderFactory,
 	type SmsSenderFactory,
 } from "../../../src/lib/messaging/sms/sender-factory";
-import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
-import type { TelegramMessage } from "../../../src/lib/messaging/telegram/sender";
 import {
 	createTelegramSenderFactory,
 	type TelegramSenderFactory,
 } from "../../../src/lib/messaging/telegram/sender-factory";
+import type { EmailSender, SmsSender, TelegramMessage } from "../../../src/lib/messaging/types";
 import { deliverStagedNotifications } from "../../../src/lib/staged-notifications/deliver";
 import type { DeliveryResult } from "../../../src/lib/types";
 import { adminClient } from "../../helpers/test-env";

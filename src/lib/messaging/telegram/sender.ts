@@ -1,26 +1,9 @@
 import { autoRetry } from "@grammyjs/auto-retry";
 import { Bot, GrammyError, InputFile } from "grammy";
-import type { InlineKeyboardMarkup, MessageEntity } from "grammy/types";
 import { requireEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { DeliveryResult } from "../../types";
-
-/** A fully-rendered outbound Telegram message (text carries out-of-band entities). */
-export interface TelegramMessage {
-	chatId: number | string;
-	/** Plain text; formatting travels via `entities`, not parse_mode. */
-	text: string;
-	/** Entity markers (offset/length) from the parse-mode `fmt` builder. */
-	entities?: MessageEntity[];
-	/** When present, send as a photo with `text` as the caption (≤1024 chars). */
-	photo?: Buffer;
-	/** Inline keyboard for actionable alerts. */
-	replyMarkup?: InlineKeyboardMarkup;
-	/** Silent delivery (e.g. routine digest) — maps to Telegram's disable_notification. */
-	disableNotification?: boolean;
-}
-
-export type TelegramSender = (message: TelegramMessage) => Promise<DeliveryResult>;
+import type { TelegramMessage, TelegramSender } from "../types";
 
 /**
  * Perform the real Telegram send for a single message via grammY's `bot.api`.

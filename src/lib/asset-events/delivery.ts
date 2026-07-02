@@ -2,7 +2,6 @@ import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
 import { sendUserEmail } from "../messaging/email/index";
-import type { EmailSender } from "../messaging/email/utils";
 import {
 	formatAssetEventsEmail,
 	formatAssetEventsSms,
@@ -17,6 +16,7 @@ import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
+import type { EmailSender } from "../messaging/types";
 import {
 	claimNotification,
 	updateScheduledNotificationRow,

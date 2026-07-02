@@ -22,9 +22,8 @@ vi.mock("../../../src/lib/assets/reference/delistings", async (importOriginal) =
 import { runDelistingSweep } from "../../../src/lib/assets/delisting-sweep";
 import type { TickerReferenceStatus } from "../../../src/lib/assets/reference/types";
 import { rootLogger } from "../../../src/lib/logging";
-import type { EmailRequest, EmailSender } from "../../../src/lib/messaging/email/utils";
 import type { SmsSenderFactory } from "../../../src/lib/messaging/sms/sender-factory";
-import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
+import type { EmailRequest, EmailSender, SmsSender } from "../../../src/lib/messaging/types";
 import type { DeliveryResult } from "../../../src/lib/types";
 import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";

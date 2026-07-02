@@ -1,7 +1,8 @@
-import { createEmailSender, type EmailSender } from "./email/utils";
+import { createEmailSender } from "./email/utils";
 import { createLogoCache, type LogoCache } from "./logo-fetcher";
 import { createSmsSenderFactory, type SmsSenderFactory } from "./sms/sender-factory";
 import { createTelegramSenderFactory, type TelegramSenderFactory } from "./telegram/sender-factory";
+import type { EmailSender } from "./types";
 
 /** Channel senders and logo cache created once per scheduler run or dispatch entry. */
 export interface NotificationSenders {

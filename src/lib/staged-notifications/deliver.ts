@@ -18,7 +18,6 @@ import { updateUserDailyNotificationNextSendAt } from "../daily-notification/sch
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { sendUserEmail } from "../messaging/email/index";
-import type { EmailSender } from "../messaging/email/utils";
 import { loadPrefsByUser } from "../messaging/load-prefs";
 import {
 	formatDailyDigestSmsLogMessage,
@@ -39,6 +38,7 @@ import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
+import type { EmailSender } from "../messaging/types";
 import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
 import {
 	claimNotification,

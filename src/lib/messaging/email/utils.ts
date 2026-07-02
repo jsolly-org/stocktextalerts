@@ -13,9 +13,9 @@ import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import nodemailer, { type Transporter } from "nodemailer";
 import { readEnv, requireEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
-import type { DeliveryResult } from "../../types";
 import { withDeliveryRetry } from "../delivery-retry";
 import { escapeHtml } from "../parts/html-utils";
+import type { EmailSender } from "../types";
 
 const EMAIL_MAX_PER_SECOND = 14;
 const recentSendTimestamps: number[] = [];
@@ -59,18 +59,6 @@ async function waitForRateLimit(): Promise<void> {
 		if (shouldWait) await realDelay(waitMs);
 	}
 }
-
-export interface EmailRequest {
-	to: string;
-	subject: string;
-	body: string;
-	html?: string;
-	idempotencyKey?: string;
-	replyTo?: string;
-	userId?: string;
-}
-
-export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 
 /**
  * Create an email sender.

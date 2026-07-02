@@ -15,7 +15,7 @@ import {
 	findDailyDigestProtectedSpans,
 	spanStraddlesBoundary,
 } from "../../../src/lib/messaging/sms/segment-utils";
-import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
+import type { SmsSender } from "../../../src/lib/messaging/types";
 import type { ScheduledNotificationTotals } from "../../../src/lib/scheduled-notifications/types";
 import type { AssetPriceMap, UserAssetRow, UserRecord } from "../../../src/lib/types";
 import { assertIsoDateString } from "../../../src/lib/types";
