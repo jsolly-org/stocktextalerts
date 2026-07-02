@@ -12,7 +12,7 @@
 #   scripts/verify-local-supabase.sh
 set -euo pipefail
 
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/.."
 
 echo "==> Bootstrapping local Supabase (npm run db:bootstrap)"
 # db:bootstrap already ends with db:doctor, so a successful run implies a
