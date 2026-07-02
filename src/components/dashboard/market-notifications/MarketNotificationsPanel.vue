@@ -455,7 +455,7 @@ import {
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import type { InitialAsset } from "../types";
-import { useScheduledUpdateTiming } from "./helpers";
+import { useScheduledUpdateTiming } from "../composables/useScheduledUpdateTiming";
 import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
 
 interface Props {
