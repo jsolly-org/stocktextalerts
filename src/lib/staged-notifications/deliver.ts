@@ -13,6 +13,7 @@
  */
 
 import { DateTime } from "luxon";
+import { updateGrokSendCounter } from "../daily-digest/content-build";
 import { shouldAdvanceDailyDigestSchedule } from "../daily-digest/schedule-state";
 import { updateUserDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
@@ -651,43 +652,18 @@ async function deliverStagedDaily(options: {
 		}
 	}
 
-	// Post-delivery: Grok counter update.
-	// This replicates the updateGrokSendCounter logic from daily-digest/process.ts
-	// inline rather than importing it, because that function is tightly coupled to
-	// the ScheduledNotificationTotals stats object and would create a circular
-	// dependency. The logic is straightforward: reset the rolling window if expired,
-	// otherwise increment the counter.
+	// Post-delivery: Grok counter update (gated on this user's sends, not the
+	// run-cumulative stats — see updateGrokSendCounter's delivered param).
 	const localDelivered = localEmailDelivered || localSmsDelivered || localTelegramDelivered;
-	if (stagedData.grokAllowed && localDelivered) {
-		const GROK_WINDOW_HOURS = 24;
-		const now = currentTime.toISO();
-		if (now) {
-			const windowStart = user.grok_window_start
-				? DateTime.fromISO(user.grok_window_start, { zone: "utc" })
-				: null;
-			const windowExpired =
-				!windowStart?.isValid || currentTime.diff(windowStart, "hours").hours >= GROK_WINDOW_HOURS;
-
-			const newCount = windowExpired ? 1 : user.grok_sends_in_window + 1;
-			const newWindowStart = windowExpired ? now : user.grok_window_start;
-
-			const { error } = await supabase
-				.from("users")
-				.update({
-					last_grok_rumors_at: now,
-					grok_window_start: newWindowStart,
-					grok_sends_in_window: newCount,
-				})
-				.eq("id", user.id);
-			if (error) {
-				logger.error(
-					"Failed to update grok send counter (staged daily)",
-					{ userId: user.id, newCount, newWindowStart },
-					error,
-				);
-			}
-		}
-	}
+	await updateGrokSendCounter(
+		user,
+		supabase,
+		stagedData.grokAllowed,
+		localDelivered,
+		currentTime,
+		logger,
+		"(staged daily)",
+	);
 
 	const emailRequired = stagedData.email !== null;
 	const smsRequired = stagedData.sms !== null;
