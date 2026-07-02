@@ -134,8 +134,8 @@ import {
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID,
 } from "../constants";
-import { DEMO_ASSETS, type PreviewAsset } from "../daily-digest/preview/preview-data";
-import SmsPreview from "../daily-digest/preview/SmsPreview.vue";
+import { DEMO_ASSETS, type PreviewAsset } from "./preview/preview-data";
+import SmsPreview from "./preview/SmsPreview.vue";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import type { InitialAsset } from "../types";
