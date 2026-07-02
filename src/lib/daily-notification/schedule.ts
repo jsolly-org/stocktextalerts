@@ -5,7 +5,7 @@ import type { Logger } from "../logging";
 import { userLocalToEtMinute } from "../time/conversion";
 import { calculateNextSendAt } from "../time/schedule/next-send";
 import type { UserRecord } from "../types";
-import { DEFAULT_DAILY_NOTIFICATION_DELIVERY_MINUTES } from "./defaults";
+import { DEFAULT_DAILY_NOTIFICATION_DELIVERY_MINUTES } from "./constants";
 import { hasAnyDailyNotificationFacet } from "./eligibility";
 
 /** Read the daily notification next-send cursor. */

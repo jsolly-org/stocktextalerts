@@ -11,3 +11,6 @@ import type { NotificationPreferenceType } from "../types";
 /** Canonical preference type for the unified daily notification. */
 export const DAILY_NOTIFICATION_PREFERENCE_TYPE =
 	"daily_notification" as const satisfies NotificationPreferenceType;
+
+/** Default local delivery minute when daily notification is enabled but no time is set. */
+export const DEFAULT_DAILY_NOTIFICATION_DELIVERY_MINUTES = 540; // 9:00 AM

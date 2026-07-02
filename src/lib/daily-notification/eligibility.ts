@@ -10,7 +10,7 @@ import type {
 	PrefChannel,
 	PrefRow,
 } from "../types";
-import { DAILY_NOTIFICATION_PREFERENCE_TYPE } from "./families";
+import { DAILY_NOTIFICATION_PREFERENCE_TYPE } from "./constants";
 
 const DAILY_DIGEST_FACETS = [
 	"prices",
