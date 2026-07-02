@@ -4,7 +4,7 @@ import {
 	getNowInTimezone,
 	getSecondsUntilNextSend,
 } from "../../../lib/time/display";
-import { useHydrated } from "../../composables/useHydrated";
+import { useHydrated } from "../../useHydrated";
 
 // Defers time-dependent rendering until after mount to avoid hydration mismatches.
 /** Provide derived UI state for scheduled update timing (local “now” and countdown). */

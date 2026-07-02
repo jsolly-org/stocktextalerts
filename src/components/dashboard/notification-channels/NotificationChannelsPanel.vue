@@ -120,7 +120,7 @@ import {
 	minutesToTimeInputValue,
 } from "../../../lib/time/display";
 import { parseTimeToMinutes } from "../../../lib/time/parse";
-import { useHydrated } from "../../composables/useHydrated";
+import { useHydrated } from "../../useHydrated";
 import StatusMessage from "../../StatusMessage.vue";
 import type { FlashMessage, FlashTone } from "../../ui-constants";
 import {

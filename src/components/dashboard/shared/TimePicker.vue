@@ -66,7 +66,7 @@ import {
 	resolveIs24,
 } from "../../../lib/time/display";
 import { parseTimeString } from "../../../lib/time/parse";
-import { useHydrated } from "../../composables/useHydrated";
+import { useHydrated } from "../../useHydrated";
 
 type TimeModel = {
 	hours: number | string;

@@ -73,7 +73,7 @@ import type { NotificationPreferencesSnapshot, User } from "../../lib/db/types";
 import { createSaveSequencer, type SequencedResult } from "../../lib/forms/save-sequencer";
 import { rootLogger } from "../../lib/logging";
 import type { TimezoneOption } from "../../lib/types";
-import { useHydrated } from "../composables/useHydrated";
+import { useHydrated } from "../useHydrated";
 import StatusMessage from "../StatusMessage.vue";
 import TimezoneMismatchBanner from "./TimezoneMismatchBanner.vue";
 import TimezoneSelect from "./TimezoneSelect.vue";

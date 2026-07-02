@@ -62,7 +62,7 @@
 import { useMediaQuery } from "@vueuse/core";
 import { computed, defineAsyncComponent, ref, toRefs, watch } from "vue";
 import type { DashboardUser } from "../../lib/db/types";
-import { useHydrated } from "../composables/useHydrated";
+import { useHydrated } from "../useHydrated";
 import WatchlistPanel from "./assets/WatchlistPanel.vue";
 import { useAutoSaveForm } from "./composables/useAutoSaveNotificationPreferences";
 import { provideDashboardUser } from "./composables/useDashboardUser";

@@ -255,7 +255,7 @@ import {
 	getSecondsUntilNextSend,
 	minutesToTimeInputValue,
 } from "../../../lib/time/display";
-import { useHydrated } from "../../composables/useHydrated";
+import { useHydrated } from "../../useHydrated";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
