@@ -118,6 +118,7 @@ describe("deliverStagedNotifications", () => {
 		scheduledDate?: string;
 		scheduledMinutes?: number;
 		sms: { messages: string[] } | { message: string };
+		grokAllowed?: boolean;
 	}) {
 		const { error } = await adminClient.from("staged_notifications").insert({
 			user_id: options.userId,
@@ -129,7 +130,7 @@ describe("deliverStagedNotifications", () => {
 				scheduledMinutes: options.scheduledMinutes ?? 9 * 60,
 				email: null,
 				sms: options.sms,
-				grokAllowed: false,
+				grokAllowed: options.grokAllowed ?? false,
 				hasAnyAssetEventsOption: false,
 				shouldUpdateAnalyst: false,
 				analystMonth: null,
@@ -284,6 +285,44 @@ describe("deliverStagedNotifications", () => {
 			.eq("channel", "sms")
 			.single();
 		expect(scheduledRow?.status).toBe("sent");
+	});
+
+	it("updates the grok send counter after a successful staged delivery when grok was allowed", async () => {
+		await clearStagedNotifications();
+		const currentTime = DateTime.fromISO("2026-06-01T13:00:00.000Z", { zone: "utc" });
+		const scheduledForIso = currentTime.toISO();
+		if (!scheduledForIso) throw new Error("Expected valid scheduled_for timestamp");
+		const userId = await createSmsDigestUser({ scheduledForIso });
+		await insertStagedDailySms({
+			userId,
+			scheduledForIso,
+			sms: { messages: ["StockTextAlerts — Your daily digest 🗓️\n\nGrok-backed body"] },
+			grokAllowed: true,
+		});
+		const smsSender = vi.fn<SmsSender>(async () => ({ success: true }));
+
+		const result = await deliverStagedNotifications({
+			supabase: adminClient,
+			logger,
+			currentTime,
+			sendEmail,
+			getSmsSender: () => ({ sender: smsSender }),
+			getTelegramSender,
+		});
+		expect(result.stats.smsSent).toBe(1);
+
+		const { data: userRow } = await adminClient
+			.from("users")
+			.select("last_grok_rumors_at,grok_window_start,grok_sends_in_window")
+			.eq("id", userId)
+			.single();
+		expect(userRow?.grok_sends_in_window).toBe(1);
+		expect(DateTime.fromISO(userRow?.grok_window_start ?? "").toMillis()).toBe(
+			currentTime.toMillis(),
+		);
+		expect(DateTime.fromISO(userRow?.last_grok_rumors_at ?? "").toMillis()).toBe(
+			currentTime.toMillis(),
+		);
 	});
 
 	it("stops staged daily digest SMS delivery after a later part fails", async () => {

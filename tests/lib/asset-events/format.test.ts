@@ -13,19 +13,21 @@ describe("formatAssetEventsSection", () => {
 					epsEstimate: 2.35,
 					revenueEstimate: 124_500_000_000,
 				},
+				daysUntil: 2,
 			},
 			{
 				symbol: "MSFT",
 				event_type: "earnings" as const,
 				event_date: "2026-02-12",
 				data: { time: null, epsEstimate: null, revenueEstimate: null },
+				daysUntil: 4,
 			},
 		];
 
 		const result = formatAssetEventsSection(events, "sms");
 
-		expect(result.earnings).toContain("AAPL: earnings 02-10 (16:30)");
-		expect(result.earnings).toContain("MSFT: earnings 02-12");
+		expect(result.earnings).toContain("AAPL: earnings in 2 days (02-10) (16:30)");
+		expect(result.earnings).toContain("MSFT: earnings in 4 days (02-12)");
 		expect(result.dividends).toBeNull();
 		expect(result.splits).toBeNull();
 	});
@@ -41,12 +43,13 @@ describe("formatAssetEventsSection", () => {
 					epsEstimate: 2.35,
 					revenueEstimate: 124_500_000_000,
 				},
+				daysUntil: 2,
 			},
 		];
 
 		const result = formatAssetEventsSection(events, "email");
 
-		expect(result.earnings).toContain("AAPL: earnings 02-10 (16:30)");
+		expect(result.earnings).toContain("AAPL: earnings in 2 days (02-10) (16:30)");
 		expect(result.earnings).toContain("EPS est. $2.35");
 		expect(result.earnings).toContain("Rev est. $124.5B");
 	});
@@ -63,12 +66,13 @@ describe("formatAssetEventsSection", () => {
 					payDate: "2026-04-01",
 					frequency: 4,
 				},
+				daysUntil: 2,
 			},
 		];
 
 		const result = formatAssetEventsSection(events, "sms");
 
-		expect(result.dividends).toContain("KO: ex-div 02-14 $0.50");
+		expect(result.dividends).toContain("KO: ex-div in 2 days (02-14) $0.50");
 		expect(result.earnings).toBeNull();
 	});
 
@@ -84,12 +88,15 @@ describe("formatAssetEventsSection", () => {
 					payDate: "2026-04-01",
 					frequency: 4,
 				},
+				daysUntil: 2,
 			},
 		];
 
 		const result = formatAssetEventsSection(events, "email");
 
-		expect(result.dividends).toContain("KO: ex-div 02-14 — $0.50/share (pays 04-01), quarterly");
+		expect(result.dividends).toContain(
+			"KO: ex-div in 2 days (02-14) — $0.50/share (pays 04-01), quarterly",
+		);
 	});
 
 	it("formats forward splits", () => {
@@ -99,14 +106,15 @@ describe("formatAssetEventsSection", () => {
 				event_type: "split" as const,
 				event_date: "2026-02-20",
 				data: { splitFrom: 1, splitTo: 10, adjustmentType: "forward_split" },
+				daysUntil: 2,
 			},
 		];
 
 		const sms = formatAssetEventsSection(events, "sms");
 		const email = formatAssetEventsSection(events, "email");
 
-		expect(sms.splits).toContain("NVDA: split 02-20 10:1");
-		expect(email.splits).toContain("NVDA: split 02-20 — 10:1 forward split");
+		expect(sms.splits).toContain("NVDA: split in 2 days (02-20) 10:1");
+		expect(email.splits).toContain("NVDA: split in 2 days (02-20) — 10:1 forward split");
 	});
 
 	it("formats reverse splits", () => {
@@ -116,14 +124,15 @@ describe("formatAssetEventsSection", () => {
 				event_type: "split" as const,
 				event_date: "2026-03-01",
 				data: { splitFrom: 10, splitTo: 1, adjustmentType: "reverse_split" },
+				daysUntil: 2,
 			},
 		];
 
 		const sms = formatAssetEventsSection(events, "sms");
 		const email = formatAssetEventsSection(events, "email");
 
-		expect(sms.splits).toContain("SIRI: split 03-01 10:1 reverse");
-		expect(email.splits).toContain("SIRI: split 03-01 — 10:1 reverse split");
+		expect(sms.splits).toContain("SIRI: split in 2 days (03-01) 10:1 reverse");
+		expect(email.splits).toContain("SIRI: split in 2 days (03-01) — 10:1 reverse split");
 	});
 
 	it("returns all nulls when no events", () => {
@@ -141,6 +150,7 @@ describe("formatAssetEventsSection", () => {
 				event_type: "earnings" as const,
 				event_date: "2026-02-10",
 				data: { time: null, epsEstimate: null, revenueEstimate: null },
+				daysUntil: 2,
 			},
 			{
 				symbol: "KO",
@@ -152,12 +162,14 @@ describe("formatAssetEventsSection", () => {
 					payDate: null,
 					frequency: null,
 				},
+				daysUntil: 6,
 			},
 			{
 				symbol: "NVDA",
 				event_type: "split" as const,
 				event_date: "2026-02-20",
 				data: { splitFrom: 1, splitTo: 10, adjustmentType: "forward_split" },
+				daysUntil: 12,
 			},
 		];
 
@@ -175,6 +187,7 @@ describe("formatAssetEventsSection", () => {
 				event_type: "earnings" as const,
 				event_date: "2026-02-10",
 				data: { time: null, epsEstimate: null, revenueEstimate: 7_500_000 },
+				daysUntil: 2,
 			},
 		];
 
@@ -233,21 +246,6 @@ describe("formatAssetEventsSection", () => {
 		expect(result.earnings).toContain("GOOGL: earnings in 3 days (02-15)");
 	});
 
-	it("falls back to MM-DD when daysUntil is undefined", () => {
-		const events = [
-			{
-				symbol: "TSLA",
-				event_type: "earnings" as const,
-				event_date: "2026-02-18",
-				data: { time: null, epsEstimate: null, revenueEstimate: null },
-			},
-		];
-
-		const result = formatAssetEventsSection(events, "sms");
-
-		expect(result.earnings).toContain("TSLA: earnings 02-18");
-	});
-
 	it("handles dividend without pay date for email", () => {
 		const events = [
 			{
@@ -260,12 +258,13 @@ describe("formatAssetEventsSection", () => {
 					payDate: null,
 					frequency: null,
 				},
+				daysUntil: 2,
 			},
 		];
 
 		const result = formatAssetEventsSection(events, "email");
 
-		expect(result.dividends).toContain("JNJ: ex-div 02-15 — $1.19/share");
+		expect(result.dividends).toContain("JNJ: ex-div in 2 days (02-15) — $1.19/share");
 		expect(result.dividends).not.toContain("pays");
 		expect(result.dividends).not.toContain("quarterly");
 	});

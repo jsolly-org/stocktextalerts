@@ -19,6 +19,7 @@ import type {
 } from "../../../../src/lib/messaging/types";
 import type { ChannelDeliveryStats, ExtendedAssetQuote } from "../../../../src/lib/types";
 import { makePrefRows } from "../../../helpers/user-record-fixture";
+import { expectConsoleError } from "../../../setup";
 
 type RecordedInsert = { table: string; row: Record<string, unknown> };
 
@@ -136,6 +137,34 @@ describe("A Telegram-linked user receives a 5% flat-price alert via Telegram", (
 		expect(tgLog).toBeDefined();
 		expect(tgLog?.row.type).toBe("flat_price_alert");
 		expect(tgLog?.row.message_delivered).toBe(true);
+	});
+
+	it("counts a failed send, logs the failure, and records message_delivered=false", async () => {
+		expectConsoleError("Failed to send flat price alert Telegram message");
+		const sendTelegram = vi.fn<TelegramSender>(async () => ({
+			success: false,
+			error: "Internal Server Error",
+			errorCode: "500",
+		}));
+
+		const { delivered, inserts, stats } = await deliver({
+			user: makeUser({
+				telegram_chat_id: 778899,
+				prefs: makePrefRows([["price_move_alerts", "", "telegram", true]]),
+			}),
+			sendTelegram,
+		});
+
+		expect(delivered).toBe(false);
+		expect(stats.telegramSent).toBe(0);
+		expect(stats.telegramFailed).toBe(1);
+
+		const tgLog = inserts.find(
+			(i) => i.table === "notification_log" && i.row.delivery_method === "telegram",
+		);
+		expect(tgLog).toBeDefined();
+		expect(tgLog?.row.type).toBe("flat_price_alert");
+		expect(tgLog?.row.message_delivered).toBe(false);
 	});
 
 	it("skips Telegram when the user has no price_move_alerts Telegram pref enabled", async () => {

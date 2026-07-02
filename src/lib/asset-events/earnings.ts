@@ -1,3 +1,4 @@
+import { isRecord } from "../types";
 import { finnhubFetch } from "../vendors/finnhub";
 import { earningsCalendarCache } from "./earnings-cache-store";
 import type { EarningsEvent, ProviderResult } from "./types";
@@ -13,16 +14,16 @@ async function fetchFinnhubEarnings(
 
 	const data = await finnhubFetch("/calendar/earnings", { from, to }, "earnings-calendar");
 	if (data === null) return { data: [], failed: true };
-	if (typeof data !== "object") return { data: [], failed: false };
+	if (!isRecord(data)) return { data: [], failed: false };
 
-	const raw = (data as Record<string, unknown>).earningsCalendar;
+	const raw = data.earningsCalendar;
 	if (!Array.isArray(raw)) return { data: [], failed: false };
 
 	const events: EarningsEvent[] = [];
 	const seen = new Set<string>();
 	for (const item of raw) {
-		if (typeof item !== "object" || item === null) continue;
-		const row = item as Record<string, unknown>;
+		if (!isRecord(item)) continue;
+		const row = item;
 		const ticker = toStringOrNull(row.symbol);
 		const dateRaw = toStringOrNull(row.date);
 		if (!ticker || !dateRaw) continue;

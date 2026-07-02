@@ -74,14 +74,11 @@ export async function processPriceTargets(options: {
 	}
 
 	// Fetch all active price targets joined with user preferences
-	const { data: targetRows, error: targetsError } = await (supabase
+	const { data: targetRows, error: targetsError } = await supabase
 		.from("price_targets")
 		.select(
 			"user_id, symbol, target_price, direction, triggered_at, triggered_price, attempt_count, next_retry_at, email_delivered_at, sms_delivered_at, telegram_delivered_at",
-		) as unknown as Promise<{
-		data: PriceTargetRow[] | null;
-		error: unknown;
-	}>);
+		);
 
 	if (targetsError) {
 		rootLogger.error("Failed to fetch price targets", { action: "price_targets" }, targetsError);
@@ -94,15 +91,12 @@ export async function processPriceTargets(options: {
 
 	// Fetch users who have active price targets
 	const userIds = [...new Set(targetRows.map((t) => t.user_id))];
-	const { data: userData, error: usersError } = await (supabase
+	const { data: userData, error: usersError } = await supabase
 		.from("users")
 		.select(
 			"id, email, email_notifications_enabled, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, telegram_chat_id, telegram_opted_out",
 		)
-		.in("id", userIds) as unknown as Promise<{
-		data: Omit<PriceTargetUser, "prefs">[] | null;
-		error: unknown;
-	}>);
+		.in("id", userIds);
 
 	if (usersError) {
 		rootLogger.error("Failed to fetch price target users", { action: "price_targets" }, usersError);

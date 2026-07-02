@@ -1,3 +1,4 @@
+import { isRecord } from "../../types";
 import { marketDataFetch } from "../../vendors/massive";
 import { sicCodeToSector } from "../sector-mapping";
 import type { TickerDetail } from "../types";
@@ -12,22 +13,21 @@ export async function fetchTickerDetail(symbol: string): Promise<TickerDetail> {
 		{ symbol },
 	);
 
-	if (typeof data !== "object" || data === null) {
+	if (!isRecord(data)) {
 		return { ok: false, iconUrl: null, sector: null };
 	}
 
-	const results = (data as Record<string, unknown>).results;
-	if (typeof results !== "object" || results === null) {
+	const results = data.results;
+	if (!isRecord(results)) {
 		return { ok: false, iconUrl: null, sector: null };
 	}
 
-	const rec = results as Record<string, unknown>;
-	const sicCode = rec.sic_code;
-	const branding = rec.branding;
+	const sicCode = results.sic_code;
+	const branding = results.branding;
 
 	let iconUrl: string | null = null;
-	if (typeof branding === "object" && branding !== null) {
-		const url = (branding as Record<string, unknown>).icon_url;
+	if (isRecord(branding)) {
+		const url = branding.icon_url;
 		if (typeof url === "string" && url.trim() !== "") {
 			iconUrl = url;
 		}

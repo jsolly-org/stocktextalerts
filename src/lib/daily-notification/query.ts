@@ -2,7 +2,7 @@ import type { SupabaseAdminClient } from "../db/supabase";
 import { fetchUsersWithRetry } from "../db/user-query";
 import type { Logger } from "../logging";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
-import type { UserRecord } from "../types";
+import type { UserRecord, UserRecordWithoutPrefs } from "../types";
 import { hasAnyDailyNotificationFacet } from "./eligibility";
 
 /** Channel-level user columns for the daily notification pipeline. */
@@ -29,8 +29,6 @@ export const DAILY_NOTIFICATION_USER_SELECT = `
 	grok_window_start,
 	grok_sends_in_window
 `;
-
-type UserRecordWithoutPrefs = Omit<UserRecord, "prefs">;
 
 export const HAS_DELIVERY_CHANNEL_OR =
 	"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true,telegram_chat_id.not.is.null";
@@ -69,9 +67,7 @@ export async function fetchDailyNotificationUsers(options: {
 				options.supabase,
 				(data ?? []) as unknown as UserRecordWithoutPrefs[],
 			);
-			const filtered = (withPrefs as UserRecord[]).filter((user) =>
-				hasAnyDailyNotificationFacet(user.prefs),
-			);
+			const filtered = withPrefs.filter((user) => hasAnyDailyNotificationFacet(user.prefs));
 			return { data: filtered, error: null };
 		},
 	});
@@ -91,5 +87,5 @@ export async function fetchOneDailyNotificationUser(
 	const [withPrefs] = await attachPrefsToUsers(supabase, [
 		data as unknown as UserRecordWithoutPrefs,
 	]);
-	return (withPrefs as UserRecord | undefined) ?? null;
+	return withPrefs ?? null;
 }

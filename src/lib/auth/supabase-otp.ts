@@ -20,21 +20,13 @@ type VerifyOtpResult = {
 /**
  * Verify a Supabase email OTP token hash for the given OTP type.
  *
- * This helper isolates the minimal runtime surface needed from Supabase Auth, avoiding
- * type-resolution issues with transitive auth-js dependencies.
+ * Narrows the auth surface to the minimal OTP shape the app uses.
  */
 export async function verifySupabaseOtp(
 	supabase: AppSupabaseClient,
 	params: VerifyOtpParams,
 ): Promise<VerifyOtpResult> {
-	// `@supabase/auth-js` is a transitive dependency and our TS tooling sometimes
-	// fails to resolve its method surface correctly. We keep the runtime call but
-	// type the minimal shape we actually use in the app.
-	const auth = supabase.auth as unknown as {
-		verifyOtp: (p: VerifyOtpParams) => Promise<VerifyOtpResult>;
-	};
-
-	return auth.verifyOtp(params);
+	return supabase.auth.verifyOtp(params);
 }
 
 /** True when Supabase reports a single-use OTP was already consumed or expired. */

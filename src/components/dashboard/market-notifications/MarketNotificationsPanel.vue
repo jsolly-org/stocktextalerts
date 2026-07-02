@@ -351,7 +351,7 @@
 												pattern="[0-9]*\.?[0-9]*"
 												:value="getTargetValue(asset.symbol)"
 												:placeholder="'Target'"
-												class="price-target-input w-24 pl-5 pr-2 py-1 text-base sm:text-sm text-right rounded-md border border-edge bg-surface focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 placeholder:text-muted"
+												class="touch-manipulation w-24 pl-5 pr-2 py-1 text-base sm:text-sm text-right rounded-md border border-edge bg-surface focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 placeholder:text-muted"
 												:aria-label="`Price target for ${asset.symbol}`"
 												@input="handleTargetInput(asset.symbol, $event)"
 												@keydown="filterNumericInput"
@@ -363,7 +363,7 @@
 											<button
 												v-if="hasPendingInput(asset.symbol)"
 												type="button"
-												class="price-target-action px-2 py-1 rounded-md text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+												class="touch-manipulation px-2 py-1 rounded-md text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 												:disabled="isSavingTarget(asset.symbol)"
 												:aria-label="`Save price target for ${asset.symbol}`"
 												@click="handleSaveTarget(asset.symbol)"
@@ -438,25 +438,22 @@ import {
 import { parseTimeToMinutes } from "../../../lib/time/parse";
 import FadeTransition from "../../FadeTransition.vue";
 import AssetBadge from "../assets/AssetBadge.vue";
-import {
-	type NotificationPreferencesData,
-	useAutoSaveForm,
-} from "../composables/useAutoSaveNotificationPreferences";
+import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import { useScheduledUpdateTiming } from "../composables/useScheduledUpdateTiming";
 import {
 	DASHBOARD_MARKET_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 } from "../constants";
-import type { ChannelOption } from "../shared/ChannelMultiSelect.vue";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
 import {
 	getEmailChannelDisabledTitle,
 	getSmsChannelDisabledTitle,
 } from "../shared/channel-disabled-titles";
+import { createChannelOptionBuilders } from "../shared/channel-options";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
-import type { InitialAsset } from "../types";
+import type { ChannelOption, InitialAsset, NotificationPreferencesData } from "../types";
 import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
 
 interface Props {
@@ -597,13 +594,13 @@ function getQuickAddIncrementMinutes(
 
 function getNextQuickAddMinute(
 	existingTimes: number[],
-	range: { min: number; max: number } | null,
+	range: { min: number; max: number },
 ): number | null {
 	const normalized = normalizeScheduledTimes(existingTimes);
 	// Clamp auto-add to the market window when it's a single daily span.
 	// Cross-midnight windows (far-east timezones) fall back to the whole day;
 	// users there must pick manually, since wrapping a virtual range gets messy.
-	const useMarketRange = range !== null && range.min <= range.max;
+	const useMarketRange = range.min <= range.max;
 	const lowerBound = useMarketRange ? range.min : 0;
 	const upperBound = useMarketRange ? range.max : MAX_SCHEDULED_UPDATE_MINUTES;
 	const span = upperBound - lowerBound + 1;
@@ -655,16 +652,10 @@ function normalizeScheduledTimes(times: number[]): number[] {
  * migration). The picker UI works in user-local minutes — convert at the
  * hydration boundary. Submit converts back via `userLocalToEtMinute` in the
  * API handler, so the input → submit path stays in user-local space.
- *
- * When the user has no timezone yet (rare; pre-onboarding), pass values
- * through unchanged so we don't silently shift the displayed time before the
- * user has selected a timezone.
  */
 function hydrateScheduledTimesFromEt(stored: number[] | null | undefined): number[] {
-	const tz = user.value.timezone ?? "";
 	const raw = stored ?? [];
-	if (tz === "") return normalizeScheduledTimes(raw);
-	const local = raw.map((et) => etMinuteToUserLocal(et, tz));
+	const local = raw.map((et) => etMinuteToUserLocal(et, user.value.timezone));
 	return normalizeScheduledTimes(local);
 }
 
@@ -678,7 +669,7 @@ const scheduledUpdateTimes = computed(() =>
 	scheduledUpdateTimesMinutes.value.map((value) => minutesToTimeInputValue(value)),
 );
 
-const timezone = computed(() => user.value.timezone ?? "");
+const timezone = computed(() => user.value.timezone);
 
 const smsOptedOut = computed(() => user.value.sms_opted_out === true);
 const smsNotificationsEnabled = computed(() => user.value.sms_notifications_enabled === true);
@@ -720,33 +711,14 @@ Channel multiselect options. Each option carries its selected/disabled/title so 
 multiselect can show every channel while still surfacing why a channel is unavailable.
 Email/SMS disabled logic mirrors the prior per-option checkboxes verbatim.
 ============= */
-function emailOption(selected: boolean): ChannelOption {
-	return {
-		value: "email",
-		label: "Email",
-		selected,
-		disabled: notificationSetupBlocked.value || !emailEnabled.value,
-		disabledTitle: emailDisabledTitle.value,
-	};
-}
-function smsOption(selected: boolean): ChannelOption {
-	return {
-		value: "sms",
-		label: "SMS",
-		selected,
-		disabled: notificationSetupBlocked.value || !smsReady.value,
-		disabledTitle: smsDisabledTitle.value,
-	};
-}
-function telegramOption(selected: boolean): ChannelOption {
-	return {
-		value: "telegram",
-		label: "Telegram",
-		selected,
-		disabled: !telegramConnected.value,
-		disabledTitle: telegramDisabledTitle.value,
-	};
-}
+const { emailOption, smsOption, telegramOption } = createChannelOptionBuilders({
+	emailDisabled: () => notificationSetupBlocked.value || !emailEnabled.value,
+	emailDisabledTitle: () => emailDisabledTitle.value,
+	smsDisabled: () => notificationSetupBlocked.value || !smsReady.value,
+	smsDisabledTitle: () => smsDisabledTitle.value,
+	telegramDisabled: () => !telegramConnected.value,
+	telegramDisabledTitle: () => telegramDisabledTitle.value,
+});
 
 const priceAlertsChannelOptions = computed<ChannelOption[]>(() => [
 	emailOption(priceAlertsIncludeEmail.value),
@@ -816,51 +788,41 @@ const canAddTime = computed(() => {
 	return getNextQuickAddMinute(times, marketLocalRange.value) !== null;
 });
 
-const afterOpenLocalMinutes = computed(() => {
-	const tz = timezone.value;
-	if (tz === "") return null;
-	return getUsAfterOpenLocalMinutes(tz);
-});
+const afterOpenLocalMinutes = computed(() => getUsAfterOpenLocalMinutes(timezone.value));
 
-const afterOpenLabel = computed(() => {
-	if (afterOpenLocalMinutes.value === null) return null;
-	return formatMinutesAsLocalTime(afterOpenLocalMinutes.value, user.value.use_24_hour_time);
-});
+const afterOpenLabel = computed(() =>
+	formatMinutesAsLocalTime(afterOpenLocalMinutes.value, user.value.use_24_hour_time),
+);
 
-const hasAfterOpenTime = computed(() => {
-	if (afterOpenLocalMinutes.value === null) return true;
-	return scheduledUpdateTimesMinutes.value.includes(afterOpenLocalMinutes.value);
-});
+const hasAfterOpenTime = computed(() =>
+	scheduledUpdateTimesMinutes.value.includes(afterOpenLocalMinutes.value),
+);
 
 const canAddAfterOpen = computed(
 	() => !timePickerDisabled.value && !hasAfterOpenTime.value && !maxTimesReached.value,
 );
 
-const marketLocalRange = computed(() => {
-	const tz = timezone.value;
-	if (tz === "") return null;
-	return {
-		min: etMinuteToUserLocal(US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES, tz),
-		max: etMinuteToUserLocal(US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES, tz),
-	};
-});
+const marketLocalRange = computed(() => ({
+	min: etMinuteToUserLocal(US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES, timezone.value),
+	max: etMinuteToUserLocal(US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES, timezone.value),
+}));
 
 const marketMinTime = computed<{ hours: number; minutes: number } | null>(() => {
 	const r = marketLocalRange.value;
-	if (!r || r.min > r.max) return null;
+	if (r.min > r.max) return null;
 	return { hours: Math.floor(r.min / 60), minutes: r.min % 60 };
 });
 
 const marketMaxTime = computed<{ hours: number; minutes: number } | null>(() => {
 	const r = marketLocalRange.value;
-	if (!r || r.min > r.max) return null;
+	if (r.min > r.max) return null;
 	return { hours: Math.floor(r.max / 60), minutes: r.max % 60 };
 });
 
 /** When the market window crosses midnight locally, show this hint so users know only 4:30 AM–7:30 PM ET is accepted. */
 const marketHoursCrossMidnightHint = computed<string | null>(() => {
 	const r = marketLocalRange.value;
-	if (!r || r.min <= r.max) return null;
+	if (r.min <= r.max) return null;
 	return "In your timezone the valid window (4:30 AM–7:30 PM ET) crosses midnight. Only times within that ET window are accepted.";
 });
 
@@ -1357,10 +1319,3 @@ function handleRemoveTime(index: number) {
 
 </script>
 
-<style scoped>
-/* Make the target field explicitly mobile-safe and avoid Safari double-tap zoom. */
-.price-target-input,
-.price-target-action {
-	touch-action: manipulation;
-}
-</style>

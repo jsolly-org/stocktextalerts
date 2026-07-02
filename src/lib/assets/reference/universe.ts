@@ -1,4 +1,5 @@
 import { rootLogger } from "../../logging";
+import { isRecord } from "../../types";
 import { marketDataFetch } from "../../vendors/massive";
 import type { ActiveTicker } from "../types";
 import {
@@ -41,8 +42,8 @@ function parseActiveTickerPage(
 	}
 	const tickers: ActiveTicker[] = [];
 	for (const item of results) {
-		if (typeof item !== "object" || item === null) continue;
-		const rec = item as Record<string, unknown>;
+		if (!isRecord(item)) continue;
+		const rec = item;
 		const symbol = typeof rec.ticker === "string" ? rec.ticker.trim().toUpperCase() : "";
 		const name = typeof rec.name === "string" ? rec.name.trim() : "";
 
@@ -86,13 +87,13 @@ async function listActiveTickersForType(
 			apiType,
 		});
 
-		if (data === null || typeof data !== "object") {
+		if (!isRecord(data)) {
 			throw new Error(
 				`Incomplete active-ticker fetch for type ${apiType}: provider returned no data mid-pagination (collected ${tickers.length})`,
 			);
 		}
 
-		const record = data as Record<string, unknown>;
+		const record = data;
 		tickers.push(...parseActiveTickerPage(record.results, normalizedType, apiType));
 
 		const nextUrl = record.next_url;

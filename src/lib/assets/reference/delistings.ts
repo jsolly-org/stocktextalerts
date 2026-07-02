@@ -1,3 +1,4 @@
+import { isRecord } from "../../types";
 import { marketDataFetch } from "../../vendors/massive";
 import type { TickerReferenceStatus } from "./types";
 
@@ -10,18 +11,18 @@ async function fetchTickerReference(symbol: string): Promise<TickerReferenceStat
 	);
 
 	if (data === null) return { status: "provider_error", symbol };
-	if (typeof data !== "object") return { status: "unknown", symbol };
+	if (!isRecord(data)) return { status: "unknown", symbol };
 
-	const results = (data as Record<string, unknown>).results;
+	const results = data.results;
 	if (!Array.isArray(results) || results.length === 0) {
 		return { status: "unknown", symbol };
 	}
 
 	const first = results[0];
-	if (typeof first !== "object" || first === null) {
+	if (!isRecord(first)) {
 		return { status: "unknown", symbol };
 	}
-	const row = first as Record<string, unknown>;
+	const row = first;
 
 	if (row.active !== false) return { status: "unknown", symbol };
 
