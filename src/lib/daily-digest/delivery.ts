@@ -11,7 +11,6 @@ import {
 	summarizeDailyDigestSmsResults,
 } from "../messaging/notifications/daily-digest";
 import type { SparklineMap } from "../messaging/parts/charts/sparkline";
-import type { NotificationExtras } from "../messaging/parts/extras";
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,
@@ -22,7 +21,7 @@ import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
-import type { EmailSender } from "../messaging/types";
+import type { EmailSender, NotificationExtras } from "../messaging/types";
 import {
 	claimNotification,
 	updateScheduledNotificationRow,

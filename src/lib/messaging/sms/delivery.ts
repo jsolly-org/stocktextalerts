@@ -2,9 +2,8 @@ import type { AppSupabaseClient } from "../../db/supabase";
 import type { MarketClosureInfo } from "../../time/types";
 import type { MarketSession, ProcessingStats } from "../../types";
 import { formatMarketScheduledSms } from "../notifications/market-scheduled";
-import type { NotificationExtras } from "../parts/extras";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
-import type { SmsSender, SmsUser } from "../types";
+import type { NotificationExtras, SmsSender, SmsUser } from "../types";
 import { sendUserSms } from "./index";
 
 /** Send and record an SMS scheduled update for a user. */

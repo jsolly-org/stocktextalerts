@@ -155,8 +155,8 @@ import {
 	type ScheduledMarketSession,
 } from "../../../lib/time/market/session";
 import { parseTimeToMinutes } from "../../../lib/time/parse";
-import { useHydrated } from "../../useHydrated";
 import StatusMessage from "../../StatusMessage.vue";
+import { useHydrated } from "../../useHydrated";
 import TimePicker from "../shared/TimePicker.vue";
 import SessionBadge from "./SessionBadge.vue";
 

@@ -41,6 +41,16 @@ export interface TelegramMessage {
 
 export type TelegramSender = (message: TelegramMessage) => Promise<DeliveryResult>;
 
+/** Optional Grok/Massive/Finnhub extras appended to digest or scheduled notifications. */
+export type NotificationExtras = {
+	news?: string | null;
+	rumors?: string | null;
+	analyst?: string | null;
+	insider?: string | null;
+	topMovers?: string | null;
+	citations?: string[];
+};
+
 /** Minimal user shape needed to send email. */
 export type EmailUser = Pick<Database["public"]["Tables"]["users"]["Row"], "id" | "email">;
 /** Minimal user shape needed to send SMS. */

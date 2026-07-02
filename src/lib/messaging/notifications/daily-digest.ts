@@ -13,7 +13,6 @@ import {
 } from "../parts/asset-price-list";
 import type { SparklineData, SparklineMap } from "../parts/charts/sparkline";
 import { formatContentSection } from "../parts/content-section";
-import type { NotificationExtras } from "../parts/extras";
 import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
 import {
 	buildMarketClosedBannerHtml,
@@ -22,6 +21,7 @@ import {
 } from "../parts/market-closure";
 import { packSmsBlocks, type SmsBlock } from "../sms/block-packing";
 import { padDailyDigestSmsSegmentBoundaries } from "../sms/segment-utils";
+import type { NotificationExtras } from "../types";
 
 const TICKER_LINE_RE = /^[A-Z][A-Z0-9.-]{0,9}:\s/;
 const QUOTE_TIMESTAMP_FORMAT_BASE: Intl.DateTimeFormatOptions = {

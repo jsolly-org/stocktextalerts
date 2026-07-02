@@ -9,7 +9,7 @@ import {
 	formatDailyDigestTelegram,
 } from "../messaging/notifications/daily-digest";
 import type { SparklineMap } from "../messaging/parts/charts/sparkline";
-import type { NotificationExtras } from "../messaging/parts/extras";
+import type { NotificationExtras } from "../messaging/types";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { upsertStagedNotification } from "../staged-notifications/db";
 import type { MarketClosureInfo } from "../time/types";

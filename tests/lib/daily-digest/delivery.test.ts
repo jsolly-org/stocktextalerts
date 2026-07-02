@@ -8,14 +8,13 @@ import {
 	formatDailyDigestSmsMessages,
 } from "../../../src/lib/messaging/notifications/daily-digest";
 import type { SparklineData } from "../../../src/lib/messaging/parts/charts/sparkline";
-import type { NotificationExtras } from "../../../src/lib/messaging/parts/extras";
 import { SMS_UCS2_SEGMENT_SIZE } from "../../../src/lib/messaging/sms/constants";
 import {
 	finalizeSmsBodyForUcs2Segments,
 	findDailyDigestProtectedSpans,
 	spanStraddlesBoundary,
 } from "../../../src/lib/messaging/sms/segment-utils";
-import type { SmsSender } from "../../../src/lib/messaging/types";
+import type { NotificationExtras, SmsSender } from "../../../src/lib/messaging/types";
 import type { ScheduledNotificationTotals } from "../../../src/lib/scheduled-notifications/types";
 import type { AssetPriceMap, UserAssetRow, UserRecord } from "../../../src/lib/types";
 import { assertIsoDateString } from "../../../src/lib/types";
