@@ -31,6 +31,9 @@ env:
   CI: true
   DOCKER_HOST: unix:///var/run/docker.sock
   DEFAULT_PASSWORD: ci-local-seed-password
+  # Container-registry throttle signature, shared by the db:start / db:reset retry loops below.
+  # Single source of truth so the two steps' retry classifier can never silently diverge.
+  TRANSIENT_REGEX: 'toomanyrequests|rate exceeded|\b429\b|TLS handshake timeout|i/o timeout|connection reset by peer'
 
 jobs:
   ci:
@@ -58,10 +61,11 @@ jobs:
         with:
           use-installer: true
 
-      - uses: supabase/setup-cli@v2
-        with:
-          version: latest
-          github-token: ${{ github.token }}
+      # No supabase/setup-cli here on purpose: the Supabase CLI is the lock-pinned
+      # `supabase` devDependency (node_modules/.bin/supabase). `npm ci` above installs it,
+      # and every DB step below routes through it (db:start/db:reset via scripts/db, and the
+      # bare `supabase status` call is invoked as ./node_modules/.bin/supabase). One pinned
+      # CLI, no `version: latest` drift between the binary that starts the stack and reads it.
 
       - name: Run Biome
         run: npx --no-install biome ci . --error-on-warnings
@@ -109,11 +113,29 @@ jobs:
           } >> .env.local
 
       - name: Start Supabase
-        run: npm run db:start
+        run: |
+          set -Eeuo pipefail   # explicit: the `cmd | tee` failure check below must not rely on the runner's default shell flags
+          # Retry ONLY on a transient container-registry throttle: the Supabase stack pulls
+          # images from public.ecr.aws / Docker Hub, whose anonymous per-IP rate limits are
+          # shared across GitHub's runner pool. Any non-throttle failure fails fast so a real
+          # error isn't masked by three pointless retries. Backoff gives the per-IP limit time.
+          for attempt in 1 2 3; do
+            if npm run db:start 2>&1 | tee /tmp/db-start.log; then exit 0; fi
+            if ! grep -qiE "$TRANSIENT_REGEX" /tmp/db-start.log; then
+              echo "::error::db:start failed for a non-transient reason (see log above); not retrying." >&2
+              exit 1
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::db:start hit a transient registry throttle (attempt ${attempt}/3); retrying in $((attempt * 30))s." >&2
+              sleep "$((attempt * 30))"
+            fi
+          done
+          echo "::error::db:start still throttled by the container registry after 3 attempts." >&2
+          exit 1
 
       - name: Load Supabase env
         run: |
-          supabase status -o json > /tmp/sb-status.json
+          ./node_modules/.bin/supabase status -o json > /tmp/sb-status.json
           DB_VARS=$(jq -r '
             "SUPABASE_URL=\(.API_URL // "")",
             "SUPABASE_PUBLISHABLE_KEY=\(.ANON_KEY // "")",
@@ -161,7 +183,25 @@ jobs:
           echo "DEFAULT_PASSWORD=${DEFAULT_PASSWORD}" >> "$GITHUB_ENV"
 
       - name: Reset database
-        run: npm run db:reset
+        run: |
+          set -Eeuo pipefail   # explicit: the `cmd | tee` failure check below must not rely on the runner's default shell flags
+          # Same registry-throttle retry as Start Supabase: db:reset regenerates types via a
+          # freshly-pulled postgres-meta container, the exact pull that flakes under rate limits.
+          # db:reset is idempotent (stop -> start -> migrate -> seed -> gen-types), so re-running
+          # a throttled attempt is safe. Non-throttle failures (bad migration, seed error) fail fast.
+          for attempt in 1 2 3; do
+            if npm run db:reset 2>&1 | tee /tmp/db-reset.log; then exit 0; fi
+            if ! grep -qiE "$TRANSIENT_REGEX" /tmp/db-reset.log; then
+              echo "::error::db:reset failed for a non-transient reason (see log above); not retrying." >&2
+              exit 1
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::db:reset hit a transient registry throttle (attempt ${attempt}/3); retrying in $((attempt * 30))s." >&2
+              sleep "$((attempt * 30))"
+            fi
+          done
+          echo "::error::db:reset still throttled by the container registry after 3 attempts." >&2
+          exit 1
 
       - name: Verify generated types are checked in
         run: |

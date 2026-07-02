@@ -36,10 +36,10 @@
 			</header>
 
 			<SetupRequiredNotice
-				:needsTrackedAssets="needsTrackedAssets"
-				:needsChannelSelection="needsChannelSelection"
-				:needsPhoneVerification="needsPhoneVerification"
-				:phoneVerificationSectionId="phoneVerificationSectionId"
+				:needs-tracked-assets="needsTrackedAssets"
+				:needs-channel-selection="needsChannelSelection"
+				:needs-phone-verification="needsPhoneVerification"
+				:phone-verification-section-id="phoneVerificationSectionId"
 			/>
 
 			<div
@@ -90,7 +90,7 @@
 					</div>
 					<div class="shrink-0">
 						<ChannelMultiSelect
-							idPrefix="market_asset_price_alerts"
+							id-prefix="market_asset_price_alerts"
 							labelledby="market_asset_price_alerts_enabled_label"
 							:options="priceAlertsChannelOptions"
 							@toggle="handlePriceAlertsToggle"
@@ -170,7 +170,7 @@
 					</div>
 					<div class="shrink-0">
 						<ChannelMultiSelect
-							idPrefix="market_scheduled_asset_price"
+							id-prefix="market_scheduled_asset_price"
 							labelledby="market_scheduled_asset_price_enabled_label"
 							:options="marketScheduledChannelOptions"
 							@toggle="handleMarketScheduledToggle"
@@ -196,23 +196,23 @@
 						</FadeTransition>
 
 						<ScheduledUpdateControls
-							:scheduledUpdateTimes="scheduledUpdateTimes"
-							:needsChannelSelection="notificationSetupBlocked"
-							:timePickerDisabled="timePickerDisabled"
-							:canAddTime="canAddTime"
-							:canAddAfterOpen="canAddAfterOpen"
-							:afterOpenLabel="afterOpenLabel"
-							:maxTimes="MAX_DELIVERY_TIMES"
-							:maxTimesReached="maxTimesReached"
-							:countdownText="countdownText"
-							:countdownDelayReasons="countdownDelayReasons"
-							:countdownHolidayName="countdownHolidayName"
-							:countdownDstShift="countdownDstShift"
-							:minTime="marketMinTime"
-							:maxTime="marketMaxTime"
-							:marketHoursCrossMidnightHint="marketHoursCrossMidnightHint"
+							:scheduled-update-times="scheduledUpdateTimes"
+							:needs-channel-selection="notificationSetupBlocked"
+							:time-picker-disabled="timePickerDisabled"
+							:can-add-time="canAddTime"
+							:can-add-after-open="canAddAfterOpen"
+							:after-open-label="afterOpenLabel"
+							:max-times="MAX_DELIVERY_TIMES"
+							:max-times-reached="maxTimesReached"
+							:countdown-text="countdownText"
+							:countdown-delay-reasons="countdownDelayReasons"
+							:countdown-holiday-name="countdownHolidayName"
+							:countdown-dst-shift="countdownDstShift"
+							:min-time="marketMinTime"
+							:max-time="marketMaxTime"
+							:market-hours-cross-midnight-hint="marketHoursCrossMidnightHint"
 							:is24="is24"
-							:userTimezone="timezone"
+							:user-timezone="timezone"
 							@time-change="handleTimeChange"
 							@add-time="handleAddTime"
 							@add-initial-time="handleAddInitialTime"
@@ -259,7 +259,7 @@
 					</div>
 					<div class="shrink-0">
 						<ChannelMultiSelect
-							idPrefix="price_move_alerts"
+							id-prefix="price_move_alerts"
 							labelledby="price_move_alerts_label"
 							:options="priceMoveChannelOptions"
 							@toggle="handlePriceMoveToggle"
@@ -301,7 +301,7 @@
 					</div>
 					<div class="shrink-0">
 						<ChannelMultiSelect
-							idPrefix="price_targets"
+							id-prefix="price_targets"
 							labelledby="price_targets_label"
 							:options="priceTargetsChannelOptions"
 							@toggle="handlePriceTargetsToggle"

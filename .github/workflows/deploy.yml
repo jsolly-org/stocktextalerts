@@ -63,10 +63,11 @@ jobs:
         with:
           use-installer: true
 
-      - uses: supabase/setup-cli@v2
-        with:
-          version: latest
-          github-token: ${{ github.token }}
+      # No supabase/setup-cli: the production `supabase db push` in aws/deploy-web.sh resolves the
+      # lock-pinned `supabase` devDependency via node_modules/.bin on PATH (deploy-web.sh prepends it;
+      # `npm ci` above installs it). One pinned CLI (2.109.0) is validated in CI AND applied to prod —
+      # keeping a `version: latest` setup-cli here would be dead, shadowed config and reintroduce the
+      # exact validate-on-X / apply-on-Y drift this repo pins the CLI to avoid.
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

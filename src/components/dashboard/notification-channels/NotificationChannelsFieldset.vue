@@ -90,12 +90,12 @@
 			<div class="sm:shrink-0">
 				<div class="flex flex-col sm:flex-row sm:items-center gap-2">
 					<TimePicker
-						:inputId="`daily_digest_time`"
-						:inputName="`daily_digest_time`"
-						:initialTime="props.dailyDeliveryTimeInput"
-						inputAriaLabel="Daily notification delivery time"
+						:input-id="`daily_digest_time`"
+						:input-name="`daily_digest_time`"
+						:initial-time="props.dailyDeliveryTimeInput"
+						input-aria-label="Daily notification delivery time"
 						:clearable="props.dailyDeliveryTimeMinutes !== null"
-						clearAriaLabel="Clear delivery time"
+						clear-aria-label="Clear delivery time"
 						:is24="props.is24"
 						@time-change="emit('dailyTimeChange', $event)"
 						@clear="emit('clearDeliveryTime')"
