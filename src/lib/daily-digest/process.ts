@@ -1,4 +1,4 @@
-import { DateTime } from "luxon";
+import type { DateTime } from "luxon";
 import { buildAssetEventsContentForChannels } from "../asset-events/content";
 import type { AssetEventsContent, AssetEventsTelegramFacets } from "../asset-events/types";
 import {
@@ -7,10 +7,7 @@ import {
 	hasAnyDailyAssetEventFacet,
 	isDailyNotificationFacetEnabled,
 } from "../daily-notification/eligibility";
-import {
-	readDailyNotificationNextSendAt,
-	updateUserDailyNotificationNextSendAt,
-} from "../daily-notification/schedule";
+import { updateUserDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { loadUserAssets } from "../db/user-assets";
 import type { Logger } from "../logging";
@@ -32,11 +29,11 @@ import { MAX_NOTIFICATION_RETRIES } from "../scheduled-notifications/constants";
 import { getMaxDailyDigestSlotAttempts } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
+import { parseScheduledSlotContext } from "../time/schedule/next-send";
 import type { MarketClosureInfo } from "../time/types";
 import type { AssetPriceMap, MarketSession, UserRecord } from "../types";
 import {
 	buildTopMoversSection,
-	parseDailyScheduleContext,
 	resolveGrokEligibility,
 	updateGrokSendCounter,
 } from "./content-build";
@@ -97,17 +94,24 @@ export async function processDailyDigestUser(options: {
 	} = options;
 
 	try {
-		const scheduleCtx = parseDailyScheduleContext(user, currentTime, logger);
+		const scheduleCtx = parseScheduledSlotContext({
+			cursorIso: user.daily_notification_next_send_at,
+			cursorField: "daily_notification_next_send_at",
+			timezone: user.timezone,
+			userId: user.id,
+			currentTime,
+			logger,
+			logLabel: " (daily)",
+			action: "daily_run",
+		});
 		if (!scheduleCtx) {
 			stats.skipped++;
 			return stats;
 		}
-		const { scheduledDate, scheduledMinutes } = scheduleCtx;
+		const { scheduledDate, scheduledMinutes, dueAt } = scheduleCtx;
 
-		const dueAtIso = readDailyNotificationNextSendAt(user);
-		const dueAt = dueAtIso ? DateTime.fromISO(dueAtIso, { zone: "utc" }) : currentTime;
 		const delayBannerOpts = {
-			scheduledFor: dueAt.isValid ? dueAt : currentTime,
+			scheduledFor: dueAt,
 			now: currentTime,
 			userTimezone: user.timezone,
 			use24Hour: user.use_24_hour_time,
@@ -303,7 +307,7 @@ export async function processDailyDigestUser(options: {
 		// Check whether the US market is closed today (weekend / holiday).
 		// Use the user's scheduled send instant (not job execution time) so digests
 		// near US midnight classify the correct market day during precompute.
-		const closureRefInstant = dueAtIso ? DateTime.fromISO(dueAtIso, { zone: "utc" }) : currentTime;
+		const closureRefInstant = dueAt;
 		const marketClosureInfo =
 			marketClosureInfoParam !== undefined
 				? marketClosureInfoParam
@@ -676,7 +680,16 @@ export async function processDailyDigestUser(options: {
 	} catch (error) {
 		stats.skipped++;
 		logger.error("Error processing daily digest user", { userId: user.id }, error);
-		const scheduleCtxOnError = parseDailyScheduleContext(user, currentTime, logger);
+		const scheduleCtxOnError = parseScheduledSlotContext({
+			cursorIso: user.daily_notification_next_send_at,
+			cursorField: "daily_notification_next_send_at",
+			timezone: user.timezone,
+			userId: user.id,
+			currentTime,
+			logger,
+			logLabel: " (daily)",
+			action: "daily_run",
+		});
 		if (!stageOnly && scheduleCtxOnError) {
 			await recordDailyDigestProcessingFailure({
 				supabase,
