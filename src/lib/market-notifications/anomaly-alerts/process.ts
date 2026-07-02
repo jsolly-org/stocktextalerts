@@ -14,12 +14,17 @@ import { isFacetEnabled } from "../../messaging/notification-prefs";
 import { createNotificationSenders } from "../../messaging/senders";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import type { EnrichedAlert } from "../../price-alerts/types";
-import type { ExtendedQuoteMap, IntradayCandle, MarketSession } from "../../types";
+import type {
+	ChannelDeliveryStats,
+	ExtendedQuoteMap,
+	IntradayCandle,
+	MarketSession,
+} from "../../types";
 import { fetchDailyStats } from "../daily-stats";
 import { getSnapshotsForSymbols, storeSnapshots } from "../snapshot-store";
 import { getAnomalyThreshold } from "./alert-profile";
 import { computeAnomalyScore } from "./anomaly-detection";
-import { deliverPriceAlert, type PriceAlertDeliveryStats } from "./delivery";
+import { deliverPriceAlert } from "./delivery";
 import {
 	buildSignalContexts,
 	calculateDollarMove,
@@ -40,7 +45,7 @@ const MARKET_BENCHMARK_SYMBOL = "SPY";
  * cooldown skips (when claim_market_asset_price_alert_slot returned false),
  * and delivery counts (email/SMS success/fail).
  */
-export interface PriceAlertTotals extends PriceAlertDeliveryStats {
+export interface PriceAlertTotals extends ChannelDeliveryStats {
 	symbolsChecked: number;
 	alertsTriggered: number;
 	cooldownSkips: number;

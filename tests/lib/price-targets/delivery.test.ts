@@ -5,12 +5,8 @@ import {
 	deliverPriceTargetAlert,
 	formatPriceTargetSms,
 } from "../../../src/lib/price-targets/delivery";
-import type {
-	PriceTargetDeliveryStats,
-	PriceTargetUser,
-	TriggeredPriceTarget,
-} from "../../../src/lib/price-targets/types";
-import type { DeliveryResult } from "../../../src/lib/types";
+import type { PriceTargetUser, TriggeredPriceTarget } from "../../../src/lib/price-targets/types";
+import type { ChannelDeliveryStats, DeliveryResult } from "../../../src/lib/types";
 import { makePrefRows } from "../../helpers/user-record-fixture";
 
 function makeSupabaseMock(): AppSupabaseClient {
@@ -21,7 +17,7 @@ function makeSupabaseMock(): AppSupabaseClient {
 	} as unknown as AppSupabaseClient;
 }
 
-function makeStats(): PriceTargetDeliveryStats {
+function makeStats(): ChannelDeliveryStats {
 	return {
 		emailsSent: 0,
 		emailsFailed: 0,

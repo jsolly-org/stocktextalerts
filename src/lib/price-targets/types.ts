@@ -1,5 +1,5 @@
 import type { PriceTargetDirection } from "../db/types";
-import type { PrefRow } from "../types";
+import type { ChannelDeliveryStats, PrefRow } from "../types";
 
 export interface PriceTargetUser {
 	id: string;
@@ -28,18 +28,7 @@ export interface TriggeredPriceTarget {
 	iconBase64?: string | null;
 }
 
-/** Per-run delivery counters for price target notifications. */
-export interface PriceTargetDeliveryStats {
-	emailsSent: number;
-	emailsFailed: number;
-	smsSent: number;
-	smsFailed: number;
-	telegramSent: number;
-	telegramFailed: number;
-	logFailures: number;
-}
-
-export interface PriceTargetTotals extends PriceTargetDeliveryStats {
+export interface PriceTargetTotals extends ChannelDeliveryStats {
 	targetsChecked: number;
 	targetsTriggered: number;
 	/** Times `deliverPriceTargetAlert` threw (a hard delivery failure), distinct

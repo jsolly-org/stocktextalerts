@@ -8,9 +8,9 @@ import { isFacetEnabled } from "../../messaging/notification-prefs";
 import type { SparklineData } from "../../messaging/parts/charts/sparkline";
 import { createNotificationSenders } from "../../messaging/senders";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
-import type { ExtendedQuoteMap, IntradayBarsResult } from "../../types";
+import type { ChannelDeliveryStats, ExtendedQuoteMap, IntradayBarsResult } from "../../types";
 import { FLAT_PRICE_ALERT_THRESHOLD_PERCENT } from "./constants";
-import { deliverFlatPriceAlert, type FlatPriceAlertDeliveryStats } from "./delivery";
+import { deliverFlatPriceAlert } from "./delivery";
 import {
 	fetchFlatPriceAlertState,
 	finalizeFlatPriceAlert,
@@ -23,7 +23,7 @@ import { type FlatPriceAlertUser, fetchFlatPriceAlertUsers } from "./users";
 const logger = createLogger({ module: "flat-price-alerts" });
 
 /** Aggregated stats from a flat-price-alert run. */
-export interface FlatPriceAlertTotals extends FlatPriceAlertDeliveryStats {
+export interface FlatPriceAlertTotals extends ChannelDeliveryStats {
 	usersChecked: number;
 	symbolsEvaluated: number;
 	alertsTriggered: number;

@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../src/lib/db/supabase";
-import {
-	deliverPriceAlert,
-	type PriceAlertDeliveryStats,
-} from "../../../src/lib/market-notifications/anomaly-alerts/delivery";
+import { deliverPriceAlert } from "../../../src/lib/market-notifications/anomaly-alerts/delivery";
 import type { PriceAlertUser } from "../../../src/lib/market-notifications/anomaly-alerts/users";
 import type {
 	EmailSender,
@@ -12,7 +9,7 @@ import type {
 	TelegramSender,
 } from "../../../src/lib/messaging/types";
 import type { EnrichedAlert, PriceAlertGrokResult } from "../../../src/lib/price-alerts/types";
-import type { DeliveryResult } from "../../../src/lib/types";
+import type { ChannelDeliveryStats, DeliveryResult } from "../../../src/lib/types";
 import { makePrefRows } from "../../helpers/user-record-fixture";
 
 function makeSupabaseMock(): AppSupabaseClient {
@@ -33,7 +30,7 @@ function makeSupabaseMock(): AppSupabaseClient {
 	} as unknown as AppSupabaseClient;
 }
 
-function makeStats(): PriceAlertDeliveryStats {
+function makeStats(): ChannelDeliveryStats {
 	return {
 		emailsSent: 0,
 		emailsFailed: 0,

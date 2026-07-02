@@ -16,11 +16,8 @@ import type {
 	TelegramSender,
 } from "../../../src/lib/messaging/types";
 import { deliverPriceTargetAlert } from "../../../src/lib/price-targets/delivery";
-import type {
-	PriceTargetDeliveryStats,
-	PriceTargetUser,
-	TriggeredPriceTarget,
-} from "../../../src/lib/price-targets/types";
+import type { PriceTargetUser, TriggeredPriceTarget } from "../../../src/lib/price-targets/types";
+import type { ChannelDeliveryStats } from "../../../src/lib/types";
 import { makePrefRows } from "../../helpers/user-record-fixture";
 
 type RecordedInsert = { table: string; row: Record<string, unknown> };
@@ -43,7 +40,7 @@ function makeTelegramSupabaseMock(): {
 	return { client, inserts };
 }
 
-function makeStats(): PriceTargetDeliveryStats {
+function makeStats(): ChannelDeliveryStats {
 	return {
 		emailsSent: 0,
 		emailsFailed: 0,

@@ -26,6 +26,7 @@ import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../../messaging/telegram/price-alert";
 import type { EmailSender, SmsSender, TelegramSender } from "../../messaging/types";
 import type { EnrichedAlert } from "../../price-alerts/types";
+import type { ChannelDeliveryStats } from "../../types";
 import type { PriceAlertUser } from "./users";
 
 /** Cap Grok summary length in SMS to avoid segment/cost spikes from long model output. */
@@ -64,17 +65,6 @@ function formatPriceContextWithSparkline(
 	return sparkline
 		? `${priceContext} ${SMS_SPARKLINE_LABEL[chart.window]}: ${sparkline}`
 		: priceContext;
-}
-
-/** Per-run delivery counters for price alerts (email/SMS/Telegram success/fail and log failures). */
-export interface PriceAlertDeliveryStats {
-	emailsSent: number;
-	emailsFailed: number;
-	smsSent: number;
-	smsFailed: number;
-	telegramSent: number;
-	telegramFailed: number;
-	logFailures: number;
 }
 
 /**
@@ -243,7 +233,7 @@ export async function deliverPriceAlert(options: {
 	sendSms: SmsSender | null;
 	/** Telegram sender, threaded the same way as `sendSms` (lazy provider in process.ts). */
 	sendTelegram?: TelegramSender | null;
-	stats: PriceAlertDeliveryStats;
+	stats: ChannelDeliveryStats;
 	logoCache?: ReturnType<typeof createLogoCache>;
 }): Promise<boolean> {
 	const { user, alert, supabase, sendEmail, sendSms, sendTelegram, stats, logoCache } = options;

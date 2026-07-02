@@ -17,12 +17,8 @@ import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../messaging/telegram/price-alert";
 import type { EmailSender, SmsSender, TelegramSender } from "../messaging/types";
 import { buildPriceTargetEnriched } from "../price-alerts/compose";
-import type {
-	PriceTargetDeliveryOutcome,
-	PriceTargetDeliveryStats,
-	PriceTargetUser,
-	TriggeredPriceTarget,
-} from "./types";
+import type { ChannelDeliveryStats } from "../types";
+import type { PriceTargetDeliveryOutcome, PriceTargetUser, TriggeredPriceTarget } from "./types";
 
 /**
  * Format the SMS body for a price target alert.
@@ -106,7 +102,7 @@ export async function deliverPriceTargetAlert(options: {
 	sendSms: SmsSender | null;
 	/** Telegram sender, threaded the same way as `sendSms` (lazy provider in process.ts). */
 	sendTelegram?: TelegramSender | null;
-	stats: PriceTargetDeliveryStats;
+	stats: ChannelDeliveryStats;
 	logoCache?: ReturnType<typeof createLogoCache>;
 	/** Channels already delivered on a prior retry round (from the row's
 	 *  `*_delivered_at` columns). Delivered channels are skipped, never re-sent. */

@@ -303,6 +303,18 @@ export type ProcessingStats =
 	| { sent: true; logged: boolean }
 	| { sent: false; logged: boolean; error: string; errorCode?: string };
 
+/** Per-run delivery counters shared by every notification pipeline (one pair per channel). */
+export interface ChannelDeliveryStats {
+	emailsSent: number;
+	emailsFailed: number;
+	smsSent: number;
+	smsFailed: number;
+	telegramSent: number;
+	telegramFailed: number;
+	/** `notification_log` insert failures on an otherwise completed send. */
+	logFailures: number;
+}
+
 /* =============
 Timezone
 ============= */

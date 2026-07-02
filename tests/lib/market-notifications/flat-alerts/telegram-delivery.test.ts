@@ -9,10 +9,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../../src/lib/db/supabase";
-import {
-	deliverFlatPriceAlert,
-	type FlatPriceAlertDeliveryStats,
-} from "../../../../src/lib/market-notifications/flat-alerts/delivery";
+import { deliverFlatPriceAlert } from "../../../../src/lib/market-notifications/flat-alerts/delivery";
 import type { FlatPriceAlertUser } from "../../../../src/lib/market-notifications/flat-alerts/users";
 import { createLogoCache } from "../../../../src/lib/messaging/logo-fetcher";
 import type {
@@ -20,7 +17,7 @@ import type {
 	TelegramMessage,
 	TelegramSender,
 } from "../../../../src/lib/messaging/types";
-import type { ExtendedAssetQuote } from "../../../../src/lib/types";
+import type { ChannelDeliveryStats, ExtendedAssetQuote } from "../../../../src/lib/types";
 import { makePrefRows } from "../../../helpers/user-record-fixture";
 
 type RecordedInsert = { table: string; row: Record<string, unknown> };
@@ -43,7 +40,7 @@ function makeTelegramSupabaseMock(): {
 	return { client, inserts };
 }
 
-function makeStats(): FlatPriceAlertDeliveryStats {
+function makeStats(): ChannelDeliveryStats {
 	return {
 		emailsSent: 0,
 		emailsFailed: 0,
