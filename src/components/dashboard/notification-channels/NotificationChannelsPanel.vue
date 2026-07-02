@@ -95,7 +95,7 @@
 				:class="{ 'opacity-50': notificationSetupBlocked }"
 			>
 				<div class="mb-6">
-					<div class="preview-slide">
+					<div class="flex min-w-0 justify-center">
 						<SmsPreview :assets="previewAssets" />
 					</div>
 				</div>
@@ -438,10 +438,3 @@ const previewAssets = computed<PreviewAsset[]>(() => {
 });
 </script>
 
-<style scoped>
-.preview-slide {
-	min-width: 0;
-	display: flex;
-	justify-content: center;
-}
-</style>

@@ -351,7 +351,7 @@
 												pattern="[0-9]*\.?[0-9]*"
 												:value="getTargetValue(asset.symbol)"
 												:placeholder="'Target'"
-												class="price-target-input w-24 pl-5 pr-2 py-1 text-base sm:text-sm text-right rounded-md border border-edge bg-surface focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 placeholder:text-muted"
+												class="touch-manipulation w-24 pl-5 pr-2 py-1 text-base sm:text-sm text-right rounded-md border border-edge bg-surface focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 placeholder:text-muted"
 												:aria-label="`Price target for ${asset.symbol}`"
 												@input="handleTargetInput(asset.symbol, $event)"
 												@keydown="filterNumericInput"
@@ -363,7 +363,7 @@
 											<button
 												v-if="hasPendingInput(asset.symbol)"
 												type="button"
-												class="price-target-action px-2 py-1 rounded-md text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+												class="touch-manipulation px-2 py-1 rounded-md text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 												:disabled="isSavingTarget(asset.symbol)"
 												:aria-label="`Save price target for ${asset.symbol}`"
 												@click="handleSaveTarget(asset.symbol)"
@@ -1335,10 +1335,3 @@ function handleRemoveTime(index: number) {
 
 </script>
 
-<style scoped>
-/* Make the target field explicitly mobile-safe and avoid Safari double-tap zoom. */
-.price-target-input,
-.price-target-action {
-	touch-action: manipulation;
-}
-</style>
