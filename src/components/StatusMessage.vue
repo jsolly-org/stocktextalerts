@@ -34,8 +34,8 @@ import CheckCircleIcon from "../icons/check-circle-24.svg?component";
 import ExclamationCircleIcon from "../icons/exclamation-circle-24.svg?component";
 import ExclamationTriangleIcon from "../icons/exclamation-triangle-24.svg?component";
 import InformationCircleIcon from "../icons/information-circle-20.svg?component";
-import type { StatusTone } from "./ui-constants";
-import { STATUS_TONE_CLASSES } from "./ui-constants";
+import { STATUS_TONE_CLASSES } from "./constants";
+import type { StatusTone } from "./types";
 
 const props = withDefaults(
 	defineProps<{

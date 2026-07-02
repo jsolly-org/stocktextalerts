@@ -121,7 +121,7 @@ import {
 } from "../../../lib/time/display";
 import { parseTimeToMinutes } from "../../../lib/time/parse";
 import StatusMessage from "../../StatusMessage.vue";
-import type { FlashMessage, FlashTone } from "../../ui-constants";
+import type { FlashMessage, FlashTone } from "../../types";
 import { useHydrated } from "../../useHydrated";
 import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
