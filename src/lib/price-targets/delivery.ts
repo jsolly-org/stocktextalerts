@@ -17,30 +17,12 @@ import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../messaging/telegram/price-alert";
 import type { EmailSender, SmsSender, TelegramSender } from "../messaging/types";
 import { buildPriceTargetEnriched } from "../price-alerts/compose";
-import type { PriceTargetUser, TriggeredPriceTarget } from "./process";
-
-/** Per-run delivery counters for price target notifications. */
-export interface PriceTargetDeliveryStats {
-	emailsSent: number;
-	emailsFailed: number;
-	smsSent: number;
-	smsFailed: number;
-	telegramSent: number;
-	telegramFailed: number;
-	logFailures: number;
-}
-
-/** Outcome of one channel in a single delivery round. `skipped` means the channel
- *  was not attempted (not wanted, not usable, or already delivered on a prior round). */
-type PriceTargetChannelOutcome = "sent" | "failed" | "skipped";
-
-/** Per-channel outcome of one `deliverPriceTargetAlert` round. The caller uses this
- *  to decide when every *required* channel has reached a terminal (sent) state. */
-export interface PriceTargetDeliveryOutcome {
-	email: PriceTargetChannelOutcome;
-	sms: PriceTargetChannelOutcome;
-	telegram: PriceTargetChannelOutcome;
-}
+import type {
+	PriceTargetDeliveryOutcome,
+	PriceTargetDeliveryStats,
+	PriceTargetUser,
+	TriggeredPriceTarget,
+} from "./types";
 
 /**
  * Format the SMS body for a price target alert.

@@ -15,11 +15,12 @@ import type {
 	TelegramMessage,
 	TelegramSender,
 } from "../../../src/lib/messaging/types";
-import {
-	deliverPriceTargetAlert,
-	type PriceTargetDeliveryStats,
-} from "../../../src/lib/price-targets/delivery";
-import type { PriceTargetUser, TriggeredPriceTarget } from "../../../src/lib/price-targets/process";
+import { deliverPriceTargetAlert } from "../../../src/lib/price-targets/delivery";
+import type {
+	PriceTargetDeliveryStats,
+	PriceTargetUser,
+	TriggeredPriceTarget,
+} from "../../../src/lib/price-targets/types";
 import { makePrefRows } from "../../helpers/user-record-fixture";
 
 type RecordedInsert = { table: string; row: Record<string, unknown> };
