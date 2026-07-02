@@ -8,8 +8,8 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { DateTime } from "luxon";
 import { fetchAndStoreFinnhubEnrichment } from "../../lib/asset-events/enrichment-store";
-import type { AssetEventProvider } from "../../lib/asset-events/fetch";
 import { fetchAndStoreAssetEvents } from "../../lib/asset-events/fetch";
+import type { AssetEventProvider } from "../../lib/asset-events/types";
 import { runDelistingSweep } from "../../lib/assets/delisting-sweep";
 import { runUniverseReconcile } from "../../lib/assets/universe-reconcile";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";

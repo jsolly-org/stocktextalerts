@@ -1,5 +1,5 @@
 import type { DateTime as DateTimeType } from "luxon";
-import type { AssetEventsContent } from "../asset-events/content";
+import type { AssetEventsContent } from "../asset-events/types";
 import { readDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";

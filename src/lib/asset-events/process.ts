@@ -19,13 +19,14 @@ import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../tim
 import { getLocalMinutesFromDateTime } from "../time/schedule/next-send";
 import type { UserRecord } from "../types";
 import { assertIsoDateString } from "../types";
-import { type AssetEventsTelegramFacets, buildAssetEventsContentForChannels } from "./content";
+import { buildAssetEventsContentForChannels } from "./content";
 import {
 	processAssetEventsEmailDelivery,
 	processAssetEventsSmsDelivery,
 	processAssetEventsTelegramDelivery,
 } from "./delivery";
 import { shouldAdvanceAssetEventsSchedule } from "./schedule-state";
+import type { AssetEventsTelegramFacets } from "./types";
 
 /**
  * Process a single user's standalone asset events notification.

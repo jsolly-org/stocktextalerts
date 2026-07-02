@@ -1,9 +1,6 @@
 import { DateTime } from "luxon";
-import {
-	type AssetEventsContent,
-	type AssetEventsTelegramFacets,
-	buildAssetEventsContentForChannels,
-} from "../asset-events/content";
+import { buildAssetEventsContentForChannels } from "../asset-events/content";
+import type { AssetEventsContent, AssetEventsTelegramFacets } from "../asset-events/types";
 import {
 	anyDailyAssetEventFacetEnabled,
 	enabledDailyNotificationFacets,
