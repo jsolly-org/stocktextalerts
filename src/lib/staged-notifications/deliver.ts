@@ -13,6 +13,7 @@
  */
 
 import { DateTime } from "luxon";
+import { updateGrokSendCounter } from "../daily-digest/content-build";
 import { shouldAdvanceDailyDigestSchedule } from "../daily-digest/schedule-state";
 import { updateUserDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
@@ -30,7 +31,10 @@ import {
 	prependDelayBannerToSms,
 	prependDelayBannerToTelegram,
 } from "../messaging/parts/delay";
-import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
+import {
+	claimScheduledChannel,
+	completeScheduledChannelFromResult,
+} from "../messaging/scheduled-channel";
 import { SMS_BODY_CHAR_BUDGET } from "../messaging/sms/block-packing";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padDailyDigestSmsSegmentBoundaries } from "../messaging/sms/segment-utils";
@@ -41,20 +45,20 @@ import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory
 import type { EmailSender } from "../messaging/types";
 import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
 import {
-	claimNotification,
 	getMaxDailyDigestSlotAttempts,
 	updateScheduledNotificationRow,
 } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { toIsoOrThrow } from "../time/display";
-import type {
-	DeliveryResult,
-	IsoDateString,
-	MinuteOfDay,
-	StagedDailyData,
-	StagedNotificationRow,
-	StagedSmsContent,
-	UserRecord,
+import {
+	type DeliveryResult,
+	type IsoDateString,
+	isRecord,
+	type MinuteOfDay,
+	type StagedDailyData,
+	type StagedNotificationRow,
+	type StagedSmsContent,
+	type UserRecord,
 } from "../types";
 import {
 	deleteStagedNotification,
@@ -262,8 +266,7 @@ export async function deliverStagedNotifications(options: {
 			});
 		} catch (error) {
 			const stagedRaw = row.staged_data;
-			const stagedKeys =
-				typeof stagedRaw === "object" && stagedRaw !== null ? Object.keys(stagedRaw as object) : [];
+			const stagedKeys = isRecord(stagedRaw) ? Object.keys(stagedRaw) : [];
 			const staged = stagedRaw as StagedDailyData | null;
 			const smsPartCount = staged?.sms ? normalizeStagedSmsMessages(staged.sms).length : 0;
 			logger.error(
@@ -382,7 +385,7 @@ async function deliverStagedDaily(options: {
 					)
 				: { text: stagedData.email.text, html: stagedData.email.html };
 
-		const claim = await claimNotification({
+		const attemptCount = await claimScheduledChannel({
 			supabase,
 			userId: user.id,
 			notificationType: "daily",
@@ -390,9 +393,10 @@ async function deliverStagedDaily(options: {
 			scheduledMinutes,
 			channel: "email",
 			logger,
+			stats,
 		});
 
-		if (claim.status === "claimed") {
+		if (attemptCount !== null) {
 			// Dedup here is the claimNotification CAS above, not an email-level key — the
 			// direct-SES path does not honor idempotency keys.
 			const result = await sendUserEmail(
@@ -409,40 +413,19 @@ async function deliverStagedDaily(options: {
 				deliveredUserTypes.add(deliveredKey);
 			}
 
-			const logged = await recordNotification(supabase, {
-				user_id: user.id,
-				type: "daily",
-				delivery_method: "email",
-				message_delivered: result.success,
-				message: emailContent.text,
-				...deliveryResultToLogFields(result),
-			});
-			if (!logged) stats.logFailures++;
-
-			if (result.success) {
-				stats.emailsSent++;
-			} else {
-				stats.emailsFailed++;
-			}
-
-			await updateScheduledNotificationRow({
+			await completeScheduledChannelFromResult({
 				supabase,
 				userId: user.id,
 				notificationType: "daily",
 				scheduledDate,
 				scheduledMinutes,
 				channel: "email",
-				status: result.success ? "sent" : "failed",
-				error: result.success ? undefined : result.error,
-				attemptCount: claim.attemptCount,
 				logger,
+				stats,
+				attemptCount,
+				result,
+				logMessage: emailContent.text,
 			});
-		} else if (claim.status === "claim_error") {
-			stats.emailsFailed++;
-		} else if (claim.status === "retries_exhausted") {
-			stats.skipped++;
-		} else {
-			stats.skipped++;
 		}
 	}
 
@@ -456,7 +439,9 @@ async function deliverStagedDaily(options: {
 
 		const smsEnabled = shouldSendSms(user);
 		if (smsEnabled) {
-			const claim = await claimNotification({
+			// On claim denial (held by another worker or backoff pending) the helper only
+			// bumps stats — fallback is not suppressed.
+			const attemptCount = await claimScheduledChannel({
 				supabase,
 				userId: user.id,
 				notificationType: "daily",
@@ -464,9 +449,10 @@ async function deliverStagedDaily(options: {
 				scheduledMinutes,
 				channel: "sms",
 				logger,
+				stats,
 			});
 
-			if (claim.status === "claimed") {
+			if (attemptCount !== null) {
 				try {
 					const { sender } = getSmsSender();
 					const partResults: DeliveryResult[] = [];
@@ -537,33 +523,18 @@ async function deliverStagedDaily(options: {
 						deliveredUserTypes.add(deliveredKey);
 					}
 
-					const logged = await recordNotification(supabase, {
-						user_id: user.id,
-						type: "daily",
-						delivery_method: "sms",
-						message_delivered: result.success,
-						message: formatDailyDigestSmsLogMessage(dailySmsMessages),
-						...deliveryResultToLogFields(result),
-					});
-					if (!logged) stats.logFailures++;
-
-					if (result.success) {
-						stats.smsSent++;
-					} else {
-						stats.smsFailed++;
-					}
-
-					await updateScheduledNotificationRow({
+					await completeScheduledChannelFromResult({
 						supabase,
 						userId: user.id,
 						notificationType: "daily",
 						scheduledDate,
 						scheduledMinutes,
 						channel: "sms",
-						status: result.success ? "sent" : "failed",
-						error: result.success ? undefined : result.error,
-						attemptCount: claim.attemptCount,
 						logger,
+						stats,
+						attemptCount,
+						result,
+						logMessage: formatDailyDigestSmsLogMessage(dailySmsMessages),
 					});
 				} catch (error) {
 					stats.smsFailed++;
@@ -581,24 +552,17 @@ async function deliverStagedDaily(options: {
 						channel: "sms",
 						status: "failed",
 						error: error instanceof Error ? error.message : String(error),
-						attemptCount: claim.attemptCount,
+						attemptCount,
 						logger,
 					});
 				}
-			} else if (claim.status === "claim_error") {
-				stats.smsFailed++;
-			} else if (claim.status === "retries_exhausted") {
-				stats.skipped++;
-			} else {
-				// Claim held by another worker or backoff pending — do not suppress fallback.
-				stats.skipped++;
 			}
 		}
 	}
 
 	// Telegram delivery
 	if (stagedData.telegram && isTelegramChannelUsable(user) && user.telegram_chat_id != null) {
-		const claim = await claimNotification({
+		const attemptCount = await claimScheduledChannel({
 			supabase,
 			userId: user.id,
 			notificationType: "daily",
@@ -606,9 +570,10 @@ async function deliverStagedDaily(options: {
 			scheduledMinutes,
 			channel: "telegram",
 			logger,
+			stats,
 		});
 
-		if (claim.status === "claimed") {
+		if (attemptCount !== null) {
 			try {
 				const { sender } = getTelegramSender();
 				const telegramPayload =
@@ -649,33 +614,20 @@ async function deliverStagedDaily(options: {
 					deliveredUserTypes.add(deliveredKey);
 				}
 
-				const logged = await recordNotification(supabase, {
-					user_id: user.id,
-					type: "daily",
-					delivery_method: "telegram",
-					message_delivered: result.success,
-					message: stagedData.telegram.text,
-					...deliveryResultToLogFields(result),
-				});
-				if (!logged) stats.logFailures++;
-
-				if (result.success) {
-					stats.telegramSent++;
-				} else {
-					stats.telegramFailed++;
-				}
-
-				await updateScheduledNotificationRow({
+				await completeScheduledChannelFromResult({
 					supabase,
 					userId: user.id,
 					notificationType: "daily",
 					scheduledDate,
 					scheduledMinutes,
 					channel: "telegram",
-					status: result.success ? "sent" : "failed",
-					error: result.success ? undefined : result.error,
-					attemptCount: claim.attemptCount,
 					logger,
+					stats,
+					attemptCount,
+					result,
+					// The logged message deliberately omits the delay banner (telegramPayload
+					// prepends it for the send only).
+					logMessage: stagedData.telegram.text,
 				});
 			} catch (error) {
 				stats.telegramFailed++;
@@ -693,56 +645,25 @@ async function deliverStagedDaily(options: {
 					channel: "telegram",
 					status: "failed",
 					error: error instanceof Error ? error.message : String(error),
-					attemptCount: claim.attemptCount,
+					attemptCount,
 					logger,
 				});
 			}
-		} else if (claim.status === "claim_error") {
-			stats.telegramFailed++;
-		} else if (claim.status === "retries_exhausted") {
-			stats.skipped++;
-		} else {
-			stats.skipped++;
 		}
 	}
 
-	// Post-delivery: Grok counter update.
-	// This replicates the updateGrokSendCounter logic from daily-digest/process.ts
-	// inline rather than importing it, because that function is tightly coupled to
-	// the ScheduledNotificationTotals stats object and would create a circular
-	// dependency. The logic is straightforward: reset the rolling window if expired,
-	// otherwise increment the counter.
+	// Post-delivery: Grok counter update (gated on this user's sends, not the
+	// run-cumulative stats — see updateGrokSendCounter's delivered param).
 	const localDelivered = localEmailDelivered || localSmsDelivered || localTelegramDelivered;
-	if (stagedData.grokAllowed && localDelivered) {
-		const GROK_WINDOW_HOURS = 24;
-		const now = currentTime.toISO();
-		if (now) {
-			const windowStart = user.grok_window_start
-				? DateTime.fromISO(user.grok_window_start, { zone: "utc" })
-				: null;
-			const windowExpired =
-				!windowStart?.isValid || currentTime.diff(windowStart, "hours").hours >= GROK_WINDOW_HOURS;
-
-			const newCount = windowExpired ? 1 : user.grok_sends_in_window + 1;
-			const newWindowStart = windowExpired ? now : user.grok_window_start;
-
-			const { error } = await supabase
-				.from("users")
-				.update({
-					last_grok_rumors_at: now,
-					grok_window_start: newWindowStart,
-					grok_sends_in_window: newCount,
-				})
-				.eq("id", user.id);
-			if (error) {
-				logger.error(
-					"Failed to update grok send counter (staged daily)",
-					{ userId: user.id, newCount, newWindowStart },
-					error,
-				);
-			}
-		}
-	}
+	await updateGrokSendCounter(
+		user,
+		supabase,
+		stagedData.grokAllowed,
+		localDelivered,
+		currentTime,
+		logger,
+		"(staged daily)",
+	);
 
 	const emailRequired = stagedData.email !== null;
 	const smsRequired = stagedData.sms !== null;

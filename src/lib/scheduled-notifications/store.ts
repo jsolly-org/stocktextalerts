@@ -75,10 +75,6 @@ export async function updateScheduledNotificationRow(
 		logger: Logger;
 	} & ScheduledSlotKey,
 ) {
-	type UpdateChain = {
-		eq: (column: string, value: unknown) => UpdateChain;
-	};
-
 	const nowIso = toIsoOrThrow(DateTime.utc(), "Failed to format UTC ISO string");
 	let update: Database["public"]["Tables"]["scheduled_notifications"]["Update"];
 	if (options.status === "sent") {
@@ -102,21 +98,14 @@ export async function updateScheduledNotificationRow(
 		};
 	}
 
-	const scheduledNotifications = options.supabase.from("scheduled_notifications") as unknown as {
-		update: (
-			payload: Database["public"]["Tables"]["scheduled_notifications"]["Update"],
-		) => UpdateChain;
-	};
-
-	const { error } = await (scheduledNotifications
+	const { error } = await options.supabase
+		.from("scheduled_notifications")
 		.update(update)
 		.eq("user_id", options.userId)
 		.eq("notification_type", options.notificationType)
 		.eq("scheduled_date", options.scheduledDate)
 		.eq("scheduled_minutes", options.scheduledMinutes)
-		.eq("channel", options.channel) as unknown as Promise<{
-		error: unknown | null;
-	}>);
+		.eq("channel", options.channel);
 
 	if (error) {
 		options.logger.error(
@@ -153,17 +142,16 @@ export async function claimNotification(
 	const { supabase, userId, notificationType, scheduledDate, scheduledMinutes, channel, logger } =
 		options;
 
-	const { data: claimedRaw, error: claimError } = await (
-		supabase as unknown as {
-			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
-		}
-	).rpc("claim_scheduled_notification", {
-		p_user_id: userId,
-		p_notification_type: notificationType,
-		p_scheduled_date: scheduledDate,
-		p_scheduled_minutes: scheduledMinutes,
-		p_channel: channel,
-	});
+	const { data: claimedRaw, error: claimError } = await supabase.rpc(
+		"claim_scheduled_notification",
+		{
+			p_user_id: userId,
+			p_notification_type: notificationType,
+			p_scheduled_date: scheduledDate,
+			p_scheduled_minutes: scheduledMinutes,
+			p_channel: channel,
+		},
+	);
 
 	if (claimError) {
 		logger.error(
@@ -231,29 +219,15 @@ async function logRetriesExhausted(
 		logger: Logger;
 	} & ScheduledSlotKey,
 ) {
-	type SelectChain = {
-		eq: (column: string, value: unknown) => SelectChain;
-		maybeSingle: () => unknown;
-	};
-
-	const scheduledNotifications = options.supabase.from("scheduled_notifications") as unknown as {
-		select: (columns: string) => SelectChain;
-	};
-
-	const { data, error } = await (scheduledNotifications
+	const { data, error } = await options.supabase
+		.from("scheduled_notifications")
 		.select("attempt_count,status")
 		.eq("user_id", options.userId)
 		.eq("notification_type", options.notificationType)
 		.eq("scheduled_date", options.scheduledDate)
 		.eq("scheduled_minutes", options.scheduledMinutes)
 		.eq("channel", options.channel)
-		.maybeSingle() as unknown as Promise<{
-		data: {
-			attempt_count: number;
-			status: ScheduledNotificationStatus;
-		} | null;
-		error: unknown | null;
-	}>);
+		.maybeSingle();
 
 	if (error) {
 		options.logger.error(

@@ -141,7 +141,7 @@ import { DASHBOARD_SECTION_IDS } from "../../../lib/constants";
 import { MAX_TRACKED_ASSETS } from "../../../lib/db/database-errors";
 import FadeTransition from "../../FadeTransition.vue";
 import StatusMessage from "../../StatusMessage.vue";
-import type { FlashMessage } from "../../ui-constants";
+import type { FlashMessage } from "../../types";
 import { DASHBOARD_ASSETS_STATUS_ID } from "../constants";
 import type { InitialAsset } from "../types";
 import AssetBadge from "./AssetBadge.vue";

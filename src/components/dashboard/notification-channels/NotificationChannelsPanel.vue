@@ -95,7 +95,7 @@
 				:class="{ 'opacity-50': notificationSetupBlocked }"
 			>
 				<div class="mb-6">
-					<div class="preview-slide">
+					<div class="flex min-w-0 justify-center">
 						<SmsPreview :assets="previewAssets" />
 					</div>
 				</div>
@@ -121,12 +121,9 @@ import {
 } from "../../../lib/time/display";
 import { parseTimeToMinutes } from "../../../lib/time/parse";
 import StatusMessage from "../../StatusMessage.vue";
-import type { FlashMessage, FlashTone } from "../../ui-constants";
+import type { FlashMessage, FlashTone } from "../../types";
 import { useHydrated } from "../../useHydrated";
-import {
-	type NotificationPreferencesData,
-	useAutoSaveForm,
-} from "../composables/useAutoSaveNotificationPreferences";
+import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import { provideSmsVerificationContext } from "../composables/useSmsVerificationContext";
 import { useSmsVerificationSubmission } from "../composables/useSmsVerificationSubmission";
@@ -136,7 +133,7 @@ import {
 } from "../constants";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
-import type { InitialAsset } from "../types";
+import type { InitialAsset, NotificationPreferencesData } from "../types";
 import NotificationChannelsFieldset from "./NotificationChannelsFieldset.vue";
 import { DEMO_ASSETS, type PreviewAsset } from "./preview/preview-data";
 import SmsPreview from "./preview/SmsPreview.vue";
@@ -316,9 +313,7 @@ watch(phoneVerified, (isVerified) => {
 function getEarliestMarketNotificationTime(): number | null {
 	const times = user.value.market_scheduled_asset_price_times;
 	if (!times || times.length === 0) return null;
-	const tz = user.value.timezone ?? "";
-	if (tz === "") return Math.min(...times);
-	const local = times.map((et) => etMinuteToUserLocal(et, tz));
+	const local = times.map((et) => etMinuteToUserLocal(et, user.value.timezone));
 	return Math.min(...local);
 }
 
@@ -332,20 +327,15 @@ const dailyDeliveryTimeInput = computed(() =>
 		: null,
 );
 
-const beforeOpenLocalMinutes = computed(() =>
-	user.value.timezone ? getUsBeforeOpenLocalMinutes(user.value.timezone) : null,
-);
+const beforeOpenLocalMinutes = computed(() => getUsBeforeOpenLocalMinutes(user.value.timezone));
 
 const beforeOpenLabel = computed(() =>
-	beforeOpenLocalMinutes.value !== null
-		? formatMinutesAsLocalTime(beforeOpenLocalMinutes.value, user.value.use_24_hour_time)
-		: null,
+	formatMinutesAsLocalTime(beforeOpenLocalMinutes.value, user.value.use_24_hour_time),
 );
 
-const isBeforeOpenTime = computed(() => {
-	if (beforeOpenLocalMinutes.value === null) return true;
-	return dailyDeliveryTimeMinutes.value === beforeOpenLocalMinutes.value;
-});
+const isBeforeOpenTime = computed(
+	() => dailyDeliveryTimeMinutes.value === beforeOpenLocalMinutes.value,
+);
 
 function handleDailyTimeChange(value: string) {
 	const parsed = parseTimeToMinutes(value);
@@ -383,7 +373,7 @@ watch(
 
 /* ============= Next delivery countdown ============= */
 const nextDailyDeliveryText = computed(() => {
-	if (!isHydrated.value || !user.value.timezone) return null;
+	if (!isHydrated.value) return null;
 	void tick.value;
 	const hasDeliveryTime =
 		user.value.daily_notification_next_send_at != null ||
@@ -441,10 +431,3 @@ const previewAssets = computed<PreviewAsset[]>(() => {
 });
 </script>
 
-<style scoped>
-.preview-slide {
-	min-width: 0;
-	display: flex;
-	justify-content: center;
-}
-</style>

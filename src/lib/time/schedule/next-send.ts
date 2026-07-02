@@ -1,8 +1,9 @@
 import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import type { Logger } from "../../logging";
-import { asMinuteOfDay, type MinuteOfDay } from "../../types";
+import { asMinuteOfDay, assertIsoDateString, type MinuteOfDay } from "../../types";
 import { parseTimeToMinutes } from "../parse";
+import type { ScheduledSlotContext } from "../types";
 
 function buildLocalDateTime(options: {
 	date: DateTime;
@@ -126,13 +127,92 @@ export function calculateNextSendAtFromTimes(
  *
  * Returns `null` when the timezone conversion is invalid.
  */
-export function getLocalMinutesFromDateTime(timezone: string, date: DateTime): MinuteOfDay | null {
+function getLocalMinutesFromDateTime(timezone: string, date: DateTime): MinuteOfDay | null {
 	const local = date.setZone(timezone);
 	if (!local.isValid) {
 		return null;
 	}
 
 	return asMinuteOfDay(local.hour * 60 + local.minute);
+}
+
+/**
+ * Derive the (scheduledDate, scheduledMinutes, dueAt) slot context from a
+ * next-send cursor: parse the cursor (or fall back to `currentTime`) as UTC,
+ * validate the user's timezone conversion, and compute local minutes-of-day.
+ * Logs and returns null on any step failure; `cursorField` names the cursor
+ * column in messages/context, `logLabel` carries the pipeline suffix
+ * (e.g. " (daily)").
+ */
+export function parseScheduledSlotContext(options: {
+	cursorIso: string | null;
+	cursorField: string;
+	timezone: string;
+	userId: string;
+	currentTime: DateTime;
+	logger: Logger;
+	logLabel: string;
+	action: string;
+}): ScheduledSlotContext | null {
+	const { cursorIso, cursorField, timezone, userId, currentTime, logger, logLabel, action } =
+		options;
+
+	const dueAt = cursorIso ? DateTime.fromISO(cursorIso, { zone: "utc" }) : currentTime;
+	if (!dueAt.isValid) {
+		logger.error(
+			`Invalid ${cursorField} timestamp`,
+			{ userId, [cursorField]: cursorIso },
+			new Error(`Invalid ${cursorField} timestamp`),
+		);
+		return null;
+	}
+	const dueAtLocal = dueAt.setZone(timezone);
+	if (!dueAtLocal.isValid) {
+		logger.error(
+			`Failed to format local date for timezone${logLabel}`,
+			{ userId, timezone },
+			new Error("Failed to format local date for timezone"),
+		);
+		return null;
+	}
+	const rawScheduledDate = dueAtLocal.toISODate();
+	if (!rawScheduledDate) {
+		logger.error(
+			`Failed to format scheduled date${logLabel}`,
+			{
+				userId,
+				timezone,
+				[cursorField]: cursorIso,
+				dueAt: dueAt.toISO(),
+				dueAtLocalIso: dueAtLocal.toISO(),
+			},
+			new Error("Failed to format scheduled date"),
+		);
+		return null;
+	}
+	const scheduledMinutes = getLocalMinutesFromDateTime(timezone, dueAt);
+	if (scheduledMinutes === null) {
+		logger.error(
+			`Failed to calculate scheduled minutes${logLabel}`,
+			{
+				action,
+				phase: "getLocalMinutesFromDateTime",
+				userId,
+				timezone,
+				[cursorField]: cursorIso,
+				dueAt: dueAt.toISO(),
+				dueAtLocalIso: dueAtLocal.toISO(),
+				scheduledDate: rawScheduledDate,
+			},
+			new Error("Failed to calculate scheduled minutes"),
+		);
+		return null;
+	}
+	return {
+		scheduledDate: assertIsoDateString(rawScheduledDate),
+		scheduledMinutes,
+		dueAt,
+	};
 }
 
 type ScheduledTimesParseResult = { ok: true; times: number[] } | { ok: false; reason: string };

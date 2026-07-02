@@ -256,23 +256,21 @@ import {
 	minutesToTimeInputValue,
 } from "../../../lib/time/display";
 import { useHydrated } from "../../useHydrated";
-import {
-	type NotificationPreferencesData,
-	useAutoSaveForm,
-} from "../composables/useAutoSaveNotificationPreferences";
+import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import {
 	DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 } from "../constants";
-import type { ChannelOption } from "../shared/ChannelMultiSelect.vue";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
 import {
 	getEmailChannelDisabledTitle,
 	getSmsChannelDisabledTitle,
 } from "../shared/channel-disabled-titles";
+import { createChannelOptionBuilders } from "../shared/channel-options";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
+import type { ChannelOption, NotificationPreferencesData } from "../types";
 import DailyAssetEventsFieldset from "./DailyAssetEventsFieldset.vue";
 
 interface Props {
@@ -429,33 +427,14 @@ multiselect can show every channel that exists for the facet (prices/top_movers 
 Email+SMS+Telegram; news/rumors are Email+Telegram — no SMS) while still surfacing
 why a channel is unavailable. Email/SMS disabled logic mirrors the prior checkboxes.
 ============= */
-function emailOption(selected: boolean): ChannelOption {
-	return {
-		value: "email",
-		label: "Email",
-		selected,
-		disabled: emailOnlyDisabled.value,
-		disabledTitle: emailDisabledTitle.value,
-	};
-}
-function smsOption(selected: boolean): ChannelOption {
-	return {
-		value: "sms",
-		label: "SMS",
-		selected,
-		disabled: notificationSetupBlocked.value || !smsReady.value,
-		disabledTitle: smsDisabledTitle.value,
-	};
-}
-function telegramOption(selected: boolean): ChannelOption {
-	return {
-		value: "telegram",
-		label: "Telegram",
-		selected,
-		disabled: !telegramConnected.value,
-		disabledTitle: telegramDisabledTitle.value,
-	};
-}
+const { emailOption, smsOption, telegramOption } = createChannelOptionBuilders({
+	emailDisabled: () => emailOnlyDisabled.value,
+	emailDisabledTitle: () => emailDisabledTitle.value,
+	smsDisabled: () => notificationSetupBlocked.value || !smsReady.value,
+	smsDisabledTitle: () => smsDisabledTitle.value,
+	telegramDisabled: () => !telegramConnected.value,
+	telegramDisabledTitle: () => telegramDisabledTitle.value,
+});
 
 const pricesChannelOptions = computed<ChannelOption[]>(() => [
 	emailOption(includePricesEmail.value),
@@ -529,9 +508,7 @@ const dailyDeliveryTimeInput = computed(() => {
 function getEarliestMarketNotificationTime(): number | null {
 	const times = user.value.market_scheduled_asset_price_times;
 	if (!times || times.length === 0) return null;
-	const tz = user.value.timezone ?? "";
-	if (tz === "") return Math.min(...times);
-	const local = times.map((et) => etMinuteToUserLocal(et, tz));
+	const local = times.map((et) => etMinuteToUserLocal(et, user.value.timezone));
 	return Math.min(...local);
 }
 
@@ -581,8 +558,6 @@ const dailyNotificationEnabled = computed(
 const nextDailyDeliveryText = computed(() => {
 	if (!isHydrated.value || !dailyNotificationEnabled.value) return null;
 	void tick.value;
-
-	if (!user.value.timezone) return null;
 
 	const nextSendAtIso = user.value.daily_notification_next_send_at;
 

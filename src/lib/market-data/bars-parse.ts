@@ -1,19 +1,22 @@
 import { US_MARKET_TIMEZONE } from "../constants";
-import type { DailyOHLCVBar, IntradayBarsResult, IntradayCandle } from "../types";
+import {
+	type DailyOHLCVBar,
+	type IntradayBarsResult,
+	type IntradayCandle,
+	isRecord,
+} from "../types";
 
 function toFiniteNumber(value: unknown): number | null {
 	return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function getBarResults(payload: unknown): Record<string, unknown>[] | null {
-	if (typeof payload !== "object" || payload === null) return null;
+	if (!isRecord(payload)) return null;
 
-	const results = (payload as Record<string, unknown>).results;
+	const results = payload.results;
 	if (!Array.isArray(results)) return null;
 
-	return results.filter(
-		(bar): bar is Record<string, unknown> => typeof bar === "object" && bar !== null,
-	);
+	return results.filter(isRecord);
 }
 
 export function extractClosesFromBars(payload: unknown): number[] | null {

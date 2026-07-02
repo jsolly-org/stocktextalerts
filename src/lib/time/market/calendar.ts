@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../../constants";
+import { isRecord } from "../../types";
 import { marketDataFetch } from "../../vendors/massive";
 
 import type { MarketClosureInfo } from "../types";
@@ -42,8 +43,8 @@ async function fetchUsMarketCalendar(): Promise<Map<string, CalendarRecord>> {
 	const records = new Map<string, CalendarRecord>();
 
 	for (const row of payload) {
-		if (typeof row !== "object" || row === null) continue;
-		const record = row as Record<string, unknown>;
+		if (!isRecord(row)) continue;
+		const record = row;
 
 		const exchange = typeof record.exchange === "string" ? record.exchange : "";
 		const status = typeof record.status === "string" ? record.status : "";

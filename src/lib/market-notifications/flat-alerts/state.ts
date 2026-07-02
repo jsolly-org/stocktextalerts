@@ -81,11 +81,7 @@ export async function reserveFlatPriceAlert(
 ): Promise<boolean> {
 	const { userId, symbol, baselinePrice, newPrice, thresholdPercent } = options;
 
-	const { data: reserved, error } = await (
-		supabase as unknown as {
-			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
-		}
-	).rpc("reserve_flat_price_alert", {
+	const { data: reserved, error } = await supabase.rpc("reserve_flat_price_alert", {
 		p_user_id: userId,
 		p_symbol: symbol,
 		p_baseline_price: baselinePrice,
@@ -106,11 +102,7 @@ export async function finalizeFlatPriceAlert(
 	userId: string,
 	symbol: string,
 ): Promise<void> {
-	const { error } = await (
-		supabase as unknown as {
-			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
-		}
-	).rpc("finalize_flat_price_alert", {
+	const { error } = await supabase.rpc("finalize_flat_price_alert", {
 		p_user_id: userId,
 		p_symbol: symbol,
 	});
@@ -125,11 +117,7 @@ export async function releaseFlatPriceAlert(
 	userId: string,
 	symbol: string,
 ): Promise<void> {
-	const { error } = await (
-		supabase as unknown as {
-			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
-		}
-	).rpc("release_flat_price_alert", {
+	const { error } = await supabase.rpc("release_flat_price_alert", {
 		p_user_id: userId,
 		p_symbol: symbol,
 	});
