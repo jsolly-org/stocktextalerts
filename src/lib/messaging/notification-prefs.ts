@@ -57,6 +57,14 @@ function isPrefChannel(value: string): value is PrefChannel {
 	return (PREF_CHANNELS as readonly string[]).includes(value);
 }
 
+function isDailyNotificationContent(value: string): value is DailyNotificationContent {
+	return (DAILY_NOTIFICATION_CONTENTS as readonly string[]).includes(value);
+}
+
+function isFacetlessNotificationType(value: string): value is FacetlessNotificationType {
+	return (FACETLESS_NOTIFICATION_TYPES as readonly string[]).includes(value);
+}
+
 /** Parse a DB/API preference row; null when type/content/channel is invalid. */
 export function parsePrefRow(row: {
 	notification_type: string;
@@ -71,17 +79,17 @@ export function parsePrefRow(row: {
 	const base = { channel: row.channel, enabled: row.enabled };
 
 	if (row.notification_type === "daily_notification") {
-		if (!(DAILY_NOTIFICATION_CONTENTS as readonly string[]).includes(row.content)) {
+		if (!isDailyNotificationContent(row.content)) {
 			return null;
 		}
 		return {
 			...base,
 			notification_type: "daily_notification",
-			content: row.content as DailyNotificationContent,
+			content: row.content,
 		};
 	}
 
-	if (!(FACETLESS_NOTIFICATION_TYPES as readonly string[]).includes(row.notification_type)) {
+	if (!isFacetlessNotificationType(row.notification_type)) {
 		return null;
 	}
 	if (row.content !== "") {
