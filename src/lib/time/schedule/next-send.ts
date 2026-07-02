@@ -127,7 +127,7 @@ export function calculateNextSendAtFromTimes(
  *
  * Returns `null` when the timezone conversion is invalid.
  */
-export function getLocalMinutesFromDateTime(timezone: string, date: DateTime): MinuteOfDay | null {
+function getLocalMinutesFromDateTime(timezone: string, date: DateTime): MinuteOfDay | null {
 	const local = date.setZone(timezone);
 	if (!local.isValid) {
 		return null;
