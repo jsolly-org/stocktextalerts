@@ -14,6 +14,19 @@ declare const brand: unique symbol;
 type Brand<B extends string> = { readonly [brand]: B };
 
 /* =============
+Type guards
+============= */
+
+/**
+ * Narrow unknown to a non-null object. Arrays pass (typeof "object") — identical
+ * to the inline checks this replaces; pair with Array.isArray where element shape
+ * matters.
+ */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+/* =============
 Asset
 ============= */
 
