@@ -6,11 +6,11 @@ import { recordNotification } from "../messaging/shared";
 import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
 import { toIsoOrThrow } from "../time/display";
 import type { ScheduledSlotKey } from "../types";
-import {
-	type DeliveryMethod,
-	MAX_NOTIFICATION_RETRIES,
-	type ScheduledNotificationStatus,
-	type ScheduledNotificationType,
+import { MAX_NOTIFICATION_RETRIES } from "./constants";
+import type {
+	DeliveryMethod,
+	ScheduledNotificationStatus,
+	ScheduledNotificationType,
 } from "./types";
 
 /** Read attempt_count for a scheduled notification row (0 when missing). */

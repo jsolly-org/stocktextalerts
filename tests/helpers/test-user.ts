@@ -1,12 +1,10 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
 import type { TablesInsert } from "../../src/lib/db/generated/database.types";
-import {
-	buildDefaultPreferenceRows,
-	type PrefChannel,
-} from "../../src/lib/messaging/notification-prefs";
+import { buildDefaultPreferenceRows } from "../../src/lib/messaging/notification-prefs";
 import { userLocalToEtMinute } from "../../src/lib/time/conversion";
 import { calculateNextSendAtFromTimes } from "../../src/lib/time/schedule/next-send";
+import type { PrefChannel } from "../../src/lib/types";
 import { getAssetData } from "./asset-data";
 import { upsertAssets } from "./asset-db";
 import { PRESERVED_TEST_EMAIL, TEST_RUN_ID } from "./constants";

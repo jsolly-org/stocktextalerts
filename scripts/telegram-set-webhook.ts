@@ -17,8 +17,8 @@
  * never returns the secret). We compare the URL and only call `setWebhook` when
  * it drifts. The secret cannot be read back, so rotate it with `--force`.
  */
-import { createTelegramBot, readTelegramBotToken } from "../../src/lib/messaging/telegram/sender";
-import { getSiteUrl, readEnv, requireEnv } from "../../src/lib/db/env";
+import { createTelegramBot, readTelegramBotToken } from "../src/lib/messaging/telegram/sender";
+import { getSiteUrl, readEnv, requireEnv } from "../src/lib/db/env";
 
 const WEBHOOK_PATH = "/api/messaging/telegram";
 

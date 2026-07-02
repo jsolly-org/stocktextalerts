@@ -1,4 +1,4 @@
-import type { AlertMoveSize } from "../../db";
+import type { AlertMoveSize } from "../../db/types";
 
 /** Anomaly-score thresholds per move-size tier.
  *  Lower = more sensitive (fires on smaller anomalies).
@@ -8,15 +8,6 @@ const ANOMALY_THRESHOLDS: Record<AlertMoveSize, number> = {
 	extreme: 60,
 };
 
-/** Normalize legacy move-size values to current tiers (moderate→significant, large→extreme). */
-export function normalizeMoveSize(value: string | null | undefined): AlertMoveSize {
-	if (value === "significant" || value === "extreme") return value;
-	if (value === "moderate") return "significant";
-	if (value === "large") return "extreme";
-	return "extreme";
-}
-
-export function getAnomalyThreshold(moveSize: AlertMoveSize | string): number {
-	const normalized = normalizeMoveSize(moveSize);
-	return ANOMALY_THRESHOLDS[normalized];
+export function getAnomalyThreshold(moveSize: AlertMoveSize): number {
+	return ANOMALY_THRESHOLDS[moveSize];
 }

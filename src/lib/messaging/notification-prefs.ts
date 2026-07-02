@@ -12,9 +12,8 @@ telegram-only helpers generalized): a channel is "wanted" for a type when its
 global enable is on AND at least one facet row is enabled for (type, channel).
 ============= */
 
+import { PREF_CHANNELS } from "../constants";
 import type {
-	AssetEventsContent,
-	DailyDigestContent,
 	DailyNotificationContent,
 	FacetlessContent,
 	FacetlessNotificationType,
@@ -22,14 +21,7 @@ import type {
 	PrefChannel,
 	PrefRow,
 } from "../types";
-
-export type {
-	DailyNotificationContent,
-	FacetlessContent,
-	NotificationPreferenceType,
-	PrefChannel,
-	PrefRow,
-} from "../types";
+import { NOTIFICATION_PREFERENCE_CATALOG } from "./constants";
 
 const NOTIFICATION_PREFERENCE_TYPES = [
 	"daily_notification",
@@ -57,14 +49,20 @@ const FACETLESS_NOTIFICATION_TYPES = [
 	"price_targets",
 ] as const satisfies readonly FacetlessNotificationType[];
 
-const PREF_CHANNELS = ["email", "sms", "telegram"] as const satisfies readonly PrefChannel[];
-
 function isNotificationPreferenceType(value: string): value is NotificationPreferenceType {
 	return (NOTIFICATION_PREFERENCE_TYPES as readonly string[]).includes(value);
 }
 
 function isPrefChannel(value: string): value is PrefChannel {
 	return (PREF_CHANNELS as readonly string[]).includes(value);
+}
+
+function isDailyNotificationContent(value: string): value is DailyNotificationContent {
+	return (DAILY_NOTIFICATION_CONTENTS as readonly string[]).includes(value);
+}
+
+function isFacetlessNotificationType(value: string): value is FacetlessNotificationType {
+	return (FACETLESS_NOTIFICATION_TYPES as readonly string[]).includes(value);
 }
 
 /** Parse a DB/API preference row; null when type/content/channel is invalid. */
@@ -81,40 +79,17 @@ export function parsePrefRow(row: {
 	const base = { channel: row.channel, enabled: row.enabled };
 
 	if (row.notification_type === "daily_notification") {
-		if (!(DAILY_NOTIFICATION_CONTENTS as readonly string[]).includes(row.content)) {
+		if (!isDailyNotificationContent(row.content)) {
 			return null;
 		}
 		return {
 			...base,
 			notification_type: "daily_notification",
-			content: row.content as DailyNotificationContent,
+			content: row.content,
 		};
 	}
 
-	// Legacy read compat (pre-migration rows; removed from DB after daily_notification_unity)
-	if (row.notification_type === "daily_digest") {
-		if (!(["prices", "top_movers", "news", "rumors"] as readonly string[]).includes(row.content)) {
-			return null;
-		}
-		return {
-			...base,
-			notification_type: "daily_digest",
-			content: row.content as DailyDigestContent,
-		};
-	}
-
-	if (row.notification_type === "asset_events") {
-		if (!(["calendar", "ipo", "analyst", "insider"] as readonly string[]).includes(row.content)) {
-			return null;
-		}
-		return {
-			...base,
-			notification_type: "asset_events",
-			content: row.content as AssetEventsContent,
-		};
-	}
-
-	if (!(FACETLESS_NOTIFICATION_TYPES as readonly string[]).includes(row.notification_type)) {
+	if (!isFacetlessNotificationType(row.notification_type)) {
 		return null;
 	}
 	if (row.content !== "") {
@@ -127,235 +102,6 @@ export function parsePrefRow(row: {
 		content: "",
 	};
 }
-
-/* =============
-Facet catalog: the canonical set of (notification_type, content, channel) options,
-with the DEFAULT value a brand-new user gets. This drives signup defaults, the
-dashboard ⇆ table translation, and the seed. It is the authored replacement for
-the dropped column DEFAULTs.
-
-Defaults (from the dropped column DEFAULTs):
-  daily_digest prices email = true, daily_digest prices sms = true
-  ALL OTHER facet rows = false
-News/rumors are email + telegram only (no sms facet ever existed for them).
-============= */
-
-/** One catalog entry: a (type, content, channel) option and its new-user default. */
-type FacetCatalogEntry = {
-	notification_type: NotificationPreferenceType;
-	content: DailyNotificationContent | FacetlessContent;
-	channel: PrefChannel;
-	default: boolean;
-};
-
-export const NOTIFICATION_PREFERENCE_CATALOG: readonly FacetCatalogEntry[] = [
-	// daily_notification — unified daily slot (digest + asset events)
-	{
-		notification_type: "daily_notification",
-		content: "prices",
-		channel: "email",
-		default: true,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "prices",
-		channel: "sms",
-		default: true,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "prices",
-		channel: "telegram",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "top_movers",
-		channel: "email",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "top_movers",
-		channel: "sms",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "top_movers",
-		channel: "telegram",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "news",
-		channel: "email",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "news",
-		channel: "telegram",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "rumors",
-		channel: "email",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "rumors",
-		channel: "telegram",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "calendar",
-		channel: "email",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "calendar",
-		channel: "sms",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "calendar",
-		channel: "telegram",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "ipo",
-		channel: "email",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "ipo",
-		channel: "sms",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "ipo",
-		channel: "telegram",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "analyst",
-		channel: "email",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "analyst",
-		channel: "sms",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "analyst",
-		channel: "telegram",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "insider",
-		channel: "email",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "insider",
-		channel: "sms",
-		default: false,
-	},
-	{
-		notification_type: "daily_notification",
-		content: "insider",
-		channel: "telegram",
-		default: false,
-	},
-	// facet-less market/price types (content = "")
-	{
-		notification_type: "market_asset_price_alerts",
-		content: "",
-		channel: "email",
-		default: false,
-	},
-	{
-		notification_type: "market_asset_price_alerts",
-		content: "",
-		channel: "sms",
-		default: false,
-	},
-	{
-		notification_type: "market_asset_price_alerts",
-		content: "",
-		channel: "telegram",
-		default: false,
-	},
-	{
-		notification_type: "market_scheduled_asset_price",
-		content: "",
-		channel: "email",
-		default: false,
-	},
-	{
-		notification_type: "market_scheduled_asset_price",
-		content: "",
-		channel: "sms",
-		default: false,
-	},
-	{
-		notification_type: "market_scheduled_asset_price",
-		content: "",
-		channel: "telegram",
-		default: false,
-	},
-	{
-		notification_type: "price_move_alerts",
-		content: "",
-		channel: "email",
-		default: false,
-	},
-	{
-		notification_type: "price_move_alerts",
-		content: "",
-		channel: "sms",
-		default: false,
-	},
-	{
-		notification_type: "price_move_alerts",
-		content: "",
-		channel: "telegram",
-		default: false,
-	},
-	{
-		notification_type: "price_targets",
-		content: "",
-		channel: "email",
-		default: false,
-	},
-	{
-		notification_type: "price_targets",
-		content: "",
-		channel: "sms",
-		default: false,
-	},
-	{
-		notification_type: "price_targets",
-		content: "",
-		channel: "telegram",
-		default: false,
-	},
-] as const;
 
 /** Build the full set of default preference rows for a brand-new user. */
 export function buildDefaultPreferenceRows(userId: string): Array<{

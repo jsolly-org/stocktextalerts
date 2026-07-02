@@ -1,5 +1,6 @@
 import { applyDailyNotificationNextSendAtToUserUpdate } from "../daily-notification/schedule";
-import { type AlertMoveSize, omitUndefined, type User, type UserUpdateInput } from "../db";
+import { omitUndefined } from "../db";
+import type { AlertMoveSize, User, UserUpdateInput } from "../db/types";
 import type { Logger } from "../logging";
 import { userLocalToEtMinute } from "../time/conversion";
 import {
@@ -12,7 +13,7 @@ import {
  *  (`*_email`/`*_sms`/`*_telegram`) are persisted to notification_preferences by
  *  `persistChannelPreferences`; the KEPT fields below are written to `users`. The
  *  asset_events `*_email`/`*_sms` fields are read here only to recompute
- *  `asset_events_next_send_at`. */
+ *  `daily_notification_next_send_at`. */
 interface ParsedNotificationPreferencesForm {
 	market_scheduled_asset_price_enabled?: boolean;
 	timezone?: string;

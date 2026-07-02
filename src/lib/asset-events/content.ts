@@ -5,33 +5,9 @@ import type { Logger } from "../logging";
 import type { UserRecord } from "../types";
 import { loadStoredFinnhubExtras } from "./enrichment-store";
 import { formatAnalystSection, formatAssetEventsSection, formatInsiderSection } from "./format";
+import type { AssetEventsContent, AssetEventsTelegramFacets } from "./types";
 
 type DeliveryChannel = "email" | "sms";
-
-/**
- * Telegram facet selection for asset events, sourced from notification_preferences
- * (NOT the per-column email/sms flags). When present, the content builder renders a
- * `telegram` AssetEventsContent using the rich email-style section formatting, gated
- * by these facets. Additive: email/SMS rendering is unchanged.
- */
-export type AssetEventsTelegramFacets = {
-	calendar: boolean;
-	ipo: boolean;
-	insider: boolean;
-	analyst: boolean;
-};
-
-export type AssetEventsContent = {
-	eventsSection: {
-		earnings: string | null;
-		dividends: string | null;
-		splits: string | null;
-		ipos: string | null;
-	} | null;
-	insiderSection: string | null;
-	analystSection: string | null;
-	hasAnyContent: boolean;
-};
 
 const emptyContent = (): AssetEventsContent => ({
 	eventsSection: null,

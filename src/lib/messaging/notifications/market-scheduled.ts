@@ -1,6 +1,6 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import { getSiteUrl } from "../../db/env";
-import type { MarketClosureInfo } from "../../time/market/calendar";
+import type { MarketClosureInfo } from "../../time/types";
 import type { AssetPriceMap, MarketSession, UserAssetRow } from "../../types";
 import { NO_SESSION_TRADE } from "../../types";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
@@ -10,12 +10,11 @@ import {
 	NO_TRACKED_ASSETS_MESSAGE,
 } from "../parts/asset-price-list";
 import { formatContentSection } from "../parts/content-section";
-import type { NotificationExtras } from "../parts/extras";
 import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
 import { buildMarketClosedBannerHtml, buildMarketClosedBannerText } from "../parts/market-closure";
 import { buildSessionFirstLine, buildSessionFirstLineHtml } from "../parts/session-label";
 import { padUrlsToSegmentBoundaries } from "../sms/segment-utils";
-import type { EmailFormatContext, EmailUser } from "../types";
+import type { EmailFormatContext, EmailUser, NotificationExtras } from "../types";
 
 /** Format the optional "extras" block appended to scheduled market SMS messages. */
 function formatScheduledMarketSmsExtras(extras?: NotificationExtras): string {

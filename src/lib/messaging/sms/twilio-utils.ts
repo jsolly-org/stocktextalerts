@@ -7,6 +7,7 @@ import { requireEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { DeliveryResult } from "../../types";
 import { withDeliveryRetry } from "../delivery-retry";
+import type { SmsRequest, SmsSender } from "../types";
 
 interface TwilioSenderConfig {
 	accountSid: string;
@@ -14,14 +15,6 @@ interface TwilioSenderConfig {
 	apiKeySecret: string;
 	phoneNumber: string;
 }
-
-interface SmsRequest {
-	to: string;
-	body: string;
-	from?: string;
-}
-
-export type SmsSender = (request: SmsRequest) => Promise<DeliveryResult>;
 
 type TwilioClient = ReturnType<typeof twilio>;
 

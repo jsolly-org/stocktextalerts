@@ -9,7 +9,22 @@ import {
 	toSparkline,
 } from "../messaging/parts/charts/sparkline";
 import type { DailyOHLCVBar, ExtendedQuoteMap } from "../types";
-import { formatChartAsOfLabel } from "./chart-as-of-label";
+
+export function formatChartAsOfLabel(
+	isoTimestamp: string,
+	timezone: string,
+	use24HourTime: boolean,
+): string {
+	const dt = DateTime.fromISO(isoTimestamp, { zone: "utc" }).setZone(timezone);
+	if (!dt.isValid) return "";
+	const formatted = dt.toLocaleString({
+		hour: "numeric",
+		minute: "2-digit",
+		hour12: !use24HourTime,
+		timeZoneName: "short",
+	});
+	return `chart as of ${formatted}`;
+}
 
 const MINUTE_RETENTION_HOURS = 36;
 const DAILY_RETENTION_DAYS = 30;

@@ -5,7 +5,8 @@
 
 import type { Json } from "../db/generated/database.types";
 import type { SupabaseAdminClient } from "../db/supabase";
-import type { StagedData, StagedNotificationRow, StagedNotificationType } from "./types";
+import type { StagedNotificationType } from "../db/types";
+import type { StagedData, StagedNotificationRow } from "../types";
 
 /**
  * Insert a staged notification row (or ignore if already exists via unique constraint).

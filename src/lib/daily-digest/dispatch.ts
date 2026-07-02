@@ -3,13 +3,13 @@ import { fetchOneDailyNotificationUser } from "../daily-notification/query";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { createSupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
-import type { EmailSender } from "../messaging/email/utils";
 import type { LogoCache } from "../messaging/logo-fetcher";
 import { createNotificationSenders } from "../messaging/senders";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
+import type { EmailSender } from "../messaging/types";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
-import type { MarketClosureInfo } from "../time/market/calendar";
+import type { MarketClosureInfo } from "../time/types";
 import type { UserRecord } from "../types";
 import { processDailyDigestUser } from "./process";
 

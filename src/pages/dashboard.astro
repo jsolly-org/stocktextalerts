@@ -116,7 +116,7 @@ const EMAIL_SMS_PREF_FIELDS = [
 const channelPrefDefaults = Object.fromEntries(
 	EMAIL_SMS_PREF_FIELDS.map((f) => [f, channelPrefFields[f] ?? false]),
 );
-const user = { ...dbUser, ...channelPrefDefaults } as import("../lib/db").DashboardUser;
+const user = { ...dbUser, ...channelPrefDefaults } as import("../lib/db/types").DashboardUser;
 
 const rawTwilioNumber = requireEnv("TWILIO_PHONE_NUMBER");
 const smsPhoneNumber = formatPhoneFromE164(rawTwilioNumber);

@@ -56,15 +56,15 @@ import { purgeOldAssetSnapshots } from "../market-notifications/snapshot-store";
 import type { LogoCache } from "../messaging/logo-fetcher";
 import type { NotificationSenders } from "../messaging/senders";
 import { createNotificationSenders } from "../messaging/senders";
-import { type PriceTargetTotals, processPriceTargets } from "../price-targets/process";
-import {
-	type ScheduledNotificationTotals,
-	USER_PROCESS_BATCH_SIZE,
-} from "../scheduled-notifications/types";
+import { processPriceTargets } from "../price-targets/process";
+import type { PriceTargetTotals } from "../price-targets/types";
+import { USER_PROCESS_BATCH_SIZE } from "../scheduled-notifications/constants";
+import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { deliverStagedNotifications } from "../staged-notifications/deliver";
 import { precomputeDailyDigest } from "../staged-notifications/precompute";
 import { toIsoOrThrow } from "../time/display";
-import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market/calendar";
+import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
+import type { MarketClosureInfo } from "../time/types";
 import type { AssetPriceMap, ExtendedQuoteMap, MarketSession } from "../types";
 import { enqueuePriceHistoryStoreRetry } from "../vendors/backfill/enqueue";
 import { resolveMarketSessionWithFallback } from "./market-session";

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { EmailRequest, EmailSender } from "../../../../src/lib/messaging/email/utils";
+import type { EmailRequest, EmailSender } from "../../../../src/lib/messaging/types";
 import { expectConsoleError } from "../../../setup";
 
 const mockEmailSender = vi.hoisted(() =>

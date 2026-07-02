@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../../src/lib/db/supabase";
 import { sendUserSms } from "../../../../src/lib/messaging/sms/index";
-import type { SmsSender } from "../../../../src/lib/messaging/sms/twilio-utils";
-import type { SmsUser } from "../../../../src/lib/messaging/types";
+import type { SmsSender, SmsUser } from "../../../../src/lib/messaging/types";
 import { expectConsoleError } from "../../../setup";
 
 const testUser: SmsUser = {

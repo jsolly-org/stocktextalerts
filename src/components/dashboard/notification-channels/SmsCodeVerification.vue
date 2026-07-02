@@ -95,7 +95,7 @@ import {
 	VERIFICATION_EXPIRATION_MS,
 	VERIFICATION_RESEND_COOLDOWN_MS,
 } from "../../../lib/constants";
-import type { User } from "../../../lib/db";
+import type { User } from "../../../lib/db/types";
 import { formatPhoneForDisplay } from "../../../lib/messaging/format-phone";
 import { formatMessage } from "../../../lib/messaging/status-messages";
 import StatusMessage from "../../StatusMessage.vue";

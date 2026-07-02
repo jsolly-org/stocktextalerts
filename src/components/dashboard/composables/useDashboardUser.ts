@@ -1,5 +1,5 @@
 import { type InjectionKey, inject, provide, type Ref, ref, watch } from "vue";
-import type { DashboardUser } from "../../../lib/db";
+import type { DashboardUser } from "../../../lib/db/types";
 
 const DASHBOARD_USER_KEY: InjectionKey<Ref<DashboardUser>> = Symbol("dashboard-user");
 

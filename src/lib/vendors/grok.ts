@@ -1,6 +1,7 @@
 import { setTimeout as realDelay } from "node:timers/promises";
 import { readEnv } from "../db/env";
 import { rootLogger } from "../logging";
+import type { XaiAnnotation } from "./grok-citations";
 
 const BASE_RETRY_DELAY_MS = 1_000;
 
@@ -36,7 +37,7 @@ export type GrokResponsesResponse = {
 		content?: Array<{
 			type?: string;
 			text?: string;
-			annotations?: unknown;
+			annotations?: XaiAnnotation[];
 		}>;
 		summary?: Array<{ type?: string; text?: string }>;
 		[key: string]: unknown;

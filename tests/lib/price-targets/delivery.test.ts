@@ -1,13 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../src/lib/db/supabase";
-import type { EmailSender } from "../../../src/lib/messaging/email/utils";
+import type { EmailSender } from "../../../src/lib/messaging/types";
 import {
 	deliverPriceTargetAlert,
 	formatPriceTargetSms,
-	type PriceTargetDeliveryStats,
 } from "../../../src/lib/price-targets/delivery";
-import type { PriceTargetUser, TriggeredPriceTarget } from "../../../src/lib/price-targets/process";
-import type { DeliveryResult } from "../../../src/lib/types";
+import type { PriceTargetUser, TriggeredPriceTarget } from "../../../src/lib/price-targets/types";
+import type { ChannelDeliveryStats, DeliveryResult } from "../../../src/lib/types";
 import { makePrefRows } from "../../helpers/user-record-fixture";
 
 function makeSupabaseMock(): AppSupabaseClient {
@@ -18,7 +17,7 @@ function makeSupabaseMock(): AppSupabaseClient {
 	} as unknown as AppSupabaseClient;
 }
 
-function makeStats(): PriceTargetDeliveryStats {
+function makeStats(): ChannelDeliveryStats {
 	return {
 		emailsSent: 0,
 		emailsFailed: 0,

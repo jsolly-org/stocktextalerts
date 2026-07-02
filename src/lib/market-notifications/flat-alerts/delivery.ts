@@ -3,7 +3,6 @@ import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import { sendUserEmail } from "../../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
-import type { EmailSender } from "../../messaging/email/utils";
 import { type createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
 import { formatUsdPrice, getChangeColor } from "../../messaging/parts/asset-price-list";
@@ -21,13 +20,12 @@ import { escapeHtml } from "../../messaging/parts/html-utils";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
-import type { SmsSender } from "../../messaging/sms/twilio-utils";
 import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../../messaging/telegram/price-alert";
-import type { TelegramSender } from "../../messaging/telegram/sender";
+import type { EmailSender, SmsSender, TelegramSender } from "../../messaging/types";
 import { buildFlatAlertEnriched } from "../../price-alerts/compose";
-import type { ExtendedAssetQuote, IntradayBarsResult } from "../../types";
+import type { ChannelDeliveryStats, ExtendedAssetQuote, IntradayBarsResult } from "../../types";
 import type { FlatPriceAlertUser } from "./users";
 
 /** Format an elapsed duration in minutes/hours as "27 min ago", "1h 23m ago".
@@ -41,17 +39,6 @@ export function formatRelativeMinutesAgo(fromMs: number, toMs: number): string {
 	const hours = Math.floor(totalMinutes / 60);
 	const mins = totalMinutes % 60;
 	return `${hours}h ${mins}m ago`;
-}
-
-/** Per-run delivery counters. */
-export interface FlatPriceAlertDeliveryStats {
-	emailsSent: number;
-	emailsFailed: number;
-	smsSent: number;
-	smsFailed: number;
-	telegramSent: number;
-	telegramFailed: number;
-	logFailures: number;
 }
 
 /** Unicode-block sparkline cap for SMS. UCS-2 segments fit 70 chars; keep the
@@ -409,7 +396,7 @@ export async function deliverFlatPriceAlert(options: {
 	/** Telegram sender, threaded the same way as `sendSms` (lazy provider in process.ts). */
 	sendTelegram?: TelegramSender | null;
 	logoCache: ReturnType<typeof createLogoCache>;
-	stats: FlatPriceAlertDeliveryStats;
+	stats: ChannelDeliveryStats;
 }): Promise<boolean> {
 	const {
 		user,

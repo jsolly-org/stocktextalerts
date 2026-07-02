@@ -4,7 +4,6 @@ import { rootLogger } from "../logging";
 import { isEmailChannelUsable } from "../messaging/email/eligibility";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messaging/email/layout";
-import type { EmailSender } from "../messaging/email/utils";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
 import { isFacetEnabled } from "../messaging/notification-prefs";
 import { formatUsdPrice } from "../messaging/parts/asset-price-list";
@@ -13,36 +12,13 @@ import { escapeHtml } from "../messaging/parts/html-utils";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { isSmsChannelUsable, sendUserSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
-import type { SmsSender } from "../messaging/sms/twilio-utils";
 import { shouldSendTelegram } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../messaging/telegram/price-alert";
-import type { TelegramSender } from "../messaging/telegram/sender";
+import type { EmailSender, SmsSender, TelegramSender } from "../messaging/types";
 import { buildPriceTargetEnriched } from "../price-alerts/compose";
-import type { PriceTargetUser, TriggeredPriceTarget } from "./process";
-
-/** Per-run delivery counters for price target notifications. */
-export interface PriceTargetDeliveryStats {
-	emailsSent: number;
-	emailsFailed: number;
-	smsSent: number;
-	smsFailed: number;
-	telegramSent: number;
-	telegramFailed: number;
-	logFailures: number;
-}
-
-/** Outcome of one channel in a single delivery round. `skipped` means the channel
- *  was not attempted (not wanted, not usable, or already delivered on a prior round). */
-type PriceTargetChannelOutcome = "sent" | "failed" | "skipped";
-
-/** Per-channel outcome of one `deliverPriceTargetAlert` round. The caller uses this
- *  to decide when every *required* channel has reached a terminal (sent) state. */
-export interface PriceTargetDeliveryOutcome {
-	email: PriceTargetChannelOutcome;
-	sms: PriceTargetChannelOutcome;
-	telegram: PriceTargetChannelOutcome;
-}
+import type { ChannelDeliveryStats } from "../types";
+import type { PriceTargetDeliveryOutcome, PriceTargetUser, TriggeredPriceTarget } from "./types";
 
 /**
  * Format the SMS body for a price target alert.
@@ -126,7 +102,7 @@ export async function deliverPriceTargetAlert(options: {
 	sendSms: SmsSender | null;
 	/** Telegram sender, threaded the same way as `sendSms` (lazy provider in process.ts). */
 	sendTelegram?: TelegramSender | null;
-	stats: PriceTargetDeliveryStats;
+	stats: ChannelDeliveryStats;
 	logoCache?: ReturnType<typeof createLogoCache>;
 	/** Channels already delivered on a prior retry round (from the row's
 	 *  `*_delivered_at` columns). Delivered channels are skipped, never re-sent. */

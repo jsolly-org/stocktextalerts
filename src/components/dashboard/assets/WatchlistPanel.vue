@@ -145,7 +145,6 @@ import type { FlashMessage } from "../../ui-constants";
 import { DASHBOARD_ASSETS_STATUS_ID } from "../constants";
 import type { InitialAsset } from "../types";
 import AssetBadge from "./AssetBadge.vue";
-import type { AssetSearchResult } from "./AssetInput.vue";
 import AssetInput from "./AssetInput.vue";
 import SparklineSvg from "./SparklineSvg.vue";
 
@@ -247,7 +246,7 @@ watch(
 	{ flush: "post", deep: true },
 );
 
-function handleSelect(result: AssetSearchResult) {
+function handleSelect(result: InitialAsset) {
 	if (!result.symbol) {
 		return;
 	}

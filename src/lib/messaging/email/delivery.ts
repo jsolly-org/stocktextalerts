@@ -2,9 +2,8 @@ import type { AppSupabaseClient } from "../../db/supabase";
 import type { AssetPriceMap, MarketSession, ProcessingStats, UserAssetRow } from "../../types";
 import { formatMarketScheduledEmail } from "../notifications/market-scheduled";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
-import type { EmailFormatContext, EmailUser } from "../types";
+import type { EmailFormatContext, EmailSender, EmailUser } from "../types";
 import { sendUserEmail } from "./index";
-import type { EmailSender } from "./utils";
 
 /**
  * Format + send a scheduled email update for a user, then record the delivery outcome.

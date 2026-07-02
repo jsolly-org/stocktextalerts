@@ -2,13 +2,13 @@
  * Application-level types that narrow generated Supabase primitives.
  *
  * Branded scalars (dates, minutes) live here. Postgres enum-backed columns are
- * typed via `Database["public"]["Enums"]` in `src/lib/db/index.ts`.
+ * typed via `Database["public"]["Enums"]` in `src/lib/db/types.ts`.
  */
 
 import type { MessageEntity } from "grammy/types";
-import type { StagedNotificationType } from "./db";
 import type { Database } from "./db/generated/database.types";
 import { Constants } from "./db/generated/database.types";
+import type { StagedNotificationType } from "./db/types";
 
 declare const brand: unique symbol;
 type Brand<B extends string> = { readonly [brand]: B };
@@ -143,8 +143,6 @@ export type PrefChannel = "email" | "sms" | "telegram";
 /** Notification types stored in `notification_preferences.notification_type`. */
 export type NotificationPreferenceType =
 	| "daily_notification"
-	| "daily_digest"
-	| "asset_events"
 	| "market_asset_price_alerts"
 	| "market_scheduled_asset_price"
 	| "price_move_alerts"
@@ -157,10 +155,7 @@ export type DailyNotificationContent = DailyDigestContent | AssetEventsContent;
 /** Facet-less notification types use empty content. */
 export type FacetlessContent = "";
 
-export type FacetlessNotificationType = Exclude<
-	NotificationPreferenceType,
-	"daily_notification" | "daily_digest" | "asset_events"
->;
+export type FacetlessNotificationType = Exclude<NotificationPreferenceType, "daily_notification">;
 
 type PrefRowBase = {
 	channel: PrefChannel;
@@ -172,27 +167,13 @@ type DailyNotificationPrefRow = PrefRowBase & {
 	content: DailyNotificationContent;
 };
 
-type DailyDigestPrefRow = PrefRowBase & {
-	notification_type: "daily_digest";
-	content: DailyDigestContent;
-};
-
-type AssetEventsPrefRow = PrefRowBase & {
-	notification_type: "asset_events";
-	content: AssetEventsContent;
-};
-
 type FacetlessPrefRow = PrefRowBase & {
 	notification_type: FacetlessNotificationType;
 	content: FacetlessContent;
 };
 
 /** A single notification-preference row (subset used by eligibility/reads). */
-export type PrefRow =
-	| DailyNotificationPrefRow
-	| DailyDigestPrefRow
-	| AssetEventsPrefRow
-	| FacetlessPrefRow;
+export type PrefRow = DailyNotificationPrefRow | FacetlessPrefRow;
 
 /* =============
 User records
@@ -305,6 +286,8 @@ export type AssetPriceMap = Map<string, AssetPrice | null>;
 export type ExtendedQuoteMap = Map<string, ExtendedAssetQuote | null>;
 
 export type MarketSession = "pre" | "regular" | "after" | "closed";
+/** A session in which trading is actually happening (never "closed"). */
+export type ActiveMarketSession = Exclude<MarketSession, "closed">;
 
 /* =============
 Delivery
@@ -320,6 +303,18 @@ export type ProcessingStats =
 	| { sent: true; logged: boolean }
 	| { sent: false; logged: boolean; error: string; errorCode?: string };
 
+/** Per-run delivery counters shared by every notification pipeline (one pair per channel). */
+export interface ChannelDeliveryStats {
+	emailsSent: number;
+	emailsFailed: number;
+	smsSent: number;
+	smsFailed: number;
+	telegramSent: number;
+	telegramFailed: number;
+	/** `notification_log` insert failures on an otherwise completed send. */
+	logFailures: number;
+}
+
 /* =============
 Timezone
 ============= */
@@ -332,8 +327,6 @@ export type TimezoneOption = Pick<
 /* =============
 Staged notifications
 ============= */
-
-export type { StagedNotificationType };
 
 interface StagedEmailContent {
 	subject: string;

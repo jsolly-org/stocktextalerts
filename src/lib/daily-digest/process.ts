@@ -1,9 +1,6 @@
 import { DateTime } from "luxon";
-import {
-	type AssetEventsContent,
-	type AssetEventsTelegramFacets,
-	buildAssetEventsContentForChannels,
-} from "../asset-events/content";
+import { buildAssetEventsContentForChannels } from "../asset-events/content";
+import type { AssetEventsContent, AssetEventsTelegramFacets } from "../asset-events/types";
 import {
 	anyDailyAssetEventFacetEnabled,
 	enabledDailyNotificationFacets,
@@ -21,20 +18,21 @@ import { createErrorForLogging } from "../logging/errors";
 import { fetchAssetPricesWithSessionState } from "../market-data/prices";
 import { getCurrentMarketSession } from "../market-data/session";
 import { fetchIntradaySparklines, fetchSparklines } from "../market-data/sparklines";
-import type { EmailSender } from "../messaging/email/utils";
 import { type LogoCache, safePrefetchLogos } from "../messaging/logo-fetcher";
+import { formatDigestQuoteAsOf } from "../messaging/notifications/daily-digest";
 import type { SparklineMap } from "../messaging/parts/charts/sparkline";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/parts/delay";
-import type { NotificationExtras } from "../messaging/parts/extras";
 import { buildMarketClosedBannerText } from "../messaging/parts/market-closure";
 import { shouldSendSms } from "../messaging/sms";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
+import type { EmailSender, NotificationExtras } from "../messaging/types";
+import { MAX_NOTIFICATION_RETRIES } from "../scheduled-notifications/constants";
 import { getMaxDailyDigestSlotAttempts } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
-import { MAX_NOTIFICATION_RETRIES } from "../scheduled-notifications/types";
-import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market/calendar";
+import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
+import type { MarketClosureInfo } from "../time/types";
 import type { AssetPriceMap, MarketSession, UserRecord } from "../types";
 import {
 	buildTopMoversSection,
@@ -43,7 +41,6 @@ import {
 	updateGrokSendCounter,
 } from "./content-build";
 import {
-	formatDigestQuoteAsOf,
 	processDailyDigestEmailDelivery,
 	processDailyDigestSmsDelivery,
 	processDailyDigestTelegramDelivery,

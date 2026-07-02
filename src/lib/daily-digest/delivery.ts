@@ -3,18 +3,14 @@ import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
 import { sendUserEmail } from "../messaging/email/index";
-import type { EmailSender } from "../messaging/email/utils";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsLogMessage,
-	formatDailyDigestSmsMessage,
 	formatDailyDigestSmsMessages,
 	formatDailyDigestTelegram,
-	formatDigestQuoteAsOf,
 	summarizeDailyDigestSmsResults,
 } from "../messaging/notifications/daily-digest";
 import type { SparklineMap } from "../messaging/parts/charts/sparkline";
-import type { NotificationExtras } from "../messaging/parts/extras";
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,
@@ -25,12 +21,13 @@ import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
+import type { EmailSender, NotificationExtras } from "../messaging/types";
 import {
 	claimNotification,
 	updateScheduledNotificationRow,
 } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
-import type { MarketClosureInfo } from "../time/market/calendar";
+import type { MarketClosureInfo } from "../time/types";
 import type {
 	AssetPriceMap,
 	DeliveryResult,
@@ -39,15 +36,6 @@ import type {
 	UserAssetRow,
 	UserRecord,
 } from "../types";
-
-export {
-	formatDailyDigestEmail,
-	formatDailyDigestSmsLogMessage,
-	formatDailyDigestSmsMessage,
-	formatDailyDigestSmsMessages,
-	formatDigestQuoteAsOf,
-	summarizeDailyDigestSmsResults,
-};
 
 type AssetEventsResult = Awaited<ReturnType<typeof buildAssetEventsContent>> | null;
 

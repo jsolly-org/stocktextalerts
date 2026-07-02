@@ -5,21 +5,18 @@
 		"scripts/**/*.ts",
 		"tests/run-vitest.ts",
 		"tests/run-playwright.ts",
-		"tests/setup.ts",
 		"playwright.preview.config.ts"
 	],
 	"ignore": [
 		"src/lib/db/generated/**"
 	],
 	"ignoreDependencies": [
-		"github-actionlint",
 		"lint-staged",
 		"squawk-cli",
 		"supabase",
 		"vercel"
 	],
 	"ignoreBinaries": [
-		"github-actionlint",
 		"mise",
 		"printf",
 		"uvx"

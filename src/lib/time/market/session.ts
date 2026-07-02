@@ -6,9 +6,8 @@ import {
 	US_MARKET_OPEN_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,
 } from "../../constants";
+import type { ActiveMarketSession } from "../../types";
 import { dateTimeAtMinuteOfDay } from "../utils";
-
-export type ScheduledMarketSession = "pre" | "regular" | "after";
 
 /**
  * True when the given ET-minute is outside the allowed market notification
@@ -37,7 +36,7 @@ export function isOutsideMarketHours(etMinutes: number): boolean {
  * times (< 270) — callers either gate on `isOutsideMarketHours` first or
  * ignore the result for invalid inputs.
  */
-export function getScheduledMarketSession(etMinutes: number): ScheduledMarketSession {
+export function getScheduledMarketSession(etMinutes: number): ActiveMarketSession {
 	if (etMinutes < US_MARKET_OPEN_EASTERN_MINUTES) return "pre";
 	if (etMinutes >= US_MARKET_CLOSE_EASTERN_MINUTES) return "after";
 	return "regular";

@@ -4,7 +4,6 @@ import { loadUserAssets, type UserAssetsMap } from "../../db/user-assets";
 import type { Logger } from "../../logging";
 import { createErrorForLogging, extractErrorMessage } from "../../logging/errors";
 import { fetchIntradaySparklines } from "../../market-data/sparklines";
-import type { EmailSender } from "../../messaging/email/utils";
 import { type LogoCache, safePrefetchLogos } from "../../messaging/logo-fetcher";
 import { anyFacetEnabled, isFacetEnabled } from "../../messaging/notification-prefs";
 import { formatAssetsTextList } from "../../messaging/parts/asset-price-list";
@@ -17,15 +16,16 @@ import { shouldSendSms } from "../../messaging/sms";
 import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../../messaging/telegram/sender-factory";
+import type { EmailSender } from "../../messaging/types";
 import type {
 	DeliveryMethod,
 	ScheduledNotificationTotals,
 } from "../../scheduled-notifications/types";
 import { userLocalToEtMinute } from "../../time/conversion";
-import type { MarketClosureInfo } from "../../time/market/calendar";
 import { getUsMarketClosureInfoForInstant } from "../../time/market/calendar";
 import { isOutsideMarketHours } from "../../time/market/session";
 import { getLocalMinutesFromDateTime } from "../../time/schedule/next-send";
+import type { MarketClosureInfo } from "../../time/types";
 import type { AssetPriceMap, MarketSession, UserRecord } from "../../types";
 import { assertIsoDateString, NO_SESSION_TRADE } from "../../types";
 import {

@@ -13,17 +13,16 @@
  */
 
 import { DateTime } from "luxon";
-import {
-	formatDailyDigestSmsLogMessage,
-	summarizeDailyDigestSmsResults,
-} from "../daily-digest/delivery";
 import { shouldAdvanceDailyDigestSchedule } from "../daily-digest/schedule-state";
 import { updateUserDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { sendUserEmail } from "../messaging/email/index";
-import type { EmailSender } from "../messaging/email/utils";
 import { loadPrefsByUser } from "../messaging/load-prefs";
+import {
+	formatDailyDigestSmsLogMessage,
+	summarizeDailyDigestSmsResults,
+} from "../messaging/notifications/daily-digest";
 import {
 	buildDelayBannerHtml,
 	buildDelayBannerText,
@@ -39,6 +38,7 @@ import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
+import type { EmailSender } from "../messaging/types";
 import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
 import {
 	claimNotification,
@@ -47,14 +47,21 @@ import {
 } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { toIsoOrThrow } from "../time/display";
-import type { DeliveryResult, IsoDateString, MinuteOfDay, UserRecord } from "../types";
+import type {
+	DeliveryResult,
+	IsoDateString,
+	MinuteOfDay,
+	StagedDailyData,
+	StagedNotificationRow,
+	StagedSmsContent,
+	UserRecord,
+} from "../types";
 import {
 	deleteStagedNotification,
 	fetchDueStagedNotifications,
 	purgeStaleStaged,
 	rescheduleStagedNotification,
 } from "./db";
-import type { StagedDailyData, StagedNotificationRow, StagedSmsContent } from "./types";
 
 const STALE_MAX_AGE_MINUTES = 5;
 const TWILIO_SMS_HARD_LIMIT = 1600;

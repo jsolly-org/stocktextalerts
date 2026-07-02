@@ -1,11 +1,11 @@
 import { DateTime } from "luxon";
-import type { UserUpdateInput } from "../db";
 import type { SupabaseAdminClient } from "../db/supabase";
+import type { UserUpdateInput } from "../db/types";
 import type { Logger } from "../logging";
 import { userLocalToEtMinute } from "../time/conversion";
 import { calculateNextSendAt } from "../time/schedule/next-send";
 import type { UserRecord } from "../types";
-import { DEFAULT_DAILY_NOTIFICATION_DELIVERY_MINUTES } from "./defaults";
+import { DEFAULT_DAILY_NOTIFICATION_DELIVERY_MINUTES } from "./constants";
 import { hasAnyDailyNotificationFacet } from "./eligibility";
 
 /** Read the daily notification next-send cursor. */

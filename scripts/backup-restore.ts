@@ -4,9 +4,9 @@ import { pipeline } from "node:stream/promises";
 import { gunzipSync } from "node:zlib";
 import { Client } from "pg";
 import { from as copyFrom } from "pg-copy-streams";
-import { sslFor } from "../../src/lib/backup/export";
-import type { BackupPayload } from "../../src/lib/backup/storage";
-import { BACKUP_TABLES } from "../../src/lib/backup/tables";
+import { sslFor } from "../src/lib/backup/export";
+import type { BackupPayload } from "../src/lib/backup/storage";
+import { BACKUP_TABLES } from "../src/lib/backup/constants";
 
 /** True for a local/scratch target (loopback host). */
 function isLocalTarget(connectionString: string): boolean {

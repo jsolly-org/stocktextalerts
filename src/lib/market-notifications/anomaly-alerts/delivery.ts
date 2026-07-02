@@ -5,7 +5,6 @@ import { isEmailChannelUsable } from "../../messaging/email/eligibility";
 import { markdownLinksToHtml, stripMarkdownLinks } from "../../messaging/email/html-section";
 import { sendUserEmail } from "../../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
-import type { EmailSender } from "../../messaging/email/utils";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
 import { renderIntradaySparklineImg } from "../../messaging/parts/charts/intraday-sparkline";
@@ -21,13 +20,13 @@ import { escapeHtml, getSafeHrefUrl } from "../../messaging/parts/html-utils";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
-import type { SmsSender } from "../../messaging/sms/twilio-utils";
 import { shortenUrls } from "../../messaging/sms/url-shortener";
 import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import { formatPriceAlertTelegram } from "../../messaging/telegram/price-alert";
-import type { TelegramSender } from "../../messaging/telegram/sender";
+import type { EmailSender, SmsSender, TelegramSender } from "../../messaging/types";
 import type { EnrichedAlert } from "../../price-alerts/types";
+import type { ChannelDeliveryStats } from "../../types";
 import type { PriceAlertUser } from "./users";
 
 /** Cap Grok summary length in SMS to avoid segment/cost spikes from long model output. */
@@ -66,17 +65,6 @@ function formatPriceContextWithSparkline(
 	return sparkline
 		? `${priceContext} ${SMS_SPARKLINE_LABEL[chart.window]}: ${sparkline}`
 		: priceContext;
-}
-
-/** Per-run delivery counters for price alerts (email/SMS/Telegram success/fail and log failures). */
-export interface PriceAlertDeliveryStats {
-	emailsSent: number;
-	emailsFailed: number;
-	smsSent: number;
-	smsFailed: number;
-	telegramSent: number;
-	telegramFailed: number;
-	logFailures: number;
 }
 
 /**
@@ -245,7 +233,7 @@ export async function deliverPriceAlert(options: {
 	sendSms: SmsSender | null;
 	/** Telegram sender, threaded the same way as `sendSms` (lazy provider in process.ts). */
 	sendTelegram?: TelegramSender | null;
-	stats: PriceAlertDeliveryStats;
+	stats: ChannelDeliveryStats;
 	logoCache?: ReturnType<typeof createLogoCache>;
 }): Promise<boolean> {
 	const { user, alert, supabase, sendEmail, sendSms, sendTelegram, stats, logoCache } = options;

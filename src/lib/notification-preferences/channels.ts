@@ -1,12 +1,10 @@
+import { PREF_CHANNELS } from "../constants";
 import type { AppSupabaseClient } from "../db/supabase";
 import type { Logger } from "../logging";
+import { NOTIFICATION_PREFERENCE_CATALOG } from "../messaging/constants";
 import { loadPrefsByUser } from "../messaging/load-prefs";
-import {
-	isFacetEnabled,
-	NOTIFICATION_PREFERENCE_CATALOG,
-	type PrefChannel,
-	type PrefRow,
-} from "../messaging/notification-prefs";
+import { isFacetEnabled } from "../messaging/notification-prefs";
+import type { PrefChannel, PrefRow } from "../types";
 
 /* =============
 Channel notification-preference persistence (email, sms, telegram).
@@ -52,17 +50,17 @@ const CATALOG_FIELD_MAP: Record<string, ChannelPreferenceTarget> = Object.fromEn
 const LEGACY_DAILY_FIELD_ALIASES: Record<string, ChannelPreferenceTarget> = {
 	...Object.fromEntries(
 		(["prices", "top_movers", "news", "rumors"] as const).flatMap((content) =>
-			(["email", "sms", "telegram"] as const)
-				.filter((channel) => channel !== "sms" || content === "prices" || content === "top_movers")
-				.map((channel) => [
-					`daily_digest_include_${content}_${channel}`,
-					{ notification_type: "daily_notification", content, channel },
-				]),
+			PREF_CHANNELS.filter(
+				(channel) => channel !== "sms" || content === "prices" || content === "top_movers",
+			).map((channel) => [
+				`daily_digest_include_${content}_${channel}`,
+				{ notification_type: "daily_notification", content, channel },
+			]),
 		),
 	),
 	...Object.fromEntries(
 		(["calendar", "ipo", "analyst", "insider"] as const).flatMap((content) =>
-			(["email", "sms", "telegram"] as const).map((channel) => [
+			PREF_CHANNELS.map((channel) => [
 				`asset_events_include_${content}_${channel}`,
 				{ notification_type: "daily_notification", content, channel },
 			]),

@@ -1,14 +1,14 @@
 import type { APIRoute } from "astro";
 import { createUserService } from "../../../lib/auth/user-service";
-import type { ApiJsonBody } from "../../../lib/client/json-response";
+import type { ApiJsonBody } from "../../../lib/client/types";
 import {
 	DAILY_NOTIFICATION_FACETS,
 	hasAnyDailyNotificationFacet,
 	isDailyNotificationFacetEnabled,
 } from "../../../lib/daily-notification/eligibility";
-import type { User } from "../../../lib/db";
 import { Constants } from "../../../lib/db/generated/database.types";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
+import type { User } from "../../../lib/db/types";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";

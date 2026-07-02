@@ -1,6 +1,7 @@
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
-import { type PrefRow, parsePrefRow } from "./notification-prefs";
+import type { PrefRow } from "../types";
+import { parsePrefRow } from "./notification-prefs";
 
 /* =============
 Batch loader for notification_preferences rows.

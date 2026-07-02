@@ -1,62 +1,28 @@
-import type { PriceTargetDirection } from "../db";
 import type { SupabaseAdminClient } from "../db/supabase";
+import type { PriceTargetDirection } from "../db/types";
 import { rootLogger } from "../logging";
 import { fetchExtendedQuotes } from "../market-data/prices";
 import { getCurrentMarketSession } from "../market-data/session";
 import { isEmailChannelUsable } from "../messaging/email/eligibility";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
-import { isFacetEnabled, type PrefRow } from "../messaging/notification-prefs";
+import { isFacetEnabled } from "../messaging/notification-prefs";
 import { createNotificationSenders } from "../messaging/senders";
 import { isSmsChannelUsable } from "../messaging/sms/index";
 import { isTelegramChannelUsable, shouldSendTelegram } from "../messaging/telegram/eligibility";
 import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
 import type { ExtendedQuoteMap, MarketSession } from "../types";
-import {
-	deliverPriceTargetAlert,
-	type PriceTargetDeliveryOutcome,
-	type PriceTargetDeliveryStats,
-} from "./delivery";
+import { deliverPriceTargetAlert } from "./delivery";
+import type {
+	PriceTargetDeliveryOutcome,
+	PriceTargetTotals,
+	PriceTargetUser,
+	TriggeredPriceTarget,
+} from "./types";
 
 /** Max delivery rounds before a triggered-but-undeliverable target is cleared
  *  (tombstoned with an error log). Mirrors `MAX_NOTIFICATION_RETRIES` for
  *  scheduled notifications. */
 const MAX_PRICE_TARGET_DELIVERY_ATTEMPTS = 3;
-
-export interface PriceTargetUser {
-	id: string;
-	email: string;
-	/** Global per-user email kill-switch; gates the email delivery branch. */
-	email_notifications_enabled: boolean;
-	phone_country_code: string | null;
-	phone_number: string | null;
-	phone_verified: boolean;
-	sms_notifications_enabled: boolean;
-	sms_opted_out: boolean;
-	/** Linked Telegram chat (null when never linked); gates the Telegram delivery branch. */
-	telegram_chat_id: number | null;
-	/** True after a verified outbound 403 ("bot blocked"); suppresses Telegram delivery. */
-	telegram_opted_out: boolean;
-	/** Per-option channel preferences (single source of truth for all channels). */
-	prefs: PrefRow[];
-}
-
-export interface TriggeredPriceTarget {
-	symbol: string;
-	targetPrice: number;
-	currentPrice: number;
-	direction: PriceTargetDirection;
-	iconUrl?: string | null;
-	iconBase64?: string | null;
-}
-
-export interface PriceTargetTotals extends PriceTargetDeliveryStats {
-	targetsChecked: number;
-	targetsTriggered: number;
-	/** Times `deliverPriceTargetAlert` threw (a hard delivery failure), distinct
-	 *  from `logFailures` (a `notification_log` insert failure on an otherwise
-	 *  successful or normally-failed send). */
-	deliveryErrors: number;
-}
 
 interface PriceTargetRow {
 	user_id: string;
