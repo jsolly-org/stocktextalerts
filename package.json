@@ -93,7 +93,7 @@
 		"@astrojs/node": "^11.0.0",
 		"@astrojs/sitemap": "^3.7.3",
 		"@astrojs/ts-plugin": "^1.10.9",
-		"@astrojs/vue": "^7.0.0",
+		"@astrojs/vue": "^7.0.1",
 		"@axe-core/playwright": "^4.12.1",
 		"@biomejs/biome": "^2.5.1",
 		"@playwright/test": "^1.61.1",
