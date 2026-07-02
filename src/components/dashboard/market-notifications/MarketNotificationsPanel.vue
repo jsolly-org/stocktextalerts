@@ -450,6 +450,7 @@ import {
 	getEmailChannelDisabledTitle,
 	getSmsChannelDisabledTitle,
 } from "../shared/channel-disabled-titles";
+import { createChannelOptionBuilders } from "../shared/channel-options";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import type { ChannelOption, InitialAsset, NotificationPreferencesData } from "../types";
@@ -716,33 +717,14 @@ Channel multiselect options. Each option carries its selected/disabled/title so 
 multiselect can show every channel while still surfacing why a channel is unavailable.
 Email/SMS disabled logic mirrors the prior per-option checkboxes verbatim.
 ============= */
-function emailOption(selected: boolean): ChannelOption {
-	return {
-		value: "email",
-		label: "Email",
-		selected,
-		disabled: notificationSetupBlocked.value || !emailEnabled.value,
-		disabledTitle: emailDisabledTitle.value,
-	};
-}
-function smsOption(selected: boolean): ChannelOption {
-	return {
-		value: "sms",
-		label: "SMS",
-		selected,
-		disabled: notificationSetupBlocked.value || !smsReady.value,
-		disabledTitle: smsDisabledTitle.value,
-	};
-}
-function telegramOption(selected: boolean): ChannelOption {
-	return {
-		value: "telegram",
-		label: "Telegram",
-		selected,
-		disabled: !telegramConnected.value,
-		disabledTitle: telegramDisabledTitle.value,
-	};
-}
+const { emailOption, smsOption, telegramOption } = createChannelOptionBuilders({
+	emailDisabled: () => notificationSetupBlocked.value || !emailEnabled.value,
+	emailDisabledTitle: () => emailDisabledTitle.value,
+	smsDisabled: () => notificationSetupBlocked.value || !smsReady.value,
+	smsDisabledTitle: () => smsDisabledTitle.value,
+	telegramDisabled: () => !telegramConnected.value,
+	telegramDisabledTitle: () => telegramDisabledTitle.value,
+});
 
 const priceAlertsChannelOptions = computed<ChannelOption[]>(() => [
 	emailOption(priceAlertsIncludeEmail.value),

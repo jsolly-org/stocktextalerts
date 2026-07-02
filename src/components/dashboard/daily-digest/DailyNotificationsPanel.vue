@@ -267,6 +267,7 @@ import {
 	getEmailChannelDisabledTitle,
 	getSmsChannelDisabledTitle,
 } from "../shared/channel-disabled-titles";
+import { createChannelOptionBuilders } from "../shared/channel-options";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import type { ChannelOption, NotificationPreferencesData } from "../types";
@@ -426,33 +427,14 @@ multiselect can show every channel that exists for the facet (prices/top_movers 
 Email+SMS+Telegram; news/rumors are Email+Telegram — no SMS) while still surfacing
 why a channel is unavailable. Email/SMS disabled logic mirrors the prior checkboxes.
 ============= */
-function emailOption(selected: boolean): ChannelOption {
-	return {
-		value: "email",
-		label: "Email",
-		selected,
-		disabled: emailOnlyDisabled.value,
-		disabledTitle: emailDisabledTitle.value,
-	};
-}
-function smsOption(selected: boolean): ChannelOption {
-	return {
-		value: "sms",
-		label: "SMS",
-		selected,
-		disabled: notificationSetupBlocked.value || !smsReady.value,
-		disabledTitle: smsDisabledTitle.value,
-	};
-}
-function telegramOption(selected: boolean): ChannelOption {
-	return {
-		value: "telegram",
-		label: "Telegram",
-		selected,
-		disabled: !telegramConnected.value,
-		disabledTitle: telegramDisabledTitle.value,
-	};
-}
+const { emailOption, smsOption, telegramOption } = createChannelOptionBuilders({
+	emailDisabled: () => emailOnlyDisabled.value,
+	emailDisabledTitle: () => emailDisabledTitle.value,
+	smsDisabled: () => notificationSetupBlocked.value || !smsReady.value,
+	smsDisabledTitle: () => smsDisabledTitle.value,
+	telegramDisabled: () => !telegramConnected.value,
+	telegramDisabledTitle: () => telegramDisabledTitle.value,
+});
 
 const pricesChannelOptions = computed<ChannelOption[]>(() => [
 	emailOption(includePricesEmail.value),
