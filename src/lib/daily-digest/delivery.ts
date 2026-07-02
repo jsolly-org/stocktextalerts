@@ -15,17 +15,13 @@ import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,
 } from "../messaging/scheduled-channel";
-import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { EmailSender, NotificationExtras } from "../messaging/types";
-import {
-	claimNotification,
-	updateScheduledNotificationRow,
-} from "../scheduled-notifications/store";
+import { updateScheduledNotificationRow } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../time/types";
 import type {
@@ -160,7 +156,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		return;
 	}
 
-	const claim = await claimNotification({
+	const attemptCount = await claimScheduledChannel({
 		supabase,
 		userId: user.id,
 		notificationType: "daily",
@@ -168,13 +164,9 @@ export async function processDailyDigestSmsDelivery(options: {
 		scheduledMinutes,
 		channel: "sms",
 		logger,
+		stats,
 	});
-	if (claim.status === "claim_error") {
-		stats.smsFailed++;
-		return;
-	}
-	if (claim.status === "retries_exhausted" || claim.status === "not_ready") {
-		stats.skipped++;
+	if (attemptCount === null) {
 		return;
 	}
 
@@ -198,7 +190,7 @@ export async function processDailyDigestSmsDelivery(options: {
 			channel: "sms",
 			status: "failed",
 			error: errorMessage,
-			attemptCount: claim.attemptCount,
+			attemptCount,
 			logger,
 		});
 		return;
@@ -239,35 +231,18 @@ export async function processDailyDigestSmsDelivery(options: {
 	}
 
 	const result = summarizeDailyDigestSmsResults(partResults, smsMessages.length);
-	const logged = await recordNotification(supabase, {
-		user_id: user.id,
-		type: "daily",
-		delivery_method: "sms",
-		message_delivered: result.success,
-		message: formatDailyDigestSmsLogMessage(smsMessages),
-		...deliveryResultToLogFields(result),
-	});
-	if (!logged) {
-		stats.logFailures++;
-	}
-
-	if (result.success) {
-		stats.smsSent++;
-	} else {
-		stats.smsFailed++;
-	}
-
-	await updateScheduledNotificationRow({
+	await completeScheduledChannelFromResult({
 		supabase,
 		userId: user.id,
 		notificationType: "daily",
 		scheduledDate,
 		scheduledMinutes,
 		channel: "sms",
-		status: result.success ? "sent" : "failed",
-		error: result.success ? undefined : result.error,
-		attemptCount: claim.attemptCount,
 		logger,
+		stats,
+		attemptCount,
+		result,
+		logMessage: formatDailyDigestSmsLogMessage(smsMessages),
 	});
 }
 
@@ -325,7 +300,7 @@ export async function processDailyDigestTelegramDelivery(options: {
 		return;
 	}
 
-	const claim = await claimNotification({
+	const attemptCount = await claimScheduledChannel({
 		supabase,
 		userId: user.id,
 		notificationType: "daily",
@@ -333,13 +308,9 @@ export async function processDailyDigestTelegramDelivery(options: {
 		scheduledMinutes,
 		channel: "telegram",
 		logger,
+		stats,
 	});
-	if (claim.status === "claim_error") {
-		stats.telegramFailed++;
-		return;
-	}
-	if (claim.status === "retries_exhausted" || claim.status === "not_ready") {
-		stats.skipped++;
+	if (attemptCount === null) {
 		return;
 	}
 
@@ -363,7 +334,7 @@ export async function processDailyDigestTelegramDelivery(options: {
 			channel: "telegram",
 			status: "failed",
 			error: errorMessage,
-			attemptCount: claim.attemptCount,
+			attemptCount,
 			logger,
 		});
 		return;
@@ -404,34 +375,17 @@ export async function processDailyDigestTelegramDelivery(options: {
 
 	await optOutIfBotBlocked(supabase, user.id, result, logger);
 
-	const logged = await recordNotification(supabase, {
-		user_id: user.id,
-		type: "daily",
-		delivery_method: "telegram",
-		message_delivered: result.success,
-		message: formatted.text,
-		...deliveryResultToLogFields(result),
-	});
-	if (!logged) {
-		stats.logFailures++;
-	}
-
-	if (result.success) {
-		stats.telegramSent++;
-	} else {
-		stats.telegramFailed++;
-	}
-
-	await updateScheduledNotificationRow({
+	await completeScheduledChannelFromResult({
 		supabase,
 		userId: user.id,
 		notificationType: "daily",
 		scheduledDate,
 		scheduledMinutes,
 		channel: "telegram",
-		status: result.success ? "sent" : "failed",
-		error: result.success ? undefined : result.error,
-		attemptCount: claim.attemptCount,
 		logger,
+		stats,
+		attemptCount,
+		result,
+		logMessage: formatted.text,
 	});
 }
