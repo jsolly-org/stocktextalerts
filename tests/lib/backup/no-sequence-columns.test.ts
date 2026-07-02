@@ -1,6 +1,6 @@
 import { Client } from "pg";
 import { describe, expect, it } from "vitest";
-import { BACKUP_TABLES } from "../../../src/lib/backup/tables";
+import { BACKUP_TABLES } from "../../../src/lib/backup/constants";
 
 /**
  * Guard: the COPY-based backup is DATA-ONLY and does NOT restore sequence

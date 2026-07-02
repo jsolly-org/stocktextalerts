@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BACKUP_TABLES } from "../../../src/lib/backup/tables";
+import { BACKUP_TABLES } from "../../../src/lib/backup/constants";
 
 describe("BACKUP_TABLES", () => {
 	it("is exactly the four user-authored tables, schema-qualified", () => {

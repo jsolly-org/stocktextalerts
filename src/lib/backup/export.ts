@@ -1,7 +1,7 @@
 import { Client } from "pg";
 import { to as copyTo } from "pg-copy-streams";
 import { type BackupManifest, buildManifest } from "./manifest";
-import { BACKUP_TABLES } from "./tables";
+import { BACKUP_TABLES } from "./constants";
 
 type Snapshot = {
 	tables: Record<string, string>;
