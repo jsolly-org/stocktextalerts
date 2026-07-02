@@ -13,8 +13,6 @@ global enable is on AND at least one facet row is enabled for (type, channel).
 ============= */
 
 import type {
-	AssetEventsContent,
-	DailyDigestContent,
 	DailyNotificationContent,
 	FacetlessContent,
 	FacetlessNotificationType,
@@ -88,29 +86,6 @@ export function parsePrefRow(row: {
 			...base,
 			notification_type: "daily_notification",
 			content: row.content as DailyNotificationContent,
-		};
-	}
-
-	// Legacy read compat (pre-migration rows; removed from DB after daily_notification_unity)
-	if (row.notification_type === "daily_digest") {
-		if (!(["prices", "top_movers", "news", "rumors"] as readonly string[]).includes(row.content)) {
-			return null;
-		}
-		return {
-			...base,
-			notification_type: "daily_digest",
-			content: row.content as DailyDigestContent,
-		};
-	}
-
-	if (row.notification_type === "asset_events") {
-		if (!(["calendar", "ipo", "analyst", "insider"] as readonly string[]).includes(row.content)) {
-			return null;
-		}
-		return {
-			...base,
-			notification_type: "asset_events",
-			content: row.content as AssetEventsContent,
 		};
 	}
 

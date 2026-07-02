@@ -12,7 +12,7 @@ import {
  *  (`*_email`/`*_sms`/`*_telegram`) are persisted to notification_preferences by
  *  `persistChannelPreferences`; the KEPT fields below are written to `users`. The
  *  asset_events `*_email`/`*_sms` fields are read here only to recompute
- *  `asset_events_next_send_at`. */
+ *  `daily_notification_next_send_at`. */
 interface ParsedNotificationPreferencesForm {
 	market_scheduled_asset_price_enabled?: boolean;
 	timezone?: string;

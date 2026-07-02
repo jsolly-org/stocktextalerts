@@ -143,8 +143,6 @@ export type PrefChannel = "email" | "sms" | "telegram";
 /** Notification types stored in `notification_preferences.notification_type`. */
 export type NotificationPreferenceType =
 	| "daily_notification"
-	| "daily_digest"
-	| "asset_events"
 	| "market_asset_price_alerts"
 	| "market_scheduled_asset_price"
 	| "price_move_alerts"
@@ -157,10 +155,7 @@ export type DailyNotificationContent = DailyDigestContent | AssetEventsContent;
 /** Facet-less notification types use empty content. */
 export type FacetlessContent = "";
 
-export type FacetlessNotificationType = Exclude<
-	NotificationPreferenceType,
-	"daily_notification" | "daily_digest" | "asset_events"
->;
+export type FacetlessNotificationType = Exclude<NotificationPreferenceType, "daily_notification">;
 
 type PrefRowBase = {
 	channel: PrefChannel;
@@ -172,27 +167,13 @@ type DailyNotificationPrefRow = PrefRowBase & {
 	content: DailyNotificationContent;
 };
 
-type DailyDigestPrefRow = PrefRowBase & {
-	notification_type: "daily_digest";
-	content: DailyDigestContent;
-};
-
-type AssetEventsPrefRow = PrefRowBase & {
-	notification_type: "asset_events";
-	content: AssetEventsContent;
-};
-
 type FacetlessPrefRow = PrefRowBase & {
 	notification_type: FacetlessNotificationType;
 	content: FacetlessContent;
 };
 
 /** A single notification-preference row (subset used by eligibility/reads). */
-export type PrefRow =
-	| DailyNotificationPrefRow
-	| DailyDigestPrefRow
-	| AssetEventsPrefRow
-	| FacetlessPrefRow;
+export type PrefRow = DailyNotificationPrefRow | FacetlessPrefRow;
 
 /* =============
 User records
