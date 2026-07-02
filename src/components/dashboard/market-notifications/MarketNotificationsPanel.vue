@@ -424,10 +424,7 @@ import { DASHBOARD_SECTION_IDS,
 	US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,} from "../../../lib/constants";
-import {
-	type AlertMoveSize,
-	normalizeMoveSize,
-} from "../../../lib/market-notifications/anomaly-alerts/alert-profile";
+import type { AlertMoveSize } from "../../../lib/db";
 import { etMinuteToUserLocal, getUsAfterOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
 	formatMinutesAsLocalTime,
@@ -557,9 +554,7 @@ const priceAlertsEnabled = computed(
 		priceAlertsIncludeTelegram.value,
 );
 
-const priceAlertMoveSize = ref<AlertMoveSize>(
-	normalizeMoveSize(user.value.market_asset_price_alert_move_size),
-);
+const priceAlertMoveSize = ref<AlertMoveSize>(user.value.market_asset_price_alert_move_size);
 
 const moveSizeOptions = [
 	{
@@ -913,7 +908,7 @@ watchUserPreference(
 watch(
 	() => user.value.market_asset_price_alert_move_size,
 	(value) => {
-		priceAlertMoveSize.value = normalizeMoveSize(value);
+		priceAlertMoveSize.value = value;
 	},
 );
 watch(
@@ -1003,7 +998,7 @@ watch([marketIncludeEmail, marketIncludeSms], ([email, sms]) => {
 });
 
 watch(priceAlertMoveSize, (moveSize) => {
-	if (moveSize === normalizeMoveSize(user.value.market_asset_price_alert_move_size)) {
+	if (moveSize === user.value.market_asset_price_alert_move_size) {
 		return;
 	}
 	user.value = {
