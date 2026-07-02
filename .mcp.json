@@ -1,15 +1,11 @@
 {
   "mcpServers": {
     "massive": {
-      "command": "uvx",
+      "command": "sh",
       "args": [
-        "--from",
-        "mcp_massive @ git+https://github.com/massive-com/mcp_massive@v0.10.0",
-        "mcp_massive"
-      ],
-      "env": {
-        "MASSIVE_API_KEY": "${MASSIVE_API_KEY}"
-      }
+        "-c",
+        "key=\"$(grep '^MASSIVE_API_KEY=' .env.local | cut -d= -f2-)\"; [ -n \"$key\" ] || { echo 'MASSIVE_API_KEY missing from .env.local' >&2; exit 1; }; exec env MASSIVE_API_KEY=\"$key\" uvx --from 'mcp_massive @ git+https://github.com/massive-com/mcp_massive@v0.10.0' mcp_massive"
+      ]
     }
   }
 }
