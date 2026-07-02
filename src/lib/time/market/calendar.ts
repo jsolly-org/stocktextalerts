@@ -2,13 +2,7 @@ import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import { marketDataFetch } from "../../vendors/massive";
 
-export type MarketClosureReason = "weekend" | "holiday" | "half-day-after-close";
-
-export interface MarketClosureInfo {
-	reason: MarketClosureReason;
-	/** Holiday name from the exchange calendar (e.g. "Presidents' Day"), if available. */
-	holidayName?: string;
-}
+import type { MarketClosureInfo } from "../types";
 
 type CalendarRecord =
 	| { kind: "closed"; name?: string }

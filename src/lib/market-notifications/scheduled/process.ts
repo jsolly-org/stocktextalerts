@@ -22,10 +22,10 @@ import type {
 	ScheduledNotificationTotals,
 } from "../../scheduled-notifications/types";
 import { userLocalToEtMinute } from "../../time/conversion";
-import type { MarketClosureInfo } from "../../time/market/calendar";
 import { getUsMarketClosureInfoForInstant } from "../../time/market/calendar";
 import { isOutsideMarketHours } from "../../time/market/session";
 import { getLocalMinutesFromDateTime } from "../../time/schedule/next-send";
+import type { MarketClosureInfo } from "../../time/types";
 import type { AssetPriceMap, MarketSession, UserRecord } from "../../types";
 import { assertIsoDateString, NO_SESSION_TRADE } from "../../types";
 import {

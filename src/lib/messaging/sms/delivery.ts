@@ -1,5 +1,5 @@
 import type { AppSupabaseClient } from "../../db/supabase";
-import type { MarketClosureInfo } from "../../time/market/calendar";
+import type { MarketClosureInfo } from "../../time/types";
 import type { MarketSession, ProcessingStats } from "../../types";
 import { formatMarketScheduledSms } from "../notifications/market-scheduled";
 import type { NotificationExtras } from "../parts/extras";

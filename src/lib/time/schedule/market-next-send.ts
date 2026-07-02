@@ -1,6 +1,7 @@
 import type { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../../constants";
-import { getUsMarketClosureInfoForInstant, type MarketClosureReason } from "../market/calendar";
+import { getUsMarketClosureInfoForInstant } from "../market/calendar";
+import type { MarketClosureReason } from "../types";
 import { calculateNextSendAtFromTimes } from "./next-send";
 
 const MAX_CANDIDATE_ITERATIONS = 400;

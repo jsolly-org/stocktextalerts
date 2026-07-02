@@ -22,7 +22,7 @@ import {
 	updateScheduledNotificationRow,
 } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
-import type { MarketClosureInfo } from "../time/market/calendar";
+import type { MarketClosureInfo } from "../time/types";
 import type { IsoDateString, MinuteOfDay, UserRecord } from "../types";
 
 /* =============

@@ -1,6 +1,6 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import { getSiteUrl } from "../../db/env";
-import type { MarketClosureInfo } from "../../time/market/calendar";
+import type { MarketClosureInfo } from "../../time/types";
 import type { AssetPriceMap, MarketSession, UserAssetRow } from "../../types";
 import { NO_SESSION_TRADE } from "../../types";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";

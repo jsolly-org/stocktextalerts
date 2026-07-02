@@ -62,7 +62,8 @@ import type { ScheduledNotificationTotals } from "../scheduled-notifications/typ
 import { deliverStagedNotifications } from "../staged-notifications/deliver";
 import { precomputeDailyDigest } from "../staged-notifications/precompute";
 import { toIsoOrThrow } from "../time/display";
-import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market/calendar";
+import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
+import type { MarketClosureInfo } from "../time/types";
 import type { AssetPriceMap, ExtendedQuoteMap, MarketSession } from "../types";
 import { enqueuePriceHistoryStoreRetry } from "../vendors/backfill/enqueue";
 import { resolveMarketSessionWithFallback } from "./market-session";

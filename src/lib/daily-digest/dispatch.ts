@@ -9,7 +9,7 @@ import { createNotificationSenders } from "../messaging/senders";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
-import type { MarketClosureInfo } from "../time/market/calendar";
+import type { MarketClosureInfo } from "../time/types";
 import type { UserRecord } from "../types";
 import { processDailyDigestUser } from "./process";
 

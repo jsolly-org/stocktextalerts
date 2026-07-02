@@ -32,7 +32,8 @@ import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory
 import { MAX_NOTIFICATION_RETRIES } from "../scheduled-notifications/constants";
 import { getMaxDailyDigestSlotAttempts } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
-import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market/calendar";
+import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
+import type { MarketClosureInfo } from "../time/types";
 import type { AssetPriceMap, MarketSession, UserRecord } from "../types";
 import {
 	buildTopMoversSection,

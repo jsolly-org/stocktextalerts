@@ -1,5 +1,5 @@
 import type { Database } from "../db/generated/database.types";
-import type { MarketClosureInfo } from "../time/market/calendar";
+import type { MarketClosureInfo } from "../time/types";
 import type { SparklineData } from "./parts/charts/sparkline";
 
 /** Minimal user shape needed to send email. */

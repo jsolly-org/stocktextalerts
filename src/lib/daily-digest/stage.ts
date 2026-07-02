@@ -12,7 +12,7 @@ import type { SparklineMap } from "../messaging/parts/charts/sparkline";
 import type { NotificationExtras } from "../messaging/parts/extras";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { upsertStagedNotification } from "../staged-notifications/db";
-import type { MarketClosureInfo } from "../time/market/calendar";
+import type { MarketClosureInfo } from "../time/types";
 import type { AssetPriceMap, StagedDailyData, UserAssetRow, UserRecord } from "../types";
 import { assertYearMonthString, type IsoDateString, type MinuteOfDay } from "../types";
 

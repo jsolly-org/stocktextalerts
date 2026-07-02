@@ -2,7 +2,7 @@ import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import type { buildAssetEventsContent } from "../../asset-events/content";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import { getSiteUrl } from "../../db/env";
-import type { MarketClosureInfo } from "../../time/market/calendar";
+import type { MarketClosureInfo } from "../../time/types";
 import type { AssetPriceMap, DeliveryResult, UserAssetRow } from "../../types";
 import { renderEmailSection } from "../email/html-section";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
