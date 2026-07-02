@@ -158,8 +158,7 @@ export type NotificationPreferenceType =
 	| "daily_notification"
 	| "market_asset_price_alerts"
 	| "market_scheduled_asset_price"
-	| "price_move_alerts"
-	| "price_targets";
+	| "price_move_alerts";
 
 export type DailyDigestContent = "prices" | "top_movers" | "news" | "rumors";
 export type AssetEventsContent = "calendar" | "ipo" | "analyst" | "insider";

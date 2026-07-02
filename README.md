@@ -1,6 +1,6 @@
 # 📈 StockTextAlerts.com
 
-A securities notification app that sends scheduled SMS and email updates (scheduled asset price notifications, daily digests, and asset events), optional asset price alerts, and one-shot price target alerts for tracked US stocks and ETFs. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via AWS SES and Twilio. 🔔
+A securities notification app that sends scheduled SMS and email updates (scheduled asset price notifications, daily digests, and asset events) and optional asset price alerts for tracked US stocks and ETFs. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via AWS SES and Twilio. 🔔
 
 ## Features
 
@@ -8,7 +8,6 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **Email Notifications** - Receive updates via email (AWS SES)
 - **SMS Notifications** - Optional SMS delivery (Twilio)
 - **Asset Price Alerts** - Optional smart alerts for tracked stocks (not ETFs) during US market hours, with configurable sensitivity (Significant/Extreme). Alerts are capped at one alert per symbol per US trading day
-- **Price Targets** - Set a target price for any watchlist symbol and get a one-shot email and/or SMS when the price is reached (target is cleared after delivery)
 - **Phone Verification** - Secure phone verification via Twilio Verify
 - **Timezone Support** - Browser-detected timezones with user overrides
 - **Market Notifications** - Choose up to 8 delivery times for scheduled asset price updates (10:00 AM–3:59 PM ET on market-open days), and decide if they're delivered by email, SMS, or both
@@ -311,8 +310,6 @@ The canonical endpoint for fetching current user preferences is `GET /api/notifi
 - `POST /api/profile/timezone`
 - `POST /api/profile/dismiss-timezone-banner`
 - `POST /api/profile/time-format`
-- `GET /api/price-targets`
-- `POST /api/price-targets/save`
 - `POST /api/messaging/inbound` (Twilio webhook for STOP/START/STOP EMAIL/STOP ALL/HELP)
 
 ## Deployment to Vercel
@@ -365,7 +362,7 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 
 **`ScheduleFunction`** (every minute) — main notification pipeline:
 
-1. Runs asset price alerts and price target checks during US market hours (Massive snapshot quotes)
+1. Runs asset price alerts during US market hours (Massive snapshot quotes)
 2. Runs scheduled asset price notifications (batched via Massive snapshot quotes)
 3. Sends asset events notifications (earnings/dividends/splits/IPOs/analyst/insider) at the user’s daily delivery time
 4. Sends daily digest notifications (News/Rumors) at the user’s chosen daily time

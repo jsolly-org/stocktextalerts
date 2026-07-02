@@ -268,142 +268,6 @@
 				</div>
 			</div>
 
-			<div
-				class="mt-4 rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
-				:class="{ 'opacity-50': notificationSetupBlocked }"
-			>
-				<input
-					type="hidden"
-					name="price_targets_include_email"
-					:value="priceTargetsIncludeEmail ? 'on' : 'off'"
-				/>
-				<input
-					type="hidden"
-					name="price_targets_include_sms"
-					:value="priceTargetsIncludeSms ? 'on' : 'off'"
-				/>
-				<input
-					type="hidden"
-					name="price_targets_include_telegram"
-					:value="priceTargetsIncludeTelegram ? 'on' : 'off'"
-				/>
-				<div class="flex items-start justify-between gap-3 mb-3">
-					<div class="min-w-0">
-						<span
-							id="price_targets_label"
-							class="text-base font-semibold text-heading"
-						>
-							Price Targets
-						</span>
-						<p id="price_targets_description" class="text-sm text-body-secondary mt-0.5">
-							Set a target price on any watchlist asset. Get notified once when it's hit, then the target clears automatically.
-						</p>
-					</div>
-					<div class="shrink-0">
-						<ChannelMultiSelect
-							id-prefix="price_targets"
-							labelledby="price_targets_label"
-							:options="priceTargetsChannelOptions"
-							@toggle="handlePriceTargetsToggle"
-						/>
-					</div>
-				</div>
-
-				<FadeTransition>
-					<div v-if="!notificationSetupBlocked">
-						<div class="border-t border-divider pt-3">
-							<div
-								v-if="trackedAssets.length === 0"
-								class="text-sm text-muted py-4 text-center"
-							>
-								Add assets to your watchlist to set price targets.
-							</div>
-							<div v-else class="space-y-2">
-								<div
-									v-for="asset in trackedAssets"
-									:key="asset.symbol"
-									class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-edge bg-surface-alt px-3 py-2"
-								>
-									<AssetBadge :type="asset.type as 'stock' | 'etf'" :symbol="asset.symbol" :icon-url="asset.icon_url" />
-									<div class="min-w-0 flex-1">
-										<div class="flex items-center gap-2 min-w-0">
-											<span class="text-sm font-semibold text-heading shrink-0">{{ asset.symbol }}</span>
-											<span
-												v-if="getCurrentPrice(asset.symbol) !== null"
-												class="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs tabular-nums text-emerald-700 dark:text-emerald-400 truncate"
-											>{{ formatUsdPrice(getCurrentPrice(asset.symbol) ?? 0) }}</span>
-										</div>
-										<span class="text-xs text-muted truncate block">{{ asset.name }}</span>
-									</div>
-
-									<div class="flex items-center gap-2 basis-full sm:basis-auto ml-auto">
-										<span
-											class="w-3 text-xs text-center"
-											:class="getTargetDirection(asset.symbol) === 'above' ? 'text-emerald-600' : getTargetDirection(asset.symbol) === 'below' ? 'text-red-500' : 'invisible'"
-											aria-hidden="true"
-										>{{ getTargetDirection(asset.symbol) === 'above' ? '▲' : '▼' }}</span>
-
-										<div class="relative">
-											<span class="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted pointer-events-none">$</span>
-											<input
-												type="text"
-												inputmode="decimal"
-												pattern="[0-9]*\.?[0-9]*"
-												:value="getTargetValue(asset.symbol)"
-												:placeholder="'Target'"
-												class="touch-manipulation w-24 pl-5 pr-2 py-1 text-base sm:text-sm text-right rounded-md border border-edge bg-surface focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 placeholder:text-muted"
-												:aria-label="`Price target for ${asset.symbol}`"
-												@input="handleTargetInput(asset.symbol, $event)"
-												@keydown="filterNumericInput"
-												@keydown.enter.prevent="handleSaveTarget(asset.symbol)"
-											/>
-										</div>
-
-										<div class="w-12 flex justify-center">
-											<button
-												v-if="hasPendingInput(asset.symbol)"
-												type="button"
-												class="touch-manipulation px-2 py-1 rounded-md text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-												:disabled="isSavingTarget(asset.symbol)"
-												:aria-label="`Save price target for ${asset.symbol}`"
-												@click="handleSaveTarget(asset.symbol)"
-											>
-												{{ isSavingTarget(asset.symbol) ? '...' : 'Save' }}
-											</button>
-											<button
-												v-else-if="hasTarget(asset.symbol)"
-												type="button"
-												class="p-1 rounded text-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
-												:aria-label="`Clear price target for ${asset.symbol}`"
-												@click="clearTarget(asset.symbol)"
-											>
-												<XMarkIcon class="size-4" aria-hidden="true" />
-											</button>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-
-						<FadeTransition>
-							<p
-								v-if="targetSaveError"
-								class="mt-2 text-xs text-red-600"
-								role="alert"
-							>
-								{{ targetSaveError }}
-							</p>
-						</FadeTransition>
-
-						<div class="mt-3 space-y-1 text-xs text-muted">
-							<p v-if="marketOpen">Prices as of {{ pricesFetchedAtLabel ?? 'page load' }} ET. Refresh the page for the latest prices.</p>
-							<p v-else>Market closed. Prices as of last close{{ lastCloseLabel ? `, ${lastCloseLabel}` : '' }}.</p>
-							<p>Prices are checked every minute during market hours. If a price briefly crosses your target and bounces back within the same minute, the notification may not be sent.</p>
-						</div>
-					</div>
-				</FadeTransition>
-			</div>
-
 			</fieldset>
 			</div>
 		</section>
@@ -412,32 +276,24 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, type Ref, ref, toRefs, watch } from "vue";
+import { computed, type Ref, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
-import XMarkIcon from "../../../icons/x-mark.svg?component";
-import { DASHBOARD_SECTION_IDS, 
+import { DASHBOARD_SECTION_IDS,
 	DEFAULT_MARKET_UPDATE_TIME_MINUTES,
 	US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
-	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,
-	US_MARKET_TIMEZONE,} from "../../../lib/constants";
+	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,} from "../../../lib/constants";
 import type { AlertMoveSize } from "../../../lib/db/types";
-import { formatUsdPrice } from "../../../lib/messaging/parts/asset-price-list";
 import { etMinuteToUserLocal, getUsAfterOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
 	formatMinutesAsLocalTime,
 	minutesToTimeInputValue,
 } from "../../../lib/time/display";
-import {
-	getLastMarketClose,
-	isMarketCurrentlyOpen,
-} from "../../../lib/time/market/session";
 import { parseTimeToMinutes } from "../../../lib/time/parse";
 import FadeTransition from "../../FadeTransition.vue";
-import AssetBadge from "../assets/AssetBadge.vue";
 import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import { useScheduledUpdateTiming } from "../composables/useScheduledUpdateTiming";
@@ -453,18 +309,17 @@ import {
 import { createChannelOptionBuilders } from "../shared/channel-options";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
-import type { ChannelOption, InitialAsset, NotificationPreferencesData } from "../types";
+import type { ChannelOption, NotificationPreferencesData } from "../types";
 import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
 
 interface Props {
 	emailEnabled: boolean;
 	phoneVerified: boolean;
 	hasTrackedAssets: boolean;
-	trackedAssets?: InitialAsset[];
 	/**
 	 * The user's current market-notification Telegram selections, keyed by
 	 * notification_type ("market_asset_price_alerts" | "market_scheduled_asset_price"
-	 * | "price_move_alerts" | "price_targets"). Loaded server-side from
+	 * | "price_move_alerts"). Loaded server-side from
 	 * `notification_preferences` (channel='telegram', content=''); absent types
 	 * default to off. The autosave endpoint persists Telegram to that table but does
 	 * NOT echo it back in its snapshot, so these refs are the panel's own source of truth.
@@ -473,14 +328,12 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-	trackedAssets: () => [],
 	telegramPrefs: () => ({}),
 });
 const {
 	emailEnabled,
 	phoneVerified,
 	hasTrackedAssets,
-	trackedAssets,
 } = toRefs(props);
 
 // Inject the shared mutable user ref from DashboardPanels
@@ -505,8 +358,6 @@ const marketIncludeSms = ref(user.value.market_scheduled_asset_price_include_sms
 
 const priceAlertsIncludeEmail = ref(user.value.market_asset_price_alerts_include_email);
 const priceAlertsIncludeSms = ref(user.value.market_asset_price_alerts_include_sms);
-const priceTargetsIncludeEmail = ref(user.value.price_targets_include_email);
-const priceTargetsIncludeSms = ref(user.value.price_targets_include_sms);
 
 const priceMoveAlertsIncludeEmail = ref(user.value.price_move_alerts_include_email);
 const priceMoveAlertsIncludeSms = ref(user.value.price_move_alerts_include_sms);
@@ -526,7 +377,6 @@ const priceAlertsIncludeTelegram = ref(
 const priceMoveAlertsIncludeTelegram = ref(
 	props.telegramPrefs.price_move_alerts === true,
 );
-const priceTargetsIncludeTelegram = ref(props.telegramPrefs.price_targets === true);
 
 /** Telegram is selectable only once the account is linked (chat id present). */
 const telegramConnected = computed(() => user.value.telegram_chat_id != null);
@@ -680,8 +530,7 @@ const hasNotificationChannel = computed(
 	() =>
 		emailEnabled.value ||
 		(user.value.market_scheduled_asset_price_include_sms ||
-			user.value.market_asset_price_alerts_include_sms ||
-			user.value.price_targets_include_sms) &&
+			user.value.market_asset_price_alerts_include_sms) &&
 			smsReady.value,
 );
 const needsChannelSelection = computed(() => !hasNotificationChannel.value);
@@ -735,11 +584,6 @@ const priceMoveChannelOptions = computed<ChannelOption[]>(() => [
 	smsOption(priceMoveAlertsIncludeSms.value),
 	telegramOption(priceMoveAlertsIncludeTelegram.value),
 ]);
-const priceTargetsChannelOptions = computed<ChannelOption[]>(() => [
-	emailOption(priceTargetsIncludeEmail.value),
-	smsOption(priceTargetsIncludeSms.value),
-	telegramOption(priceTargetsIncludeTelegram.value),
-]);
 
 function handlePriceAlertsToggle(channel: string, selected: boolean) {
 	if (channel === "email") priceAlertsIncludeEmail.value = selected;
@@ -756,17 +600,11 @@ function handlePriceMoveToggle(channel: string, selected: boolean) {
 	else if (channel === "sms") priceMoveAlertsIncludeSms.value = selected;
 	else if (channel === "telegram") priceMoveAlertsIncludeTelegram.value = selected;
 }
-function handlePriceTargetsToggle(channel: string, selected: boolean) {
-	if (channel === "email") priceTargetsIncludeEmail.value = selected;
-	else if (channel === "sms") priceTargetsIncludeSms.value = selected;
-	else if (channel === "telegram") priceTargetsIncludeTelegram.value = selected;
-}
 
 const needsPhoneVerification = computed(
 	() =>
 		(user.value.market_scheduled_asset_price_include_sms ||
-			user.value.market_asset_price_alerts_include_sms ||
-			user.value.price_targets_include_sms) &&
+			user.value.market_asset_price_alerts_include_sms) &&
 		!phoneVerified.value,
 );
 const timePickerDisabled = computed(() => notificationSetupBlocked.value);
@@ -853,14 +691,6 @@ watchUserPreference(
 	priceAlertsIncludeSms,
 );
 watchUserPreference(
-	() => user.value.price_targets_include_email,
-	priceTargetsIncludeEmail,
-);
-watchUserPreference(
-	() => user.value.price_targets_include_sms,
-	priceTargetsIncludeSms,
-);
-watchUserPreference(
 	() => user.value.price_move_alerts_include_email,
 	priceMoveAlertsIncludeEmail,
 );
@@ -927,12 +757,6 @@ watch(
 			...(newData.market_asset_price_alert_move_size !== undefined && {
 				market_asset_price_alert_move_size: newData.market_asset_price_alert_move_size,
 			}),
-			...(newData.price_targets_include_email !== undefined && {
-				price_targets_include_email: newData.price_targets_include_email,
-			}),
-			...(newData.price_targets_include_sms !== undefined && {
-				price_targets_include_sms: newData.price_targets_include_sms,
-			}),
 			...(newData.price_move_alerts_include_email !== undefined && {
 				price_move_alerts_include_email: newData.price_move_alerts_include_email,
 			}),
@@ -987,21 +811,6 @@ watch([priceAlertsIncludeEmail, priceAlertsIncludeSms], ([email, sms]) => {
 	notifyChange();
 });
 
-watch([priceTargetsIncludeEmail, priceTargetsIncludeSms], ([email, sms]) => {
-	if (
-		email === user.value.price_targets_include_email &&
-		sms === user.value.price_targets_include_sms
-	) {
-		return;
-	}
-	user.value = {
-		...user.value,
-		price_targets_include_email: email,
-		price_targets_include_sms: sms,
-	};
-	notifyChange();
-});
-
 watch([priceMoveAlertsIncludeEmail, priceMoveAlertsIncludeSms], ([email, sms]) => {
 	if (
 		email === user.value.price_move_alerts_include_email &&
@@ -1029,240 +838,11 @@ watch(
 		priceAlertsIncludeTelegram,
 		marketIncludeTelegram,
 		priceMoveAlertsIncludeTelegram,
-		priceTargetsIncludeTelegram,
 	],
 	() => {
 		notifyChange();
 	},
 );
-
-// ── Price Targets ──
-interface PriceTarget {
-	symbol: string;
-	target_price: number;
-	direction: "above" | "below";
-	created_at: string;
-}
-
-const targets = ref<Map<string, PriceTarget>>(new Map());
-const currentPrices = ref<Map<string, number>>(new Map());
-const pricesFetchedAt = ref<Date | null>(null);
-const pendingInputs = ref<Map<string, string>>(new Map());
-const savingTargets = ref<Set<string>>(new Set());
-const targetSaveError = ref<string | null>(null);
-
-const marketOpen = ref(isMarketCurrentlyOpen());
-
-const pricesFetchedAtLabel = computed(() => {
-	const d = pricesFetchedAt.value;
-	if (!d) return null;
-	return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: !is24.value, timeZone: US_MARKET_TIMEZONE });
-});
-
-const lastCloseLabel = computed(() => {
-	const lastClose = getLastMarketClose();
-	const dateTimePart = lastClose.toLocaleString({
-		month: "short",
-		day: "numeric",
-		hour: "numeric",
-		minute: "2-digit",
-		hourCycle: is24.value ? "h23" : "h12",
-	});
-	const relative = lastClose.toRelative();
-	return `${dateTimePart} ET (${relative})`;
-});
-
-function getCurrentPrice(symbol: string): number | null {
-	return currentPrices.value.get(symbol) ?? null;
-}
-
-function getTargetValue(symbol: string): string {
-	const pending = pendingInputs.value.get(symbol);
-	if (pending !== undefined) return pending;
-	const target = targets.value.get(symbol);
-	return target ? String(target.target_price) : "";
-}
-
-function getTargetDirection(symbol: string): "above" | "below" | null {
-	const price = currentPrices.value.get(symbol);
-	if (price === undefined) return null;
-
-	// Use pending input if the user is typing, otherwise use saved target
-	const pending = pendingInputs.value.get(symbol);
-	if (pending !== undefined) {
-		const num = Number.parseFloat(pending);
-		if (!Number.isFinite(num) || num <= 0 || num === price) return null;
-		return num > price ? "above" : "below";
-	}
-
-	const saved = targets.value.get(symbol);
-	if (!saved) return null;
-	return saved.target_price > price ? "above" : "below";
-}
-
-function hasTarget(symbol: string): boolean {
-	return targets.value.has(symbol);
-}
-
-function hasPendingInput(symbol: string): boolean {
-	const pending = pendingInputs.value.get(symbol);
-	if (pending === undefined) return false;
-	const saved = targets.value.get(symbol);
-	return pending !== (saved ? String(saved.target_price) : "");
-}
-
-function isSavingTarget(symbol: string): boolean {
-	return savingTargets.value.has(symbol);
-}
-
-/** Allow only digits, decimal point, and control keys in price target inputs. */
-function filterNumericInput(event: KeyboardEvent) {
-	// Allow control keys: backspace, delete, tab, escape, enter, arrows
-	if (
-		event.key === "Backspace" ||
-		event.key === "Delete" ||
-		event.key === "Tab" ||
-		event.key === "Escape" ||
-		event.key === "Enter" ||
-		event.key === "ArrowLeft" ||
-		event.key === "ArrowRight" ||
-		event.key === "Home" ||
-		event.key === "End" ||
-		// Allow Ctrl/Cmd+A, C, V, X, Z, Y (undo/redo)
-		((event.ctrlKey || event.metaKey) &&
-			["a", "c", "v", "x", "z", "y"].includes(event.key.toLowerCase())) ||
-		((event.ctrlKey || event.metaKey) &&
-			event.shiftKey &&
-			event.key.toLowerCase() === "z")
-	) {
-		return;
-	}
-	// Allow digits and one decimal point
-	if (/^[0-9]$/.test(event.key)) return;
-	if (event.key === "." && !(event.target as HTMLInputElement).value.includes(".")) return;
-	event.preventDefault();
-}
-
-function handleTargetInput(symbol: string, event: Event) {
-	const input = event.target as HTMLInputElement;
-	// Strip any non-numeric characters that might have gotten through (e.g. paste)
-	const stripped = input.value.replace(/[^0-9.]/g, "");
-	const parts = stripped.split(".");
-	const cleaned = parts.length <= 1 ? stripped : `${parts[0]}.${parts.slice(1).join("")}`;
-	if (cleaned !== input.value) {
-		input.value = cleaned;
-	}
-	const updated = new Map(pendingInputs.value);
-	updated.set(symbol, cleaned);
-	pendingInputs.value = updated;
-}
-
-async function fetchTargets() {
-	try {
-		const response = await fetch("/api/price-targets");
-		if (!response.ok) return;
-		const data = await response.json();
-		if (!data.ok) return;
-
-		const map = new Map<string, PriceTarget>();
-		for (const t of data.targets) {
-			map.set(t.symbol, t);
-		}
-		targets.value = map;
-
-		if (data.prices) {
-			const priceMap = new Map<string, number>();
-			for (const [symbol, price] of Object.entries(data.prices)) {
-				if (typeof price === "number") priceMap.set(symbol, price);
-			}
-			currentPrices.value = priceMap;
-			marketOpen.value = isMarketCurrentlyOpen();
-			if (priceMap.size > 0) {
-				pricesFetchedAt.value = new Date();
-			}
-		}
-	} catch {
-		// Silently fail — targets will just show as empty
-	}
-}
-
-async function saveTarget(symbol: string, targetPrice: number | null) {
-	targetSaveError.value = null;
-	const updated = new Set(savingTargets.value);
-	updated.add(symbol);
-	savingTargets.value = updated;
-	try {
-		const response = await fetch("/api/price-targets/save", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ symbol, target_price: targetPrice }),
-		});
-		const data = await response.json();
-		if (!data.ok) {
-			if (data.message === "target_equals_current") {
-				targetSaveError.value = "Target price cannot equal the current price.";
-			} else if (data.message === "price_unavailable") {
-				targetSaveError.value = "Could not fetch current price. Try again.";
-			} else {
-				targetSaveError.value = "Failed to save target. Please try again.";
-			}
-			return;
-		}
-
-		if (targetPrice === null) {
-			targets.value.delete(symbol);
-			targets.value = new Map(targets.value);
-		} else {
-			targets.value.set(symbol, {
-				symbol,
-				target_price: targetPrice,
-				direction: data.direction ?? "above",
-				created_at: new Date().toISOString(),
-			});
-			targets.value = new Map(targets.value);
-		}
-		// Clear pending input after successful save
-		const pendingUpdated = new Map(pendingInputs.value);
-		pendingUpdated.delete(symbol);
-		pendingInputs.value = pendingUpdated;
-	} catch {
-		targetSaveError.value = "Failed to save target. Please try again.";
-	} finally {
-		const cleared = new Set(savingTargets.value);
-		cleared.delete(symbol);
-		savingTargets.value = cleared;
-	}
-}
-
-function handleSaveTarget(symbol: string) {
-	const value = (pendingInputs.value.get(symbol) ?? getTargetValue(symbol)).trim();
-
-	if (value === "") {
-		if (hasTarget(symbol)) {
-			saveTarget(symbol, null);
-		}
-		return;
-	}
-
-	const num = Number.parseFloat(value);
-	if (!Number.isFinite(num) || num <= 0) {
-		targetSaveError.value = "Target price must be a positive number.";
-		return;
-	}
-
-	saveTarget(symbol, num);
-}
-
-function clearTarget(symbol: string) {
-	const pendingUpdated = new Map(pendingInputs.value);
-	pendingUpdated.delete(symbol);
-	pendingInputs.value = pendingUpdated;
-	saveTarget(symbol, null);
-}
-
-onMounted(() => {
-	fetchTargets();
-});
 
 function handleTimeChange(index: number, value: string) {
 	const parsedMinutes = parseTimeToMinutes(value);

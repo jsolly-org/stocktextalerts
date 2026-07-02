@@ -34,8 +34,6 @@ export const NOTIFICATION_PREFERENCES_SCHEMA = {
 	},
 	price_move_alerts_include_email: { type: "boolean" },
 	price_move_alerts_include_sms: { type: "boolean" },
-	price_targets_include_email: { type: "boolean" },
-	price_targets_include_sms: { type: "boolean" },
 	// Telegram per-option prefs. No legacy `users` columns exist for these — they
 	// persist to `notification_preferences` (channel='telegram'), not the users table.
 	daily_digest_include_prices_telegram: { type: "boolean" },
@@ -49,7 +47,6 @@ export const NOTIFICATION_PREFERENCES_SCHEMA = {
 	market_asset_price_alerts_include_telegram: { type: "boolean" },
 	market_scheduled_asset_price_include_telegram: { type: "boolean" },
 	price_move_alerts_include_telegram: { type: "boolean" },
-	price_targets_include_telegram: { type: "boolean" },
 } as const satisfies FormSchema;
 
 /** SMS facet form fields → their (notification_type, content) row key, used to
@@ -80,7 +77,6 @@ export const SMS_INCLUDE_FIELD_TARGETS: Record<
 		content: "",
 	},
 	price_move_alerts_include_sms: { notification_type: "price_move_alerts", content: "" },
-	price_targets_include_sms: { notification_type: "price_targets", content: "" },
 	daily_digest_include_top_movers_sms: {
 		notification_type: "daily_notification",
 		content: "top_movers",

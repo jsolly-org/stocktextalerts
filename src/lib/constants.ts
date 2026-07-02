@@ -43,7 +43,6 @@ export const DASHBOARD_SECTION_IDS = {
 	marketNotifications: "market-notifications",
 	assetEvents: "asset-events-notifications",
 	dailyNotifications: "daily-notifications",
-	priceTargets: "price-targets",
 } as const;
 
 type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
@@ -55,7 +54,6 @@ export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 	marketNotifications: `#${DASHBOARD_SECTION_IDS.marketNotifications}`,
 	assetEvents: `#${DASHBOARD_SECTION_IDS.assetEvents}`,
 	dailyNotifications: `#${DASHBOARD_SECTION_IDS.dailyNotifications}`,
-	priceTargets: `#${DASHBOARD_SECTION_IDS.priceTargets}`,
 };
 
 /* =============

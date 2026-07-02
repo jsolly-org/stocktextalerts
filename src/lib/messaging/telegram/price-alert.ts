@@ -70,8 +70,8 @@ export function formatPriceAlertTelegram(
 /**
  * Send a rendered price alert via Telegram and record the attempt.
  *
- * Shared tail of the three real-time alert pipelines (anomaly, flat, price
- * target): format → send → stats + failure log → bot-blocked opt-out →
+ * Shared tail of the real-time alert pipelines (anomaly, flat):
+ * format → send → stats + failure log → bot-blocked opt-out →
  * notification_log. Callers must gate on channel usability
  * (isTelegramChannelUsable / shouldSendTelegram) BEFORE calling — the chatId
  * non-null cast relies on that invariant. Returns whether the send succeeded.
@@ -82,7 +82,7 @@ export async function deliverTelegramPriceAlert(options: {
 	sendTelegram: TelegramSender;
 	supabase: AppSupabaseClient;
 	stats: ChannelDeliveryStats;
-	notificationType: "price_alert" | "flat_price_alert" | "price_target";
+	notificationType: "price_alert" | "flat_price_alert";
 	failureLogMessage: string;
 	failureErrorFallback: string;
 	failureLogContext: Record<string, unknown>;

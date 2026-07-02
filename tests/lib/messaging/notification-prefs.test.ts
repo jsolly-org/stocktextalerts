@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	anyFacetEnabled,
-	anySmsFacetEnabledExceptPriceTargets,
+	anySmsFacetEnabled,
 	buildDefaultPreferenceRows,
 	enabledFacets,
 	isFacetEnabled,
@@ -15,7 +15,6 @@ describe("notification-prefs channel-parametric helpers", () => {
 		["daily_notification", "prices", "sms", false],
 		["daily_notification", "news", "telegram", true],
 		["market_asset_price_alerts", "", "telegram", true],
-		["price_targets", "", "sms", true],
 	]);
 
 	describe("isFacetEnabled", () => {
@@ -49,18 +48,15 @@ describe("notification-prefs channel-parametric helpers", () => {
 		});
 	});
 
-	describe("anySmsFacetEnabledExceptPriceTargets", () => {
-		it("ignores price_targets SMS so it can't unlock unrelated SMS flows", () => {
-			// Only price_targets SMS enabled → false.
-			expect(anySmsFacetEnabledExceptPriceTargets(prefs)).toBe(false);
+	describe("anySmsFacetEnabled", () => {
+		it("is false when no SMS facet is enabled", () => {
+			// `prefs` has only a disabled SMS row.
+			expect(anySmsFacetEnabled(prefs)).toBe(false);
 		});
 
-		it("is true once any non-price_targets SMS facet is enabled", () => {
-			const withDigestSms = makePrefRows([
-				["daily_notification", "prices", "sms", true],
-				["price_targets", "", "sms", true],
-			]);
-			expect(anySmsFacetEnabledExceptPriceTargets(withDigestSms)).toBe(true);
+		it("is true once any SMS facet is enabled", () => {
+			const withDigestSms = makePrefRows([["daily_notification", "prices", "sms", true]]);
+			expect(anySmsFacetEnabled(withDigestSms)).toBe(true);
 		});
 	});
 

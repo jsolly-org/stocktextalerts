@@ -30,7 +30,6 @@ export const DASHBOARD_HASH_TO_TAB_INDEX: Record<string, number> = {
 	[DASHBOARD_SECTION_IDS.marketNotifications]: 3,
 	// Legacy hash — asset events now live in the daily notification panel.
 	[DASHBOARD_SECTION_IDS.assetEvents]: 2,
-	[DASHBOARD_SECTION_IDS.priceTargets]: 3,
 	daily_digest_time: 1,
 	[`${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`]: 1,
 };

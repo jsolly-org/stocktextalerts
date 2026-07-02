@@ -6,7 +6,6 @@ Enum aliases (Postgres enums)
 ============= */
 
 export type AlertMoveSize = Database["public"]["Enums"]["alert_move_size"];
-export type PriceTargetDirection = Database["public"]["Enums"]["price_target_direction"];
 export type StagedNotificationType = Database["public"]["Enums"]["staged_notification_type"];
 
 /* =============
@@ -26,7 +25,7 @@ Public Types
 /** Full `users` table row type (public schema). */
 export type User = DbUserRow;
 
-/** The 22 per-option email/sms preference fields that used to be `users` columns
+/** The 20 per-option email/sms preference fields that used to be `users` columns
  *  and now live in notification_preferences. The dashboard augments the `users`
  *  row with these (reconstructed from the table) so the existing per-option Vue
  *  controls keep reading `user.<field>`. */
@@ -51,8 +50,6 @@ interface DashboardUserChannelPrefs {
 	market_asset_price_alerts_include_sms: boolean;
 	price_move_alerts_include_email: boolean;
 	price_move_alerts_include_sms: boolean;
-	price_targets_include_email: boolean;
-	price_targets_include_sms: boolean;
 }
 
 /** The `users` row augmented with per-option email/sms prefs for the dashboard UI. */

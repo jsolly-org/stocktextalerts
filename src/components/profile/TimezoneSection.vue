@@ -139,8 +139,6 @@ function buildSavedNotificationPreferences(
 		market_asset_price_alert_move_size: sourceUser.market_asset_price_alert_move_size,
 		price_move_alerts_include_email: sourceUser.price_move_alerts_include_email,
 		price_move_alerts_include_sms: sourceUser.price_move_alerts_include_sms,
-		price_targets_include_email: sourceUser.price_targets_include_email,
-		price_targets_include_sms: sourceUser.price_targets_include_sms,
 	};
 }
 

@@ -214,22 +214,4 @@ export const NOTIFICATION_PREFERENCE_CATALOG: readonly FacetCatalogEntry[] = [
 		channel: "telegram",
 		default: false,
 	},
-	{
-		notification_type: "price_targets",
-		content: "",
-		channel: "email",
-		default: false,
-	},
-	{
-		notification_type: "price_targets",
-		content: "",
-		channel: "sms",
-		default: false,
-	},
-	{
-		notification_type: "price_targets",
-		content: "",
-		channel: "telegram",
-		default: false,
-	},
 ] as const;

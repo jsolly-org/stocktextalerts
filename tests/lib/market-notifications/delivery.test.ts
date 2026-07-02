@@ -107,7 +107,7 @@ function makeUser(overrides: Partial<PriceAlertUser> = {}): PriceAlertUser {
 describe("deliverPriceAlert email opt-out", () => {
 	it("does not send the anomaly email when email is globally disabled, even with the email facet on", async () => {
 		// Global email kill-switch off + a stale per-option email facet on — the facet
-		// alone must not override the global opt-out (this path used to leak, like price targets).
+		// alone must not override the global opt-out (this path used to leak).
 		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 

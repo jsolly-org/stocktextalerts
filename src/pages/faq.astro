@@ -16,20 +16,16 @@ const faqs = [
 	{
 		question: "How do asset updates work?",
 		answer: REGISTRATION_ENABLED
-			? 'Once you <a href="/auth/register" class="link-primary">create an account</a> and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market asset price notifications, optional Asset Price Alerts, optional Price Targets, plus an optional daily digest and asset events notifications. You can choose whether each notification type is delivered by email, SMS, or both.'
-			: 'Once you <a href="/auth/signin" class="link-primary">sign in</a> and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market asset price notifications, optional Asset Price Alerts, optional Price Targets, plus an optional daily digest and asset events notifications. You can choose whether each notification type is delivered by email, SMS, or both.'
+			? 'Once you <a href="/auth/register" class="link-primary">create an account</a> and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market asset price notifications, optional Asset Price Alerts, plus an optional daily digest and asset events notifications. You can choose whether each notification type is delivered by email, SMS, or both.'
+			: 'Once you <a href="/auth/signin" class="link-primary">sign in</a> and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market asset price notifications, optional Asset Price Alerts, plus an optional daily digest and asset events notifications. You can choose whether each notification type is delivered by email, SMS, or both.'
 	},
 	{
 		question: "What are Asset Price Alerts?",
 		answer: "Asset Price Alerts are optional smart alerts for tracked stocks (not ETFs) during US market hours. You can choose sensitivity (Significant or Extreme). We evaluate alert conditions throughout the trading day and limit delivery to one alert per symbol per US trading day."
 	},
 	{
-		question: "What are Price Targets?",
-		answer: "Price Targets let you set a specific price for any watchlist symbol (e.g. alert me when AAPL hits $200). When the price is reached during US market hours, we send a one-shot notification by email and/or SMS (your choice). The target is then cleared; you can set a new one from your dashboard."
-	},
-	{
 		question: "Can I choose which notifications are sent via email vs SMS?",
-		answer: "Yes. Enable email and/or SMS, then choose which notification types are delivered to each channel (including Asset Price Alerts, Price Targets, and Asset Events). Some add-ons (like News and Rumors) are email-only. You can also manage channels by SMS command: reply STOP to pause SMS, START to resume SMS, STOP EMAIL to disable email notifications, STOP ALL to disable both, or HELP for options."
+		answer: "Yes. Enable email and/or SMS, then choose which notification types are delivered to each channel (including Asset Price Alerts and Asset Events). Some add-ons (like News and Rumors) are email-only. You can also manage channels by SMS command: reply STOP to pause SMS, START to resume SMS, STOP EMAIL to disable email notifications, STOP ALL to disable both, or HELP for options."
 	},
 	{
 		question: "I didn\u2019t receive my verification email. What should I do?",
@@ -57,7 +53,7 @@ const faqs = [
 	},
 	{
 		question: "When are updates sent?",
-		answer: 'You can choose up to eight delivery times for scheduled market asset price notifications. Times shown in <a href="/profile#timezone-heading" class="link-primary">your local timezone</a>, anchored to US market hours (4:30 AM – 7:30 PM ET). Notifications send whenever US markets are trading (pre-market, regular hours, or after-hours). Sends are skipped on weekends, full-day holidays, and after early-close days (~3 per year). Asset Price Alerts (if enabled) run during US market hours and can trigger as activity happens, with delivery limited to one alert per symbol per US trading day. Price targets (if set) trigger when the market price reaches your target, then are cleared. The daily digest is sent once per day at your selected daily delivery time, and asset events (calendar events like earnings/dividends/splits, upcoming IPOs, and optional extras like insider trades and analyst consensus) are delivered at the same time (note: analyst consensus may be sent up to once per month).'
+		answer: 'You can choose up to eight delivery times for scheduled market asset price notifications. Times shown in <a href="/profile#timezone-heading" class="link-primary">your local timezone</a>, anchored to US market hours (4:30 AM – 7:30 PM ET). Notifications send whenever US markets are trading (pre-market, regular hours, or after-hours). Sends are skipped on weekends, full-day holidays, and after early-close days (~3 per year). Asset Price Alerts (if enabled) run during US market hours and can trigger as activity happens, with delivery limited to one alert per symbol per US trading day. The daily digest is sent once per day at your selected daily delivery time, and asset events (calendar events like earnings/dividends/splits, upcoming IPOs, and optional extras like insider trades and analyst consensus) are delivered at the same time (note: analyst consensus may be sent up to once per month).'
 	},
 	{
 		question: "What is the Daily Digest?",
@@ -128,7 +124,7 @@ const jsonLd = [
     </header>
     <main id="main-content" class="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
       <h1 class="text-4xl font-bold mb-4 text-balance">Stock & ETF Alert FAQ</h1>
-      <p class="text-lg text-body-secondary mb-10">Everything you need to know about tracking assets and choosing how you receive notifications (scheduled updates, Asset Price Alerts, and Price Targets by email, SMS, or both).</p>
+      <p class="text-lg text-body-secondary mb-10">Everything you need to know about tracking assets and choosing how you receive notifications (scheduled updates and Asset Price Alerts by email, SMS, or both).</p>
 
       <div class="space-y-8">
         {faqs.map((faq) => (

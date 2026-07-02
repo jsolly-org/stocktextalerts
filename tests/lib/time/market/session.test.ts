@@ -1,8 +1,6 @@
-import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
 import { etMinuteToUserLocal, userLocalToEtMinute } from "../../../../src/lib/time/conversion";
 import {
-	getLastMarketClose,
 	getScheduledMarketSession,
 	isOutsideMarketHours,
 } from "../../../../src/lib/time/market/session";
@@ -116,15 +114,5 @@ describe("getScheduledMarketSession", () => {
 
 	it("7:30 PM ET (latest pickable time) is classified as after-hours.", () => {
 		expect(getScheduledMarketSession(1170)).toBe("after");
-	});
-});
-
-describe("getLastMarketClose", () => {
-	it("On spring-forward Sunday evening, returns Friday 4:00 PM ET — not an hour shifted by DST duration math.", () => {
-		const sundayEvening = DateTime.fromISO("2026-03-08T21:00:00", {
-			zone: "America/New_York",
-		});
-		const lastClose = getLastMarketClose(sundayEvening);
-		expect(lastClose.toISO()).toBe("2026-03-06T16:00:00.000-05:00");
 	});
 });

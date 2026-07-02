@@ -102,6 +102,5 @@ export interface DelistingSweepResult {
 	smsSkippedOptOut: number;
 	smsFailed: number;
 	userAssetRowsDeleted: number;
-	priceTargetRowsDeleted: number;
 	providerErrors: number;
 }

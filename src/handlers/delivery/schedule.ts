@@ -1,7 +1,7 @@
 /**
  * Primary notification scheduler (EventBridge: every minute). Finds users due for
  * delivery and runs the two-pass pipeline: price alerts, then scheduled SMS/email
- * (daily digest, market notifications, asset events, price targets). Also purges
+ * (daily digest, market notifications, asset events). Also purges
  * expired short URLs and email-dispatch idempotency keys.
  */
 import type { Context, ScheduledEvent } from "aws-lambda";

@@ -6,7 +6,6 @@ const fetchUpcomingDailyDigestUsersMock = vi.fn();
 const getCurrentMarketSessionMock = vi.fn();
 const fetchMarketScheduledUsersMock = vi.fn();
 const processPriceAlertsMock = vi.fn();
-const processPriceTargetsMock = vi.fn();
 const getUsMarketClosureInfoForInstantMock = vi.fn();
 const fetchAssetPricesWithSessionStateMock = vi.fn();
 const batchLoadUserAssetsMock = vi.fn();
@@ -97,10 +96,6 @@ vi.mock("../../../src/lib/market-notifications/anomaly-alerts/process", () => ({
 	processPriceAlerts: processPriceAlertsMock,
 }));
 
-vi.mock("../../../src/lib/price-targets/process", () => ({
-	processPriceTargets: processPriceTargetsMock,
-}));
-
 vi.mock("../../../src/lib/messaging/email/utils", () => ({
 	createEmailSender: () => vi.fn(),
 }));
@@ -130,7 +125,6 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 		fetchMarketScheduledUsersMock.mockReset();
 		getCurrentMarketSessionMock.mockReset();
 		processPriceAlertsMock.mockReset();
-		processPriceTargetsMock.mockReset();
 		getUsMarketClosureInfoForInstantMock.mockReset();
 		fetchAssetPricesWithSessionStateMock.mockReset();
 		batchLoadUserAssetsMock.mockReset();
@@ -155,15 +149,6 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 			quoteMap: new Map(),
 			isMarketOpen: false,
 			marketSession: "closed",
-		});
-		processPriceTargetsMock.mockResolvedValue({
-			targetsChecked: 0,
-			targetsTriggered: 0,
-			emailsSent: 0,
-			emailsFailed: 0,
-			smsSent: 0,
-			smsFailed: 0,
-			logFailures: 0,
 		});
 	});
 
