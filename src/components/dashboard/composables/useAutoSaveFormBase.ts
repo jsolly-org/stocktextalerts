@@ -3,7 +3,7 @@ import {
 	isUnauthorizedResponse,
 	redirectToSignIn,
 } from "../../../lib/auth/session/session-expired";
-import type { ApiJsonBody } from "../../../lib/client/json-response";
+import type { ApiJsonBody } from "../../../lib/client/types";
 import { createSaveSequencer, type SequencedResult } from "../../../lib/forms/save-sequencer";
 import { rootLogger } from "../../../lib/logging";
 import { formatMessage } from "../../../lib/messaging/status-messages";

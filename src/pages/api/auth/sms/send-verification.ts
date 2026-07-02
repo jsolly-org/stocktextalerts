@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { sendVerification } from "../../../../lib/auth/sms-verification";
 import { createUserService } from "../../../../lib/auth/user-service";
-import type { ApiJsonBody } from "../../../../lib/client/json-response";
+import type { ApiJsonBody } from "../../../../lib/client/types";
 import { VERIFICATION_RESEND_COOLDOWN_MS } from "../../../../lib/constants";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
