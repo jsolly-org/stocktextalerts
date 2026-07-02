@@ -5,6 +5,7 @@ import {
 	buildDefaultPreferenceRows,
 	enabledFacets,
 	isFacetEnabled,
+	parsePrefRow,
 } from "../../../src/lib/messaging/notification-prefs";
 import { makePrefRows } from "../../helpers/user-record-fixture";
 
@@ -45,6 +46,22 @@ describe("notification-prefs channel-parametric helpers", () => {
 			expect(anyFacetEnabled(prefs, "daily_notification", "email")).toBe(true);
 			expect(anyFacetEnabled(prefs, "daily_notification", "sms")).toBe(false);
 			expect(anyFacetEnabled(prefs, "market_asset_price_alerts", "telegram")).toBe(true);
+		});
+	});
+
+	describe("parsePrefRow", () => {
+		it("returns null for retired/unknown notification types instead of throwing", () => {
+			// Deploy-window safety: rows with a retired type (e.g. the removed
+			// 'price_targets') can linger in the table until the drop migration
+			// runs. They must be ignored, not thrown, by the read path.
+			expect(
+				parsePrefRow({
+					notification_type: "price_targets",
+					content: "",
+					channel: "sms",
+					enabled: true,
+				}),
+			).toBeNull();
 		});
 	});
 
