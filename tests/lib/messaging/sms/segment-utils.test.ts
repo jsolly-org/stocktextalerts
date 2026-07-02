@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDailyDigestSmsMessages } from "../../../../src/lib/daily-digest/delivery";
+import { formatDailyDigestSmsMessages } from "../../../../src/lib/messaging/notifications/daily-digest";
 import { SMS_UCS2_SEGMENT_SIZE } from "../../../../src/lib/messaging/sms/constants";
 import {
 	finalizeSmsBodyForUcs2Segments,

@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { processDailyDigestSmsDelivery } from "../../../src/lib/daily-digest/delivery";
+import type { SupabaseAdminClient } from "../../../src/lib/db/supabase";
+import type { Logger } from "../../../src/lib/logging";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsMessage,
 	formatDailyDigestSmsMessages,
-	processDailyDigestSmsDelivery,
-} from "../../../src/lib/daily-digest/delivery";
-import type { SupabaseAdminClient } from "../../../src/lib/db/supabase";
-import type { Logger } from "../../../src/lib/logging";
+} from "../../../src/lib/messaging/notifications/daily-digest";
 import type { SparklineData } from "../../../src/lib/messaging/parts/charts/sparkline";
 import type { NotificationExtras } from "../../../src/lib/messaging/parts/extras";
 import { SMS_UCS2_SEGMENT_SIZE } from "../../../src/lib/messaging/sms/constants";

@@ -23,6 +23,7 @@ import { getCurrentMarketSession } from "../market-data/session";
 import { fetchIntradaySparklines, fetchSparklines } from "../market-data/sparklines";
 import type { EmailSender } from "../messaging/email/utils";
 import { type LogoCache, safePrefetchLogos } from "../messaging/logo-fetcher";
+import { formatDigestQuoteAsOf } from "../messaging/notifications/daily-digest";
 import type { SparklineMap } from "../messaging/parts/charts/sparkline";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/parts/delay";
 import type { NotificationExtras } from "../messaging/parts/extras";
@@ -43,7 +44,6 @@ import {
 	updateGrokSendCounter,
 } from "./content-build";
 import {
-	formatDigestQuoteAsOf,
 	processDailyDigestEmailDelivery,
 	processDailyDigestSmsDelivery,
 	processDailyDigestTelegramDelivery,

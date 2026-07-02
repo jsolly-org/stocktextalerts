@@ -7,10 +7,8 @@ import type { EmailSender } from "../messaging/email/utils";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsLogMessage,
-	formatDailyDigestSmsMessage,
 	formatDailyDigestSmsMessages,
 	formatDailyDigestTelegram,
-	formatDigestQuoteAsOf,
 	summarizeDailyDigestSmsResults,
 } from "../messaging/notifications/daily-digest";
 import type { SparklineMap } from "../messaging/parts/charts/sparkline";
@@ -39,15 +37,6 @@ import type {
 	UserAssetRow,
 	UserRecord,
 } from "../types";
-
-export {
-	formatDailyDigestEmail,
-	formatDailyDigestSmsLogMessage,
-	formatDailyDigestSmsMessage,
-	formatDailyDigestSmsMessages,
-	formatDigestQuoteAsOf,
-	summarizeDailyDigestSmsResults,
-};
 
 type AssetEventsResult = Awaited<ReturnType<typeof buildAssetEventsContent>> | null;
 

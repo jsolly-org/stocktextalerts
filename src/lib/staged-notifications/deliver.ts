@@ -13,10 +13,6 @@
  */
 
 import { DateTime } from "luxon";
-import {
-	formatDailyDigestSmsLogMessage,
-	summarizeDailyDigestSmsResults,
-} from "../daily-digest/delivery";
 import { shouldAdvanceDailyDigestSchedule } from "../daily-digest/schedule-state";
 import { updateUserDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
@@ -24,6 +20,10 @@ import type { Logger } from "../logging";
 import { sendUserEmail } from "../messaging/email/index";
 import type { EmailSender } from "../messaging/email/utils";
 import { loadPrefsByUser } from "../messaging/load-prefs";
+import {
+	formatDailyDigestSmsLogMessage,
+	summarizeDailyDigestSmsResults,
+} from "../messaging/notifications/daily-digest";
 import {
 	buildDelayBannerHtml,
 	buildDelayBannerText,
