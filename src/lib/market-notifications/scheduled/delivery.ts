@@ -1,12 +1,12 @@
 import type { SupabaseAdminClient } from "../../db/supabase";
 import type { Logger } from "../../logging";
-import { createErrorForLogging, extractErrorMessage } from "../../logging/errors";
 import { processEmailUpdate } from "../../messaging/email/delivery";
 import { formatMarketScheduledTelegram } from "../../messaging/notifications/market-scheduled";
 import type { SparklineData } from "../../messaging/parts/charts/sparkline";
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,
+	resolveScheduledSender,
 } from "../../messaging/scheduled-channel";
 import { processSmsUpdate } from "../../messaging/sms/delivery";
 import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
@@ -184,40 +184,20 @@ export async function processMarketScheduledSmsDelivery(options: {
 		return;
 	}
 
-	let smsSenderResult: ReturnType<SmsSenderFactory>;
-	try {
-		smsSenderResult = getSmsSender();
-	} catch (error) {
-		stats.smsFailed++;
-		const errorMessage = extractErrorMessage(error);
-		logger.error(
-			"Failed to resolve SMS sender",
-			{
-				userId: user.id,
-				scheduledDate,
-				scheduledMinutes,
-				channel: "sms",
-				stats,
-			},
-			createErrorForLogging(error),
-		);
-		await updateScheduledNotificationRow({
-			supabase,
-			userId: user.id,
-			notificationType: "market",
-			scheduledDate,
-			scheduledMinutes,
-			channel: "sms",
-			status: "failed",
-			error: errorMessage,
-			attemptCount,
-			logger,
-		});
-
-		// A sender that never initialized built/sent no message, so it does NOT get a
-		// notification_log row (which records actual message sends) — the per-channel
-		// scheduled_notifications failed row + error log above are the record, matching
-		// every other sender-resolution catch across the pipeline.
+	const smsSenderResult = await resolveScheduledSender({
+		supabase,
+		userId: user.id,
+		notificationType: "market",
+		scheduledDate,
+		scheduledMinutes,
+		channel: "sms",
+		logger,
+		stats,
+		attemptCount,
+		getSender: getSmsSender,
+		logMessage: "Failed to resolve SMS sender",
+	});
+	if (smsSenderResult === null) {
 		return;
 	}
 	const smsSender = smsSenderResult.sender;
@@ -319,29 +299,20 @@ export async function processMarketScheduledTelegramDelivery(options: {
 		return;
 	}
 
-	let telegramSenderResult: ReturnType<TelegramSenderFactory>;
-	try {
-		telegramSenderResult = getTelegramSender();
-	} catch (error) {
-		stats.telegramFailed++;
-		const errorMessage = extractErrorMessage(error);
-		logger.error(
-			"Failed to resolve Telegram sender for scheduled market update",
-			{ userId: user.id, scheduledDate, scheduledMinutes },
-			createErrorForLogging(error),
-		);
-		await updateScheduledNotificationRow({
-			supabase,
-			userId: user.id,
-			notificationType: "market",
-			scheduledDate,
-			scheduledMinutes,
-			channel: "telegram",
-			status: "failed",
-			error: errorMessage,
-			attemptCount,
-			logger,
-		});
+	const telegramSenderResult = await resolveScheduledSender({
+		supabase,
+		userId: user.id,
+		notificationType: "market",
+		scheduledDate,
+		scheduledMinutes,
+		channel: "telegram",
+		logger,
+		stats,
+		attemptCount,
+		getSender: getTelegramSender,
+		logMessage: "Failed to resolve Telegram sender for scheduled market update",
+	});
+	if (telegramSenderResult === null) {
 		return;
 	}
 
