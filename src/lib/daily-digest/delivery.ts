@@ -1,7 +1,6 @@
 import type { buildAssetEventsContent } from "../asset-events/content";
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
-import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
 import { sendUserEmail } from "../messaging/email/index";
 import {
 	formatDailyDigestEmail,
@@ -14,6 +13,7 @@ import type { SparklineMap } from "../messaging/parts/charts/sparkline";
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,
+	resolveScheduledSender,
 } from "../messaging/scheduled-channel";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
@@ -21,7 +21,6 @@ import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { EmailSender, NotificationExtras } from "../messaging/types";
-import { updateScheduledNotificationRow } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../time/types";
 import type {
@@ -170,29 +169,20 @@ export async function processDailyDigestSmsDelivery(options: {
 		return;
 	}
 
-	let smsSenderResult: ReturnType<SmsSenderFactory>;
-	try {
-		smsSenderResult = getSmsSender();
-	} catch (error) {
-		stats.smsFailed++;
-		const errorMessage = extractErrorMessage(error);
-		logger.error(
-			"Failed to resolve SMS sender for daily digest",
-			{ userId: user.id, scheduledDate, scheduledMinutes },
-			createErrorForLogging(error),
-		);
-		await updateScheduledNotificationRow({
-			supabase,
-			userId: user.id,
-			notificationType: "daily",
-			scheduledDate,
-			scheduledMinutes,
-			channel: "sms",
-			status: "failed",
-			error: errorMessage,
-			attemptCount,
-			logger,
-		});
+	const smsSenderResult = await resolveScheduledSender({
+		supabase,
+		userId: user.id,
+		notificationType: "daily",
+		scheduledDate,
+		scheduledMinutes,
+		channel: "sms",
+		logger,
+		stats,
+		attemptCount,
+		getSender: getSmsSender,
+		logMessage: "Failed to resolve SMS sender for daily digest",
+	});
+	if (smsSenderResult === null) {
 		return;
 	}
 
@@ -314,29 +304,20 @@ export async function processDailyDigestTelegramDelivery(options: {
 		return;
 	}
 
-	let telegramSenderResult: ReturnType<TelegramSenderFactory>;
-	try {
-		telegramSenderResult = getTelegramSender();
-	} catch (error) {
-		stats.telegramFailed++;
-		const errorMessage = extractErrorMessage(error);
-		logger.error(
-			"Failed to resolve Telegram sender for daily digest",
-			{ userId: user.id, scheduledDate, scheduledMinutes },
-			createErrorForLogging(error),
-		);
-		await updateScheduledNotificationRow({
-			supabase,
-			userId: user.id,
-			notificationType: "daily",
-			scheduledDate,
-			scheduledMinutes,
-			channel: "telegram",
-			status: "failed",
-			error: errorMessage,
-			attemptCount,
-			logger,
-		});
+	const telegramSenderResult = await resolveScheduledSender({
+		supabase,
+		userId: user.id,
+		notificationType: "daily",
+		scheduledDate,
+		scheduledMinutes,
+		channel: "telegram",
+		logger,
+		stats,
+		attemptCount,
+		getSender: getTelegramSender,
+		logMessage: "Failed to resolve Telegram sender for daily digest",
+	});
+	if (telegramSenderResult === null) {
 		return;
 	}
 
