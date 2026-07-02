@@ -40,10 +40,10 @@
 			</header>
 
 		<SetupRequiredNotice
-			:needsTrackedAssets="needsTrackedAssets"
-			:needsChannelSelection="needsChannelSelection"
-			:needsPhoneVerification="needsPhoneVerification"
-			:phoneVerificationSectionId="phoneVerificationSectionId"
+			:needs-tracked-assets="needsTrackedAssets"
+			:needs-channel-selection="needsChannelSelection"
+			:needs-phone-verification="needsPhoneVerification"
+			:phone-verification-section-id="phoneVerificationSectionId"
 		/>
 
 	<fieldset
@@ -87,7 +87,7 @@
 					</div>
 				<div class="shrink-0">
 					<ChannelMultiSelect
-						idPrefix="daily_digest_include_prices"
+						id-prefix="daily_digest_include_prices"
 						labelledby="daily_digest_include_prices_label"
 						:options="pricesChannelOptions"
 						@toggle="handlePricesToggle"
@@ -130,7 +130,7 @@
 					</div>
 					<div class="shrink-0">
 						<ChannelMultiSelect
-							idPrefix="daily_digest_include_top_movers"
+							id-prefix="daily_digest_include_top_movers"
 							labelledby="daily_digest_include_top_movers_label"
 							:options="topMoversChannelOptions"
 							@toggle="handleTopMoversToggle"
@@ -170,7 +170,7 @@
 					</div>
 					<div class="shrink-0">
 						<ChannelMultiSelect
-							idPrefix="daily_digest_include_news"
+							id-prefix="daily_digest_include_news"
 							labelledby="daily_digest_include_news_label"
 							:options="newsChannelOptions"
 							@toggle="handleNewsToggle"
@@ -209,7 +209,7 @@
 					</div>
 				<div class="shrink-0">
 					<ChannelMultiSelect
-						idPrefix="daily_digest_include_rumors"
+						id-prefix="daily_digest_include_rumors"
 						labelledby="daily_digest_include_rumors_label"
 						:options="rumorsChannelOptions"
 						@toggle="handleRumorsToggle"

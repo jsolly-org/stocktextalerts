@@ -1,5 +1,5 @@
 <template>
-	<DashboardCarousel v-model:activeIndex="activeIndex">
+	<DashboardCarousel v-model:active-index="activeIndex">
 		<template #setup>
 			<form
 				ref="assetsFormElement"
@@ -13,7 +13,7 @@
 				@submit="handleAssetsFormSubmit"
 			>
 				<WatchlistPanel
-					:initialAssets="initialAssets"
+					:initial-assets="initialAssets"
 					:status-message="assetsStatusMessage"
 					:status-tone="assetsStatusTone"
 					:is-saving="isAssetsSaving"
@@ -26,32 +26,32 @@
 		<template #schedule>
 			<AsyncNotificationChannelsPanel
 				v-if="shouldRender(1)"
-				v-model:emailEnabled="emailEnabled"
+				v-model:email-enabled="emailEnabled"
 				:sms-phone-number="smsPhoneNumber"
-				:initialAssets="currentAssets"
-				:hasTrackedAssets="hasTrackedAssets"
+				:initial-assets="currentAssets"
+				:has-tracked-assets="hasTrackedAssets"
 			/>
 		</template>
 
 		<template #daily>
 			<AsyncDailyNotificationsPanel
 				v-if="shouldRender(2)"
-				:emailEnabled="emailEnabled"
-				:phoneVerified="phoneVerified"
-				:hasTrackedAssets="hasTrackedAssets"
-				:telegramPrefs="dailyDigestTelegramPrefs"
-				:assetEventTelegramPrefs="assetEventsTelegramPrefs"
+				:email-enabled="emailEnabled"
+				:phone-verified="phoneVerified"
+				:has-tracked-assets="hasTrackedAssets"
+				:telegram-prefs="dailyDigestTelegramPrefs"
+				:asset-event-telegram-prefs="assetEventsTelegramPrefs"
 			/>
 		</template>
 
 		<template #market-notifications>
 			<AsyncMarketNotificationsPanel
 				v-if="shouldRender(3)"
-				:emailEnabled="emailEnabled"
-				:phoneVerified="phoneVerified"
-				:hasTrackedAssets="hasTrackedAssets"
-				:trackedAssets="currentAssets"
-				:telegramPrefs="marketTelegramPrefs"
+				:email-enabled="emailEnabled"
+				:phone-verified="phoneVerified"
+				:has-tracked-assets="hasTrackedAssets"
+				:tracked-assets="currentAssets"
+				:telegram-prefs="marketTelegramPrefs"
 			/>
 		</template>
 

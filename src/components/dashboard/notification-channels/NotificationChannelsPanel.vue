@@ -43,8 +43,8 @@
 			</div>
 
 			<NotificationChannelsFieldset
-				v-model:emailEnabled="emailEnabledModel"
-				v-model:smsNotificationsEnabled="smsNotificationsEnabled"
+				v-model:email-enabled="emailEnabledModel"
+				v-model:sms-notifications-enabled="smsNotificationsEnabled"
 				:sms-opted-out="smsOptedOut"
 				:sms-phone-number="props.smsPhoneNumber"
 				:email-notifications-enabled-id="emailNotificationsEnabledId"
@@ -84,10 +84,10 @@
 			</header>
 
 			<SetupRequiredNotice
-				:needsTrackedAssets="needsTrackedAssets"
-				:needsChannelSelection="needsChannelSelection"
-				:needsPhoneVerification="false"
-				phoneVerificationSectionId=""
+				:needs-tracked-assets="needsTrackedAssets"
+				:needs-channel-selection="needsChannelSelection"
+				:needs-phone-verification="false"
+				phone-verification-section-id=""
 			/>
 
 			<div
