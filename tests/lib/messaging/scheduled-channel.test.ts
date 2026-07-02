@@ -33,6 +33,7 @@ function supabaseDouble() {
 	const updates: Record<string, unknown>[] = [];
 	const chain = {
 		eq: () => chain,
+		// biome-ignore lint/suspicious/noThenProperty: mirrors the thenable Supabase query builder the helper awaits
 		then: (resolve: (value: { error: null }) => void) => resolve({ error: null }),
 	};
 	const supabase = {
