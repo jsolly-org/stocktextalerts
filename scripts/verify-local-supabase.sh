@@ -9,7 +9,7 @@
 # hits them on a fresh clone.
 #
 # Usage:
-#   scripts/ci/verify-local-supabase.sh
+#   scripts/verify-local-supabase.sh
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
