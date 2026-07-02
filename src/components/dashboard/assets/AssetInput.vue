@@ -68,14 +68,8 @@
 <script lang="ts" setup>
 import { onClickOutside, refDebounced } from "@vueuse/core";
 import { onMounted, ref, watch } from "vue";
+import type { InitialAsset } from "../types";
 import AssetBadge from "./AssetBadge.vue";
-
-export interface AssetSearchResult {
-	symbol: string;
-	name: string;
-	type: "stock" | "etf";
-	icon_url: string | null;
-}
 
 interface Props {
 	disabled?: boolean;
@@ -92,12 +86,12 @@ type KeyActions = {
 const props = withDefaults(defineProps<Props>(), {
 	disabled: false,
 });
-const emit = defineEmits<(e: "select", result: AssetSearchResult) => void>();
+const emit = defineEmits<(e: "select", result: InitialAsset) => void>();
 
 const rawSearchQuery = ref("");
 const searchQuery = refDebounced(rawSearchQuery, 300);
 const isSearching = ref(false);
-const searchResults = ref<AssetSearchResult[]>([]);
+const searchResults = ref<InitialAsset[]>([]);
 
 let fetchController: AbortController | null = null;
 
@@ -134,7 +128,7 @@ async function fetchResults(query: string) {
 		}
 		const data = (await response.json()) as {
 			ok: boolean;
-			results: AssetSearchResult[];
+			results: InitialAsset[];
 		};
 		searchResults.value = data.results ?? [];
 	} catch {
@@ -162,7 +156,7 @@ onMounted(() => {
 	onClickOutside(containerRef, resetDropdown);
 });
 
-const selectAsset = (result: AssetSearchResult) => {
+const selectAsset = (result: InitialAsset) => {
 	rawSearchQuery.value = "";
 	resetDropdown();
 	emit("select", result);
