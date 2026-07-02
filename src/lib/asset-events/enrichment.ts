@@ -1,5 +1,5 @@
 import { rootLogger } from "../logging";
-import type { InsiderTransaction, RecommendationTrend } from "../types";
+import { type InsiderTransaction, isRecord, type RecommendationTrend } from "../types";
 import { type FinnhubFetchPolicy, finnhubFetch } from "../vendors/finnhub";
 
 /** Fetch the latest analyst recommendation trend for a ticker (or `null`). */
@@ -54,7 +54,7 @@ function parseInsiderTransactionsPayload(
 	cutoffDate: string | null,
 	maxResults = 5,
 ): InsiderTransaction[] {
-	if (typeof data !== "object" || data === null) {
+	if (!isRecord(data)) {
 		rootLogger.error(
 			"Invalid Finnhub insider-transactions payload shape",
 			{ symbol, payloadType: typeof data },
@@ -63,7 +63,7 @@ function parseInsiderTransactionsPayload(
 		return [];
 	}
 
-	const transactions = (data as Record<string, unknown>).data;
+	const transactions = data.data;
 	if (!Array.isArray(transactions)) {
 		rootLogger.error(
 			"Invalid Finnhub insider-transactions data field",
@@ -76,13 +76,11 @@ function parseInsiderTransactionsPayload(
 	return transactions
 		.filter(
 			(item: unknown) =>
-				typeof item === "object" &&
-				item !== null &&
-				typeof (item as Record<string, unknown>).name === "string" &&
-				typeof (item as Record<string, unknown>).change === "number" &&
-				typeof (item as Record<string, unknown>).transactionDate === "string" &&
-				(cutoffDate === null ||
-					((item as Record<string, unknown>).transactionDate as string) >= cutoffDate),
+				isRecord(item) &&
+				typeof item.name === "string" &&
+				typeof item.change === "number" &&
+				typeof item.transactionDate === "string" &&
+				(cutoffDate === null || item.transactionDate >= cutoffDate),
 		)
 		.slice(0, maxResults)
 		.map((item: Record<string, unknown>) => ({
