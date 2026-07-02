@@ -22,8 +22,7 @@ import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
 import { shortenUrls } from "../../messaging/sms/url-shortener";
 import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/telegram/eligibility";
-import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
-import { formatPriceAlertTelegram } from "../../messaging/telegram/price-alert";
+import { deliverTelegramPriceAlert } from "../../messaging/telegram/price-alert";
 import type { EmailSender, SmsSender, TelegramSender } from "../../messaging/types";
 import type { EnrichedAlert } from "../../price-alerts/types";
 import type { ChannelDeliveryStats } from "../../types";
@@ -323,41 +322,20 @@ export async function deliverPriceAlert(options: {
 	// skipping the lookup for the majority who never linked Telegram.
 	if (sendTelegram && isTelegramChannelUsable(user)) {
 		if (shouldSendTelegram(user, user.prefs, "market_asset_price_alerts")) {
-			const { text, entities, photo } = formatPriceAlertTelegram(
+			const sent = await deliverTelegramPriceAlert({
 				alert,
-				alert.intradayCandles ?? [],
-			);
-			const result = await sendTelegram({
-				// telegram_chat_id is non-null here: isTelegramChannelUsable requires it.
-				chatId: user.telegram_chat_id as number,
-				text,
-				entities,
-				...(photo ? { photo } : {}),
+				user,
+				sendTelegram,
+				supabase,
+				stats,
+				notificationType: "price_alert",
+				failureLogMessage: "Failed to send price alert Telegram message",
+				failureErrorFallback: "Price alert Telegram send failed",
+				failureLogContext: { symbol: alert.symbol },
 			});
-
-			if (result.success) {
-				stats.telegramSent++;
+			if (sent) {
 				delivered = true;
-			} else {
-				stats.telegramFailed++;
-				rootLogger.error(
-					"Failed to send price alert Telegram message",
-					{ userId: user.id, symbol: alert.symbol, errorCode: result.errorCode ?? null },
-					new Error(result.error ?? "Price alert Telegram send failed"),
-				);
 			}
-
-			await optOutIfBotBlocked(supabase, user.id, result);
-
-			const logged = await recordNotification(supabase, {
-				user_id: user.id,
-				type: "price_alert",
-				delivery_method: "telegram",
-				message_delivered: result.success,
-				message: text,
-				...deliveryResultToLogFields(result),
-			});
-			if (!logged) stats.logFailures++;
 		}
 	}
 
