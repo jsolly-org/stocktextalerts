@@ -331,7 +331,7 @@
 											<span
 												v-if="getCurrentPrice(asset.symbol) !== null"
 												class="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs tabular-nums text-emerald-700 dark:text-emerald-400 truncate"
-											>{{ formatCurrentPrice(getCurrentPrice(asset.symbol) ?? 0) }}</span>
+											>{{ formatUsdPrice(getCurrentPrice(asset.symbol) ?? 0) }}</span>
 										</div>
 										<span class="text-xs text-muted truncate block">{{ asset.name }}</span>
 									</div>
@@ -425,6 +425,7 @@ import { DASHBOARD_SECTION_IDS,
 	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,} from "../../../lib/constants";
 import type { AlertMoveSize } from "../../../lib/db/types";
+import { formatUsdPrice } from "../../../lib/messaging/parts/asset-price-list";
 import { etMinuteToUserLocal, getUsAfterOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
 	formatMinutesAsLocalTime,
@@ -1087,10 +1088,6 @@ const pricesFetchedAt = ref<Date | null>(null);
 const pendingInputs = ref<Map<string, string>>(new Map());
 const savingTargets = ref<Set<string>>(new Set());
 const targetSaveError = ref<string | null>(null);
-
-function formatCurrentPrice(price: number): string {
-	return `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 const marketOpen = ref(isMarketCurrentlyOpen());
 
