@@ -30,7 +30,10 @@ import {
 	prependDelayBannerToSms,
 	prependDelayBannerToTelegram,
 } from "../messaging/parts/delay";
-import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
+import {
+	claimScheduledChannel,
+	completeScheduledChannelFromResult,
+} from "../messaging/scheduled-channel";
 import { SMS_BODY_CHAR_BUDGET } from "../messaging/sms/block-packing";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padDailyDigestSmsSegmentBoundaries } from "../messaging/sms/segment-utils";
@@ -41,7 +44,6 @@ import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory
 import type { EmailSender } from "../messaging/types";
 import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
 import {
-	claimNotification,
 	getMaxDailyDigestSlotAttempts,
 	updateScheduledNotificationRow,
 } from "../scheduled-notifications/store";
@@ -382,7 +384,7 @@ async function deliverStagedDaily(options: {
 					)
 				: { text: stagedData.email.text, html: stagedData.email.html };
 
-		const claim = await claimNotification({
+		const attemptCount = await claimScheduledChannel({
 			supabase,
 			userId: user.id,
 			notificationType: "daily",
@@ -390,9 +392,10 @@ async function deliverStagedDaily(options: {
 			scheduledMinutes,
 			channel: "email",
 			logger,
+			stats,
 		});
 
-		if (claim.status === "claimed") {
+		if (attemptCount !== null) {
 			// Dedup here is the claimNotification CAS above, not an email-level key — the
 			// direct-SES path does not honor idempotency keys.
 			const result = await sendUserEmail(
@@ -409,40 +412,19 @@ async function deliverStagedDaily(options: {
 				deliveredUserTypes.add(deliveredKey);
 			}
 
-			const logged = await recordNotification(supabase, {
-				user_id: user.id,
-				type: "daily",
-				delivery_method: "email",
-				message_delivered: result.success,
-				message: emailContent.text,
-				...deliveryResultToLogFields(result),
-			});
-			if (!logged) stats.logFailures++;
-
-			if (result.success) {
-				stats.emailsSent++;
-			} else {
-				stats.emailsFailed++;
-			}
-
-			await updateScheduledNotificationRow({
+			await completeScheduledChannelFromResult({
 				supabase,
 				userId: user.id,
 				notificationType: "daily",
 				scheduledDate,
 				scheduledMinutes,
 				channel: "email",
-				status: result.success ? "sent" : "failed",
-				error: result.success ? undefined : result.error,
-				attemptCount: claim.attemptCount,
 				logger,
+				stats,
+				attemptCount,
+				result,
+				logMessage: emailContent.text,
 			});
-		} else if (claim.status === "claim_error") {
-			stats.emailsFailed++;
-		} else if (claim.status === "retries_exhausted") {
-			stats.skipped++;
-		} else {
-			stats.skipped++;
 		}
 	}
 
@@ -456,7 +438,9 @@ async function deliverStagedDaily(options: {
 
 		const smsEnabled = shouldSendSms(user);
 		if (smsEnabled) {
-			const claim = await claimNotification({
+			// On claim denial (held by another worker or backoff pending) the helper only
+			// bumps stats — fallback is not suppressed.
+			const attemptCount = await claimScheduledChannel({
 				supabase,
 				userId: user.id,
 				notificationType: "daily",
@@ -464,9 +448,10 @@ async function deliverStagedDaily(options: {
 				scheduledMinutes,
 				channel: "sms",
 				logger,
+				stats,
 			});
 
-			if (claim.status === "claimed") {
+			if (attemptCount !== null) {
 				try {
 					const { sender } = getSmsSender();
 					const partResults: DeliveryResult[] = [];
@@ -537,33 +522,18 @@ async function deliverStagedDaily(options: {
 						deliveredUserTypes.add(deliveredKey);
 					}
 
-					const logged = await recordNotification(supabase, {
-						user_id: user.id,
-						type: "daily",
-						delivery_method: "sms",
-						message_delivered: result.success,
-						message: formatDailyDigestSmsLogMessage(dailySmsMessages),
-						...deliveryResultToLogFields(result),
-					});
-					if (!logged) stats.logFailures++;
-
-					if (result.success) {
-						stats.smsSent++;
-					} else {
-						stats.smsFailed++;
-					}
-
-					await updateScheduledNotificationRow({
+					await completeScheduledChannelFromResult({
 						supabase,
 						userId: user.id,
 						notificationType: "daily",
 						scheduledDate,
 						scheduledMinutes,
 						channel: "sms",
-						status: result.success ? "sent" : "failed",
-						error: result.success ? undefined : result.error,
-						attemptCount: claim.attemptCount,
 						logger,
+						stats,
+						attemptCount,
+						result,
+						logMessage: formatDailyDigestSmsLogMessage(dailySmsMessages),
 					});
 				} catch (error) {
 					stats.smsFailed++;
@@ -581,24 +551,17 @@ async function deliverStagedDaily(options: {
 						channel: "sms",
 						status: "failed",
 						error: error instanceof Error ? error.message : String(error),
-						attemptCount: claim.attemptCount,
+						attemptCount,
 						logger,
 					});
 				}
-			} else if (claim.status === "claim_error") {
-				stats.smsFailed++;
-			} else if (claim.status === "retries_exhausted") {
-				stats.skipped++;
-			} else {
-				// Claim held by another worker or backoff pending — do not suppress fallback.
-				stats.skipped++;
 			}
 		}
 	}
 
 	// Telegram delivery
 	if (stagedData.telegram && isTelegramChannelUsable(user) && user.telegram_chat_id != null) {
-		const claim = await claimNotification({
+		const attemptCount = await claimScheduledChannel({
 			supabase,
 			userId: user.id,
 			notificationType: "daily",
@@ -606,9 +569,10 @@ async function deliverStagedDaily(options: {
 			scheduledMinutes,
 			channel: "telegram",
 			logger,
+			stats,
 		});
 
-		if (claim.status === "claimed") {
+		if (attemptCount !== null) {
 			try {
 				const { sender } = getTelegramSender();
 				const telegramPayload =
@@ -649,33 +613,20 @@ async function deliverStagedDaily(options: {
 					deliveredUserTypes.add(deliveredKey);
 				}
 
-				const logged = await recordNotification(supabase, {
-					user_id: user.id,
-					type: "daily",
-					delivery_method: "telegram",
-					message_delivered: result.success,
-					message: stagedData.telegram.text,
-					...deliveryResultToLogFields(result),
-				});
-				if (!logged) stats.logFailures++;
-
-				if (result.success) {
-					stats.telegramSent++;
-				} else {
-					stats.telegramFailed++;
-				}
-
-				await updateScheduledNotificationRow({
+				await completeScheduledChannelFromResult({
 					supabase,
 					userId: user.id,
 					notificationType: "daily",
 					scheduledDate,
 					scheduledMinutes,
 					channel: "telegram",
-					status: result.success ? "sent" : "failed",
-					error: result.success ? undefined : result.error,
-					attemptCount: claim.attemptCount,
 					logger,
+					stats,
+					attemptCount,
+					result,
+					// The logged message deliberately omits the delay banner (telegramPayload
+					// prepends it for the send only).
+					logMessage: stagedData.telegram.text,
 				});
 			} catch (error) {
 				stats.telegramFailed++;
@@ -693,16 +644,10 @@ async function deliverStagedDaily(options: {
 					channel: "telegram",
 					status: "failed",
 					error: error instanceof Error ? error.message : String(error),
-					attemptCount: claim.attemptCount,
+					attemptCount,
 					logger,
 				});
 			}
-		} else if (claim.status === "claim_error") {
-			stats.telegramFailed++;
-		} else if (claim.status === "retries_exhausted") {
-			stats.skipped++;
-		} else {
-			stats.skipped++;
 		}
 	}
 
