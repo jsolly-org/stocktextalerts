@@ -136,7 +136,6 @@ export async function deliverFlatPriceAlert(options: {
 			});
 		} else {
 			const smsBody = formatFlatPriceAlertSms({
-				user,
 				symbol,
 				quote,
 				baseline,

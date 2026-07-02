@@ -137,7 +137,6 @@ function buildPriceChangeRows(options: {
 
 /** Build the SMS body for a flat price alert. */
 export function formatFlatPriceAlertSms(options: {
-	user: FlatPriceAlertUser;
 	symbol: string;
 	quote: ExtendedAssetQuote;
 	baseline: number;
