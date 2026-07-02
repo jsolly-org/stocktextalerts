@@ -2,6 +2,7 @@ import { setTimeout as realDelay } from "node:timers/promises";
 import { requireEnv } from "../db/env";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
+import { isRecord } from "../types";
 import {
 	VENDOR_FETCH_MAX_RETRIES as DEFAULT_MAX_RETRIES,
 	VENDOR_FETCH_REQUEST_TIMEOUT_MS as DEFAULT_REQUEST_TIMEOUT_MS,
@@ -103,8 +104,10 @@ export async function marketDataFetch(
 					if (isLastAttempt) {
 						bodyPreview = text.slice(0, 500);
 					}
-					const payload = JSON.parse(text) as Record<string, unknown>;
-					apiStatus = typeof payload.status === "string" ? payload.status : null;
+					const payload: unknown = JSON.parse(text);
+					if (isRecord(payload) && typeof payload.status === "string") {
+						apiStatus = payload.status;
+					}
 				} catch {
 					// Ignore malformed/non-JSON error bodies.
 				}
