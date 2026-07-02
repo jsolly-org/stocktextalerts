@@ -35,7 +35,7 @@ export interface FlatPriceAlertUser {
 export async function fetchFlatPriceAlertUsers(
 	supabase: SupabaseAdminClient,
 ): Promise<FlatPriceAlertUser[]> {
-	const { data, error } = await (supabase
+	const { data, error } = await supabase
 		.from("users")
 		.select(
 			"id, email, email_notifications_enabled, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, use_24_hour_time, telegram_chat_id, telegram_opted_out",
@@ -45,10 +45,7 @@ export async function fetchFlatPriceAlertUsers(
 		// The per-option price_move_alerts facet is checked in the delivery loop.
 		.or(
 			"email_notifications_enabled.eq.true,and(sms_notifications_enabled.eq.true,phone_verified.eq.true),telegram_chat_id.not.is.null",
-		) as unknown as Promise<{
-		data: Omit<FlatPriceAlertUser, "prefs">[] | null;
-		error: unknown;
-	}>);
+		);
 
 	if (error) {
 		rootLogger.error(
