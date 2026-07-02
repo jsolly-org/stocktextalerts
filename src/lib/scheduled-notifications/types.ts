@@ -1,9 +1,5 @@
 import type { Database } from "../db/generated/database.types";
 
-export const MAX_NOTIFICATION_RETRIES = 3;
-/** Number of users to process concurrently in scheduled-delivery jobs. */
-export const USER_PROCESS_BATCH_SIZE = 5;
-
 /** Delivery channel enum sourced from the database schema. */
 export type DeliveryMethod = Database["public"]["Enums"]["delivery_method"];
 

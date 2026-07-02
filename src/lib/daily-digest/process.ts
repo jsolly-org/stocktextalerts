@@ -31,9 +31,9 @@ import { shouldSendSms } from "../messaging/sms";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
+import { MAX_NOTIFICATION_RETRIES } from "../scheduled-notifications/constants";
 import { getMaxDailyDigestSlotAttempts } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
-import { MAX_NOTIFICATION_RETRIES } from "../scheduled-notifications/types";
 import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market/calendar";
 import type { AssetPriceMap, MarketSession, UserRecord } from "../types";
 import {

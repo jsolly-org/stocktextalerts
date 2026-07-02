@@ -57,10 +57,8 @@ import type { LogoCache } from "../messaging/logo-fetcher";
 import type { NotificationSenders } from "../messaging/senders";
 import { createNotificationSenders } from "../messaging/senders";
 import { type PriceTargetTotals, processPriceTargets } from "../price-targets/process";
-import {
-	type ScheduledNotificationTotals,
-	USER_PROCESS_BATCH_SIZE,
-} from "../scheduled-notifications/types";
+import { USER_PROCESS_BATCH_SIZE } from "../scheduled-notifications/constants";
+import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { deliverStagedNotifications } from "../staged-notifications/deliver";
 import { precomputeDailyDigest } from "../staged-notifications/precompute";
 import { toIsoOrThrow } from "../time/display";
