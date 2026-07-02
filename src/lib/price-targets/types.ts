@@ -1,4 +1,4 @@
-import type { PriceTargetDirection } from "../db";
+import type { PriceTargetDirection } from "../db/types";
 import type { PrefRow } from "../types";
 
 export interface PriceTargetUser {

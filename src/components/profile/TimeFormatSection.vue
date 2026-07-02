@@ -57,7 +57,7 @@
 import { ref, watch } from "vue";
 
 import ClockIcon from "../../icons/clock.svg?component";
-import type { User } from "../../lib/db";
+import type { User } from "../../lib/db/types";
 import { createSaveSequencer, type SequencedResult } from "../../lib/forms/save-sequencer";
 import { rootLogger } from "../../lib/logging";
 import StatusMessage from "../StatusMessage.vue";

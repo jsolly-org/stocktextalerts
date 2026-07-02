@@ -69,7 +69,7 @@ import GlobeAltIcon from "../../icons/globe-alt.svg?component";
 import { fetchCurrentNotificationPreferences } from "../../lib/client/notification-preferences";
 import { updateProfileTimezone } from "../../lib/client/profile-timezone";
 import { DEFAULT_TIMEZONE } from "../../lib/constants";
-import type { NotificationPreferencesSnapshot, User } from "../../lib/db";
+import type { NotificationPreferencesSnapshot, User } from "../../lib/db/types";
 import { createSaveSequencer, type SequencedResult } from "../../lib/forms/save-sequencer";
 import { rootLogger } from "../../lib/logging";
 import type { TimezoneOption } from "../../lib/types";

@@ -1,5 +1,5 @@
-import type { PriceTargetDirection } from "../db";
 import type { SupabaseAdminClient } from "../db/supabase";
+import type { PriceTargetDirection } from "../db/types";
 import { rootLogger } from "../logging";
 import { fetchExtendedQuotes } from "../market-data/prices";
 import { getCurrentMarketSession } from "../market-data/session";

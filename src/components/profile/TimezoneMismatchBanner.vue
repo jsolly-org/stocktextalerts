@@ -57,7 +57,7 @@ import {
 	redirectToSignIn,
 } from "../../lib/auth/session/session-expired";
 import { updateProfileTimezone } from "../../lib/client/profile-timezone";
-import type { NotificationPreferencesSnapshot } from "../../lib/db";
+import type { NotificationPreferencesSnapshot } from "../../lib/db/types";
 import { rootLogger } from "../../lib/logging";
 import StatusMessage from "../StatusMessage.vue";
 

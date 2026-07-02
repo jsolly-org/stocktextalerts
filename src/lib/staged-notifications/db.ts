@@ -3,9 +3,9 @@
  * Uses generated database types for typed access.
  */
 
-import type { StagedNotificationType } from "../db";
 import type { Json } from "../db/generated/database.types";
 import type { SupabaseAdminClient } from "../db/supabase";
+import type { StagedNotificationType } from "../db/types";
 import type { StagedData, StagedNotificationRow } from "../types";
 
 /**

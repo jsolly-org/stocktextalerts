@@ -1,4 +1,4 @@
-import type { AlertMoveSize } from "../../db";
+import type { AlertMoveSize } from "../../db/types";
 
 /** Anomaly-score thresholds per move-size tier.
  *  Lower = more sensitive (fires on smaller anomalies).

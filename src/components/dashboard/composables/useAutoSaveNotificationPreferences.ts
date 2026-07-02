@@ -1,4 +1,4 @@
-import type { AlertMoveSize } from "../../../lib/db";
+import type { AlertMoveSize } from "../../../lib/db/types";
 import { type AutoSaveFormOptions, useAutoSaveFormBase } from "./useAutoSaveFormBase";
 
 export type NotificationPreferencesData = {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { User } from "../../../src/lib/db";
+import type { User } from "../../../src/lib/db/types";
 import {
 	buildNotificationPreferencesUpdatePayload,
 	computeTimezoneUpdatePayload,

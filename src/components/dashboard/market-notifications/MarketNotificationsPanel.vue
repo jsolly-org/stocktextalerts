@@ -424,7 +424,7 @@ import { DASHBOARD_SECTION_IDS,
 	US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,} from "../../../lib/constants";
-import type { AlertMoveSize } from "../../../lib/db";
+import type { AlertMoveSize } from "../../../lib/db/types";
 import { etMinuteToUserLocal, getUsAfterOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
 	formatMinutesAsLocalTime,

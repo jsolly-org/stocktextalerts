@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { NotificationPreferences } from "../../src/lib/db";
+import type { NotificationPreferences } from "../../src/lib/db/types";
 import { POST as assetsUpdatePost } from "../../src/pages/api/assets/update";
 import { createApiContext } from "./api-context";
 import { getAssetData } from "./asset-data";

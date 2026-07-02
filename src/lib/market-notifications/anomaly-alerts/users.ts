@@ -1,5 +1,5 @@
-import type { AlertMoveSize } from "../../db";
 import type { SupabaseAdminClient } from "../../db/supabase";
+import type { AlertMoveSize } from "../../db/types";
 import { rootLogger } from "../../logging";
 import { attachPrefsToUsers } from "../../messaging/load-prefs";
 import type { PrefRow } from "../../types";

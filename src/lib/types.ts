@@ -2,13 +2,13 @@
  * Application-level types that narrow generated Supabase primitives.
  *
  * Branded scalars (dates, minutes) live here. Postgres enum-backed columns are
- * typed via `Database["public"]["Enums"]` in `src/lib/db/index.ts`.
+ * typed via `Database["public"]["Enums"]` in `src/lib/db/types.ts`.
  */
 
 import type { MessageEntity } from "grammy/types";
-import type { StagedNotificationType } from "./db";
 import type { Database } from "./db/generated/database.types";
 import { Constants } from "./db/generated/database.types";
+import type { StagedNotificationType } from "./db/types";
 
 declare const brand: unique symbol;
 type Brand<B extends string> = { readonly [brand]: B };
