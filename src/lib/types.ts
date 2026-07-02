@@ -314,8 +314,6 @@ export type TimezoneOption = Pick<
 Staged notifications
 ============= */
 
-export type { StagedNotificationType };
-
 interface StagedEmailContent {
 	subject: string;
 	text: string;
