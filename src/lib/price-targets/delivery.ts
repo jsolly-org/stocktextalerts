@@ -13,8 +13,7 @@ import { deliveryResultToLogFields, recordNotification } from "../messaging/shar
 import { isSmsChannelUsable, sendUserSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import { shouldSendTelegram } from "../messaging/telegram/eligibility";
-import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
-import { formatPriceAlertTelegram } from "../messaging/telegram/price-alert";
+import { deliverTelegramPriceAlert } from "../messaging/telegram/price-alert";
 import type { EmailSender, SmsSender, TelegramSender } from "../messaging/types";
 import { buildPriceTargetEnriched } from "../price-alerts/compose";
 import type { ChannelDeliveryStats } from "../types";
@@ -217,40 +216,18 @@ export async function deliverPriceTargetAlert(options: {
 			outcome.telegram = "failed";
 		} else {
 			const enriched = buildPriceTargetEnriched(target);
-			const { text, entities, photo } = formatPriceAlertTelegram(enriched, []);
-			const result = await sendTelegram({
-				// telegram_chat_id is non-null here: isTelegramChannelUsable (folded into
-				// shouldSendTelegram) requires it.
-				chatId: user.telegram_chat_id as number,
-				text,
-				entities,
-				...(photo ? { photo } : {}),
+			const sent = await deliverTelegramPriceAlert({
+				alert: enriched,
+				user,
+				sendTelegram,
+				supabase,
+				stats,
+				notificationType: "price_target",
+				failureLogMessage: "Failed to send price target Telegram message",
+				failureErrorFallback: "Price target Telegram send failed",
+				failureLogContext: { symbol: target.symbol },
 			});
-
-			if (result.success) {
-				stats.telegramSent++;
-				outcome.telegram = "sent";
-			} else {
-				stats.telegramFailed++;
-				outcome.telegram = "failed";
-				rootLogger.error(
-					"Failed to send price target Telegram message",
-					{ userId: user.id, symbol: target.symbol, errorCode: result.errorCode ?? null },
-					new Error(result.error ?? "Price target Telegram send failed"),
-				);
-			}
-
-			await optOutIfBotBlocked(supabase, user.id, result);
-
-			const logged = await recordNotification(supabase, {
-				user_id: user.id,
-				type: "price_target",
-				delivery_method: "telegram",
-				message_delivered: result.success,
-				message: text,
-				...deliveryResultToLogFields(result),
-			});
-			if (!logged) stats.logFailures++;
+			outcome.telegram = sent ? "sent" : "failed";
 		}
 	}
 

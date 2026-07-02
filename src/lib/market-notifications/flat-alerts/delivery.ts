@@ -7,8 +7,7 @@ import type { SparklineData } from "../../messaging/parts/charts/sparkline";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
 import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/telegram/eligibility";
-import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
-import { formatPriceAlertTelegram } from "../../messaging/telegram/price-alert";
+import { deliverTelegramPriceAlert } from "../../messaging/telegram/price-alert";
 import type { EmailSender, SmsSender, TelegramSender } from "../../messaging/types";
 import { buildFlatAlertEnriched } from "../../price-alerts/compose";
 import type { ChannelDeliveryStats, ExtendedAssetQuote, IntradayBarsResult } from "../../types";
@@ -183,41 +182,20 @@ export async function deliverFlatPriceAlert(options: {
 					? formatRelativeMinutesAgo(lastNotificationAt.getTime(), nowMs)
 					: "today";
 			const enriched = buildFlatAlertEnriched({ symbol, quote, triggerPercent, since, intraday });
-			const { text, entities, photo } = formatPriceAlertTelegram(
-				enriched,
-				enriched.intradayCandles ?? [],
-			);
-			const result = await sendTelegram({
-				// telegram_chat_id is non-null here: isTelegramChannelUsable requires it.
-				chatId: user.telegram_chat_id as number,
-				text,
-				entities,
-				...(photo ? { photo } : {}),
+			const sent = await deliverTelegramPriceAlert({
+				alert: enriched,
+				user,
+				sendTelegram,
+				supabase,
+				stats,
+				notificationType: "flat_price_alert",
+				failureLogMessage: "Failed to send flat price alert Telegram message",
+				failureErrorFallback: "Flat price alert Telegram send failed",
+				failureLogContext: { symbol, triggerPercent },
 			});
-
-			if (result.success) {
-				stats.telegramSent++;
+			if (sent) {
 				delivered = true;
-			} else {
-				stats.telegramFailed++;
-				rootLogger.error(
-					"Failed to send flat price alert Telegram message",
-					{ userId: user.id, symbol, triggerPercent, errorCode: result.errorCode ?? null },
-					new Error(result.error ?? "Flat price alert Telegram send failed"),
-				);
 			}
-
-			await optOutIfBotBlocked(supabase, user.id, result);
-
-			const logged = await recordNotification(supabase, {
-				user_id: user.id,
-				type: "flat_price_alert",
-				delivery_method: "telegram",
-				message_delivered: result.success,
-				message: text,
-				...deliveryResultToLogFields(result),
-			});
-			if (!logged) stats.logFailures++;
 		}
 	}
 
