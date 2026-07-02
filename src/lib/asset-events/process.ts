@@ -1,4 +1,4 @@
-import { DateTime } from "luxon";
+import type { DateTime } from "luxon";
 import {
 	anyDailyAssetEventFacetEnabled,
 	enabledDailyNotificationFacets,
@@ -16,10 +16,9 @@ import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory
 import type { EmailSender } from "../messaging/types";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
-import { getLocalMinutesFromDateTime } from "../time/schedule/next-send";
+import { parseScheduledSlotContext } from "../time/schedule/next-send";
 import type { MarketClosureInfo } from "../time/types";
 import type { UserRecord } from "../types";
-import { assertIsoDateString } from "../types";
 import { buildAssetEventsContentForChannels } from "./content";
 import {
 	processAssetEventsEmailDelivery,
@@ -71,62 +70,21 @@ export async function processAssetEventsUser(options: {
 	} = options;
 
 	try {
-		const dueAt = user.daily_notification_next_send_at
-			? DateTime.fromISO(user.daily_notification_next_send_at, { zone: "utc" })
-			: currentTime;
-		if (!dueAt.isValid) {
-			logger.error(
-				"Invalid daily_notification_next_send_at timestamp",
-				{
-					userId: user.id,
-					daily_notification_next_send_at: user.daily_notification_next_send_at,
-				},
-				new Error("Invalid daily_notification_next_send_at timestamp"),
-			);
+		const slotCtx = parseScheduledSlotContext({
+			cursorIso: user.daily_notification_next_send_at,
+			cursorField: "daily_notification_next_send_at",
+			timezone: user.timezone,
+			userId: user.id,
+			currentTime,
+			logger,
+			logLabel: " (asset events)",
+			action: "asset_events_run",
+		});
+		if (!slotCtx) {
 			stats.skipped++;
 			return stats;
 		}
-		const dueAtLocal = dueAt.setZone(user.timezone);
-		if (!dueAtLocal.isValid) {
-			logger.error(
-				"Failed to format local date for timezone (asset events)",
-				{ userId: user.id, timezone: user.timezone },
-				new Error("Failed to format local date for timezone"),
-			);
-			stats.skipped++;
-			return stats;
-		}
-		const rawScheduledDate = dueAtLocal.toISODate();
-		if (!rawScheduledDate) {
-			logger.error(
-				"Failed to format scheduled date (asset events)",
-				{
-					userId: user.id,
-					timezone: user.timezone,
-					daily_notification_next_send_at: user.daily_notification_next_send_at,
-				},
-				new Error("Failed to format scheduled date"),
-			);
-			stats.skipped++;
-			return stats;
-		}
-		const scheduledDate = assertIsoDateString(rawScheduledDate);
-		const scheduledMinutes = getLocalMinutesFromDateTime(user.timezone, dueAt);
-		if (scheduledMinutes === null) {
-			logger.error(
-				"Failed to calculate scheduled minutes (asset events)",
-				{
-					action: "asset_events_run",
-					userId: user.id,
-					timezone: user.timezone,
-					daily_notification_next_send_at: user.daily_notification_next_send_at,
-					scheduledDate,
-				},
-				new Error("Failed to calculate scheduled minutes"),
-			);
-			stats.skipped++;
-			return stats;
-		}
+		const { scheduledDate, scheduledMinutes, dueAt } = slotCtx;
 
 		const delayBannerOpts = {
 			scheduledFor: dueAt,
@@ -184,7 +142,7 @@ export async function processAssetEventsUser(options: {
 			return stats;
 		}
 
-		const localDate = dueAtLocal.toISODate() ?? "";
+		const localDate = scheduledDate;
 
 		const marketClosureInfo =
 			passedMarketClosureInfo !== undefined
