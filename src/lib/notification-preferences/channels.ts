@@ -1,8 +1,9 @@
 import { PREF_CHANNELS } from "../constants";
 import type { AppSupabaseClient } from "../db/supabase";
 import type { Logger } from "../logging";
+import { NOTIFICATION_PREFERENCE_CATALOG } from "../messaging/constants";
 import { loadPrefsByUser } from "../messaging/load-prefs";
-import { isFacetEnabled, NOTIFICATION_PREFERENCE_CATALOG } from "../messaging/notification-prefs";
+import { isFacetEnabled } from "../messaging/notification-prefs";
 import type { PrefChannel, PrefRow } from "../types";
 
 /* =============
