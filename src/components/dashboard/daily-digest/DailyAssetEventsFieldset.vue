@@ -124,7 +124,7 @@
 					</div>
 					<div class="shrink-0">
 						<ChannelMultiSelect
-							:idPrefix="`asset_events_${eventType.key}`"
+							:id-prefix="`asset_events_${eventType.key}`"
 							:labelledby="`asset_events_${eventType.key}_label`"
 							:options="channelOptionsFor(eventType.key)"
 							@toggle="(channel, selected) => handleAssetEventToggle(eventType.key, channel, selected)"

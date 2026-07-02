@@ -38,17 +38,17 @@
 				<!-- Empty picker shown when no times exist, so user can pick their first time -->
 				<div v-if="scheduledUpdateTimes.length === 0" class="flex flex-wrap items-center gap-2">
 					<TimePicker
-						inputId="scheduled_update_time_initial"
-						inputName="scheduled_update_time_initial"
-						:initialTime="null"
+						input-id="scheduled_update_time_initial"
+						input-name="scheduled_update_time_initial"
+						:initial-time="null"
 						placeholder="Select notification time"
-						inputAriaLabel="Pick a delivery time"
-						:inputAriaDescribedby="marketHoursCrossMidnightHint ? MARKET_HOURS_HINT_ID : undefined"
+						input-aria-label="Pick a delivery time"
+						:input-aria-describedby="marketHoursCrossMidnightHint ? MARKET_HOURS_HINT_ID : undefined"
 						:disabled="timePickerDisabled"
 						:is24="is24"
-						:minTimeOverride="props.minTime ?? undefined"
-						:maxTimeOverride="props.maxTime ?? undefined"
-						:disabledRangeTooltip="DISABLED_RANGE_TOOLTIP"
+						:min-time-override="props.minTime ?? undefined"
+						:max-time-override="props.maxTime ?? undefined"
+						:disabled-range-tooltip="DISABLED_RANGE_TOOLTIP"
 						@time-change="emit('add-initial-time', $event)"
 					/>
 					<button
@@ -69,20 +69,20 @@
 				:key="`${item.index}-${item.time}`"
 			>
 				<TimePicker
-					:inputId="`scheduled_update_time_${item.index}`"
-					:inputName="`scheduled_update_time_${item.index}`"
-					:initialTime="item.time"
+					:input-id="`scheduled_update_time_${item.index}`"
+					:input-name="`scheduled_update_time_${item.index}`"
+					:initial-time="item.time"
 					placeholder="Select notification time"
-					:inputAriaLabel="item.ariaLabel"
-					:inputAriaDescribedby="marketHoursCrossMidnightHint ? MARKET_HOURS_HINT_ID : undefined"
+					:input-aria-label="item.ariaLabel"
+					:input-aria-describedby="marketHoursCrossMidnightHint ? MARKET_HOURS_HINT_ID : undefined"
 					:disabled="timePickerDisabled"
 					clearable
-					:clearAriaLabel="`Remove delivery time ${item.index + 1}`"
+					:clear-aria-label="`Remove delivery time ${item.index + 1}`"
 					:is24="is24"
-					:minTimeOverride="props.minTime ?? undefined"
-					:maxTimeOverride="props.maxTime ?? undefined"
-					:disabledRangeTooltip="DISABLED_RANGE_TOOLTIP"
-					:hasTrailingContent="item.hasBadge"
+					:min-time-override="props.minTime ?? undefined"
+					:max-time-override="props.maxTime ?? undefined"
+					:disabled-range-tooltip="DISABLED_RANGE_TOOLTIP"
+					:has-trailing-content="item.hasBadge"
 					@time-change="emit('time-change', item.index, $event)"
 					@clear="emit('remove-time', item.index)"
 				>

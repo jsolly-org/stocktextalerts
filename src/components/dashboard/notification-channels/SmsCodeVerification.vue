@@ -63,7 +63,7 @@
 				:id="smsVerificationCodeId"
 				name="code"
 				required
-				:formSubmitted="formSubmitted"
+				:form-submitted="formSubmitted"
 				@input="handleOtpInput"
 			/>
 			<p v-if="isVerifyingCode" class="text-sm text-label flex items-center gap-2">

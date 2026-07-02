@@ -44,7 +44,10 @@
 			},
 			"style": {
 				"useThrowOnlyError": "error",
-				"noNonNullAssertion": "off"
+				"noNonNullAssertion": "off",
+				// Biome defaults this Vue rule to info; promote it to error so kebab-case
+				// template attributes are enforced (not just reported) in the gate + CI.
+				"useVueHyphenatedAttributes": "error"
 			},
 			"nursery": {
 				"noFloatingPromises": "error"
