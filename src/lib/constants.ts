@@ -1,3 +1,12 @@
+import type { PrefChannel } from "./types";
+
+/* =============
+Notification channels
+============= */
+
+/** Every delivery channel, in canonical order (mirrors the DB `delivery_method` enum). */
+export const PREF_CHANNELS = ["email", "sms", "telegram"] as const satisfies readonly PrefChannel[];
+
 /* =============
 Assets
 ============= */

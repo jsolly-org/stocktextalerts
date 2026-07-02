@@ -442,6 +442,7 @@ import {
 	useAutoSaveForm,
 } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
+import { useScheduledUpdateTiming } from "../composables/useScheduledUpdateTiming";
 import {
 	DASHBOARD_MARKET_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
@@ -455,7 +456,6 @@ import {
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import type { InitialAsset } from "../types";
-import { useScheduledUpdateTiming } from "../composables/useScheduledUpdateTiming";
 import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
 
 interface Props {

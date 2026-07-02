@@ -12,6 +12,7 @@ telegram-only helpers generalized): a channel is "wanted" for a type when its
 global enable is on AND at least one facet row is enabled for (type, channel).
 ============= */
 
+import { PREF_CHANNELS } from "../constants";
 import type {
 	DailyNotificationContent,
 	FacetlessContent,
@@ -46,8 +47,6 @@ const FACETLESS_NOTIFICATION_TYPES = [
 	"price_move_alerts",
 	"price_targets",
 ] as const satisfies readonly FacetlessNotificationType[];
-
-const PREF_CHANNELS = ["email", "sms", "telegram"] as const satisfies readonly PrefChannel[];
 
 function isNotificationPreferenceType(value: string): value is NotificationPreferenceType {
 	return (NOTIFICATION_PREFERENCE_TYPES as readonly string[]).includes(value);

@@ -2,6 +2,7 @@
 Daily notification eligibility — one logical slot, many content facets.
 ============= */
 
+import { PREF_CHANNELS } from "../constants";
 import { enabledFacets, isFacetEnabled } from "../messaging/notification-prefs";
 import type {
 	AssetEventsContent,
@@ -60,7 +61,7 @@ export function hasAnyDailyNotificationFacet(prefs: readonly PrefRow[]): boolean
 /** True when any asset-event facet is enabled on any channel. */
 export function hasAnyDailyAssetEventFacet(prefs: readonly PrefRow[]): boolean {
 	for (const content of DAILY_ASSET_EVENT_FACETS) {
-		for (const channel of ["email", "sms", "telegram"] as const) {
+		for (const channel of PREF_CHANNELS) {
 			if (isDailyNotificationFacetEnabled(prefs, channel, content)) {
 				return true;
 			}
