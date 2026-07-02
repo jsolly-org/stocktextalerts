@@ -14,18 +14,18 @@ import { isFacetEnabled } from "../../messaging/notification-prefs";
 import { createNotificationSenders } from "../../messaging/senders";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import type { EnrichedAlert } from "../../price-alerts/types";
-import type {
-	ExtendedAssetQuote,
-	ExtendedQuoteMap,
-	IntradayCandle,
-	MarketSession,
-} from "../../types";
+import type { ExtendedQuoteMap, IntradayCandle, MarketSession } from "../../types";
 import { fetchDailyStats } from "../daily-stats";
 import { getSnapshotsForSymbols, storeSnapshots } from "../snapshot-store";
 import { getAnomalyThreshold } from "./alert-profile";
 import { computeAnomalyScore } from "./anomaly-detection";
 import { deliverPriceAlert, type PriceAlertDeliveryStats } from "./delivery";
-import { enrichAlert } from "./enrichment";
+import {
+	buildSignalContexts,
+	calculateDollarMove,
+	calculatePercentMove,
+	enrichAlert,
+} from "./enrichment";
 import {
 	fetchPriceAlertUsers,
 	finalizeCooldownSlot,
@@ -74,88 +74,6 @@ async function fetchEarningsSymbols(supabase: SupabaseAdminClient): Promise<Set<
 		);
 		return new Set();
 	}
-}
-
-function calculatePercentMove(quote: ExtendedAssetQuote): number | null {
-	if (quote.prevClose !== null && quote.prevClose > 0) {
-		return ((quote.price - quote.prevClose) / quote.prevClose) * 100;
-	}
-	if (Number.isFinite(quote.changePercent)) {
-		return quote.changePercent;
-	}
-	return null;
-}
-
-function calculateDollarMove(quote: ExtendedAssetQuote, percentMove: number | null): number | null {
-	if (quote.prevClose !== null && quote.prevClose > 0) {
-		return quote.price - quote.prevClose;
-	}
-	if (percentMove === null) {
-		return null;
-	}
-	const denominator = 1 + percentMove / 100;
-	if (Math.abs(denominator) < 0.000001) {
-		return null;
-	}
-	const inferredPrevClose = quote.price / denominator;
-	return quote.price - inferredPrevClose;
-}
-
-function buildSignalContexts(options: {
-	percentMove: number;
-	dollarMove: number;
-	anomalyScore: number;
-	maxPossibleScore: number;
-	anomalySummary: string;
-	hasEarningsNearby: boolean;
-	benchmarkMovePercentAbs: number | null;
-	benchmarkMoveSigned: number | null;
-	benchmarkLabel: string;
-}): { grokContext: string; userSignalContext: string } {
-	const {
-		percentMove,
-		dollarMove,
-		anomalyScore,
-		maxPossibleScore,
-		anomalySummary,
-		hasEarningsNearby,
-		benchmarkMovePercentAbs,
-		benchmarkMoveSigned,
-		benchmarkLabel,
-	} = options;
-	const direction = percentMove >= 0 ? "Up" : "Down";
-	const absPct = Math.abs(percentMove).toFixed(2);
-	const absDollar = Math.abs(dollarMove).toFixed(2);
-
-	// Grok context: technical detail for AI enrichment
-	const grokBase = `${direction.toLowerCase()} ${absPct}% ($${absDollar}) from previous close`;
-	const scoreLabel = `anomaly score ${anomalyScore}/${maxPossibleScore} (${anomalySummary})`;
-	const grokMarket =
-		benchmarkMovePercentAbs !== null
-			? `${benchmarkLabel} moved ${benchmarkMovePercentAbs.toFixed(2)}%`
-			: null;
-	const grokEarnings = hasEarningsNearby ? "earnings are within ~2 days" : null;
-
-	const grokContext = [grokBase, scoreLabel, grokMarket, grokEarnings]
-		.filter((value): value is string => value !== null)
-		.join(", ");
-
-	// User context: additional info beyond the price move (which priceContext already covers)
-	const benchmarkDirection =
-		benchmarkMoveSigned !== null ? (benchmarkMoveSigned >= 0 ? "up" : "down") : null;
-	const userMarket =
-		benchmarkMovePercentAbs !== null && benchmarkDirection !== null
-			? `The ${benchmarkLabel} moved ${benchmarkDirection} ${benchmarkMovePercentAbs.toFixed(2)}% today.`
-			: null;
-	const userEarnings = hasEarningsNearby
-		? "Earnings are expected within the next couple of days."
-		: null;
-
-	const userSignalContext = [userMarket, userEarnings]
-		.filter((value): value is string => value !== null)
-		.join(" ");
-
-	return { grokContext, userSignalContext };
 }
 
 /**
