@@ -79,7 +79,7 @@
 					Notification Preview
 				</h2>
 				<p class="text-sm text-body-secondary mt-1">
-					Preview your SMS notification. This preview reflects how asset updates appear in notifications.
+					See how your asset updates appear when delivered. Sent to whichever channels you enable — SMS, email, or Telegram.
 				</p>
 			</header>
 
@@ -96,7 +96,7 @@
 			>
 				<div class="mb-6">
 					<div class="flex min-w-0 justify-center">
-						<SmsPreview :assets="previewAssets" />
+						<NotificationPreview :assets="previewAssets" />
 					</div>
 				</div>
 			</div>
@@ -136,8 +136,8 @@ import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import type { InitialAsset, NotificationPreferencesData } from "../types";
 import NotificationChannelsFieldset from "./NotificationChannelsFieldset.vue";
+import NotificationPreview from "./preview/NotificationPreview.vue";
 import { DEMO_ASSETS, type PreviewAsset } from "./preview/preview-data";
-import SmsPreview from "./preview/SmsPreview.vue";
 
 interface Props {
 	emailEnabled: boolean;
