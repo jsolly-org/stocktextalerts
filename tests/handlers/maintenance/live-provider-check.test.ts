@@ -26,12 +26,21 @@ vi.mock("../../../src/lib/messaging/telegram/sender", () => ({
 	createTelegramBot: vi.fn(() => ({})),
 	readTelegramBotToken: vi.fn(() => "test-telegram-bot-token"),
 }));
+// Partial mock: keep the REAL chart pipeline (the happy path proves the genuine WASM
+// render works) but wrap renderChartPng in a spy so the red path can force a null
+// render without stubbing the whole module.
+vi.mock("../../../src/lib/messaging/parts/charts/candlestick", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("../../../src/lib/messaging/parts/charts/candlestick")>();
+	return { ...actual, renderChartPng: vi.fn(actual.renderChartPng) };
+});
 
 import { handler } from "../../../src/handlers/maintenance/live-provider-check";
 import { fetchEarnings } from "../../../src/lib/asset-events/earnings";
 import { fetchDailyCloses, fetchPrevClose } from "../../../src/lib/market-data/bars";
 import { fetchAssetPrices } from "../../../src/lib/market-data/prices";
 import { getCurrentMarketSession } from "../../../src/lib/market-data/session";
+import { renderChartPng } from "../../../src/lib/messaging/parts/charts/candlestick";
 import { checkTelegramLive } from "../../../src/lib/messaging/telegram/health";
 
 const event = { id: "evt-1", time: "2026-06-13T16:00:00Z" } as ScheduledEvent;
@@ -95,6 +104,15 @@ describe("live-provider-check Lambda", () => {
 		);
 		expectConsoleError(/Live provider checks failed/);
 		await expect(handler(event, context)).rejects.toThrow(/telegram:get-me/);
+	});
+
+	// The chart check exists to turn silent text-only degradation red post-deploy —
+	// this pins that a failed render actually propagates to a thrown page, so the
+	// guard can't be silently defused (swallowed probe, loosened assertion) later.
+	it("A chart render failure (e.g. assets missing from the bundle) fails the check and pages", async () => {
+		vi.mocked(renderChartPng).mockResolvedValueOnce(null);
+		expectConsoleError(/Live provider checks failed/);
+		await expect(handler(event, context)).rejects.toThrow(/chart:render-png/);
 	});
 
 	it("An invalid bot token (getMe returns no bot id) fails the check and pages", async () => {

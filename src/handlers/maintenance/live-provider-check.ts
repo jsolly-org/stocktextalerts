@@ -12,8 +12,10 @@ import { runLambda } from "../../lib/logging/request-context";
 import { fetchDailyCloses, fetchPrevClose } from "../../lib/market-data/bars";
 import { fetchAssetPrices } from "../../lib/market-data/prices";
 import { getCurrentMarketSession } from "../../lib/market-data/session";
+import { buildCandlestickSvg, renderChartPng } from "../../lib/messaging/parts/charts/candlestick";
 import { checkTelegramLive } from "../../lib/messaging/telegram/health";
 import { createTelegramBot, readTelegramBotToken } from "../../lib/messaging/telegram/sender";
+import type { IntradayCandle } from "../../lib/types";
 
 interface CheckResult {
 	name: string;
@@ -97,6 +99,23 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				const result = await fetchEarnings(isoDaysFromNow(0), isoDaysFromNow(14));
 				if (result.failed) {
 					throw new Error("fetchEarnings reported failed=true");
+				}
+			}),
+			await runCheck(logger, "chart:render-png", async () => {
+				// No external API — proves the resvg wasm + font assets shipped in THIS bundle
+				// and rasterize on the real Lambda runtime. Without it, a missing asset would
+				// silently regress every Telegram price alert to text-only (renderChartPng
+				// degrades to null by design; this check is where that degradation turns red).
+				const probe: IntradayCandle[] = [
+					{ o: 100, h: 101.2, l: 99.6, c: 100.8, t: 0 },
+					{ o: 100.8, h: 101.6, l: 100.1, c: 100.4, t: 300_000 },
+				];
+				const svg = buildCandlestickSvg(probe, { prevClose: 100.2 });
+				const png = await renderChartPng(svg);
+				if (!png?.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))) {
+					throw new Error(
+						"candlestick PNG render failed — chart wasm/font assets missing from the bundle?",
+					);
 				}
 			}),
 			await runCheck(logger, "telegram:get-me", async () => {

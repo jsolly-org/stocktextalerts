@@ -27,6 +27,14 @@ command -v sam >/dev/null 2>&1 || { echo "✗ sam CLI not found — brew install
 # the pinned esbuild binary (not whatever is globally installed).
 PATH="$REPO_ROOT/node_modules/.bin:$PATH" sam build
 
+# Chart render assets (resvg wasm + Roboto TTFs) must ride EVERY deploy path that packages
+# .aws-sam/build — without this, a full SAM deploy ships asset-less bundles and every Telegram
+# chart silently degrades to text-only (and the live-provider-check chart:render-png step pages
+# red on its next run). Shared helper with deploy-web.sh's build_lambdas.
+# shellcheck source=./chart-assets.sh
+source "$SCRIPT_DIR/chart-assets.sh"
+copy_chart_assets "$REPO_ROOT"
+
 # Deploy-after-landing: a full SAM deploy ships Lambda code, so deploy ONLY what has landed on
 # origin/main — never the local tree before the ref lands (the same invariant the code-only
 # deploy:code path enforces; rules/agent-cloud-access.md, docs/plans/2026-06-24-deploy-after-landing.md).
