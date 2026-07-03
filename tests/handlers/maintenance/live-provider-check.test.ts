@@ -29,9 +29,9 @@ vi.mock("../../../src/lib/messaging/telegram/sender", () => ({
 // Partial mock: keep the REAL chart pipeline (the happy path proves the genuine WASM
 // render works) but wrap renderChartPng in a spy so the red path can force a null
 // render without stubbing the whole module.
-vi.mock("../../../src/lib/messaging/parts/charts/candlestick", async (importOriginal) => {
+vi.mock("../../../src/lib/messaging/parts/charts/render-png", async (importOriginal) => {
 	const actual =
-		await importOriginal<typeof import("../../../src/lib/messaging/parts/charts/candlestick")>();
+		await importOriginal<typeof import("../../../src/lib/messaging/parts/charts/render-png")>();
 	return { ...actual, renderChartPng: vi.fn(actual.renderChartPng) };
 });
 
@@ -40,7 +40,7 @@ import { fetchEarnings } from "../../../src/lib/asset-events/earnings";
 import { fetchDailyCloses, fetchPrevClose } from "../../../src/lib/market-data/bars";
 import { fetchAssetPrices } from "../../../src/lib/market-data/prices";
 import { getCurrentMarketSession } from "../../../src/lib/market-data/session";
-import { renderChartPng } from "../../../src/lib/messaging/parts/charts/candlestick";
+import { renderChartPng } from "../../../src/lib/messaging/parts/charts/render-png";
 import { checkTelegramLive } from "../../../src/lib/messaging/telegram/health";
 
 const event = { id: "evt-1", time: "2026-06-13T16:00:00Z" } as ScheduledEvent;

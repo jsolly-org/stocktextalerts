@@ -137,7 +137,8 @@ import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import type { InitialAsset, NotificationPreferencesData } from "../types";
 import NotificationChannelsFieldset from "./NotificationChannelsFieldset.vue";
 import NotificationPreview from "./preview/NotificationPreview.vue";
-import { DEMO_ASSETS, type PreviewAsset } from "./preview/preview-data";
+import { DEMO_ASSETS } from "./preview/preview-data";
+import type { PreviewAsset } from "./preview/types";
 
 interface Props {
 	emailEnabled: boolean;

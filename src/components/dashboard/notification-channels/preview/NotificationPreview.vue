@@ -24,9 +24,33 @@
 					</div>
 
 					<div class="tg-body">
+						<!-- Scheduled price update — mirrors formatMarketScheduledTelegram: bold
+						     header, then dot + bold ticker + price + signed change per asset. -->
 						<div class="tg-bubble-received">
-							<p class="tg-text whitespace-pre-line">{{ formattedText }}</p>
+							<p class="tg-text tg-text-bold">📈 Price Update</p>
+							<p v-for="line in telegramLines" :key="line.symbol" class="tg-text tg-line">
+								{{ line.dot }} <strong>{{ line.symbol }}</strong>&ensp;{{ line.price }}&ensp;({{ line.change }})
+							</p>
+							<p class="tg-footer-text">{{ TELEGRAM_FOOTER }}</p>
 							<span class="tg-time" aria-hidden="true">9:41</span>
+						</div>
+
+						<!-- Price alert — the real candlestick SVG (the exact chart production
+						     rasterizes to PNG for sendPhoto) with its caption. -->
+						<div v-if="alert" class="tg-bubble-received tg-bubble-photo">
+							<img
+								:src="alert.svgDataUri"
+								:alt="`Candlestick chart for ${alert.symbol}`"
+								class="tg-chart"
+								width="800"
+								height="400"
+							/>
+							<div class="tg-caption">
+								<p class="tg-text tg-text-bold">🚨 {{ alert.symbol }}</p>
+								<p class="tg-text">{{ alert.priceContext }}</p>
+								<p class="tg-footer-text">{{ TELEGRAM_FOOTER }}</p>
+								<span class="tg-time" aria-hidden="true">9:42</span>
+							</div>
 						</div>
 					</div>
 					<div class="phone-home-indicator" aria-hidden="true"></div>
@@ -40,10 +64,9 @@
 import { computed } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ChevronLeftIcon from "../../../../icons/chevron-left.svg?component";
-import {
-	formatPreviewAssetsList,
-	type PreviewAsset,
-} from "./preview-data";
+import { TELEGRAM_FOOTER } from "../../../../lib/messaging/parts/footer";
+import { buildPreviewAlert, buildPreviewTelegramLines } from "./preview-data";
+import type { PreviewAsset } from "./types";
 
 interface Props {
 	assets: PreviewAsset[];
@@ -51,9 +74,11 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const formattedText = computed(() =>
-	`Your tracked assets:\n${formatPreviewAssetsList(props.assets)}`,
-);
+const telegramLines = computed(() => buildPreviewTelegramLines(props.assets));
+const alert = computed(() => {
+	const first = props.assets[0];
+	return first ? buildPreviewAlert(first) : null;
+});
 </script>
 
 <style scoped>
@@ -126,7 +151,7 @@ const formattedText = computed(() =>
 }
 
 .tg-back svg {
-	width: 0.55rem;
+	width: 0.9rem;
 	height: 0.9rem;
 }
 
@@ -167,6 +192,9 @@ const formattedText = computed(() =>
 
 /* Chat wallpaper */
 .tg-body {
+	display: flex;
+	flex-direction: column;
+	gap: 0.55rem;
 	padding: 0.7rem 0.7rem 1.3rem;
 	background: linear-gradient(180deg, #d6e0eb 0%, #c9d6e5 100%);
 	min-height: 200px;
@@ -178,15 +206,48 @@ const formattedText = computed(() =>
 	border-radius: 1.05rem;
 	border-bottom-left-radius: 0.25rem;
 	padding: 0.45rem 0.65rem 0.5rem;
-	max-width: 88%;
+	max-width: 92%;
 	position: relative;
 	box-shadow: 0 1px 1px rgba(15, 23, 42, 0.12);
+}
+
+/* Photo message: image flush to the bubble top, caption below — Telegram's
+   sendPhoto layout. */
+.tg-bubble-photo {
+	padding: 0;
+	overflow: hidden;
+}
+
+.tg-chart {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+.tg-caption {
+	padding: 0.4rem 0.65rem 0.5rem;
 }
 
 .tg-text {
 	font-size: 0.78rem;
 	line-height: 1.45;
 	margin: 0;
+}
+
+.tg-text-bold {
+	font-weight: 600;
+}
+
+.tg-line {
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.tg-footer-text {
+	font-size: 0.62rem;
+	line-height: 1.4;
+	color: #8aa0b6;
+	margin: 0.3rem 0 0;
 }
 
 .tg-time {
