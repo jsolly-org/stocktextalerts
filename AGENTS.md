@@ -8,7 +8,7 @@ Ship profile: `aws-sam`
 
 **Post-push (step 12):** Production deploy is **GitHub-managed** — after push to `main`, CI then `.github/workflows/deploy.yml` runs migrations, Lambda updates, and the live-provider check. Babysit those workflows; local `npm run deploy:code` is break-glass only. Vercel deploys the web tier via Git integration — verify production if web paths changed. Run `npm run deploy:infra` manually (human MFA) when `aws/template.yaml` or `aws/deploy.sh` changes — never auto-run from `/ship`.
 
-Local gate before push: pre-push hook steps in `.git-hooks/pre-push` (lint/types/static; unit tests run in GitHub CI, not the hook).
+Local gate before push: pre-push hook steps in `.git-hooks/pre-push` (biome, yaml/actionlint, `check:ts`, knip, squawk SQL lint, deploy-fn coverage, static migration grants, and a fail-fast Lambda bundle build via `aws/deploy-web.sh --build`; unit tests run in GitHub CI, not the hook).
 
 ## Commands
 
@@ -19,9 +19,12 @@ npm run build              # Production build
 npm test                   # Vitest — blocked locally unless ALLOW_LOCAL_DB_TESTS=1 (CI is canonical)
 npm run test:local         # Local opt-in + auto preflight (Podman start, db:doctor, db:start retry)
 npm run test:e2e           # Playwright E2E — same opt-in
+npm run test:e2e:local     # E2E opt-in + auto preflight (like test:local)
 npm run check:ts           # TypeScript check
 npm run check:knip         # Find unused exports / files / dependencies
 npm run check:biome        # Biome format + lint check
+npm run check:sql          # Squawk lint on supabase/migrations/*.sql
+npm run check:md           # markdownlint (check:md:fix to auto-fix)
 npm run db:start           # Start local Supabase (Docker/Podman)
 npm run db:reset           # Reset DB: regenerate seed, apply migrations, regen types
 npm run db:bootstrap       # Canonical first-run / "reset everything": link-worktree-data + db:start + db:reset + db:doctor
@@ -44,7 +47,7 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 ### Key Directories
 
 - `src/pages/api/` — API endpoints (auth, assets, schedule, notifications)
-- `src/lib/` — Server logic: `db/`, `auth/`, `vendors/`, `market-notifications/`, `daily-digest/`, `asset-events/`, `messaging/`, `schedule/`, `time/`, `logging/`
+- `src/lib/` — Server logic: `db/`, `auth/`, `vendors/` (Massive/Finnhub/xAI clients), notification pipelines (`market-notifications/`, `daily-digest/`, `daily-notification/`, `asset-events/`, `price-alerts/`, `staged-notifications/`, `scheduled-notifications/`), `messaging/` (email/SMS/Telegram), `schedule/`, `time/`, `logging/`, `backup/`
 - `src/handlers/` — AWS Lambda entry points (cron, SQS, signed email dispatch)
 - `src/components/dashboard/` — Vue dashboard panels with composables
 - `supabase/migrations/` — SQL migrations (source of truth; the post-push deploy pushes to production)
@@ -87,7 +90,7 @@ See [docs/architecture-tiers.md](docs/architecture-tiers.md) for when code belon
 - `formatPriceAlertSms` is **async** (shortens Grok link URLs via the `short_urls` table). Mock supabase for it must include a `.from().select().eq().gt().limit().single()` chain for the shortener dedup lookup. All other SMS formatters are sync.
 - **No local live provider tests.** Provider keys (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`, `XAI_API_KEY`, `TELEGRAM_BOT_TOKEN`) live in the Lambda runtime and are always stubbed in the local suite. `MASSIVE_API_KEY` is **also** present in the Vercel runtime — the logo endpoint (`src/pages/api/assets/logo/[symbol].ts`) reads it at request time; `TELEGRAM_BOT_TOKEN` is also on Vercel (the webhook reply); `FINNHUB_API_KEY`/`XAI_API_KEY` are Lambda-only. Real Massive/Finnhub round-trips — plus a **read-only Telegram token check** (`getMe()`/`getWebhookInfo()` only, never a send; `src/lib/messaging/telegram/health.ts`) — are validated in production by the scheduled `stocktextalerts-live-provider-check` Lambda (`src/handlers/maintenance/live-provider-check.ts`); invoke it with `aws lambda invoke` to test on demand. There is no local Telegram live-send target — the only real-message check is the one-time manual post-deploy `/start` E2E.
 - **Test concurrency lock:** When `ALLOW_LOCAL_DB_TESTS=1`, `npm test` and `npm run test:e2e` acquire a per-repo lock at `<git-common-dir>/test.lock` (cross-worktree). If another worktree is already running tests, the runner waits **2 minutes** and retries, up to **3 attempts** total, before printing the contention banner and exiting. Stale locks (dead PID) are taken over silently on the next attempt. **Agents:** do not run local DB tests unless the user explicitly opts in (`ALLOW_LOCAL_DB_TESTS=1` or `npm run test:local` / `test:e2e:local`); prefer those wrappers so preflight repairs Podman/Supabase first. Let the retry loop run if they do — do not force-clear the lock or spawn parallel test runs while waiting. If all 3 attempts fail, stop and report the contention message to the user (another worktree's suite is still running). Force-clear only when you're sure the holder PID is dead: `rm $(git rev-parse --git-common-dir)/test.lock`.
-- **Fresh worktree?** A committed `.git-hooks/post-checkout` now AUTO-provisions a manual `git worktree add` (via dotagents' shared provisioner it runs `npm run worktree:provision` — carry `.env.local` + real `npm ci` + mise; never symlink `node_modules`, Vite `server.fs.allow` 403s on a symlink). For a first run that also needs the local DB seeded, run `npm run worktree:init` (`worktree:provision` + `db:bootstrap`) — the post-checkout deliberately runs only `worktree:provision`, NOT `worktree:init`, so a routine worktree add never triggers `db:bootstrap`'s destructive reset of the shared stack. A new worktree branches from `origin/main` and lacks gitignored `.env.local` + `scripts/data/users.json` and `node_modules`. **All worktrees share ONE local Supabase stack** (default ports, project_id `stocktextalerts`); the cross-worktree `test.lock` serializes DB access (a second `npm test` waits), and `db:reset` acquires that lock so it can't reset the shared DB under another worktree's running suite. `.env.local` is copied (not port-patched) — the shared default ports are already correct. Migrating an old per-worktree-stack worktree: `npm run db:collapse-worktree-stacks` (dry-run; `-- --apply` to execute). See `docs/local-supabase.md`.
+- **Fresh worktree?** A committed `.git-hooks/post-checkout` now AUTO-provisions a manual `git worktree add` (via dotagents' shared provisioner it runs `npm run worktree:provision` — carry `.env.local` + real `npm ci` + mise; never symlink `node_modules`, Vite `server.fs.allow` 403s on a symlink). For a first run that also needs the local DB seeded, run `npm run worktree:init` (`worktree:provision` + `db:bootstrap`) — the post-checkout deliberately runs only `worktree:provision`, NOT `worktree:init`, so a routine worktree add never triggers `db:bootstrap`'s destructive reset of the shared stack. A new worktree branches from `origin/main` and lacks gitignored `.env.local` + `scripts/data/users.json` and `node_modules`. **All worktrees share ONE local Supabase stack** (default ports, project_id `stocktextalerts`); the cross-worktree `test.lock` serializes DB access (a second `npm test` waits), and `db:reset` acquires that lock so it can't reset the shared DB under another worktree's running suite. `.env.local` is copied (not port-patched) — the shared default ports are already correct. Migrating an old per-worktree-stack worktree: `npm run db:collapse-worktree-stacks` (dry-run; `-- --apply` to execute).
 
 See `tests/README.md` for the production-credential gating model and Mailpit dev/test routing.
 
@@ -97,7 +100,7 @@ See `tests/README.md` for the production-credential gating model and Mailpit dev
 - **Apply migrations to production only via the GitHub deploy workflow's `supabase db push`**. Local-only paths: `supabase migration new <name>` then commit. (No MCP against prod, no manual `db push`, no dashboard DDL.)
 - After creating/modifying a migration: `npm run db:gen-types`.
 - **Regenerate `src/lib/db/generated/database.types.ts` via `npm run db:gen-types`** — it's overwritten on every run.
-- **Explicit grants required for functions, tables, and sequences.** `public` default privileges are empty in both local and production (parity established by `20260610182813_tighten_table_privileges`) — an object created without an explicit `GRANT` is usable by nobody but `postgres` (a missing function grant caused the duplicate-SMS incident). Every migration that creates a Data-API (`.rpc(...)`) function must include `GRANT EXECUTE ON FUNCTION ... TO <role>` (server-only → `service_role`; session-scoped → `authenticated`, `service_role`) and the function must be classified in `scripts/db/privilege-contract.ts`. Every migration that creates a table or sequence must grant exactly what code needs (server-only → `service_role`; session-visible → `authenticated`/`anon`). `npm run check:db-privileges` (in `db:reset` + GitHub CI) and `npm run check:migration-grants` enforce the function side; `npm run audit:db-parity` diffs the full local permission structure against production (read-only). Test fixtures needing writes beyond prod grants use the `pg` client (`tests/helpers/asset-db.ts`), not `adminClient`. `supabase db diff` does not surface `ALTER DEFAULT PRIVILEGES`; review grants manually. See `docs/local-supabase.md` → "Function & table privilege parity".
+- **Explicit grants required for functions, tables, and sequences.** `public` default privileges are empty in both local and production (parity established by `20260610182813_tighten_table_privileges`) — an object created without an explicit `GRANT` is usable by nobody but `postgres` (a missing function grant caused the duplicate-SMS incident). Every migration that creates a Data-API (`.rpc(...)`) function must include `GRANT EXECUTE ON FUNCTION ... TO <role>` (server-only → `service_role`; session-scoped → `authenticated`, `service_role`) and the function must be classified in `scripts/db/privilege-contract.ts`. Every migration that creates a table or sequence must grant exactly what code needs (server-only → `service_role`; session-visible → `authenticated`/`anon`). `npm run check:db-privileges` (in `db:reset` + GitHub CI) and `npm run check:migration-grants` enforce the function side; `npm run audit:db-parity` diffs the full local permission structure against production (read-only). Test fixtures needing writes beyond prod grants use the `pg` client (`tests/helpers/asset-db.ts`), not `adminClient`. `supabase db diff` does not surface `ALTER DEFAULT PRIVILEGES`; review grants manually.
 
 ### Production DB agent block (enforced)
 
@@ -119,7 +122,7 @@ Agents (Cursor, Claude Code, Codex) **must not** apply production Supabase schem
 
 **Codex:** mark this repo as a **trusted** project so `.codex/config.toml` and `.codex/execpolicy.rules` load (see [Codex config basics](https://developers.openai.com/codex/config-basic)).
 
-See `docs/local-supabase.md` for `db:bootstrap`, seed hardening, and Podman setup.
+Local-stack internals (`db:bootstrap`, seed hardening, Podman/container-engine wiring) live in `scripts/db/` — the scripts are the documentation.
 
 ## Supabase Auth OTP
 
@@ -137,7 +140,7 @@ Provider keys live in the Lambda runtime (and `MASSIVE_API_KEY` also in Vercel, 
 
 ## External APIs
 
-See `docs/external-apis.md` for Massive (prices/reference) and Finnhub (earnings calendar + extras).
+Vendor clients live in `src/lib/vendors/` — Massive (prices, asset reference, dividends/splits/IPOs) and Finnhub (symbols, earnings calendar, market hours, analyst/insider extras). xAI/Grok powers optional AI summaries.
 
 ## CI (GitHub Actions + local pre-push gate)
 
@@ -161,7 +164,7 @@ See `docs/tooling-setup.md` for Production Supabase access (psql, env vars, proj
 
 ## Deploy gotchas
 
-- **Merge to main before SAM deploy that changes env vars.** See `docs/deploy-gotchas.md`.
+- **Merge to main before SAM deploy that changes env vars** — a deploy from an unmerged branch ships env-var drift that the next deploy from `main` silently reverts.
 
 ## UI Conventions
 
