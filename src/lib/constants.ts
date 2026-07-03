@@ -38,7 +38,7 @@ Facet-less types must use exactly one `""` content key.
 type OptionChannelDefaults = Partial<Record<DeliveryChannel, boolean>>;
 
 /** Daily-notification facet families → their dashboard form-field prefix. */
-export const NOTIFICATION_FAMILY_FIELD_PREFIX = {
+const NOTIFICATION_FAMILY_FIELD_PREFIX = {
 	digest: "daily_digest",
 	asset_events: "asset_events",
 } as const;
@@ -123,7 +123,7 @@ export type NotificationOptionFieldName = {
 }[NotificationPreferenceType];
 
 /** The dashboard/API form-field name for an option (runtime twin of NotificationOptionFieldName). */
-export function notificationOptionFieldName(
+function notificationOptionFieldName(
 	type: NotificationPreferenceType,
 	content: DailyNotificationContent | FacetlessContent,
 	channel: DeliveryChannel,

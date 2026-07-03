@@ -36,6 +36,7 @@
 		"check:sql": "bash scripts/db/check-sql.sh",
 		"check:deploy-functions": "node ./node_modules/.bin/tsx scripts/check-deploy-functions.ts",
 		"check:db-privileges": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/check-privileges.ts",
+		"check:option-catalog": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/check-option-catalog.ts",
 		"check:migration-grants": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/check-migration-grants.ts",
 		"audit:db-parity": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/dump-permissions.ts --diff-prod",
 		"check:actions": "github-actionlint .github/workflows/*.yml",
