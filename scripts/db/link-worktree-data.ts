@@ -21,7 +21,10 @@
  *   2. The candidate file already exists in this worktree (file or symlink).
  *   3. The main worktree doesn't have the candidate either.
  *
- * Wired into `db:bootstrap` so it runs once per worktree on first setup.
+ * Wired into `worktree:provision` (so every fresh `git worktree add` gets the
+ * symlink, and `db:doctor`/`predev` can actually verify seed-user presence
+ * instead of going blind and false-greening on a missing users.json) and kept
+ * in `db:bootstrap` too — it's idempotent, so running it in both is harmless.
  */
 
 import fs from "node:fs";

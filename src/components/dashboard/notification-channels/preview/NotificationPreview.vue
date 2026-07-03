@@ -1,5 +1,5 @@
 <template>
-	<figure class="sms-preview" aria-label="SMS notification preview">
+	<figure class="tg-preview" aria-label="Notification preview">
 		<div class="phone-mockup">
 			<div class="phone-frame-border">
 				<div class="phone-screen">
@@ -11,9 +11,22 @@
 							<svg class="status-icon-battery" viewBox="0 0 27 12" fill="currentColor" aria-hidden="true"><rect x="0" y="0.5" width="22" height="11" rx="2" stroke="currentColor" stroke-width="1.2" fill="none"/><rect x="2.5" y="2.5" width="14" height="7" rx="1"/><rect x="23" y="3.5" width="2" height="5" rx="1"/></svg>
 						</div>
 					</div>
-					<div class="sms-body">
-						<div class="message-bubble-received">
-							<p class="text-sm leading-relaxed whitespace-pre-line text-label">{{ formattedSmsText }}</p>
+
+					<div class="tg-header" aria-hidden="true">
+						<span class="tg-back">
+							<ChevronLeftIcon aria-hidden="true" />
+						</span>
+						<div class="tg-title">
+							<span class="tg-name">StockTextAlerts</span>
+							<span class="tg-subtitle">bot</span>
+						</div>
+						<span class="tg-avatar">S</span>
+					</div>
+
+					<div class="tg-body">
+						<div class="tg-bubble-received">
+							<p class="tg-text whitespace-pre-line">{{ formattedText }}</p>
+							<span class="tg-time" aria-hidden="true">9:41</span>
 						</div>
 					</div>
 					<div class="phone-home-indicator" aria-hidden="true"></div>
@@ -25,6 +38,8 @@
 
 <script lang="ts" setup>
 import { computed } from "vue";
+// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
+import ChevronLeftIcon from "../../../../icons/chevron-left.svg?component";
 import {
 	formatPreviewAssetsList,
 	type PreviewAsset,
@@ -36,7 +51,7 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const formattedSmsText = computed(() =>
+const formattedText = computed(() =>
 	`Your tracked assets:\n${formatPreviewAssetsList(props.assets)}`,
 );
 </script>
@@ -58,7 +73,7 @@ const formattedSmsText = computed(() =>
 }
 
 .phone-screen {
-	background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+	background: #ffffff;
 	border-radius: 1.75rem;
 	overflow: hidden;
 	min-height: 300px;
@@ -74,6 +89,7 @@ const formattedSmsText = computed(() =>
 	font-size: 0.75rem;
 	font-weight: 600;
 	color: #0f172a;
+	background: #ffffff;
 }
 
 .status-icons {
@@ -92,42 +108,93 @@ const formattedSmsText = computed(() =>
 	height: 0.6rem;
 }
 
-.sms-body {
-	padding: 0.2rem 0.75rem 1.2rem;
-	background: #f1f5f9;
+/* Telegram chat nav bar */
+.tg-header {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.35rem 0.75rem;
+	background: #ffffff;
+	border-bottom: 0.5px solid rgba(0, 0, 0, 0.12);
 }
 
-.message-bubble-received {
-	background: #e5e7eb;
-	color: #1f2937;
-	border-radius: 1.125rem;
-	border-bottom-left-radius: 0.125rem;
-	padding: 0.5rem 0.75rem;
-	max-width: 85%;
+.tg-back {
+	display: flex;
+	align-items: center;
+	color: #3390ec;
+	flex-shrink: 0;
+}
+
+.tg-back svg {
+	width: 0.55rem;
+	height: 0.9rem;
+}
+
+.tg-title {
+	display: flex;
+	flex-direction: column;
+	line-height: 1.1;
+	flex: 1;
+	min-width: 0;
+}
+
+.tg-name {
+	font-size: 0.8rem;
+	font-weight: 600;
+	color: #0f172a;
+	letter-spacing: -0.01em;
+}
+
+.tg-subtitle {
+	font-size: 0.62rem;
+	color: #8aa0b6;
+}
+
+.tg-avatar {
+	flex-shrink: 0;
+	width: 1.6rem;
+	height: 1.6rem;
+	border-radius: 50%;
+	background: linear-gradient(135deg, #4facf5 0%, #2a7fd4 100%);
+	color: #ffffff;
+	font-size: 0.75rem;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 1px 2px rgba(42, 127, 212, 0.3);
+}
+
+/* Chat wallpaper */
+.tg-body {
+	padding: 0.7rem 0.7rem 1.3rem;
+	background: linear-gradient(180deg, #d6e0eb 0%, #c9d6e5 100%);
+	min-height: 200px;
+}
+
+.tg-bubble-received {
+	background: #ffffff;
+	color: #0f172a;
+	border-radius: 1.05rem;
+	border-bottom-left-radius: 0.25rem;
+	padding: 0.45rem 0.65rem 0.5rem;
+	max-width: 88%;
 	position: relative;
-	margin-left: 0.625rem;
+	box-shadow: 0 1px 1px rgba(15, 23, 42, 0.12);
 }
 
-.message-bubble-received::before {
-	content: "";
-	position: absolute;
-	bottom: 0;
-	left: -0.4375rem;
-	height: 1.25rem;
-	width: 1.25rem;
-	background: #e5e7eb;
-	border-bottom-right-radius: 0.9375rem;
+.tg-text {
+	font-size: 0.78rem;
+	line-height: 1.45;
+	margin: 0;
 }
 
-.message-bubble-received::after {
-	content: "";
-	position: absolute;
-	bottom: 0;
-	left: -0.625rem;
-	width: 0.625rem;
-	height: 1.25rem;
-	background: #f1f5f9;
-	border-bottom-right-radius: 0.625rem;
+.tg-time {
+	display: block;
+	text-align: right;
+	font-size: 0.6rem;
+	color: #8aa0b6;
+	margin-top: 0.15rem;
 }
 
 .phone-home-indicator {
@@ -143,29 +210,32 @@ const formattedSmsText = computed(() =>
 
 @media (prefers-color-scheme: dark) {
 	.phone-screen {
-		background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+		background: #17212b;
 		border-color: rgba(255, 255, 255, 0.08);
 	}
 
 	.phone-status-bar {
 		color: #e2e8f0;
+		background: #17212b;
 	}
 
-	.sms-body {
-		background: #0f172a;
+	.tg-header {
+		background: #17212b;
+		border-bottom-color: rgba(255, 255, 255, 0.08);
 	}
 
-	.message-bubble-received {
-		background: #374151;
-		color: #e5e7eb;
+	.tg-name {
+		color: #f1f5f9;
 	}
 
-	.message-bubble-received::before {
-		background: #374151;
+	.tg-body {
+		background: #0e1621;
 	}
 
-	.message-bubble-received::after {
-		background: #0f172a;
+	.tg-bubble-received {
+		background: #182533;
+		color: #e5eaf0;
+		box-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
 	}
 
 	.phone-home-indicator {

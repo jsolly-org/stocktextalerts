@@ -9,9 +9,9 @@
 			class="space-y-3 transition-opacity duration-200"
 			:class="{ 'opacity-50': needsChannelSelection }"
 		>
-			<div class="flex items-center justify-between gap-3 px-4">
+			<div class="flex flex-col gap-2 px-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
 				<span class="text-xs font-semibold uppercase tracking-wider text-faint select-none">Select all</span>
-				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
+				<div class="flex flex-row flex-wrap items-center gap-x-4 gap-y-2 sm:gap-4 shrink-0">
 					<label
 						class="inline-flex items-center gap-1.5"
 						:class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'"
@@ -72,7 +72,7 @@
 				class="rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
 				:class="{ 'opacity-50': isEventTypeBlocked(eventType.key) }"
 			>
-				<div class="flex items-center justify-between gap-3">
+				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
 					<input
 						type="hidden"
 						:name="`asset_events_include_${eventType.key}_email`"
