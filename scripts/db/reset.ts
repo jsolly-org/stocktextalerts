@@ -118,6 +118,12 @@ function main(): void {
 	if (run("npm", ["run", "check:db-privileges"]) !== 0) {
 		process.exit(1);
 	}
+
+	// Fail on notification-option drift: the notification_options table must
+	// mirror the authored catalog (NOTIFICATION_OPTION_MATRIX) exactly.
+	if (run("npm", ["run", "check:option-catalog"]) !== 0) {
+		process.exit(1);
+	}
 }
 
 const invokedDirectly =

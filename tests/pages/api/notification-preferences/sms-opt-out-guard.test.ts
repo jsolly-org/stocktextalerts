@@ -4,7 +4,11 @@ import { POST } from "../../../../src/pages/api/notification-preferences/update"
 import { createApiContext } from "../../../helpers/api-context";
 import { TEST_PASSWORD } from "../../../helpers/constants";
 import { adminClient, createAuthenticatedCookies } from "../../../helpers/test-env";
-import { createTestUser, generateUniquePhoneNumber } from "../../../helpers/test-user";
+import {
+	createTestUser,
+	generateUniquePhoneNumber,
+	setTestUserPrefs,
+} from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 
 /** Read a single per-option preference's enabled state from notification_preferences. */
@@ -58,6 +62,45 @@ describe("A signed-in opted-out user attempts to re-enable SMS options.", () => 
 		expect(payload.message).toBe("sms_opted_out");
 
 		expect(await readPref(testUser.id, "market_asset_price_alerts", "", "sms")).toBe(false);
+	});
+
+	it("When sms_opted_out is true, re-enabling the daily prices SMS facet is rejected (regression: the old hand-kept guard list omitted this field).", async () => {
+		const testUser = await createTestUser({
+			email: `test-${randomUUID()}@example.com`,
+			password: TEST_PASSWORD,
+			confirmed: true,
+			smsNotificationsEnabled: false,
+			smsOptedOut: true,
+			phoneVerified: true,
+			phoneCountryCode: "+1",
+			phoneNumber: generateUniquePhoneNumber(),
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		// Signup defaults enable daily prices SMS; turn it off so submitting "true"
+		// is a NEW enable — the exact path the omitted field used to slip through.
+		// Also exercises the guard's faceted content-matching (content="prices").
+		await setTestUserPrefs(testUser.id, [["daily_notification", "prices", "sms", false]]);
+
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
+
+		const formData = new FormData();
+		formData.append("daily_digest_include_prices_sms", "true");
+
+		const request = new Request("http://localhost/api/notification-preferences/update", {
+			method: "POST",
+			body: formData,
+			headers: { Accept: "application/json" },
+		});
+
+		const response = await POST(createApiContext({ request, cookies }));
+
+		expect(response.status).toBe(400);
+		const payload = (await response.json()) as { ok: boolean; message: string };
+		expect(payload.ok).toBe(false);
+		expect(payload.message).toBe("sms_opted_out");
+
+		expect(await readPref(testUser.id, "daily_notification", "prices", "sms")).toBe(false);
 	});
 
 	it("When sms_opted_out is true, submitting already-enabled SMS include flags still allows unrelated saves.", async () => {

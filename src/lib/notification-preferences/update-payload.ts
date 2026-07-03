@@ -1,3 +1,5 @@
+import type { NotificationOptionFieldName } from "../constants";
+import { NOTIFICATION_PREFERENCE_CATALOG } from "../constants";
 import { applyDailyNotificationNextSendAtToUserUpdate } from "../daily-notification/schedule";
 import { omitUndefined } from "../db";
 import type { AlertMoveSize, User, UserUpdateInput } from "../db/types";
@@ -10,11 +12,11 @@ import {
 } from "../time/schedule/next-send";
 
 /** Parsed form fields the update endpoint consumes. Per-option channel fields
- *  (`*_email`/`*_sms`/`*_telegram`) are persisted to notification_preferences by
- *  `persistChannelPreferences`; the KEPT fields below are written to `users`. The
- *  asset_events `*_email`/`*_sms` fields are read here only to recompute
+ *  (derived from the catalog) are persisted to notification_preferences by
+ *  `persistChannelPreferences`; the KEPT fields below are written to `users`.
+ *  Daily-notification option fields are read here only to recompute
  *  `daily_notification_next_send_at`. */
-interface ParsedNotificationPreferencesForm {
+type ParsedNotificationPreferencesForm = {
 	market_scheduled_asset_price_enabled?: boolean;
 	timezone?: string;
 	email_notifications_enabled?: boolean;
@@ -23,57 +25,14 @@ interface ParsedNotificationPreferencesForm {
 	daily_digest_time?: number;
 	market_asset_price_alerts_enabled?: boolean;
 	market_asset_price_alert_move_size?: AlertMoveSize;
-	// asset_events per-option fields (used only for next-send-at scheduling here;
-	// persisted to the table by persistChannelPreferences).
-	asset_events_include_calendar_email?: boolean;
-	asset_events_include_calendar_sms?: boolean;
-	asset_events_include_ipo_email?: boolean;
-	asset_events_include_ipo_sms?: boolean;
-	asset_events_include_analyst_email?: boolean;
-	asset_events_include_analyst_sms?: boolean;
-	asset_events_include_insider_email?: boolean;
-	asset_events_include_insider_sms?: boolean;
-	daily_digest_include_prices_email?: boolean;
-	daily_digest_include_prices_sms?: boolean;
-	daily_digest_include_top_movers_email?: boolean;
-	daily_digest_include_top_movers_sms?: boolean;
-	daily_digest_include_news_email?: boolean;
-	daily_digest_include_rumors_email?: boolean;
-	daily_digest_include_prices_telegram?: boolean;
-	daily_digest_include_top_movers_telegram?: boolean;
-	daily_digest_include_news_telegram?: boolean;
-	daily_digest_include_rumors_telegram?: boolean;
-	asset_events_include_calendar_telegram?: boolean;
-	asset_events_include_ipo_telegram?: boolean;
-	asset_events_include_analyst_telegram?: boolean;
-	asset_events_include_insider_telegram?: boolean;
-}
+} & Partial<Record<NotificationOptionFieldName, boolean>>;
 
-/** Daily notification form fields that gate next-send-at scheduling. */
-export const DAILY_NOTIFICATION_SCHEDULE_FIELDS = [
-	"daily_digest_include_prices_email",
-	"daily_digest_include_prices_sms",
-	"daily_digest_include_top_movers_email",
-	"daily_digest_include_top_movers_sms",
-	"daily_digest_include_news_email",
-	"daily_digest_include_rumors_email",
-	"daily_digest_include_prices_telegram",
-	"daily_digest_include_top_movers_telegram",
-	"daily_digest_include_news_telegram",
-	"daily_digest_include_rumors_telegram",
-	"asset_events_include_calendar_email",
-	"asset_events_include_calendar_sms",
-	"asset_events_include_ipo_email",
-	"asset_events_include_ipo_sms",
-	"asset_events_include_analyst_email",
-	"asset_events_include_analyst_sms",
-	"asset_events_include_insider_email",
-	"asset_events_include_insider_sms",
-	"asset_events_include_calendar_telegram",
-	"asset_events_include_ipo_telegram",
-	"asset_events_include_analyst_telegram",
-	"asset_events_include_insider_telegram",
-] as const satisfies ReadonlyArray<keyof ParsedNotificationPreferencesForm>;
+/** Daily notification form fields that gate next-send-at scheduling (every
+ *  daily_notification option, derived from the catalog). */
+export const DAILY_NOTIFICATION_SCHEDULE_FIELDS: readonly NotificationOptionFieldName[] =
+	NOTIFICATION_PREFERENCE_CATALOG.filter(
+		(entry) => entry.notification_type === "daily_notification",
+	).map((entry) => entry.fieldName);
 
 /**
  * Compute `market_scheduled_asset_price_next_send_at` for scheduled update notifications when timezone or schedule changes.
