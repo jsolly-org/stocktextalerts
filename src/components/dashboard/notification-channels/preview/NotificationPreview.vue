@@ -14,7 +14,7 @@
 
 					<div class="tg-header" aria-hidden="true">
 						<span class="tg-back">
-							<svg viewBox="0 0 12 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M10 2L2 10L10 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+							<ChevronLeftIcon aria-hidden="true" />
 						</span>
 						<div class="tg-title">
 							<span class="tg-name">StockTextAlerts</span>
@@ -26,7 +26,7 @@
 					<div class="tg-body">
 						<div class="tg-bubble-received">
 							<p class="tg-text whitespace-pre-line">{{ formattedText }}</p>
-							<span class="tg-time">9:41</span>
+							<span class="tg-time" aria-hidden="true">9:41</span>
 						</div>
 					</div>
 					<div class="phone-home-indicator" aria-hidden="true"></div>
@@ -38,6 +38,8 @@
 
 <script lang="ts" setup>
 import { computed } from "vue";
+// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
+import ChevronLeftIcon from "../../../../icons/chevron-left.svg?component";
 import {
 	formatPreviewAssetsList,
 	type PreviewAsset,
