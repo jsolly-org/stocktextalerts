@@ -80,11 +80,6 @@ type DailyOptionMatrix = OptionMatrix["daily_notification"];
 /** All content facets in the unified daily notification. */
 export type DailyNotificationContent = keyof DailyOptionMatrix;
 
-/** Digest-family facets of the daily notification. */
-export type DailyDigestContent = {
-	[C in DailyNotificationContent]: DailyOptionMatrix[C]["family"] extends "digest" ? C : never;
-}[DailyNotificationContent];
-
 /** Asset-event-family facets of the daily notification. */
 export type AssetEventsContent = {
 	[C in DailyNotificationContent]: DailyOptionMatrix[C]["family"] extends "asset_events"
