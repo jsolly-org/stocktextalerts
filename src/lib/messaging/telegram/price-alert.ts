@@ -3,8 +3,8 @@ import type { MessageEntity } from "grammy/types";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import type { EnrichedAlert } from "../../price-alerts/types";
-import type { ChannelDeliveryStats } from "../../types";
-import { buildCandlestickSvg, type Candle, renderChartPng } from "../parts/charts/candlestick";
+import type { ChannelDeliveryStats, IntradayCandle } from "../../types";
+import { buildCandlestickSvg, renderChartPng } from "../parts/charts/candlestick";
 import { TELEGRAM_FOOTER } from "../parts/footer";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { TelegramSender } from "../types";
@@ -31,10 +31,10 @@ export interface TelegramPriceAlert {
  * `candles` are the per-bar intraday OHLC bars from the enrichment (`intradayCandles`);
  * `prevClose` from the alert anchors the chart's dashed reference line.
  */
-export function formatPriceAlertTelegram(
+export async function formatPriceAlertTelegram(
 	alert: EnrichedAlert,
-	candles: Candle[],
-): TelegramPriceAlert {
+	candles: IntradayCandle[],
+): Promise<TelegramPriceAlert> {
 	// `priceContext` already reads e.g. "AAPL is up 2.5% today ($228.50)" — reuse it as
 	// the human-readable price/change line so SMS/email/Telegram stay consistent.
 	const headline = FormattedString.bold(`🚨 ${alert.symbol}`);
@@ -61,7 +61,17 @@ export function formatPriceAlertTelegram(
 		const svg = buildCandlestickSvg(candles, {
 			prevClose: alert.prevClose ?? undefined,
 		});
-		photo = renderChartPng(svg);
+		photo = await renderChartPng(svg);
+		if (photo === null) {
+			// The fixed-input chart:render-png live check can't see input-dependent render
+			// failures or a container whose asset cache poisoned on a transient error — this
+			// warn is the only breadcrumb for those classes. warn (not error) on purpose: it
+			// stays below the { $.level = "error" } alarm filter, preserving degrade-don't-page.
+			rootLogger.warn("Chart render degraded to text-only", {
+				symbol: alert.symbol,
+				candleCount: candles.length,
+			});
+		}
 	}
 
 	return { text: msg.text, entities: msg.entities, photo };
@@ -89,7 +99,10 @@ export async function deliverTelegramPriceAlert(options: {
 }): Promise<boolean> {
 	const { alert, user, sendTelegram, supabase, stats, notificationType } = options;
 
-	const { text, entities, photo } = formatPriceAlertTelegram(alert, alert.intradayCandles ?? []);
+	const { text, entities, photo } = await formatPriceAlertTelegram(
+		alert,
+		alert.intradayCandles ?? [],
+	);
 	const result = await sendTelegram({
 		// telegram_chat_id is non-null here: every caller gates on isTelegramChannelUsable.
 		chatId: user.telegram_chat_id as number,

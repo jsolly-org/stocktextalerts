@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { Candle } from "../../../../src/lib/messaging/parts/charts/candlestick";
 import {
 	formatPriceAlertTelegram,
 	type TelegramPriceAlert,
 } from "../../../../src/lib/messaging/telegram/price-alert";
 import type { EnrichedAlert } from "../../../../src/lib/price-alerts/types";
+import type { IntradayCandle } from "../../../../src/lib/types";
 
 function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 	return {
@@ -24,7 +24,7 @@ function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 }
 
 /** Build a rising intraday candle series of `count` 5-minute bars. */
-function makeCandles(count: number, start = 170): Candle[] {
+function makeCandles(count: number, start = 170): IntradayCandle[] {
 	const base = Date.UTC(2026, 5, 19, 14, 35);
 	return Array.from({ length: count }, (_, i) => {
 		const o = start + i;
@@ -33,8 +33,8 @@ function makeCandles(count: number, start = 170): Candle[] {
 }
 
 describe("A price-move alert is rendered for Telegram with entity formatting and a candlestick chart", () => {
-	it("bolds the ticker, carries the price/change line, and produces a PNG when there are ≥2 candles", () => {
-		const result: TelegramPriceAlert = formatPriceAlertTelegram(makeAlert(), makeCandles(6));
+	it("bolds the ticker, carries the price/change line, and produces a PNG when there are ≥2 candles", async () => {
+		const result: TelegramPriceAlert = await formatPriceAlertTelegram(makeAlert(), makeCandles(6));
 
 		expect(result.text).toContain("LDOS");
 		expect(result.text).toContain("down 11.1% today ($173.00)");
@@ -51,8 +51,8 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 		expect((result.photo as Buffer).subarray(0, 4)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
 	});
 
-	it("includes a 'Why it's moving' blockquote from Grok with inline-link markup stripped", () => {
-		const result = formatPriceAlertTelegram(
+	it("includes a 'Why it's moving' blockquote from Grok with inline-link markup stripped", async () => {
+		const result = await formatPriceAlertTelegram(
 			makeAlert({
 				grokResult: {
 					summary:
@@ -79,12 +79,12 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 		expect(result.entities.some((e) => e.type === "blockquote")).toBe(true);
 	});
 
-	it("degrades to a text-only message (no photo, no throw) when there are too few candles", () => {
-		const empty = formatPriceAlertTelegram(makeAlert(), []);
+	it("degrades to a text-only message (no photo, no throw) when there are too few candles", async () => {
+		const empty = await formatPriceAlertTelegram(makeAlert(), []);
 		expect(empty.photo).toBeNull();
 		expect(empty.text).toContain("LDOS");
 
-		const single = formatPriceAlertTelegram(makeAlert(), makeCandles(1));
+		const single = await formatPriceAlertTelegram(makeAlert(), makeCandles(1));
 		expect(single.photo).toBeNull();
 		expect(single.text).toContain("LDOS");
 	});
