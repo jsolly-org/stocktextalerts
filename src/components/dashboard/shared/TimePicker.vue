@@ -116,7 +116,11 @@ const emit = defineEmits<{
 }>();
 
 const PADDING_ONE_ICON = "!pr-9";
-const PADDING_BADGE_AND_ICON = "!pr-36";
+// Reserve enough right-edge room for the session badge ("pre-market 🌅" /
+// "after-hours 🌙") plus the clear button so neither overlaps the time text.
+// The badge + X button run ~150px wide; pr-44 (176px) keeps a comfortable gap
+// while still leaving room for the time value on a narrow mobile input.
+const PADDING_BADGE_AND_ICON = "!pr-44";
 
 const minutesIncrement = 1;
 

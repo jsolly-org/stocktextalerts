@@ -45,7 +45,7 @@
 		"db:bootstrap": "node ./node_modules/.bin/tsx scripts/db/link-worktree-data.ts && npm run db:start && npm run db:reset && npm run db:doctor",
 		"db:link-worktree-data": "node ./node_modules/.bin/tsx scripts/db/link-worktree-data.ts",
 		"db:collapse-worktree-stacks": "node ./node_modules/.bin/tsx scripts/db/collapse-worktree-stacks.ts",
-		"worktree:provision": "bash scripts/copy-worktree-includes.sh || true; npm ci && (command -v mise >/dev/null 2>&1 && mise install || true)",
+		"worktree:provision": "bash scripts/copy-worktree-includes.sh || true; npm ci && (command -v mise >/dev/null 2>&1 && mise install || true); node ./node_modules/.bin/tsx scripts/db/link-worktree-data.ts || true",
 		"worktree:init": "npm run worktree:provision && npm run db:bootstrap",
 		"db:doctor": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/doctor.ts",
 		"db:reset": "node ./node_modules/.bin/tsx scripts/db/reset.ts",

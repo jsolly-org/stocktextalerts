@@ -46,7 +46,7 @@
 				class="rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
 				:class="{ 'opacity-50': notificationSetupBlocked }"
 			>
-				<div class="flex items-center justify-between gap-3">
+				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
 					<input
 						type="hidden"
 						name="market_asset_price_alerts_enabled"
@@ -133,7 +133,7 @@
 				class="mt-4 rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
 				:class="{ 'opacity-50': notificationSetupBlocked }"
 			>
-				<div class="flex items-center justify-between gap-3">
+				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
 					<input
 						type="hidden"
 						name="market_scheduled_asset_price_enabled"
@@ -242,7 +242,7 @@
 					name="price_move_alerts_include_telegram"
 					:value="priceMoveAlertsIncludeTelegram ? 'on' : 'off'"
 				/>
-				<div class="flex items-start justify-between gap-3">
+				<div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
 					<div class="min-w-0">
 						<span
 							id="price_move_alerts_label"

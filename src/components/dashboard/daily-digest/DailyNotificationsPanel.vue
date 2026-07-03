@@ -53,7 +53,7 @@
 			>
 					<legend class="sr-only">Daily notification settings</legend>
 
-				<div class="flex items-center justify-between gap-3 py-3">
+				<div class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
 					<input
 						type="hidden"
 					name="daily_digest_include_prices_email"
@@ -95,7 +95,7 @@
 				</div>
 				</div>
 
-				<div class="flex items-center justify-between gap-3 py-3">
+				<div class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
 					<input
 						type="hidden"
 						name="daily_digest_include_top_movers_email"
@@ -138,7 +138,7 @@
 					</div>
 				</div>
 
-				<div class="flex items-center justify-between gap-3 py-3">
+				<div class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
 					<input
 						type="hidden"
 						name="daily_digest_include_news_email"
@@ -178,7 +178,7 @@
 					</div>
 				</div>
 
-				<div class="flex items-center justify-between gap-3 py-3">
+				<div class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
 					<input
 						type="hidden"
 					name="daily_digest_include_rumors_email"
