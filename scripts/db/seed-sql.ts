@@ -1,3 +1,4 @@
+import { NOTIFICATION_PREFERENCE_CATALOG } from "../../src/lib/constants";
 import type { TablesInsert } from "../../src/lib/db/generated/database.types";
 
 type DbUserInsert = Omit<TablesInsert<"users">, "market_scheduled_asset_price_times"> & {
@@ -365,45 +366,13 @@ ON CONFLICT (id) DO UPDATE SET
   return usersSql + buildNotificationPreferencesSql(userId, user);
 }
 
-/** New-user default facets: prices email+sms on; everything else off. */
-const SEED_DEFAULT_PREFERENCE_ROWS: ReadonlyArray<{
-  notification_type: string;
-  content: string;
-  channel: "email" | "sms" | "telegram";
-  enabled: boolean;
-}> = [
-  { notification_type: "daily_notification", content: "prices", channel: "email", enabled: true },
-  { notification_type: "daily_notification", content: "prices", channel: "sms", enabled: true },
-  { notification_type: "daily_notification", content: "prices", channel: "telegram", enabled: false },
-  { notification_type: "daily_notification", content: "top_movers", channel: "email", enabled: false },
-  { notification_type: "daily_notification", content: "top_movers", channel: "sms", enabled: false },
-  { notification_type: "daily_notification", content: "top_movers", channel: "telegram", enabled: false },
-  { notification_type: "daily_notification", content: "news", channel: "email", enabled: false },
-  { notification_type: "daily_notification", content: "news", channel: "telegram", enabled: false },
-  { notification_type: "daily_notification", content: "rumors", channel: "email", enabled: false },
-  { notification_type: "daily_notification", content: "rumors", channel: "telegram", enabled: false },
-  { notification_type: "daily_notification", content: "calendar", channel: "email", enabled: false },
-  { notification_type: "daily_notification", content: "calendar", channel: "sms", enabled: false },
-  { notification_type: "daily_notification", content: "calendar", channel: "telegram", enabled: false },
-  { notification_type: "daily_notification", content: "ipo", channel: "email", enabled: false },
-  { notification_type: "daily_notification", content: "ipo", channel: "sms", enabled: false },
-  { notification_type: "daily_notification", content: "ipo", channel: "telegram", enabled: false },
-  { notification_type: "daily_notification", content: "analyst", channel: "email", enabled: false },
-  { notification_type: "daily_notification", content: "analyst", channel: "sms", enabled: false },
-  { notification_type: "daily_notification", content: "analyst", channel: "telegram", enabled: false },
-  { notification_type: "daily_notification", content: "insider", channel: "email", enabled: false },
-  { notification_type: "daily_notification", content: "insider", channel: "sms", enabled: false },
-  { notification_type: "daily_notification", content: "insider", channel: "telegram", enabled: false },
-  { notification_type: "market_asset_price_alerts", content: "", channel: "email", enabled: false },
-  { notification_type: "market_asset_price_alerts", content: "", channel: "sms", enabled: false },
-  { notification_type: "market_asset_price_alerts", content: "", channel: "telegram", enabled: false },
-  { notification_type: "market_scheduled_asset_price", content: "", channel: "email", enabled: false },
-  { notification_type: "market_scheduled_asset_price", content: "", channel: "sms", enabled: false },
-  { notification_type: "market_scheduled_asset_price", content: "", channel: "telegram", enabled: false },
-  { notification_type: "price_move_alerts", content: "", channel: "email", enabled: false },
-  { notification_type: "price_move_alerts", content: "", channel: "sms", enabled: false },
-  { notification_type: "price_move_alerts", content: "", channel: "telegram", enabled: false },
-];
+/** New-user default preference rows, derived from the authored option catalog. */
+const SEED_DEFAULT_PREFERENCE_ROWS = NOTIFICATION_PREFERENCE_CATALOG.map((entry) => ({
+  notification_type: entry.notification_type,
+  content: entry.content,
+  channel: entry.channel,
+  enabled: entry.default,
+}));
 
 /** Build the notification_preferences seed for a user: default rows + JSON overrides. */
 function buildNotificationPreferencesSql(userId: string, user: SeedUser): string {

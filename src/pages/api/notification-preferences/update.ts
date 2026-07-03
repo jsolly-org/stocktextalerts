@@ -1,12 +1,8 @@
 import type { APIRoute } from "astro";
 import { createUserService } from "../../../lib/auth/user-service";
 import type { ApiJsonBody } from "../../../lib/client/types";
+import { NOTIFICATION_PREFERENCE_CATALOG } from "../../../lib/constants";
 import {
-	DAILY_ASSET_EVENT_FACETS,
-	DAILY_DIGEST_FACETS,
-} from "../../../lib/daily-notification/constants";
-import {
-	DAILY_NOTIFICATION_FACETS,
 	hasAnyDailyNotificationFacet,
 	isDailyNotificationFacetEnabled,
 } from "../../../lib/daily-notification/eligibility";
@@ -22,8 +18,7 @@ import {
 } from "../../../lib/notification-preferences/channels";
 import {
 	NOTIFICATION_PREFERENCES_SCHEMA,
-	SMS_INCLUDE_FIELD_TARGETS,
-	SMS_INCLUDE_FIELDS,
+	SMS_INCLUDE_OPTIONS,
 } from "../../../lib/notification-preferences/constants";
 import {
 	buildNotificationPreferencesUpdatePayload,
@@ -32,23 +27,6 @@ import {
 import { userLocalToEtMinute } from "../../../lib/time/conversion";
 import { isOutsideMarketHours } from "../../../lib/time/market/session";
 import { parseScheduledTimes } from "../../../lib/time/schedule/next-send";
-import type { DailyNotificationContent, PrefChannel } from "../../../lib/types";
-
-function dailyNotificationFormField(
-	content: DailyNotificationContent,
-	channel: PrefChannel,
-): string | null {
-	if ((DAILY_DIGEST_FACETS as readonly string[]).includes(content)) {
-		if (channel === "sms" && (content === "news" || content === "rumors")) {
-			return null;
-		}
-		return `daily_digest_include_${content}_${channel}`;
-	}
-	if ((DAILY_ASSET_EVENT_FACETS as readonly string[]).includes(content)) {
-		return `asset_events_include_${content}_${channel}`;
-	}
-	return null;
-}
 
 /**
  * Update the authenticated user's notification-preferences.
@@ -182,27 +160,18 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const dailyNotificationScheduleSubmitted = DAILY_NOTIFICATION_SCHEDULE_FIELDS.some((field) =>
 		formData.has(field),
 	);
-	const isDailyNotificationFacetEnabledAfter = (
-		channel: PrefChannel,
-		content: DailyNotificationContent,
-	) => {
-		const field = dailyNotificationFormField(content, channel);
-		if (
-			field &&
-			formData.has(field) &&
-			parsed.data[field as keyof typeof parsed.data] !== undefined
-		) {
-			return parsed.data[field as keyof typeof parsed.data] === true;
-		}
-		return isDailyNotificationFacetEnabled(existingPrefs, channel, content);
-	};
-	const dailyNotificationEnabledAfterUpdate = DAILY_NOTIFICATION_FACETS.some((content) =>
-		(["email", "sms", "telegram"] as const).some((channel) => {
-			if (dailyNotificationFormField(content, channel) === null) {
-				return isDailyNotificationFacetEnabled(existingPrefs, channel, content);
-			}
-			return isDailyNotificationFacetEnabledAfter(channel, content);
-		}),
+	// A daily facet is enabled after this update when its submitted form value says
+	// so, falling back to the existing row for unsubmitted options. Iterating the
+	// catalog covers exactly the valid (content, channel) combos — the FK guarantees
+	// existingPrefs holds nothing outside it.
+	const dailyNotificationEnabledAfterUpdate = NOTIFICATION_PREFERENCE_CATALOG.filter(
+		(entry) => entry.notification_type === "daily_notification",
+	).some((entry) =>
+		formData.has(entry.fieldName) && parsed.data[entry.fieldName] !== undefined
+			? parsed.data[entry.fieldName] === true
+			: // Daily entries always carry a non-"" content facet; the check narrows the type.
+				entry.content !== "" &&
+				isDailyNotificationFacetEnabled(existingPrefs, entry.channel, entry.content),
 	);
 	const dailyNotificationEnabledBefore = hasAnyDailyNotificationFacet(existingPrefs);
 	const dailyNotificationOptionsChanged =
@@ -252,13 +221,11 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 		// An SMS include field is being newly enabled when the form submits it as true
 		// AND it wasn't already enabled in the table.
-		const enablesAnySmsIncludeField = SMS_INCLUDE_FIELDS.some((field) => {
+		const enablesAnySmsIncludeField = SMS_INCLUDE_OPTIONS.some((target) => {
+			const field = target.fieldName;
 			if (!formData.has(field) || parsed.data[field as keyof typeof parsed.data] !== true) {
 				return false;
 			}
-			// Parse the field name back into (notification_type, content) to check the row.
-			const target = SMS_INCLUDE_FIELD_TARGETS[field];
-			if (!target) return false;
 			const alreadyEnabled = existingPrefs.some(
 				(p) =>
 					p.notification_type === target.notification_type &&

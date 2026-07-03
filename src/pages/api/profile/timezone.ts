@@ -71,7 +71,23 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	// Daily notification facets (digest + asset events) live in notification_preferences;
 	// resolve whether any channel facet is on to decide if daily_notification_next_send_at
 	// needs recomputing — not asset-event facets only.
-	const prefs = await loadUserPreferenceRows(supabase, authUser.id);
+	let prefs: Awaited<ReturnType<typeof loadUserPreferenceRows>>;
+	try {
+		prefs = await loadUserPreferenceRows(supabase, authUser.id);
+	} catch (error) {
+		logger.error(
+			"Failed to load notification preferences for timezone update",
+			{ userId: authUser.id },
+			createErrorForLogging(error),
+		);
+		return Response.json(
+			{
+				ok: false,
+				message: "failed_to_update_timezone",
+			} satisfies ApiJsonBody,
+			{ status: 500 },
+		);
+	}
 	const hasDailyNotification = hasAnyDailyNotificationFacet(prefs);
 
 	let updatePayload: ReturnType<typeof computeTimezoneUpdatePayload>;

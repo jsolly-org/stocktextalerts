@@ -112,6 +112,7 @@ import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import { fetchCurrentNotificationPreferences } from "../../../lib/client/notification-preferences";
 import { formatMessage } from "../../../lib/messaging/status-messages";
+import { SMS_OPTION_FIELD_NAMES } from "../../../lib/notification-preferences/constants";
 import { etMinuteToUserLocal, getUsBeforeOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
 	formatCountdownWithSeconds,
@@ -392,16 +393,8 @@ const nextDailyDeliveryText = computed(() => {
 
 /* ============= Notification Preview ============= */
 const needsTrackedAssets = computed(() => !props.hasTrackedAssets);
-const hasAnySmsFeatureEnabled = computed(
-	() =>
-		user.value.daily_digest_include_prices_sms ||
-		user.value.daily_digest_include_top_movers_sms ||
-		user.value.market_scheduled_asset_price_include_sms ||
-		user.value.asset_events_include_calendar_sms ||
-		user.value.asset_events_include_ipo_sms ||
-		user.value.asset_events_include_analyst_sms ||
-		user.value.asset_events_include_insider_sms ||
-		user.value.market_asset_price_alerts_include_sms,
+const hasAnySmsFeatureEnabled = computed(() =>
+	SMS_OPTION_FIELD_NAMES.some((field) => user.value[field]),
 );
 const hasNotificationChannel = computed(
 	() => emailEnabledProp.value || (smsNotificationsEnabled.value && hasAnySmsFeatureEnabled.value && phoneVerified.value && !smsOptedOut.value),

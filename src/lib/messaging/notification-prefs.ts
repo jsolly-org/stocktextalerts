@@ -12,40 +12,31 @@ telegram-only helpers generalized): a channel is "wanted" for a type when its
 global enable is on AND at least one facet row is enabled for (type, channel).
 ============= */
 
-import { PREF_CHANNELS } from "../constants";
 import type {
 	DailyNotificationContent,
 	FacetlessContent,
 	FacetlessNotificationType,
 	NotificationPreferenceType,
-	PrefChannel,
-	PrefRow,
-} from "../types";
-import { NOTIFICATION_PREFERENCE_CATALOG } from "./constants";
+} from "../constants";
+import {
+	NOTIFICATION_OPTION_MATRIX,
+	NOTIFICATION_PREFERENCE_CATALOG,
+	PREF_CHANNELS,
+} from "../constants";
+import type { PrefChannel, PrefRow } from "../types";
 
-const NOTIFICATION_PREFERENCE_TYPES = [
-	"daily_notification",
-	"market_asset_price_alerts",
-	"market_scheduled_asset_price",
-	"price_move_alerts",
-] as const satisfies readonly NotificationPreferenceType[];
+// Validation lists derived from the authored option matrix (single source).
+const NOTIFICATION_PREFERENCE_TYPES = Object.keys(
+	NOTIFICATION_OPTION_MATRIX,
+) as readonly NotificationPreferenceType[];
 
-const DAILY_NOTIFICATION_CONTENTS = [
-	"prices",
-	"top_movers",
-	"news",
-	"rumors",
-	"calendar",
-	"ipo",
-	"analyst",
-	"insider",
-] as const satisfies readonly DailyNotificationContent[];
+const DAILY_NOTIFICATION_CONTENTS = Object.keys(
+	NOTIFICATION_OPTION_MATRIX.daily_notification,
+) as readonly DailyNotificationContent[];
 
-const FACETLESS_NOTIFICATION_TYPES = [
-	"market_asset_price_alerts",
-	"market_scheduled_asset_price",
-	"price_move_alerts",
-] as const satisfies readonly FacetlessNotificationType[];
+const FACETLESS_NOTIFICATION_TYPES = NOTIFICATION_PREFERENCE_TYPES.filter(
+	(type): type is FacetlessNotificationType => type !== "daily_notification",
+);
 
 function isNotificationPreferenceType(value: string): value is NotificationPreferenceType {
 	return (NOTIFICATION_PREFERENCE_TYPES as readonly string[]).includes(value);
