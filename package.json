@@ -90,7 +90,7 @@
 	},
 	"devDependencies": {
 		"@astrojs/check": "^0.9.9",
-		"@astrojs/node": "^11.0.0",
+		"@astrojs/node": "^11.0.2",
 		"@astrojs/sitemap": "^3.7.3",
 		"@astrojs/ts-plugin": "^1.10.9",
 		"@astrojs/vue": "^7.0.1",
