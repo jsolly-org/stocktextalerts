@@ -142,6 +142,8 @@ Provider keys live in the Lambda runtime (and `MASSIVE_API_KEY` also in Vercel, 
 
 Vendor clients live in `src/lib/vendors/` — Massive (prices, asset reference, dividends/splits/IPOs) and Finnhub (symbols, earnings calendar, market hours, analyst/insider extras). xAI/Grok powers optional AI summaries.
 
+**Telegram bot:** `@StockTextAlertsBot`, owned by the user's **personal** Telegram account (deliberate at current scale; bot ownership is non-transferable — formalize a dedicated owner account **before ~50–100 linked users**, while re-linking is still cheap). For Telegram-channel work, a first-class experience outranks dependency-minimalism (user decision 2026-06-19) — deps that materially improve UX are fine, overriding the general fewer-dependencies default. Candlestick charts ship text-only until resvg ships via a Lambda layer (`@resvg/resvg-js` is esbuild-`External`, lazily required).
+
 ## CI (GitHub Actions + local pre-push gate)
 
 GitHub Actions runs the full test battery on PRs, merge queue entries if the feature becomes available, and `main` pushes (`.github/workflows/ci.yml`); auto-merge is enabled by `.github/workflows/auto-merge.yml` once required checks pass. Native GitHub Merge Queue is currently unavailable for this private GitHub Team repository (GitHub rejects the rule through API and the UI does not expose it). The production deploy workflow (`.github/workflows/deploy.yml`) runs after `main` CI succeeds. Vercel's GitHub integration owns the production web deploy; Actions owns Supabase migrations, Lambda code updates, and live-provider verification. See `docs/github-ci.md` for branch protection, environment secrets, and deploy setup.
@@ -149,6 +151,8 @@ GitHub Actions runs the full test battery on PRs, merge queue entries if the fea
 Because Vercel Git deployments start independently on `main` pushes, schema-affecting web changes must remain backward-compatible with the currently deployed database until the GitHub deploy workflow has applied migrations. Use the local break-glass `npm run deploy:code` path only when an explicitly ordered DB/Lambda/web release is required.
 
 The pre-push hook (`.git-hooks/pre-push`) runs lint/types/static checks locally — **not** unit or E2E tests, and **not** anything that needs local Supabase (Podman/Postgres). It does **not** deploy. Deploy is GitHub-managed after merge.
+
+**Known CI flakes (re-run, don't "fix"):** `docker: toomanyrequests` at the Reset-database / Start-Supabase steps (Docker Hub anonymous pull limit — `gh run rerun <id> --failed`; GitHub rotates runner IPs so re-runs usually land clean), `db:doctor` auth 502 / "auth container not inspectable; recreating stack" (GoTrue slow start), and `tests/e2e/registration-approval.e2e.spec.ts` (Mailpit/GoTrue email-redirect timing). A real fix for the pull limit would be a `DOCKERHUB_TOKEN` login step in `ci.yml` (needs human-owned Docker Hub creds).
 
 **Integration model.** Branch → PR → CI-gated auto-merge is **canonical** (see Ship section). Strict required checks (`CI / ci`, branch-up-to-date) serialize concurrent PRs so two separately-green PRs can't break `main` (see [docs/github-ci.md](docs/github-ci.md) → "Concurrent merges"). `/ship`'s direct push to `main` is **break-glass only** — it bypasses the required `ci` check via admin. After merge, babysit GitHub CI/deploy plus the Vercel deployment and fix failures with a forward-fix change.
 
