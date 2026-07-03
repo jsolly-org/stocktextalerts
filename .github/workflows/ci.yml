@@ -233,6 +233,9 @@ jobs:
       - name: Check DB privileges
         run: npm run check:db-privileges
 
+      - name: Check notification-option catalog
+        run: npm run check:option-catalog
+
       - name: Unit tests
         run: npm test
 

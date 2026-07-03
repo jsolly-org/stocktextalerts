@@ -1,6 +1,19 @@
 import { isRecord } from "../../types";
 import { marketDataFetch } from "../../vendors/massive";
-import type { TickerReferenceStatus } from "./types";
+
+/** Authoritative delisting record for a single symbol. */
+interface TickerReferenceResult {
+	symbol: string;
+	active: false;
+	delistedUtc: string;
+	primaryExchange: string | null;
+	name: string | null;
+}
+
+export type TickerReferenceStatus =
+	| { status: "delisted"; result: TickerReferenceResult }
+	| { status: "unknown"; symbol: string }
+	| { status: "provider_error"; symbol: string };
 
 async function fetchTickerReference(symbol: string): Promise<TickerReferenceStatus> {
 	const data = await marketDataFetch(

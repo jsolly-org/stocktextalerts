@@ -1,4 +1,5 @@
-import type { NotificationPreferenceType, PrefRow } from "../../types";
+import type { NotificationPreferenceType } from "../../constants";
+import type { PrefRow } from "../../types";
 import { anyFacetEnabled } from "../notification-prefs";
 
 /** Minimal user fields needed to decide Telegram deliverability. */

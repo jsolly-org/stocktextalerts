@@ -6,11 +6,16 @@ import Layout from "../layouts/Layout.astro";
 import { isUserApproved } from "../lib/auth/approval/status";
 import { buildSigninRedirectUrl } from "../lib/auth/redirects";
 import { createUserService } from "../lib/auth/user-service";
+import { NOTIFICATION_PREFERENCE_CATALOG } from "../lib/constants";
 import { getUserAssets } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
 import { requireEnv } from "../lib/db/env";
 import { formatPhoneFromE164 } from "../lib/messaging/format-phone";
+import {
+	buildChannelPreferenceSnapshot,
+	loadUserPreferenceRows,
+} from "../lib/notification-preferences/channels";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
@@ -45,76 +50,32 @@ if (!isUserApproved(dbUser)) {
 const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: asset.name, type: asset.type, icon_url: asset.icon_url }));
 
 // ALL per-option channel prefs live in `notification_preferences` (single source of
-// truth), not on the users row, so they aren't carried by `getById`. Load every row
-// for this user (session-scoped client; RLS allows reading own rows). Telegram rows
-// feed the panels' telegram multiselect (grouped by type/facet); email/sms rows are
-// folded back onto the user object so the existing per-option controls keep reading
-// `user.<field>`.
-const { data: prefRows } = await supabase
-	.from("notification_preferences")
-	.select("notification_type, content, channel, enabled")
-	.eq("user_id", authUser.id);
+// truth), not on the users row, so they aren't carried by `getById`. Rebuild the
+// flat per-option snapshot (catalog-derived; missing rows default false). Telegram
+// entries feed the panels' telegram multiselect (grouped by type/facet); email/sms
+// entries are folded back onto the user object so the existing per-option controls
+// keep reading `user.<field>`.
+const prefRows = await loadUserPreferenceRows(supabase, authUser.id);
+const prefSnapshot = buildChannelPreferenceSnapshot(prefRows);
 
-// daily_notification: keyed by content facet ("prices", "calendar", …).
+// daily_notification: keyed by content facet ("prices", "calendar", …);
+// market types (content=''): keyed by notification_type.
 const dailyDigestTelegramPrefs: Record<string, boolean> = {};
 const assetEventsTelegramPrefs: Record<string, boolean> = {};
-const DAILY_DIGEST_FACETS = new Set(["prices", "top_movers", "news", "rumors"]);
-const ASSET_EVENT_FACETS = new Set(["calendar", "ipo", "analyst", "insider"]);
-// market types (content=''): keyed by notification_type.
 const marketTelegramPrefs: Record<string, boolean> = {};
-// email/sms per-option fields folded back onto the user (DashboardUser augment).
-const channelPrefFields: Record<string, boolean> = {};
-for (const row of prefRows ?? []) {
-	if (row.channel === "telegram") {
-		if (
-			row.notification_type === "daily_notification" ||
-			row.notification_type === "daily_digest" ||
-			row.notification_type === "asset_events"
-		) {
-			if (DAILY_DIGEST_FACETS.has(row.content)) {
-				dailyDigestTelegramPrefs[row.content] = row.enabled;
-			} else if (ASSET_EVENT_FACETS.has(row.content)) {
-				assetEventsTelegramPrefs[row.content] = row.enabled;
-			}
-		} else {
-			marketTelegramPrefs[row.notification_type] = row.enabled;
-		}
-	} else if (
-		row.notification_type === "daily_notification" ||
-		row.notification_type === "daily_digest" ||
-		row.notification_type === "asset_events"
-	) {
-		if (DAILY_DIGEST_FACETS.has(row.content)) {
-			channelPrefFields[`daily_digest_include_${row.content}_${row.channel}`] = row.enabled;
-		} else if (ASSET_EVENT_FACETS.has(row.content)) {
-			channelPrefFields[`asset_events_include_${row.content}_${row.channel}`] = row.enabled;
-		}
+const channelPrefDefaults: Record<string, boolean> = {};
+for (const entry of NOTIFICATION_PREFERENCE_CATALOG) {
+	const enabled = prefSnapshot[entry.fieldName];
+	if (entry.channel !== "telegram") {
+		channelPrefDefaults[entry.fieldName] = enabled;
+	} else if (entry.notification_type !== "daily_notification") {
+		marketTelegramPrefs[entry.notification_type] = enabled;
+	} else if (entry.family === "digest") {
+		dailyDigestTelegramPrefs[entry.content] = enabled;
 	} else {
-		const field =
-			row.content === ""
-				? `${row.notification_type}_include_${row.channel}`
-				: `${row.notification_type}_include_${row.content}_${row.channel}`;
-		channelPrefFields[field] = row.enabled;
+		assetEventsTelegramPrefs[entry.content] = enabled;
 	}
 }
-
-// Augment the users row with per-option email/sms booleans so the dashboard panels
-// keep reading `user.<field>` for those controls (defaults to false when no row).
-const EMAIL_SMS_PREF_FIELDS = [
-	"daily_digest_include_prices_email","daily_digest_include_prices_sms",
-	"daily_digest_include_top_movers_email","daily_digest_include_top_movers_sms",
-	"daily_digest_include_news_email","daily_digest_include_rumors_email",
-	"market_scheduled_asset_price_include_email","market_scheduled_asset_price_include_sms",
-	"asset_events_include_calendar_email","asset_events_include_calendar_sms",
-	"asset_events_include_ipo_email","asset_events_include_ipo_sms",
-	"asset_events_include_analyst_email","asset_events_include_analyst_sms",
-	"asset_events_include_insider_email","asset_events_include_insider_sms",
-	"market_asset_price_alerts_include_email","market_asset_price_alerts_include_sms",
-	"price_move_alerts_include_email","price_move_alerts_include_sms",
-] as const;
-const channelPrefDefaults = Object.fromEntries(
-	EMAIL_SMS_PREF_FIELDS.map((f) => [f, channelPrefFields[f] ?? false]),
-);
 const user = { ...dbUser, ...channelPrefDefaults } as import("../lib/db/types").DashboardUser;
 
 const rawTwilioNumber = requireEnv("TWILIO_PHONE_NUMBER");

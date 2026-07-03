@@ -249,6 +249,7 @@ import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import { DASHBOARD_SECTION_IDS } from "../../../lib/constants";
+import { SMS_OPTION_FIELD_NAMES } from "../../../lib/notification-preferences/constants";
 import { etMinuteToUserLocal } from "../../../lib/time/conversion";
 import {
 	formatCountdownWithSeconds,
@@ -302,16 +303,8 @@ const smsNotificationsEnabled = computed(() => user.value.sms_notifications_enab
 const smsReady = computed(
 	() => phoneVerified.value && !smsOptedOut.value && smsNotificationsEnabled.value,
 );
-const hasAnySmsFeatureEnabled = computed(
-	() =>
-		user.value.daily_digest_include_prices_sms ||
-		user.value.daily_digest_include_top_movers_sms ||
-		user.value.market_scheduled_asset_price_include_sms ||
-		user.value.asset_events_include_calendar_sms ||
-		user.value.asset_events_include_ipo_sms ||
-		user.value.asset_events_include_analyst_sms ||
-		user.value.asset_events_include_insider_sms ||
-		user.value.market_asset_price_alerts_include_sms,
+const hasAnySmsFeatureEnabled = computed(() =>
+	SMS_OPTION_FIELD_NAMES.some((field) => user.value[field]),
 );
 const hasNotificationChannel = computed(
 	() => emailEnabled.value || (smsReady.value && hasAnySmsFeatureEnabled.value),

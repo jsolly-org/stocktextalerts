@@ -6,6 +6,11 @@
  */
 
 import type { MessageEntity } from "grammy/types";
+import type {
+	DailyNotificationContent,
+	FacetlessContent,
+	FacetlessNotificationType,
+} from "./constants";
 import type { Database } from "./db/generated/database.types";
 import { Constants } from "./db/generated/database.types";
 import type { StagedNotificationType } from "./db/types";
@@ -148,26 +153,14 @@ export interface CompanyNewsItem {
 
 /* =============
 Notification preferences
+
+The scalar unions (NotificationPreferenceType, DailyNotificationContent, …) are
+derived from NOTIFICATION_OPTION_MATRIX and live beside it in `./constants` —
+that matrix is the single authored source of the option taxonomy.
 ============= */
 
-/** A delivery channel (mirrors the DB `delivery_method` enum). */
-export type PrefChannel = "email" | "sms" | "telegram";
-
-/** Notification types stored in `notification_preferences.notification_type`. */
-export type NotificationPreferenceType =
-	| "daily_notification"
-	| "market_asset_price_alerts"
-	| "market_scheduled_asset_price"
-	| "price_move_alerts";
-
-export type DailyDigestContent = "prices" | "top_movers" | "news" | "rumors";
-export type AssetEventsContent = "calendar" | "ipo" | "analyst" | "insider";
-/** All content facets in the unified daily notification. */
-export type DailyNotificationContent = DailyDigestContent | AssetEventsContent;
-/** Facet-less notification types use empty content. */
-export type FacetlessContent = "";
-
-export type FacetlessNotificationType = Exclude<NotificationPreferenceType, "daily_notification">;
+/** A delivery channel (the DB `delivery_method` enum). */
+export type PrefChannel = Database["public"]["Enums"]["delivery_method"];
 
 type PrefRowBase = {
 	channel: PrefChannel;

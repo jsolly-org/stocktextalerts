@@ -121,8 +121,13 @@ build_lambdas() {
   # restored even on a build failure) AND lets a restore failure itself fail the caller — `return`
   # always fires, and rc is non-zero if either step failed, so we never silently proceed dirty.
   tsx scripts/restore-release-stub.ts || rc=$?
+  # Chart render assets (wasm + fonts) — shared with aws/deploy.sh; see aws/chart-assets.sh.
+  [ "$rc" -eq 0 ] && { copy_chart_assets "$PWD" || rc=$?; }
   return "$rc"
 }
+
+# shellcheck source=./chart-assets.sh
+source "$(dirname "$0")/chart-assets.sh"
 
 # --- Mode: --build (Phase 1 only — no creds) -------------------------------------------------
 # Offline bundle build. The pre-push gate runs this as a fast preflight so an esbuild break (the

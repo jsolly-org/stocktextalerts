@@ -11,6 +11,7 @@
 		"src/lib/db/generated/**"
 	],
 	"ignoreDependencies": [
+		"@expo-google-fonts/roboto",
 		"lint-staged",
 		"squawk-cli",
 		"supabase",
