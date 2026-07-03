@@ -2,9 +2,10 @@
 Daily notification eligibility — one logical slot, many content facets.
 ============= */
 
+import type { DailyNotificationContent } from "../constants";
 import { PREF_CHANNELS } from "../constants";
 import { enabledFacets, isFacetEnabled } from "../messaging/notification-prefs";
-import type { DailyNotificationContent, PrefChannel, PrefRow } from "../types";
+import type { PrefChannel, PrefRow } from "../types";
 import {
 	DAILY_ASSET_EVENT_FACETS,
 	DAILY_DIGEST_FACETS,

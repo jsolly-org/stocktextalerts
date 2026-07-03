@@ -1,10 +1,8 @@
 import type { APIRoute } from "astro";
 import { createUserService } from "../../../lib/auth/user-service";
 import type { ApiJsonBody } from "../../../lib/client/types";
-import {
-	DAILY_ASSET_EVENT_FACETS,
-	DAILY_DIGEST_FACETS,
-} from "../../../lib/daily-notification/constants";
+import type { DailyNotificationContent } from "../../../lib/constants";
+import { NOTIFICATION_PREFERENCE_CATALOG } from "../../../lib/constants";
 import {
 	DAILY_NOTIFICATION_FACETS,
 	hasAnyDailyNotificationFacet,
@@ -22,8 +20,7 @@ import {
 } from "../../../lib/notification-preferences/channels";
 import {
 	NOTIFICATION_PREFERENCES_SCHEMA,
-	SMS_INCLUDE_FIELD_TARGETS,
-	SMS_INCLUDE_FIELDS,
+	SMS_INCLUDE_OPTIONS,
 } from "../../../lib/notification-preferences/constants";
 import {
 	buildNotificationPreferencesUpdatePayload,
@@ -32,22 +29,21 @@ import {
 import { userLocalToEtMinute } from "../../../lib/time/conversion";
 import { isOutsideMarketHours } from "../../../lib/time/market/session";
 import { parseScheduledTimes } from "../../../lib/time/schedule/next-send";
-import type { DailyNotificationContent, PrefChannel } from "../../../lib/types";
+import type { PrefChannel } from "../../../lib/types";
 
+/** The form field for a daily_notification (content, channel) option, or null
+ *  when the catalog has no such option (e.g. news/rumors have no SMS facet). */
 function dailyNotificationFormField(
 	content: DailyNotificationContent,
 	channel: PrefChannel,
 ): string | null {
-	if ((DAILY_DIGEST_FACETS as readonly string[]).includes(content)) {
-		if (channel === "sms" && (content === "news" || content === "rumors")) {
-			return null;
-		}
-		return `daily_digest_include_${content}_${channel}`;
-	}
-	if ((DAILY_ASSET_EVENT_FACETS as readonly string[]).includes(content)) {
-		return `asset_events_include_${content}_${channel}`;
-	}
-	return null;
+	const entry = NOTIFICATION_PREFERENCE_CATALOG.find(
+		(option) =>
+			option.notification_type === "daily_notification" &&
+			option.content === content &&
+			option.channel === channel,
+	);
+	return entry?.fieldName ?? null;
 }
 
 /**
@@ -252,13 +248,11 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 		// An SMS include field is being newly enabled when the form submits it as true
 		// AND it wasn't already enabled in the table.
-		const enablesAnySmsIncludeField = SMS_INCLUDE_FIELDS.some((field) => {
+		const enablesAnySmsIncludeField = SMS_INCLUDE_OPTIONS.some((target) => {
+			const field = target.fieldName;
 			if (!formData.has(field) || parsed.data[field as keyof typeof parsed.data] !== true) {
 				return false;
 			}
-			// Parse the field name back into (notification_type, content) to check the row.
-			const target = SMS_INCLUDE_FIELD_TARGETS[field];
-			if (!target) return false;
 			const alreadyEnabled = existingPrefs.some(
 				(p) =>
 					p.notification_type === target.notification_type &&

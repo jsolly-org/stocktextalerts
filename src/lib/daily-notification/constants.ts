@@ -6,27 +6,32 @@ Notification family boundaries (domain taxonomy).
 3. Daily notification — one slot per day; digest + asset-event facets share it.
 ============= */
 
-import type { AssetEventsContent, DailyDigestContent, NotificationPreferenceType } from "../types";
+import type {
+	AssetEventsContent,
+	DailyDigestContent,
+	DailyNotificationContent,
+	NotificationFamily,
+	NotificationPreferenceType,
+} from "../constants";
+import { NOTIFICATION_OPTION_MATRIX } from "../constants";
 
 /** Canonical preference type for the unified daily notification. */
 export const DAILY_NOTIFICATION_PREFERENCE_TYPE =
 	"daily_notification" as const satisfies NotificationPreferenceType;
 
-/** Digest-family facets of the daily notification slot. */
-export const DAILY_DIGEST_FACETS = [
-	"prices",
-	"top_movers",
-	"news",
-	"rumors",
-] as const satisfies readonly DailyDigestContent[];
+const DAILY_FACETS = Object.entries(NOTIFICATION_OPTION_MATRIX.daily_notification) as Array<
+	[DailyNotificationContent, { family: NotificationFamily }]
+>;
 
-/** Asset-event-family facets of the daily notification slot. */
-export const DAILY_ASSET_EVENT_FACETS = [
-	"calendar",
-	"ipo",
-	"analyst",
-	"insider",
-] as const satisfies readonly AssetEventsContent[];
+/** Digest-family facets of the daily notification slot (derived from the matrix). */
+export const DAILY_DIGEST_FACETS = DAILY_FACETS.filter(
+	([, option]) => option.family === "digest",
+).map(([content]) => content) as readonly DailyDigestContent[];
+
+/** Asset-event-family facets of the daily notification slot (derived from the matrix). */
+export const DAILY_ASSET_EVENT_FACETS = DAILY_FACETS.filter(
+	([, option]) => option.family === "asset_events",
+).map(([content]) => content) as readonly AssetEventsContent[];
 
 /** Default local delivery minute when daily notification is enabled but no time is set. */
 export const DEFAULT_DAILY_NOTIFICATION_DELIVERY_MINUTES = 540; // 9:00 AM
