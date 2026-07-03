@@ -1,4 +1,4 @@
-import { formatUsdPrice } from "../messaging/parts/asset-price-list";
+import { buildPriceContext } from "../messaging/parts/asset-price-list";
 import type { ExtendedAssetQuote, IntradayBarsResult } from "../types";
 import type { EnrichedAlert } from "./types";
 
@@ -11,11 +11,9 @@ export function buildFlatAlertEnriched(options: {
 	intraday: IntradayBarsResult | null;
 }): EnrichedAlert {
 	const { symbol, quote, triggerPercent, since, intraday } = options;
-	const direction = triggerPercent >= 0 ? "up" : "down";
-	const absPct = Math.abs(triggerPercent).toFixed(1);
 	return {
 		symbol,
-		priceContext: `${symbol} is ${direction} ${absPct}% ${since} (${formatUsdPrice(quote.price)})`,
+		priceContext: buildPriceContext(symbol, triggerPercent, quote.price, since),
 		signalContext: "",
 		grokContext: "",
 		grokResult: null,
