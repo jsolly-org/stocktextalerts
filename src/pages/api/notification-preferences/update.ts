@@ -1,10 +1,8 @@
 import type { APIRoute } from "astro";
 import { createUserService } from "../../../lib/auth/user-service";
 import type { ApiJsonBody } from "../../../lib/client/types";
-import type { DailyNotificationContent } from "../../../lib/constants";
 import { NOTIFICATION_PREFERENCE_CATALOG } from "../../../lib/constants";
 import {
-	DAILY_NOTIFICATION_FACETS,
 	hasAnyDailyNotificationFacet,
 	isDailyNotificationFacetEnabled,
 } from "../../../lib/daily-notification/eligibility";
@@ -29,22 +27,6 @@ import {
 import { userLocalToEtMinute } from "../../../lib/time/conversion";
 import { isOutsideMarketHours } from "../../../lib/time/market/session";
 import { parseScheduledTimes } from "../../../lib/time/schedule/next-send";
-import type { PrefChannel } from "../../../lib/types";
-
-/** The form field for a daily_notification (content, channel) option, or null
- *  when the catalog has no such option (e.g. news/rumors have no SMS facet). */
-function dailyNotificationFormField(
-	content: DailyNotificationContent,
-	channel: PrefChannel,
-): string | null {
-	const entry = NOTIFICATION_PREFERENCE_CATALOG.find(
-		(option) =>
-			option.notification_type === "daily_notification" &&
-			option.content === content &&
-			option.channel === channel,
-	);
-	return entry?.fieldName ?? null;
-}
 
 /**
  * Update the authenticated user's notification-preferences.
@@ -178,27 +160,18 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const dailyNotificationScheduleSubmitted = DAILY_NOTIFICATION_SCHEDULE_FIELDS.some((field) =>
 		formData.has(field),
 	);
-	const isDailyNotificationFacetEnabledAfter = (
-		channel: PrefChannel,
-		content: DailyNotificationContent,
-	) => {
-		const field = dailyNotificationFormField(content, channel);
-		if (
-			field &&
-			formData.has(field) &&
-			parsed.data[field as keyof typeof parsed.data] !== undefined
-		) {
-			return parsed.data[field as keyof typeof parsed.data] === true;
-		}
-		return isDailyNotificationFacetEnabled(existingPrefs, channel, content);
-	};
-	const dailyNotificationEnabledAfterUpdate = DAILY_NOTIFICATION_FACETS.some((content) =>
-		(["email", "sms", "telegram"] as const).some((channel) => {
-			if (dailyNotificationFormField(content, channel) === null) {
-				return isDailyNotificationFacetEnabled(existingPrefs, channel, content);
-			}
-			return isDailyNotificationFacetEnabledAfter(channel, content);
-		}),
+	// A daily facet is enabled after this update when its submitted form value says
+	// so, falling back to the existing row for unsubmitted options. Iterating the
+	// catalog covers exactly the valid (content, channel) combos — the FK guarantees
+	// existingPrefs holds nothing outside it.
+	const dailyNotificationEnabledAfterUpdate = NOTIFICATION_PREFERENCE_CATALOG.filter(
+		(entry) => entry.notification_type === "daily_notification",
+	).some((entry) =>
+		formData.has(entry.fieldName) && parsed.data[entry.fieldName] !== undefined
+			? parsed.data[entry.fieldName] === true
+			: // Daily entries always carry a non-"" content facet; the check narrows the type.
+				entry.content !== "" &&
+				isDailyNotificationFacetEnabled(existingPrefs, entry.channel, entry.content),
 	);
 	const dailyNotificationEnabledBefore = hasAnyDailyNotificationFacet(existingPrefs);
 	const dailyNotificationOptionsChanged =

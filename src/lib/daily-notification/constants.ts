@@ -8,7 +8,6 @@ Notification family boundaries (domain taxonomy).
 
 import type {
 	AssetEventsContent,
-	DailyDigestContent,
 	DailyNotificationContent,
 	NotificationFamily,
 	NotificationPreferenceType,
@@ -22,11 +21,6 @@ export const DAILY_NOTIFICATION_PREFERENCE_TYPE =
 const DAILY_FACETS = Object.entries(NOTIFICATION_OPTION_MATRIX.daily_notification) as Array<
 	[DailyNotificationContent, { family: NotificationFamily }]
 >;
-
-/** Digest-family facets of the daily notification slot (derived from the matrix). */
-export const DAILY_DIGEST_FACETS = DAILY_FACETS.filter(
-	([, option]) => option.family === "digest",
-).map(([content]) => content) as readonly DailyDigestContent[];
 
 /** Asset-event-family facets of the daily notification slot (derived from the matrix). */
 export const DAILY_ASSET_EVENT_FACETS = DAILY_FACETS.filter(

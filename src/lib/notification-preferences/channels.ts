@@ -2,8 +2,7 @@ import type { FacetCatalogEntry, NotificationOptionFieldName } from "../constant
 import { NOTIFICATION_PREFERENCE_CATALOG } from "../constants";
 import type { AppSupabaseClient } from "../db/supabase";
 import type { Logger } from "../logging";
-import { loadPrefsByUser } from "../messaging/load-prefs";
-import { isFacetEnabled } from "../messaging/notification-prefs";
+import { isFacetEnabled, parsePrefRow } from "../messaging/notification-prefs";
 import type { PrefRow } from "../types";
 
 /* =============
@@ -103,11 +102,25 @@ export function buildChannelPreferenceSnapshot(
 	return snapshot;
 }
 
-/** Load a single user's preference rows from notification_preferences. */
+/** Load a single user's preference rows from notification_preferences.
+ *
+ * Throws on a failed read (unlike the Lambda fan-out's `loadPrefsByUser`, which
+ * deliberately fails open with empty rows): every web caller renders or writes
+ * from these rows, and an empty result on error would show all 31 options as
+ * OFF — one autosave later, `persistChannelPreferences` would durably persist
+ * that wipe. Failing loud turns a DB blip into a 500 instead. */
 export async function loadUserPreferenceRows(
 	supabase: AppSupabaseClient,
 	userId: string,
 ): Promise<PrefRow[]> {
-	const byUser = await loadPrefsByUser(supabase, [userId]);
-	return byUser.get(userId) ?? [];
+	const { data, error } = await supabase
+		.from("notification_preferences")
+		.select("notification_type, content, channel, enabled")
+		.eq("user_id", userId);
+
+	if (error) {
+		throw error;
+	}
+
+	return (data ?? []).map(parsePrefRow).filter((row): row is PrefRow => row !== null);
 }

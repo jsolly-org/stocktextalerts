@@ -48,4 +48,23 @@ describe("notification_preferences round-trips through the read path", () => {
 		expect(snapshot.daily_digest_include_news_telegram).toBe(true);
 		expect(snapshot.daily_digest_include_prices_email).toBe(false);
 	});
+
+	it("the DB rejects preference rows for combos outside the notification_options catalog", async () => {
+		const user = await createTestUser({ confirmed: true });
+		registerTestUserForCleanup(user.id);
+
+		// news/sms has never been a valid option (news is email+telegram only).
+		// parsePrefRow validates type/content/channel independently — it is
+		// combo-blind — so the composite FK added by the notification_options
+		// migration is the ONLY thing rejecting this row. Pin it.
+		const { error } = await adminClient.from("notification_preferences").insert({
+			user_id: user.id,
+			notification_type: "daily_notification",
+			content: "news",
+			channel: "sms",
+			enabled: true,
+		});
+
+		expect(error?.code).toBe("23503");
+	});
 });

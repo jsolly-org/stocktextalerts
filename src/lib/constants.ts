@@ -167,6 +167,17 @@ export const NOTIFICATION_PREFERENCE_CATALOG: readonly FacetCatalogEntry[] = Obj
 	),
 );
 
+// Guard the one authoring mistake the type system can't catch: a faceted
+// non-daily type whose content collides with a daily facet would derive a
+// DUPLICATE fieldName, silently misdirecting that option's form writes.
+// Fail at module load instead.
+if (
+	new Set(NOTIFICATION_PREFERENCE_CATALOG.map((e) => e.fieldName)).size !==
+	NOTIFICATION_PREFERENCE_CATALOG.length
+) {
+	throw new Error("NOTIFICATION_OPTION_MATRIX derives duplicate form field names");
+}
+
 /* =============
 Assets
 ============= */

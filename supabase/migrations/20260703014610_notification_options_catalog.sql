@@ -71,14 +71,26 @@ insert into public.notification_options (notification_type, content, channel) va
 --    no-op: the old CHECK constrained notification_type, the unity/cleanup
 --    migrations canonicalized daily rows, and the app validates content — but
 --    the FK below hard-fails on any straggler, so sweep defensively first).
-delete from public.notification_preferences p
-where not exists (
-	select 1
-	from public.notification_options o
-	where o.notification_type = p.notification_type
-		and o.content = p.content
-		and o.channel = p.channel
-);
+--    Off-catalog rows are unreachable by every send/read path, so deleting is
+--    safe; still RAISE a warning with the count so a non-zero sweep leaves an
+--    audit trail in the deploy log instead of vanishing silently.
+do $$
+declare
+	swept integer;
+begin
+	delete from public.notification_preferences p
+	where not exists (
+		select 1
+		from public.notification_options o
+		where o.notification_type = p.notification_type
+			and o.content = p.content
+			and o.channel = p.channel
+	);
+	get diagnostics swept = row_count;
+	if swept > 0 then
+		raise warning 'notification_options migration swept % off-catalog notification_preferences rows', swept;
+	end if;
+end $$;
 
 -- 4. The FK supersedes the hand-maintained CHECK (which only covered
 --    notification_type; content had NO constraint at all). ON UPDATE CASCADE
