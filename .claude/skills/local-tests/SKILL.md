@@ -31,6 +31,21 @@ For E2E on port 4322, clear a stale Astro dev lock if needed: `npm run dev:stop`
 
 All worktrees share one Supabase stack (`project_id stocktextalerts`) and serialize via `<git-common-dir>/test.lock`.
 
+## Manual recovery (when preflight can't self-heal)
+
+- **Engine API wedged** — `podman machine list` says running but `podman ps` hangs (machine-up ≠ engine-healthy, e.g. after a killed `db:start`): `podman machine stop && podman machine start` (~60s). `timeout`/`gtimeout` are not installed on this Mac — kill hung clients with `pkill -9 -f 'podman ps'`.
+- **Stale-volume password mismatch** — auth/storage crashloop with `FATAL 28P01 password authentication failed for "supabase_storage_admin"` (also: a template1 collation-version mismatch wedging `supabase start`). `supabase stop --no-backup` cannot prune volumes on Podman (it issues a volume filter Podman rejects); remove them natively, then re-seed:
+
+  ```bash
+  export PATH="/opt/podman/bin:$PATH"
+  podman ps -a --format '{{.Names}}' | grep stocktextalerts | xargs -r podman rm -f
+  podman volume rm -f supabase_db_stocktextalerts supabase_storage_stocktextalerts
+  npm run db:bootstrap
+  ```
+
+  Local data is throwaway — bootstrap re-seeds (~10.6k assets + seed user).
+- **GoTrue email rate-limiter exhausted** — running the E2E suite repeatedly within an hour times out the recovery-email tests: `podman restart supabase_auth_stocktextalerts`.
+
 ## Commands
 
 Preferred wrappers (opt-in + auto preflight):
@@ -60,6 +75,8 @@ ALLOW_LOCAL_DB_TESTS=1 npm run test:e2e
 ```
 
 Do **not** use bare `npm test` or `npx vitest` without the opt-in — `tests/guard-local-db-tests.ts` blocks them locally.
+
+Playwright browsers aren't pre-installed in a fresh checkout/worktree: run `npx playwright install chromium` once before E2E.
 
 ## Test lock
 
