@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import type { BrowserContext, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+import { NOTIFICATION_PREFERENCE_CATALOG } from "../../src/lib/constants";
 import { rootLogger } from "../../src/lib/logging";
 import { TEST_PASSWORD } from "../helpers/constants";
 import { signIn } from "../helpers/e2e/auth";
@@ -239,5 +240,24 @@ test.describe("Telegram dashboard UI", () => {
 			true,
 		);
 		await expect(calendarTrigger).toContainText("Telegram");
+	});
+
+	test("dashboard exposes a form control for every catalog option and no stale ones (drift check)", async () => {
+		await page.goto("/dashboard", { waitUntil: "networkidle" });
+		await page.locator("[data-hydrated]").first().waitFor({ state: "attached", timeout: 15_000 });
+
+		// Every option in NOTIFICATION_OPTION_MATRIX must be editable on the
+		// dashboard: a missing control means the catalog gained an option the UI
+		// never renders (add the control + its copy to the matching panel).
+		const renderedNames = new Set<string | null>(
+			await page
+				.locator('[name*="_include_"]')
+				.evaluateAll((els) => els.map((el) => el.getAttribute("name"))),
+		);
+		const expectedNames = new Set<string>(NOTIFICATION_PREFERENCE_CATALOG.map((e) => e.fieldName));
+		const missing = [...expectedNames].filter((n) => !renderedNames.has(n));
+		const stale = [...renderedNames].filter((n) => n !== null && !expectedNames.has(n));
+		expect(missing, "catalog options with no dashboard control").toEqual([]);
+		expect(stale, "dashboard controls for options no longer in the catalog").toEqual([]);
 	});
 });

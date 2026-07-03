@@ -445,6 +445,24 @@ export type Database = {
           },
         ]
       }
+      notification_options: {
+        Row: {
+          channel: Database["public"]["Enums"]["delivery_method"]
+          content: string
+          notification_type: string
+        }
+        Insert: {
+          channel: Database["public"]["Enums"]["delivery_method"]
+          content: string
+          notification_type: string
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["delivery_method"]
+          content?: string
+          notification_type?: string
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           channel: Database["public"]["Enums"]["delivery_method"]
@@ -474,6 +492,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notification_preferences_option_fkey"
+            columns: ["notification_type", "content", "channel"]
+            isOneToOne: false
+            referencedRelation: "notification_options"
+            referencedColumns: ["notification_type", "content", "channel"]
+          },
           {
             foreignKeyName: "notification_preferences_user_id_fkey"
             columns: ["user_id"]

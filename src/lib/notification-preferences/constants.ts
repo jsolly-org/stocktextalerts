@@ -1,7 +1,17 @@
+import type { FacetCatalogEntry, NotificationOptionFieldName } from "../constants";
+import { NOTIFICATION_PREFERENCE_CATALOG } from "../constants";
 import { Constants } from "../db/generated/database.types";
+import type { EmailSmsOptionFieldName } from "../db/types";
 import type { FormSchema } from "../forms/schema";
 
-/** Form schema for the notification-preferences update route. */
+/** One boolean form field per catalog option, derived from the option matrix. */
+const OPTION_BOOLEAN_FIELDS = Object.fromEntries(
+	NOTIFICATION_PREFERENCE_CATALOG.map((entry) => [entry.fieldName, { type: "boolean" }]),
+) as Record<NotificationOptionFieldName, { type: "boolean" }>;
+
+/** Form schema for the notification-preferences update route. Per-option channel
+ *  fields derive from NOTIFICATION_PREFERENCE_CATALOG; only the `users`-column
+ *  fields below are authored here. */
 export const NOTIFICATION_PREFERENCES_SCHEMA = {
 	market_scheduled_asset_price_enabled: { type: "boolean" },
 	email_notifications_enabled: { type: "boolean" },
@@ -9,78 +19,21 @@ export const NOTIFICATION_PREFERENCES_SCHEMA = {
 	timezone: { type: "timezone" },
 	market_scheduled_asset_price_times: { type: "json_string_array" },
 	daily_digest_time: { type: "time" },
-	daily_digest_include_prices_email: { type: "boolean" },
-	daily_digest_include_prices_sms: { type: "boolean" },
-	daily_digest_include_top_movers_email: { type: "boolean" },
-	daily_digest_include_top_movers_sms: { type: "boolean" },
-	daily_digest_include_news_email: { type: "boolean" },
-	daily_digest_include_rumors_email: { type: "boolean" },
-	market_scheduled_asset_price_include_email: { type: "boolean" },
-	market_scheduled_asset_price_include_sms: { type: "boolean" },
-	asset_events_include_calendar_email: { type: "boolean" },
-	asset_events_include_calendar_sms: { type: "boolean" },
-	asset_events_include_ipo_email: { type: "boolean" },
-	asset_events_include_ipo_sms: { type: "boolean" },
-	asset_events_include_analyst_email: { type: "boolean" },
-	asset_events_include_analyst_sms: { type: "boolean" },
-	asset_events_include_insider_email: { type: "boolean" },
-	asset_events_include_insider_sms: { type: "boolean" },
 	market_asset_price_alerts_enabled: { type: "boolean" },
-	market_asset_price_alerts_include_email: { type: "boolean" },
-	market_asset_price_alerts_include_sms: { type: "boolean" },
 	market_asset_price_alert_move_size: {
 		type: "enum",
 		values: Constants.public.Enums.alert_move_size,
 	},
-	price_move_alerts_include_email: { type: "boolean" },
-	price_move_alerts_include_sms: { type: "boolean" },
-	// Telegram per-option prefs. No legacy `users` columns exist for these — they
-	// persist to `notification_preferences` (channel='telegram'), not the users table.
-	daily_digest_include_prices_telegram: { type: "boolean" },
-	daily_digest_include_news_telegram: { type: "boolean" },
-	daily_digest_include_rumors_telegram: { type: "boolean" },
-	daily_digest_include_top_movers_telegram: { type: "boolean" },
-	asset_events_include_analyst_telegram: { type: "boolean" },
-	asset_events_include_calendar_telegram: { type: "boolean" },
-	asset_events_include_insider_telegram: { type: "boolean" },
-	asset_events_include_ipo_telegram: { type: "boolean" },
-	market_asset_price_alerts_include_telegram: { type: "boolean" },
-	market_scheduled_asset_price_include_telegram: { type: "boolean" },
-	price_move_alerts_include_telegram: { type: "boolean" },
+	...OPTION_BOOLEAN_FIELDS,
 } as const satisfies FormSchema;
 
-/** SMS facet form fields → their (notification_type, content) row key, used to
- *  enforce the sms_opted_out / phone-required guard against the table rows. */
-export const SMS_INCLUDE_FIELD_TARGETS: Record<
-	string,
-	{ notification_type: string; content: string }
-> = {
-	market_scheduled_asset_price_include_sms: {
-		notification_type: "market_scheduled_asset_price",
-		content: "",
-	},
-	asset_events_include_calendar_sms: {
-		notification_type: "daily_notification",
-		content: "calendar",
-	},
-	asset_events_include_ipo_sms: { notification_type: "daily_notification", content: "ipo" },
-	asset_events_include_analyst_sms: {
-		notification_type: "daily_notification",
-		content: "analyst",
-	},
-	asset_events_include_insider_sms: {
-		notification_type: "daily_notification",
-		content: "insider",
-	},
-	market_asset_price_alerts_include_sms: {
-		notification_type: "market_asset_price_alerts",
-		content: "",
-	},
-	price_move_alerts_include_sms: { notification_type: "price_move_alerts", content: "" },
-	daily_digest_include_top_movers_sms: {
-		notification_type: "daily_notification",
-		content: "top_movers",
-	},
-};
+/** Every SMS-channel option, used to enforce the sms_opted_out / phone-required
+ *  guard against the notification_preferences rows. Derived from the catalog —
+ *  the previous hand-kept list silently omitted `daily_digest_include_prices_sms`. */
+export const SMS_INCLUDE_OPTIONS: readonly FacetCatalogEntry[] =
+	NOTIFICATION_PREFERENCE_CATALOG.filter((entry) => entry.channel === "sms");
 
-export const SMS_INCLUDE_FIELDS = Object.keys(SMS_INCLUDE_FIELD_TARGETS);
+/** The form-field names of every SMS option (dashboard "any SMS feature on" checks). */
+export const SMS_OPTION_FIELD_NAMES = SMS_INCLUDE_OPTIONS.map(
+	(entry) => entry.fieldName,
+) as readonly EmailSmsOptionFieldName[];
