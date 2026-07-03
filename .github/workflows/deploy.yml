@@ -37,6 +37,11 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # Depth 2 so "Refuse infra-only deploys" can diff HEAD against its parent.
+          # At the default depth 1 the parent object is absent and `git diff-tree HEAD`
+          # prints NOTHING — the gate passed vacuously for every commit (caught 2026-07-03
+          # when a template.yaml-touching commit sailed through).
+          fetch-depth: 2
 
       - name: Refuse stale deploy
         if: github.event_name == 'workflow_run'
@@ -79,6 +84,13 @@ jobs:
         run: |
           set -euo pipefail
           changed="$(git diff-tree --no-commit-id --name-only -r HEAD)"
+          # Fail CLOSED on an empty file list: with a too-shallow checkout diff-tree
+          # prints nothing and this gate silently passes for EVERY commit (the
+          # 2026-07-03 vacuous-pass). An unverifiable diff must block, not wave through.
+          if [ -z "$changed" ]; then
+            echo "git diff-tree returned no files (shallow checkout?) — cannot verify the landed commit; refusing deploy."
+            exit 1
+          fi
           if grep -Eq '^aws/(template\.yaml|deploy\.sh)$' <<<"$changed"; then
             echo "aws/template.yaml or aws/deploy.sh changed in the landed commit."
             echo "Run npm run deploy:infra manually with admin credentials, then re-run this workflow."

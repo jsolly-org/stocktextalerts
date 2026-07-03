@@ -143,7 +143,7 @@ Provider keys live in the Lambda runtime (and `MASSIVE_API_KEY` also in Vercel, 
 
 Vendor clients live in `src/lib/vendors/` — Massive (prices, asset reference, dividends/splits/IPOs) and Finnhub (symbols, earnings calendar, market hours, analyst/insider extras). xAI/Grok powers optional AI summaries.
 
-**Telegram bot:** `@StockTextAlertsBot`, owned by the user's **personal** Telegram account (deliberate at current scale; bot ownership is non-transferable — formalize a dedicated owner account **before ~50–100 linked users**, while re-linking is still cheap). For Telegram-channel work, a first-class experience outranks dependency-minimalism (user decision 2026-06-19) — deps that materially improve UX are fine, overriding the general fewer-dependencies default. Candlestick charts ship text-only until resvg ships via a Lambda layer (`@resvg/resvg-js` is esbuild-`External`, lazily required).
+**Telegram bot:** `@StockTextAlertsBot`, owned by the user's **personal** Telegram account (deliberate at current scale; bot ownership is non-transferable — formalize a dedicated owner account **before ~50–100 linked users**, while re-linking is still cheap). For Telegram-channel work, a first-class experience outranks dependency-minimalism (user decision 2026-06-19) — deps that materially improve UX are fine, overriding the general fewer-dependencies default. Candlestick charts render on Lambda via `@resvg/resvg-wasm` (pure WASM — the `.wasm` + Roboto TTFs ship into every bundle via `aws/chart-assets.sh` on both deploy paths, verified post-deploy by the live-provider-check `chart:render-png` step; see `docs/plans/2026-07-03-beautiful-telegram-notifications.md`).
 
 ## CI (GitHub Actions + local pre-push gate)
 
