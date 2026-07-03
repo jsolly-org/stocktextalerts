@@ -1,3 +1,4 @@
+import type { NotificationOptionFieldName } from "../constants";
 import type { AssetType } from "../types";
 import type { Database } from "./generated/database.types";
 
@@ -25,32 +26,17 @@ Public Types
 /** Full `users` table row type (public schema). */
 export type User = DbUserRow;
 
-/** The 20 per-option email/sms preference fields that used to be `users` columns
+/** Every email/sms option field name, derived from the option catalog. */
+export type EmailSmsOptionFieldName = Extract<
+	NotificationOptionFieldName,
+	`${string}_${"email" | "sms"}`
+>;
+
+/** The per-option email/sms preference fields that used to be `users` columns
  *  and now live in notification_preferences. The dashboard augments the `users`
  *  row with these (reconstructed from the table) so the existing per-option Vue
  *  controls keep reading `user.<field>`. */
-interface DashboardUserChannelPrefs {
-	daily_digest_include_prices_email: boolean;
-	daily_digest_include_prices_sms: boolean;
-	daily_digest_include_top_movers_email: boolean;
-	daily_digest_include_top_movers_sms: boolean;
-	daily_digest_include_news_email: boolean;
-	daily_digest_include_rumors_email: boolean;
-	market_scheduled_asset_price_include_email: boolean;
-	market_scheduled_asset_price_include_sms: boolean;
-	asset_events_include_calendar_email: boolean;
-	asset_events_include_calendar_sms: boolean;
-	asset_events_include_ipo_email: boolean;
-	asset_events_include_ipo_sms: boolean;
-	asset_events_include_analyst_email: boolean;
-	asset_events_include_analyst_sms: boolean;
-	asset_events_include_insider_email: boolean;
-	asset_events_include_insider_sms: boolean;
-	market_asset_price_alerts_include_email: boolean;
-	market_asset_price_alerts_include_sms: boolean;
-	price_move_alerts_include_email: boolean;
-	price_move_alerts_include_sms: boolean;
-}
+type DashboardUserChannelPrefs = Record<EmailSmsOptionFieldName, boolean>;
 
 /** The `users` row augmented with per-option email/sms prefs for the dashboard UI. */
 export type DashboardUser = User & DashboardUserChannelPrefs;

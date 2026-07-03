@@ -1,6 +1,7 @@
 import type { FacetCatalogEntry, NotificationOptionFieldName } from "../constants";
 import { NOTIFICATION_PREFERENCE_CATALOG } from "../constants";
 import { Constants } from "../db/generated/database.types";
+import type { EmailSmsOptionFieldName } from "../db/types";
 import type { FormSchema } from "../forms/schema";
 
 /** One boolean form field per catalog option, derived from the option matrix. */
@@ -31,3 +32,8 @@ export const NOTIFICATION_PREFERENCES_SCHEMA = {
  *  the previous hand-kept list silently omitted `daily_digest_include_prices_sms`. */
 export const SMS_INCLUDE_OPTIONS: readonly FacetCatalogEntry[] =
 	NOTIFICATION_PREFERENCE_CATALOG.filter((entry) => entry.channel === "sms");
+
+/** The form-field names of every SMS option (dashboard "any SMS feature on" checks). */
+export const SMS_OPTION_FIELD_NAMES = SMS_INCLUDE_OPTIONS.map(
+	(entry) => entry.fieldName,
+) as readonly EmailSmsOptionFieldName[];

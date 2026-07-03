@@ -136,12 +136,13 @@ export function notificationOptionFieldName(
 }
 
 /** One flat catalog entry: a valid (type, content, channel) option, its new-user
- *  default, and its form field name. */
+ *  default, its facet family (daily_notification only), and its form field name. */
 export type FacetCatalogEntry = {
 	notification_type: NotificationPreferenceType;
 	content: DailyNotificationContent | FacetlessContent;
 	channel: DeliveryChannel;
 	default: boolean;
+	family?: NotificationFamily;
 	fieldName: NotificationOptionFieldName;
 };
 
@@ -159,6 +160,7 @@ export const NOTIFICATION_PREFERENCE_CATALOG: readonly FacetCatalogEntry[] = Obj
 				content: facet,
 				channel: prefChannel,
 				default: defaultEnabled as boolean,
+				...("family" in option ? { family: option.family as NotificationFamily } : {}),
 				fieldName: notificationOptionFieldName(notification_type, facet, prefChannel),
 			};
 		}),
