@@ -38,8 +38,8 @@ const steps = [
 
     <ol class="mt-16 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
       {steps.map((step) => (
-        <li class="relative text-center group">
-          <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 text-primary mb-5 transition-colors duration-300 group-hover:bg-primary group-hover:text-white motion-safe:group-hover:shadow-lg">
+        <li class="relative text-center">
+          <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 text-primary mb-5">
             <Icon name={step.icon} class="h-7 w-7" aria-hidden="true" />
           </div>
           <span class="inline-block text-sm font-bold text-primary uppercase tracking-wide mb-2" aria-hidden="true">Step {step.number}</span>
