@@ -1,7 +1,5 @@
 import type { InsiderTransaction, RecommendationTrend } from "../types";
 
-type DeliveryChannel = "sms" | "email";
-
 /**
  * Format a revenue estimate compactly for display.
  */
@@ -44,30 +42,29 @@ function formatDateLabel(eventDate: string, daysUntil: number): string {
 	return `in ${daysUntil} days (${eventDate.slice(5)})`;
 }
 
-/**
- * Format asset events from the DB into a channel-appropriate text block.
- *
- * Events are grouped by type (earnings, dividends, splits, IPOs).
- * Returns `null` when there are no events.
- *
- * Each event carries a `daysUntil` countdown for the date label:
- * 0 → "today", 1 → "tomorrow", 2+ → "in N days (MM-DD)".
- */
-export function formatAssetEventsSection(
-	events: Array<{
-		symbol: string;
-		event_type: "earnings" | "dividend" | "split" | "ipo";
-		event_date: string;
-		data: Record<string, unknown>;
-		daysUntil: number;
-	}>,
-	channel: DeliveryChannel,
-): {
+type AssetEvent = {
+	symbol: string;
+	event_type: "earnings" | "dividend" | "split" | "ipo";
+	event_date: string;
+	data: Record<string, unknown>;
+	daysUntil: number;
+};
+
+type AssetEventsSections = {
 	earnings: string | null;
 	dividends: string | null;
 	splits: string | null;
 	ipos: string | null;
-} {
+};
+
+/**
+ * Compact (SMS-style) rendering of asset events grouped by type.
+ *
+ * Events are grouped by type (earnings, dividends, splits, IPOs).
+ * Each event carries a `daysUntil` countdown for the date label:
+ * 0 → "today", 1 → "tomorrow", 2+ → "in N days (MM-DD)".
+ */
+function formatAssetEventsSectionCompact(events: AssetEvent[]): AssetEventsSections {
 	const earningsLines: string[] = [];
 	const dividendLines: string[] = [];
 	const splitLines: string[] = [];
@@ -79,51 +76,18 @@ export function formatAssetEventsSection(
 		if (event.event_type === "earnings") {
 			const time = event.data.time as string | null;
 			const timeLabel = time ? ` (${time})` : "";
-			if (channel === "sms") {
-				earningsLines.push(`${event.symbol}: earnings ${dateLabel}${timeLabel}`);
-			} else {
-				const estimates: string[] = [];
-				const eps = event.data.epsEstimate as number | null;
-				const rev = event.data.revenueEstimate as number | null;
-				if (eps !== null && eps !== undefined) estimates.push(`EPS est. $${eps.toFixed(2)}`);
-				if (rev !== null && rev !== undefined) estimates.push(`Rev est. $${formatRevenue(rev)}`);
-				const estimateStr = estimates.length > 0 ? ` — ${estimates.join(", ")}` : "";
-				earningsLines.push(`${event.symbol}: earnings ${dateLabel}${timeLabel}${estimateStr}`);
-			}
+			earningsLines.push(`${event.symbol}: earnings ${dateLabel}${timeLabel}`);
 		} else if (event.event_type === "dividend") {
 			const amount = event.data.cashAmount as number;
-			const payDate = event.data.payDate as string | null;
-			if (channel === "sms") {
-				dividendLines.push(`${event.symbol}: ex-div ${dateLabel} $${amount.toFixed(2)}`);
-			} else {
-				const payStr = payDate ? ` (pays ${payDate.slice(5)})` : "";
-				const freq = event.data.frequency as number | null;
-				const freqStr = freq && FREQUENCY_LABELS[freq] ? `, ${FREQUENCY_LABELS[freq]}` : "";
-				dividendLines.push(
-					`${event.symbol}: ex-div ${dateLabel} — $${amount.toFixed(2)}/share${payStr}${freqStr}`,
-				);
-			}
+			dividendLines.push(`${event.symbol}: ex-div ${dateLabel} $${amount.toFixed(2)}`);
 		} else if (event.event_type === "split") {
 			const splitFrom = event.data.splitFrom as number;
 			const splitTo = event.data.splitTo as number;
 			const adjType = event.data.adjustmentType as string;
 			const ratio = formatSplitRatio(splitFrom, splitTo, adjType);
-			if (channel === "sms") {
-				splitLines.push(`${event.symbol}: split ${dateLabel} ${ratio}`);
-			} else {
-				const isReverse = adjType === "reverse_split" || splitTo < splitFrom;
-				const numericRatio = isReverse ? `${splitFrom}:${splitTo}` : `${splitTo}:${splitFrom}`;
-				const typeLabel = isReverse ? "reverse split" : "forward split";
-				splitLines.push(`${event.symbol}: split ${dateLabel} — ${numericRatio} ${typeLabel}`);
-			}
+			splitLines.push(`${event.symbol}: split ${dateLabel} ${ratio}`);
 		} else if (event.event_type === "ipo") {
-			const issuer = event.data.issuerName as string | undefined;
-			if (channel === "sms") {
-				ipoLines.push(`${event.symbol}: IPO ${dateLabel}`);
-			} else {
-				const issuerSuffix = issuer ? ` — ${issuer}` : "";
-				ipoLines.push(`${event.symbol}: IPO ${dateLabel}${issuerSuffix}`);
-			}
+			ipoLines.push(`${event.symbol}: IPO ${dateLabel}`);
 		}
 	}
 
@@ -135,23 +99,119 @@ export function formatAssetEventsSection(
 	};
 }
 
-/** Format analyst recommendation trend data as a channel-appropriate text block. */
-export function formatAnalystSection(
-	data: Map<string, RecommendationTrend | null>,
-	channel: DeliveryChannel,
-): string | null {
+/**
+ * Rich (email/Telegram-style) rendering of asset events grouped by type.
+ *
+ * Includes estimates, pay dates, frequencies, split-type labels, and issuer
+ * names that the compact rendering omits.
+ */
+function formatAssetEventsSectionRich(events: AssetEvent[]): AssetEventsSections {
+	const earningsLines: string[] = [];
+	const dividendLines: string[] = [];
+	const splitLines: string[] = [];
+	const ipoLines: string[] = [];
+
+	for (const event of events) {
+		const dateLabel = formatDateLabel(event.event_date, event.daysUntil);
+
+		if (event.event_type === "earnings") {
+			const time = event.data.time as string | null;
+			const timeLabel = time ? ` (${time})` : "";
+			const estimates: string[] = [];
+			const eps = event.data.epsEstimate as number | null;
+			const rev = event.data.revenueEstimate as number | null;
+			if (eps !== null && eps !== undefined) estimates.push(`EPS est. $${eps.toFixed(2)}`);
+			if (rev !== null && rev !== undefined) estimates.push(`Rev est. $${formatRevenue(rev)}`);
+			const estimateStr = estimates.length > 0 ? ` — ${estimates.join(", ")}` : "";
+			earningsLines.push(`${event.symbol}: earnings ${dateLabel}${timeLabel}${estimateStr}`);
+		} else if (event.event_type === "dividend") {
+			const amount = event.data.cashAmount as number;
+			const payDate = event.data.payDate as string | null;
+			const payStr = payDate ? ` (pays ${payDate.slice(5)})` : "";
+			const freq = event.data.frequency as number | null;
+			const freqStr = freq && FREQUENCY_LABELS[freq] ? `, ${FREQUENCY_LABELS[freq]}` : "";
+			dividendLines.push(
+				`${event.symbol}: ex-div ${dateLabel} — $${amount.toFixed(2)}/share${payStr}${freqStr}`,
+			);
+		} else if (event.event_type === "split") {
+			const splitFrom = event.data.splitFrom as number;
+			const splitTo = event.data.splitTo as number;
+			const adjType = event.data.adjustmentType as string;
+			const isReverse = adjType === "reverse_split" || splitTo < splitFrom;
+			const numericRatio = isReverse ? `${splitFrom}:${splitTo}` : `${splitTo}:${splitFrom}`;
+			const typeLabel = isReverse ? "reverse split" : "forward split";
+			splitLines.push(`${event.symbol}: split ${dateLabel} — ${numericRatio} ${typeLabel}`);
+		} else if (event.event_type === "ipo") {
+			const issuer = event.data.issuerName as string | undefined;
+			const issuerSuffix = issuer ? ` — ${issuer}` : "";
+			ipoLines.push(`${event.symbol}: IPO ${dateLabel}${issuerSuffix}`);
+		}
+	}
+
+	return {
+		earnings: earningsLines.length > 0 ? earningsLines.join("\n") : null,
+		dividends: dividendLines.length > 0 ? dividendLines.join("\n") : null,
+		splits: splitLines.length > 0 ? splitLines.join("\n") : null,
+		ipos: ipoLines.length > 0 ? ipoLines.join("\n") : null,
+	};
+}
+
+/** SMS-formatted asset-events section (compact one-liners). Returns `null`-valued fields when empty. */
+export function formatAssetEventsSectionSms(events: AssetEvent[]): AssetEventsSections {
+	return formatAssetEventsSectionCompact(events);
+}
+
+/** Email-formatted asset-events section (rich, with estimates/pay dates/issuers). */
+export function formatAssetEventsSectionEmail(events: AssetEvent[]): AssetEventsSections {
+	return formatAssetEventsSectionRich(events);
+}
+
+/** Telegram-formatted asset-events section (rich rendering, matching email). */
+export function formatAssetEventsSectionTelegram(events: AssetEvent[]): AssetEventsSections {
+	return formatAssetEventsSectionRich(events);
+}
+
+/** Compact (SMS-style) analyst recommendation trend rendering. */
+function formatAnalystSectionCompact(data: Map<string, RecommendationTrend | null>): string | null {
 	const lines: string[] = [];
 	for (const [symbol, trend] of data) {
 		if (!trend) continue;
-		if (channel === "sms") {
-			lines.push(`${symbol}: ${trend.buy} Buy, ${trend.hold} Hold, ${trend.sell} Sell`);
-		} else {
-			lines.push(
-				`${symbol}: ${trend.strongBuy} Strong Buy, ${trend.buy} Buy, ${trend.hold} Hold, ${trend.sell} Sell, ${trend.strongSell} Strong Sell (${trend.period})`,
-			);
-		}
+		lines.push(`${symbol}: ${trend.buy} Buy, ${trend.hold} Hold, ${trend.sell} Sell`);
 	}
 	return lines.length > 0 ? lines.join("\n") : null;
+}
+
+/** Rich (email/Telegram-style) analyst recommendation trend rendering. */
+function formatAnalystSectionRich(data: Map<string, RecommendationTrend | null>): string | null {
+	const lines: string[] = [];
+	for (const [symbol, trend] of data) {
+		if (!trend) continue;
+		lines.push(
+			`${symbol}: ${trend.strongBuy} Strong Buy, ${trend.buy} Buy, ${trend.hold} Hold, ${trend.sell} Sell, ${trend.strongSell} Strong Sell (${trend.period})`,
+		);
+	}
+	return lines.length > 0 ? lines.join("\n") : null;
+}
+
+/** Format analyst recommendation trends as a compact SMS text block. */
+export function formatAnalystSectionSms(
+	data: Map<string, RecommendationTrend | null>,
+): string | null {
+	return formatAnalystSectionCompact(data);
+}
+
+/** Format analyst recommendation trends as a rich email text block. */
+export function formatAnalystSectionEmail(
+	data: Map<string, RecommendationTrend | null>,
+): string | null {
+	return formatAnalystSectionRich(data);
+}
+
+/** Format analyst recommendation trends as a rich Telegram text block (matching email). */
+export function formatAnalystSectionTelegram(
+	data: Map<string, RecommendationTrend | null>,
+): string | null {
+	return formatAnalystSectionRich(data);
 }
 
 /** Format a share count compactly (e.g. 1200 -> "1k"). */
@@ -162,13 +222,12 @@ function formatShareCount(shares: number): string {
 	return abs.toLocaleString("en-US");
 }
 
-/** Format insider transaction data as a channel-appropriate text block. */
-export function formatInsiderSection(
+/** Render insider transactions as a text block, capping the number shown per ticker. */
+function formatInsiderSectionWithCap(
 	data: Map<string, InsiderTransaction[]>,
-	channel: DeliveryChannel,
+	maxPerTicker: number,
 ): string | null {
 	const lines: string[] = [];
-	const maxPerTicker = channel === "sms" ? 2 : 5;
 
 	for (const [symbol, transactions] of data) {
 		if (transactions.length === 0) continue;
@@ -182,4 +241,21 @@ export function formatInsiderSection(
 	}
 	if (lines.length > 0) return lines.join("\n");
 	return null;
+}
+
+/** Format insider transactions as a compact SMS text block (top 2 per ticker). */
+export function formatInsiderSectionSms(data: Map<string, InsiderTransaction[]>): string | null {
+	return formatInsiderSectionWithCap(data, 2);
+}
+
+/** Format insider transactions as a rich email text block (up to 5 per ticker). */
+export function formatInsiderSectionEmail(data: Map<string, InsiderTransaction[]>): string | null {
+	return formatInsiderSectionWithCap(data, 5);
+}
+
+/** Format insider transactions as a rich Telegram text block (up to 5 per ticker, matching email). */
+export function formatInsiderSectionTelegram(
+	data: Map<string, InsiderTransaction[]>,
+): string | null {
+	return formatInsiderSectionWithCap(data, 5);
 }

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { formatAssetEventsSection } from "../../../src/lib/asset-events/format";
+import {
+	formatAssetEventsSectionEmail,
+	formatAssetEventsSectionSms,
+} from "../../../src/lib/asset-events/format";
 
 describe("formatAssetEventsSection", () => {
 	it("formats earnings for SMS as compact one-liners", () => {
@@ -24,7 +27,7 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const result = formatAssetEventsSection(events, "sms");
+		const result = formatAssetEventsSectionSms(events);
 
 		expect(result.earnings).toContain("AAPL: earnings in 2 days (02-10) (16:30)");
 		expect(result.earnings).toContain("MSFT: earnings in 4 days (02-12)");
@@ -47,7 +50,7 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const result = formatAssetEventsSection(events, "email");
+		const result = formatAssetEventsSectionEmail(events);
 
 		expect(result.earnings).toContain("AAPL: earnings in 2 days (02-10) (16:30)");
 		expect(result.earnings).toContain("EPS est. $2.35");
@@ -70,7 +73,7 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const result = formatAssetEventsSection(events, "sms");
+		const result = formatAssetEventsSectionSms(events);
 
 		expect(result.dividends).toContain("KO: ex-div in 2 days (02-14) $0.50");
 		expect(result.earnings).toBeNull();
@@ -92,7 +95,7 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const result = formatAssetEventsSection(events, "email");
+		const result = formatAssetEventsSectionEmail(events);
 
 		expect(result.dividends).toContain(
 			"KO: ex-div in 2 days (02-14) — $0.50/share (pays 04-01), quarterly",
@@ -110,8 +113,8 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const sms = formatAssetEventsSection(events, "sms");
-		const email = formatAssetEventsSection(events, "email");
+		const sms = formatAssetEventsSectionSms(events);
+		const email = formatAssetEventsSectionEmail(events);
 
 		expect(sms.splits).toContain("NVDA: split in 2 days (02-20) 10:1");
 		expect(email.splits).toContain("NVDA: split in 2 days (02-20) — 10:1 forward split");
@@ -128,15 +131,15 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const sms = formatAssetEventsSection(events, "sms");
-		const email = formatAssetEventsSection(events, "email");
+		const sms = formatAssetEventsSectionSms(events);
+		const email = formatAssetEventsSectionEmail(events);
 
 		expect(sms.splits).toContain("SIRI: split in 2 days (03-01) 10:1 reverse");
 		expect(email.splits).toContain("SIRI: split in 2 days (03-01) — 10:1 reverse split");
 	});
 
 	it("returns all nulls when no events", () => {
-		const result = formatAssetEventsSection([], "email");
+		const result = formatAssetEventsSectionEmail([]);
 
 		expect(result.earnings).toBeNull();
 		expect(result.dividends).toBeNull();
@@ -173,7 +176,7 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const result = formatAssetEventsSection(events, "email");
+		const result = formatAssetEventsSectionEmail(events);
 
 		expect(result.earnings).toContain("AAPL");
 		expect(result.dividends).toContain("KO");
@@ -191,7 +194,7 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const result = formatAssetEventsSection(events, "email");
+		const result = formatAssetEventsSectionEmail(events);
 
 		expect(result.earnings).toContain("Rev est. $8M");
 	});
@@ -207,8 +210,8 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const sms = formatAssetEventsSection(events, "sms");
-		const email = formatAssetEventsSection(events, "email");
+		const sms = formatAssetEventsSectionSms(events);
+		const email = formatAssetEventsSectionEmail(events);
 
 		expect(sms.earnings).toContain("AAPL: earnings today");
 		expect(email.earnings).toContain("AAPL: earnings today");
@@ -225,7 +228,7 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const result = formatAssetEventsSection(events, "sms");
+		const result = formatAssetEventsSectionSms(events);
 
 		expect(result.earnings).toContain("MSFT: earnings tomorrow");
 	});
@@ -241,7 +244,7 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const result = formatAssetEventsSection(events, "sms");
+		const result = formatAssetEventsSectionSms(events);
 
 		expect(result.earnings).toContain("GOOGL: earnings in 3 days (02-15)");
 	});
@@ -262,7 +265,7 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const result = formatAssetEventsSection(events, "email");
+		const result = formatAssetEventsSectionEmail(events);
 
 		expect(result.dividends).toContain("JNJ: ex-div in 2 days (02-15) — $1.19/share");
 		expect(result.dividends).not.toContain("pays");

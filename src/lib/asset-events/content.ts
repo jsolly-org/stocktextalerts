@@ -4,7 +4,17 @@ import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import type { UserRecord } from "../types";
 import { loadStoredFinnhubExtras } from "./enrichment-store";
-import { formatAnalystSection, formatAssetEventsSection, formatInsiderSection } from "./format";
+import {
+	formatAnalystSectionEmail,
+	formatAnalystSectionSms,
+	formatAnalystSectionTelegram,
+	formatAssetEventsSectionEmail,
+	formatAssetEventsSectionSms,
+	formatAssetEventsSectionTelegram,
+	formatInsiderSectionEmail,
+	formatInsiderSectionSms,
+	formatInsiderSectionTelegram,
+} from "./format";
 import type { AssetEventsContent, AssetEventsTelegramFacets } from "./types";
 
 type DeliveryChannel = "email" | "sms";
@@ -59,8 +69,7 @@ function filterEventsForChannel<T extends RawEvent>(
 	});
 }
 
-function formatContentForChannel(options: {
-	channel: DeliveryChannel;
+type FormatContentOptions = {
 	user: UserRecord;
 	eventsWithDaysUntil: Array<{
 		symbol: string;
@@ -72,24 +81,38 @@ function formatContentForChannel(options: {
 	finnhubData: Awaited<ReturnType<typeof loadStoredFinnhubExtras>>;
 	includeInsider: boolean;
 	includeAnalyst: boolean;
-}): AssetEventsContent {
-	const { channel, user, eventsWithDaysUntil, finnhubData, includeInsider, includeAnalyst } =
-		options;
+};
 
-	const channelEvents = filterEventsForChannel(eventsWithDaysUntil, user, channel);
+function buildEmailAssetEventsContent(options: FormatContentOptions): AssetEventsContent {
+	const { user, eventsWithDaysUntil, finnhubData, includeInsider, includeAnalyst } = options;
+
+	const channelEvents = filterEventsForChannel(eventsWithDaysUntil, user, "email");
 	const eventsSection =
-		channelEvents.length > 0 ? formatAssetEventsSection(channelEvents, channel) : null;
+		channelEvents.length > 0 ? formatAssetEventsSectionEmail(channelEvents) : null;
 
-	let insiderSection: string | null = null;
-	let analystSection: string | null = null;
+	const insiderSection = includeInsider ? formatInsiderSectionEmail(finnhubData.insider) : null;
+	const analystSection = includeAnalyst ? formatAnalystSectionEmail(finnhubData.analyst) : null;
 
-	if (includeInsider) {
-		insiderSection = formatInsiderSection(finnhubData.insider, channel);
-	}
+	const hasAnyContent =
+		eventsSection !== null || insiderSection !== null || analystSection !== null;
 
-	if (includeAnalyst) {
-		analystSection = formatAnalystSection(finnhubData.analyst, channel);
-	}
+	return {
+		eventsSection,
+		insiderSection,
+		analystSection,
+		hasAnyContent,
+	};
+}
+
+function buildSmsAssetEventsContent(options: FormatContentOptions): AssetEventsContent {
+	const { user, eventsWithDaysUntil, finnhubData, includeInsider, includeAnalyst } = options;
+
+	const channelEvents = filterEventsForChannel(eventsWithDaysUntil, user, "sms");
+	const eventsSection =
+		channelEvents.length > 0 ? formatAssetEventsSectionSms(channelEvents) : null;
+
+	const insiderSection = includeInsider ? formatInsiderSectionSms(finnhubData.insider) : null;
+	const analystSection = includeAnalyst ? formatAnalystSectionSms(finnhubData.analyst) : null;
 
 	const hasAnyContent =
 		eventsSection !== null || insiderSection !== null || analystSection !== null;
@@ -262,8 +285,7 @@ export async function buildAssetEventsContentForChannels(options: {
 	let sms: AssetEventsContent | null = null;
 
 	if (channels.includes("email")) {
-		email = formatContentForChannel({
-			channel: "email",
+		email = buildEmailAssetEventsContent({
 			user,
 			eventsWithDaysUntil,
 			finnhubData,
@@ -273,8 +295,7 @@ export async function buildAssetEventsContentForChannels(options: {
 	}
 
 	if (channels.includes("sms")) {
-		sms = formatContentForChannel({
-			channel: "sms",
+		sms = buildSmsAssetEventsContent({
 			user,
 			eventsWithDaysUntil,
 			finnhubData,
@@ -291,12 +312,12 @@ export async function buildAssetEventsContentForChannels(options: {
 			event.event_type === "ipo" ? telegramWantsIpos : telegramWantsCalendar,
 		);
 		const eventsSection =
-			telegramEvents.length > 0 ? formatAssetEventsSection(telegramEvents, "email") : null;
+			telegramEvents.length > 0 ? formatAssetEventsSectionTelegram(telegramEvents) : null;
 		const insiderSection = telegramWantsInsider
-			? formatInsiderSection(finnhubData.insider, "email")
+			? formatInsiderSectionTelegram(finnhubData.insider)
 			: null;
 		const analystSection = telegramAnalystDue
-			? formatAnalystSection(finnhubData.analyst, "email")
+			? formatAnalystSectionTelegram(finnhubData.analyst)
 			: null;
 		telegram = {
 			eventsSection,
