@@ -1,13 +1,13 @@
 import {
 	type AssetPrice,
-	buildPriceContext,
-	directionDot,
 	formatSignedChangePercent,
 	formatUsdPrice,
 	resolveDisplayChangePercent,
 } from "../../../../lib/messaging/parts/asset-price-list";
-import { buildCandlestickSvg } from "../../../../lib/messaging/parts/charts/candlestick";
-import type { SparklineData } from "../../../../lib/messaging/parts/charts/sparkline";
+import { renderPriceAlertHeadline } from "../../../../lib/messaging/parts/price-alert-sentences";
+import type { SparklineData } from "../../../../lib/messaging/parts/sparkline";
+import { buildCandlestickSvg } from "../../../../lib/messaging/telegram/candlestick";
+import { directionDot } from "../../../../lib/messaging/telegram/direction-dot";
 import type { IntradayCandle } from "../../../../lib/types";
 import type { PreviewAlert, PreviewAsset, PreviewTelegramLine } from "./types";
 
@@ -110,7 +110,12 @@ export function buildPreviewAlert(asset: PreviewAsset): PreviewAlert | null {
 	return {
 		symbol: asset.symbol,
 		svgDataUri: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`,
-		// The canonical alert headline — the same sentence production alerts carry.
-		priceContext: buildPriceContext(asset.symbol, changePercent, asset.price),
+		// The canonical alert headline — the same sentence production Telegram alerts carry.
+		headline: renderPriceAlertHeadline({
+			symbol: asset.symbol,
+			changePercent,
+			price: asset.price,
+			period: "today",
+		}),
 	};
 }

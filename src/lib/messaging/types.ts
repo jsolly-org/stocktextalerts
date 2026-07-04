@@ -1,8 +1,15 @@
 import type { InlineKeyboardMarkup, MessageEntity } from "grammy/types";
 import type { Database } from "../db/generated/database.types";
+import type { TopMover } from "../market-data/types";
 import type { MarketClosureInfo } from "../time/types";
 import type { DeliveryResult } from "../types";
-import type { SparklineData } from "./parts/charts/sparkline";
+import type { SparklineData } from "./parts/sparkline";
+
+/** Structured market-wide top movers — raw data each channel renders itself. */
+export type TopMoversData = {
+	gainers: TopMover[];
+	losers: TopMover[];
+};
 
 export interface EmailRequest {
 	to: string;
@@ -47,7 +54,7 @@ export type NotificationExtras = {
 	rumors?: string | null;
 	analyst?: string | null;
 	insider?: string | null;
-	topMovers?: string | null;
+	topMovers?: TopMoversData | null;
 	citations?: string[];
 };
 

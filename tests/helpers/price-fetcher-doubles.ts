@@ -3,7 +3,7 @@ import {
 	type SparklineMap,
 	type SparklineWindow,
 	toSparkline,
-} from "../../src/lib/messaging/parts/charts/sparkline";
+} from "../../src/lib/messaging/parts/sparkline";
 import type { MarketSession } from "../../src/lib/types";
 
 function isFinitePositive(v: unknown): v is number {

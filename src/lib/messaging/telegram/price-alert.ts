@@ -4,12 +4,14 @@ import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import type { EnrichedAlert } from "../../price-alerts/types";
 import type { ChannelDeliveryStats, IntradayCandle } from "../../types";
-import { buildCandlestickSvg } from "../parts/charts/candlestick";
-import { renderChartPng } from "../parts/charts/render-png";
 import { TELEGRAM_FOOTER } from "../parts/footer";
+import { renderPriceAlertHeadline, renderSignalSentence } from "../parts/price-alert-sentences";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { TelegramSender } from "../types";
+import { buildCandlestickSvg } from "./candlestick";
+import { buildDashboardButton } from "./dashboard-button";
 import { optOutIfBotBlocked } from "./opt-out";
+import { renderChartPng } from "./render-png";
 
 /** Rendered Telegram price alert: entity-formatted caption/text + optional candlestick PNG. */
 export interface TelegramPriceAlert {
@@ -36,13 +38,13 @@ export async function formatPriceAlertTelegram(
 	alert: EnrichedAlert,
 	candles: IntradayCandle[],
 ): Promise<TelegramPriceAlert> {
-	// `priceContext` already reads e.g. "AAPL is up 2.5% today ($228.50)" — reuse it as
-	// the human-readable price/change line so SMS/email/Telegram stay consistent.
-	const headline = FormattedString.bold(`🚨 ${alert.symbol}`);
-	let msg = fmt`${headline}\n${alert.priceContext}`;
+	// Render this channel's own headline from the structured price facts, e.g.
+	// "AAPL is up 2.5% today ($228.50)" — the same sentence SMS/email produce.
+	const boldTicker = FormattedString.bold(`🚨 ${alert.symbol}`);
+	let msg = fmt`${boldTicker}\n${renderPriceAlertHeadline(alert.priceMove)}`;
 
-	if (alert.signalContext) {
-		msg = fmt`${msg}\n${alert.signalContext}`;
+	if (alert.signal) {
+		msg = fmt`${msg}\n${renderSignalSentence(alert.signal)}`;
 	}
 
 	// One-line "why" from Grok, when available. Strip inline markdown links — Telegram
@@ -109,6 +111,9 @@ export async function deliverTelegramPriceAlert(options: {
 		chatId: user.telegram_chat_id as number,
 		text,
 		entities,
+		// Rides both the candlestick sendPhoto path and the text fallback (sendViaBot
+		// forwards reply_markup on both). Price alerts live under Market Notifications.
+		replyMarkup: buildDashboardButton("marketNotifications"),
 		...(photo ? { photo } : {}),
 	});
 

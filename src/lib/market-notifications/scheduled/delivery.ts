@@ -2,7 +2,7 @@ import type { SupabaseAdminClient } from "../../db/supabase";
 import type { Logger } from "../../logging";
 import { processEmailUpdate } from "../../messaging/email/delivery";
 import { formatMarketScheduledTelegram } from "../../messaging/notifications/market-scheduled";
-import type { SparklineData } from "../../messaging/parts/charts/sparkline";
+import type { SparklineData } from "../../messaging/parts/sparkline";
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,
@@ -10,6 +10,7 @@ import {
 } from "../../messaging/scheduled-channel";
 import { processSmsUpdate } from "../../messaging/sms/delivery";
 import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
+import { buildDashboardButton } from "../../messaging/telegram/dashboard-button";
 import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../../messaging/telegram/sender-factory";
 import type { EmailSender } from "../../messaging/types";
@@ -17,6 +18,7 @@ import { updateScheduledNotificationRow } from "../../scheduled-notifications/st
 import type { ScheduledNotificationTotals } from "../../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../../time/types";
 import type {
+	ActiveMarketSession,
 	AssetPriceMap,
 	IsoDateString,
 	MarketSession,
@@ -38,7 +40,6 @@ export async function processMarketScheduledEmailDelivery(options: {
 	scheduledDate: IsoDateString;
 	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
-	assetsList: string;
 	sendEmail: EmailSender;
 	priceMap: AssetPriceMap;
 	noSessionTrade?: Set<string>;
@@ -60,7 +61,6 @@ export async function processMarketScheduledEmailDelivery(options: {
 		scheduledDate,
 		scheduledMinutes,
 		userAssets,
-		assetsList,
 		sendEmail,
 		priceMap,
 		noSessionTrade,
@@ -92,7 +92,6 @@ export async function processMarketScheduledEmailDelivery(options: {
 		supabase,
 		user,
 		userAssets,
-		assetsList,
 		sendEmail,
 		priceMap,
 		marketSession,
@@ -144,7 +143,9 @@ export async function processMarketScheduledSmsDelivery(options: {
 	scheduledDate: IsoDateString;
 	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
-	assetsList: string;
+	priceMap: AssetPriceMap;
+	noSessionTrade?: Set<string>;
+	getSparkline?: (symbol: string) => SparklineData | null | undefined;
 	getSmsSender: SmsSenderFactory;
 	marketSession: MarketSession;
 	marketClosureInfo?: MarketClosureInfo | null;
@@ -162,7 +163,10 @@ export async function processMarketScheduledSmsDelivery(options: {
 		logger,
 		scheduledDate,
 		scheduledMinutes,
-		assetsList,
+		userAssets,
+		priceMap,
+		noSessionTrade,
+		getSparkline,
 		getSmsSender,
 		marketSession,
 		marketClosureInfo,
@@ -205,13 +209,16 @@ export async function processMarketScheduledSmsDelivery(options: {
 	const smsStats = await processSmsUpdate(
 		supabase,
 		user,
-		assetsList,
+		userAssets,
+		priceMap,
 		smsSender,
 		marketSession,
 		undefined,
 		marketClosureInfo,
 		options.delayBanner,
 		sessionFirstLine,
+		noSessionTrade,
+		getSparkline,
 	);
 
 	// Tail stays hand-rolled: processSmsUpdate records the notification_log row
@@ -260,9 +267,14 @@ export async function processMarketScheduledTelegramDelivery(options: {
 	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
 	priceMap: AssetPriceMap;
-	sessionLabel?: string | null;
+	/** Active session for this slot (Telegram is only dispatched for active sessions). */
+	marketSession: ActiveMarketSession;
+	sessionFirstLine?: {
+		scheduledEtMinutes: number;
+		is24: boolean;
+	};
 	delayBanner?: string | null;
-	marketClosedBanner?: string | null;
+	marketClosureInfo?: MarketClosureInfo | null;
 	getTelegramSender: TelegramSenderFactory;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
@@ -274,9 +286,10 @@ export async function processMarketScheduledTelegramDelivery(options: {
 		scheduledMinutes,
 		userAssets,
 		priceMap,
-		sessionLabel,
+		marketSession,
+		sessionFirstLine,
 		delayBanner,
-		marketClosedBanner,
+		marketClosureInfo,
 		getTelegramSender,
 		stats,
 	} = options;
@@ -319,15 +332,17 @@ export async function processMarketScheduledTelegramDelivery(options: {
 	const formatted = formatMarketScheduledTelegram({
 		userAssets,
 		assetPrices: priceMap,
-		sessionLabel,
+		marketSession,
+		sessionFirstLine,
 		delayBanner,
-		marketClosedBanner,
+		marketClosureInfo,
 	});
 
 	const result = await telegramSenderResult.sender({
 		chatId: user.telegram_chat_id,
 		text: formatted.text,
 		entities: formatted.entities,
+		replyMarkup: buildDashboardButton("marketNotifications"),
 		// Routine scheduled update — deliver silently like other passive updates.
 		disableNotification: true,
 	});

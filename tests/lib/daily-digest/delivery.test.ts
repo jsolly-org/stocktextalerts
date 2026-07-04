@@ -7,7 +7,7 @@ import {
 	formatDailyDigestSmsMessage,
 	formatDailyDigestSmsMessages,
 } from "../../../src/lib/messaging/notifications/daily-digest";
-import type { SparklineData } from "../../../src/lib/messaging/parts/charts/sparkline";
+import type { SparklineData } from "../../../src/lib/messaging/parts/sparkline";
 import { SMS_UCS2_SEGMENT_SIZE } from "../../../src/lib/messaging/sms/constants";
 import {
 	finalizeSmsBodyForUcs2Segments,
@@ -948,8 +948,13 @@ describe("Daily digest email prices", () => {
 			assetPrices,
 			extras: {
 				...extras,
-				topMovers:
-					"Gainers:\nSKYQ — $12.59 (+74.49%)\nNVDA — $495.30 (+4.12%)\n\nLosers:\nBIIB — $212.45 (-18.67%)",
+				topMovers: {
+					gainers: [
+						{ ticker: "SKYQ", price: 12.59, changePercent: 74.49 },
+						{ ticker: "NVDA", price: 495.3, changePercent: 4.12 },
+					],
+					losers: [{ ticker: "BIIB", price: 212.45, changePercent: -18.67 }],
+				},
 			},
 		});
 
@@ -985,7 +990,10 @@ describe("Daily digest email prices", () => {
 			assetPrices,
 			extras: {
 				...extras,
-				topMovers: "Gainers:\nSKYQ — $12.59 (+74.49%)",
+				topMovers: {
+					gainers: [{ ticker: "SKYQ", price: 12.59, changePercent: 74.49 }],
+					losers: [],
+				},
 			},
 		});
 

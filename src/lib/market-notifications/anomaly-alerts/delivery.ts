@@ -4,19 +4,23 @@ import { rootLogger } from "../../logging";
 import { isEmailChannelUsable } from "../../messaging/email/eligibility";
 import { markdownLinksToHtml, stripMarkdownLinks } from "../../messaging/email/html-section";
 import { sendUserEmail } from "../../messaging/email/index";
+import { renderIntradaySparklineImg } from "../../messaging/email/intraday-sparkline";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
-import { renderIntradaySparklineImg } from "../../messaging/parts/charts/intraday-sparkline";
+import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../../messaging/parts/footer";
+import { escapeHtml, getSafeHrefUrl } from "../../messaging/parts/html-utils";
+import {
+	renderPriceAlertHeadline,
+	renderSignalSentence,
+} from "../../messaging/parts/price-alert-sentences";
 import {
 	downsampleEvenly,
 	EMAIL_SPARKLINE_LABEL,
 	SMS_SPARKLINE_LABEL,
 	type SparklineWindow,
 	toSparkline,
-} from "../../messaging/parts/charts/sparkline";
-import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../../messaging/parts/footer";
-import { escapeHtml, getSafeHrefUrl } from "../../messaging/parts/html-utils";
+} from "../../messaging/parts/sparkline";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
@@ -77,15 +81,15 @@ async function formatPriceAlertSms(
 	const optOutSuffix = SMS_OPT_OUT;
 
 	const priceContextLine = formatPriceContextWithSparkline(
-		alert.priceContext,
+		renderPriceAlertHeadline(alert.priceMove),
 		alert.intradayCloses,
 		alert.prevClose,
 		true,
 	);
 
 	const sections = ["StockTextAlerts — Unusual Price Move 🚨", priceContextLine];
-	if (alert.signalContext) {
-		sections.push(alert.signalContext);
+	if (alert.signal) {
+		sections.push(renderSignalSentence(alert.signal));
 	}
 
 	if (alert.grokResult) {
@@ -158,16 +162,18 @@ function formatPriceAlertEmail(
 ): { text: string; html: string } {
 	const urls = buildEmailUrls(user.id, user.email, "marketNotifications");
 
+	const headline = renderPriceAlertHeadline(alert.priceMove);
+
 	// Plaintext
 	const textPriceContextLine = formatPriceContextWithSparkline(
-		alert.priceContext,
+		headline,
 		alert.intradayCloses,
 		alert.prevClose,
 	);
 
 	const textSections = [`Unusual Price Move: ${alert.symbol}`, textPriceContextLine];
-	if (alert.signalContext) {
-		textSections.push(alert.signalContext);
+	if (alert.signal) {
+		textSections.push(renderSignalSentence(alert.signal));
 	}
 
 	if (alert.grokResult) {
@@ -199,12 +205,12 @@ function formatPriceAlertEmail(
 	const html = renderEmailShell({
 		bodyHtml: `<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Unusual Price Move: ${logoHtml ?? ""}${escapeHtml(alert.symbol)}</h2>
 		<div style="background: #fffbeb; padding: 16px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #fde68a;">
-			<p style="color: #92400e; font-size: 16px; font-weight: 500; margin: 0;">${escapeHtml(alert.priceContext)}</p>${renderHtmlSparklineForAlert(alert, user.use_24_hour_time)}
+			<p style="color: #92400e; font-size: 16px; font-weight: 500; margin: 0;">${escapeHtml(headline)}</p>${renderHtmlSparklineForAlert(alert, user.use_24_hour_time)}
 		</div>
 		${
-			alert.signalContext
+			alert.signal
 				? `<div style="margin-bottom: 20px;">
-			<p style="color: ${alert.benchmarkDirection === "up" ? "#16a34a" : alert.benchmarkDirection === "down" ? "#dc2626" : "#6b7280"}; font-size: 14px; margin: 0;">${escapeHtml(alert.signalContext)}</p>
+			<p style="color: ${alert.signal.benchmarkMovePercent === null ? "#6b7280" : alert.signal.benchmarkMovePercent >= 0 ? "#16a34a" : "#dc2626"}; font-size: 14px; margin: 0;">${escapeHtml(renderSignalSentence(alert.signal))}</p>
 		</div>`
 				: ""
 		}

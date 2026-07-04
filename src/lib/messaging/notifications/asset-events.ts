@@ -4,7 +4,12 @@ import type { MarketClosureInfo } from "../../time/types";
 import { renderEmailSection } from "../email/html-section";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
 import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
-import { buildMarketClosedBannerHtml, buildMarketClosedBannerText } from "../parts/market-closure";
+import {
+	buildMarketClosedBannerEmailHtml,
+	buildMarketClosedBannerEmailText,
+	buildMarketClosedBannerSms,
+	buildMarketClosedBannerTelegram,
+} from "../parts/market-closure";
 import { padUrlsToSegmentBoundaries } from "../sms/segment-utils";
 
 /** Build the SMS body for an asset-events digest. */
@@ -28,7 +33,7 @@ export function formatAssetEventsSms(options: {
 	}
 
 	if (options.marketClosureInfo) {
-		parts.push(buildMarketClosedBannerText(options.marketClosureInfo, "events"));
+		parts.push(buildMarketClosedBannerSms(options.marketClosureInfo, "events"));
 	}
 
 	if (options.earningsSection) {
@@ -79,7 +84,7 @@ export function formatAssetEventsEmail(options: {
 	}
 
 	if (options.marketClosureInfo) {
-		textParts.push(buildMarketClosedBannerText(options.marketClosureInfo, "events"));
+		textParts.push(buildMarketClosedBannerEmailText(options.marketClosureInfo, "events"));
 	}
 
 	if (options.earningsSection) {
@@ -111,7 +116,7 @@ export function formatAssetEventsEmail(options: {
 	const text = textParts.join("\n");
 
 	const marketClosedHtml = options.marketClosureInfo
-		? buildMarketClosedBannerHtml(options.marketClosureInfo, "events")
+		? buildMarketClosedBannerEmailHtml(options.marketClosureInfo, "events")
 		: "";
 
 	let sectionsHtml = "";
@@ -195,7 +200,7 @@ export function formatAssetEventsTelegram(opts: {
 		msg = fmt`${msg}\n${opts.delayBanner}`;
 	}
 	if (opts.marketClosureInfo) {
-		msg = fmt`${msg}\n${buildMarketClosedBannerText(opts.marketClosureInfo, "events")}`;
+		msg = fmt`${msg}\n${buildMarketClosedBannerTelegram(opts.marketClosureInfo, "events")}`;
 	}
 
 	if (opts.earningsSection) {

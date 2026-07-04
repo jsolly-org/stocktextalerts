@@ -5,7 +5,7 @@
  * SMS (success + partial-failure) and Telegram (success + failure). Market-type
  * staging was removed when scheduled-market delivery moved fully inline.
  */
-import type { MessageEntity } from "grammy/types";
+import type { InlineKeyboardMarkup, MessageEntity } from "grammy/types";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -169,7 +169,7 @@ describe("deliverStagedNotifications", () => {
 		scheduledForIso: string;
 		scheduledDate?: string;
 		scheduledMinutes?: number;
-		telegram: { text: string; entities: MessageEntity[] };
+		telegram: { text: string; entities: MessageEntity[]; replyMarkup?: InlineKeyboardMarkup };
 	}) {
 		const { error } = await adminClient.from("staged_notifications").insert({
 			user_id: options.userId,
@@ -514,7 +514,16 @@ describe("deliverStagedNotifications", () => {
 		const text =
 			"📊 Daily Digest · Mon, Jun 1\n🟢 AAPL  $192.00  (+1.20%)\n\nNot financial advice.";
 		const entities: MessageEntity[] = [{ type: "bold", offset: 0, length: 24 }];
-		await insertStagedDailyTelegram({ userId, scheduledForIso, telegram: { text, entities } });
+		const replyMarkup: InlineKeyboardMarkup = {
+			inline_keyboard: [
+				[{ text: "⚙️ Manage notifications", url: "http://localhost/dashboard#daily-notifications" }],
+			],
+		};
+		await insertStagedDailyTelegram({
+			userId,
+			scheduledForIso,
+			telegram: { text, entities, replyMarkup },
+		});
 		const telegramSender = vi.fn<(message: TelegramMessage) => Promise<DeliveryResult>>(
 			async () => ({
 				success: true,
@@ -535,6 +544,8 @@ describe("deliverStagedNotifications", () => {
 		expect(sent?.chatId).toBe(778899125);
 		expect(sent?.text).toBe(text);
 		expect(sent?.entities).toEqual(entities);
+		// The staged button round-trips through JSON persistence to the outbound message.
+		expect(sent?.replyMarkup).toEqual(replyMarkup);
 		expect(result.stats.telegramSent).toBe(1);
 		expect(result.stats.telegramFailed).toBe(0);
 
@@ -576,6 +587,40 @@ describe("deliverStagedNotifications", () => {
 				zone: "utc",
 			}).toMillis(),
 		).toBeGreaterThan(DateTime.fromISO(scheduledForIso, { zone: "utc" }).toMillis());
+	});
+
+	it("sends a legacy staged Telegram row without replyMarkup buttonless (no throw)", async () => {
+		// Rows staged before the button shipped deserialize with replyMarkup: undefined —
+		// they must still send, just without the inline keyboard.
+		await clearStagedNotifications();
+		const currentTime = DateTime.fromISO("2026-06-01T13:00:00.000Z", { zone: "utc" });
+		const scheduledForIso = currentTime.toISO();
+		if (!scheduledForIso) throw new Error("Expected valid scheduled_for timestamp");
+		const userId = await createTelegramDigestUser({ scheduledForIso });
+		const text =
+			"📊 Daily Digest · Mon, Jun 1\n🟢 AAPL  $192.00  (+1.20%)\n\nNot financial advice.";
+		const entities: MessageEntity[] = [{ type: "bold", offset: 0, length: 24 }];
+		// Note: no replyMarkup — the legacy shape.
+		await insertStagedDailyTelegram({ userId, scheduledForIso, telegram: { text, entities } });
+		const telegramSender = vi.fn<(message: TelegramMessage) => Promise<DeliveryResult>>(
+			async () => ({ success: true }),
+		);
+
+		const result = await deliverStagedNotifications({
+			supabase: adminClient,
+			logger,
+			currentTime,
+			sendEmail,
+			getSmsSender,
+			getTelegramSender: () => ({ sender: telegramSender }),
+		});
+
+		expect(telegramSender).toHaveBeenCalledOnce();
+		const sent = telegramSender.mock.calls[0]?.[0];
+		expect(sent?.text).toBe(text);
+		expect(sent?.replyMarkup).toBeUndefined();
+		expect(result.stats.telegramSent).toBe(1);
+		expect(result.stats.telegramFailed).toBe(0);
 	});
 
 	it("does not advance the schedule when the staged Telegram send fails", async () => {

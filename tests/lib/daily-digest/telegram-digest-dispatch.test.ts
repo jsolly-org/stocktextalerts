@@ -19,6 +19,7 @@ import { rootLogger } from "../../../src/lib/logging";
 import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
 import type { EmailSender, SmsSender, TelegramSender } from "../../../src/lib/messaging/types";
 import type { UserRecord } from "../../../src/lib/types";
+import { dashboardButtonUrl } from "../../helpers/messaging-doubles";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser, setTestUserPrefs } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -164,6 +165,8 @@ describe("Telegram daily digest dispatch", () => {
 		const sentMessage = telegramSender.mock.calls[0]?.[0];
 		expect(sentMessage?.chatId).toBe(telegramChatId);
 		expect(sentMessage?.text).toContain("NVDA");
+		// The "Manage notifications" button deep-links to the Daily Notifications section.
+		expect(dashboardButtonUrl(sentMessage)).toContain("#daily-notifications");
 
 		// notification_log records a delivered Telegram notification.
 		const { data: logs, error: logError } = await adminClient
@@ -253,10 +256,18 @@ describe("Telegram daily digest dispatch", () => {
 			.eq("notification_type", "daily")
 			.single();
 		const staged = stagedRow?.staged_data as {
-			telegram: { text: string; entities: unknown[] } | null;
+			telegram: {
+				text: string;
+				entities: unknown[];
+				replyMarkup?: { inline_keyboard: { url?: string }[][] };
+			} | null;
 		} | null;
 		expect(staged?.telegram).not.toBeNull();
 		expect(staged?.telegram?.text).toContain("NVDA");
 		expect(Array.isArray(staged?.telegram?.entities)).toBe(true);
+		// The staged row persists the deep-linked "Manage notifications" button.
+		expect(staged?.telegram?.replyMarkup?.inline_keyboard[0]?.[0]?.url).toContain(
+			"#daily-notifications",
+		);
 	});
 });

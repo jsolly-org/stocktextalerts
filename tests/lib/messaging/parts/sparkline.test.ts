@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toSparkline } from "../../../../../src/lib/messaging/parts/charts/sparkline";
+import { toSparkline } from "../../../../src/lib/messaging/parts/sparkline";
 
 describe("toSparkline", () => {
 	it("converts 7 values to 7 block characters", () => {

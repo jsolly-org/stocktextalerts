@@ -6,11 +6,8 @@ import { createErrorForLogging, extractErrorMessage } from "../../logging/errors
 import { fetchIntradaySparklines } from "../../market-data/sparklines";
 import { type LogoCache, safePrefetchLogos } from "../../messaging/logo-fetcher";
 import { anyFacetEnabled, isFacetEnabled } from "../../messaging/notification-prefs";
-import { formatAssetsTextList } from "../../messaging/parts/asset-price-list";
-import type { SparklineMap } from "../../messaging/parts/charts/sparkline";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../../messaging/parts/delay";
-import { buildMarketClosedBannerText } from "../../messaging/parts/market-closure";
-import { buildSessionFirstLine } from "../../messaging/parts/session-label";
+import type { SparklineMap } from "../../messaging/parts/sparkline";
 import { recordNotification } from "../../messaging/shared";
 import { shouldSendSms } from "../../messaging/sms";
 import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
@@ -27,7 +24,6 @@ import { isOutsideMarketHours } from "../../time/market/session";
 import { parseScheduledSlotContext } from "../../time/schedule/next-send";
 import type { MarketClosureInfo } from "../../time/types";
 import type { AssetPriceMap, MarketSession, UserRecord } from "../../types";
-import { NO_SESSION_TRADE } from "../../types";
 import {
 	processMarketScheduledEmailDelivery,
 	processMarketScheduledSmsDelivery,
@@ -241,17 +237,6 @@ export async function processMarketScheduledUser(options: {
 			cache: options.logoCache,
 		});
 
-		// Past the early return, the session is always pre/regular/after — show change%.
-		const getPrice = (symbol: string) =>
-			noSessionTrade?.has(symbol) ? NO_SESSION_TRADE : (priceMap.get(symbol) ?? undefined);
-		const assetsList = formatAssetsTextList(
-			userAssets,
-			getPrice,
-			getSparkline,
-			true,
-			marketSession,
-		);
-
 		const shouldAttemptSms = shouldSendSms(user);
 
 		// All channel preferences (incl. Telegram) live in notification_preferences,
@@ -275,7 +260,6 @@ export async function processMarketScheduledUser(options: {
 				scheduledDate,
 				scheduledMinutes,
 				userAssets,
-				assetsList,
 				sendEmail,
 				priceMap,
 				noSessionTrade,
@@ -302,7 +286,9 @@ export async function processMarketScheduledUser(options: {
 				scheduledDate,
 				scheduledMinutes,
 				userAssets,
-				assetsList,
+				priceMap,
+				noSessionTrade,
+				getSparkline,
 				getSmsSender,
 				marketSession,
 				marketClosureInfo,
@@ -315,14 +301,6 @@ export async function processMarketScheduledUser(options: {
 		/* ============= Process Telegram ============= */
 		if (telegramEnabled) {
 			attemptedDeliveryMethod = "telegram";
-			const sessionLabel = buildSessionFirstLine(
-				marketSession,
-				sessionFirstLine.scheduledEtMinutes,
-				sessionFirstLine.is24,
-			);
-			const telegramMarketBanner = marketClosureInfo
-				? buildMarketClosedBannerText(marketClosureInfo)
-				: null;
 			await processMarketScheduledTelegramDelivery({
 				user,
 				supabase,
@@ -331,9 +309,10 @@ export async function processMarketScheduledUser(options: {
 				scheduledMinutes,
 				userAssets,
 				priceMap,
-				sessionLabel,
+				marketSession,
+				sessionFirstLine,
 				delayBanner: delayBannerText,
-				marketClosedBanner: telegramMarketBanner,
+				marketClosureInfo,
 				getTelegramSender,
 				stats,
 			});

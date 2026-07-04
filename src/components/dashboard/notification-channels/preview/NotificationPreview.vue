@@ -31,7 +31,7 @@
 							<p v-for="line in telegramLines" :key="line.symbol" class="tg-text tg-line">
 								{{ line.dot }} <strong>{{ line.symbol }}</strong>&ensp;{{ line.price }}&ensp;({{ line.change }})
 							</p>
-							<p class="tg-footer-text">{{ TELEGRAM_FOOTER }}</p>
+							<p class="tg-footer-text">{{ PREVIEW_FOOTER }}</p>
 							<span class="tg-time" aria-hidden="true">9:41</span>
 						</div>
 
@@ -47,8 +47,8 @@
 							/>
 							<div class="tg-caption">
 								<p class="tg-text tg-text-bold">🚨 {{ alert.symbol }}</p>
-								<p class="tg-text">{{ alert.priceContext }}</p>
-								<p class="tg-footer-text">{{ TELEGRAM_FOOTER }}</p>
+								<p class="tg-text">{{ alert.headline }}</p>
+								<p class="tg-footer-text">{{ PREVIEW_FOOTER }}</p>
 								<span class="tg-time" aria-hidden="true">9:42</span>
 							</div>
 						</div>
@@ -64,9 +64,13 @@
 import { computed } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ChevronLeftIcon from "../../../../icons/chevron-left.svg?component";
-import { TELEGRAM_FOOTER } from "../../../../lib/messaging/parts/footer";
 import { buildPreviewAlert, buildPreviewTelegramLines } from "./preview-data";
 import type { PreviewAsset } from "./types";
+
+// The preview is its own presentation artifact (channels own their formatting), so it
+// carries a trimmed footer: the opt-out hint only, without the "Not financial advice."
+// disclaimer the real Telegram messages send. Deliberately NOT the shared TELEGRAM_FOOTER.
+const PREVIEW_FOOTER = "Send /stop to pause alerts.";
 
 interface Props {
 	assets: PreviewAsset[];

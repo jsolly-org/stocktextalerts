@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildCandlestickSvg } from "../../../../../src/lib/messaging/parts/charts/candlestick";
-import type { IntradayCandle } from "../../../../../src/lib/types";
+import { buildCandlestickSvg } from "../../../../src/lib/messaging/telegram/candlestick";
+import type { IntradayCandle } from "../../../../src/lib/types";
 
 /** Two bars: first falls (o=101 → c=100), second rises (o=100 → c=102). */
 function mixedCandles(): IntradayCandle[] {

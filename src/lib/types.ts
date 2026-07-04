@@ -5,7 +5,7 @@
  * typed via `Database["public"]["Enums"]` in `src/lib/db/types.ts`.
  */
 
-import type { MessageEntity } from "grammy/types";
+import type { InlineKeyboardMarkup, MessageEntity } from "grammy/types";
 import type {
 	DailyNotificationContent,
 	FacetlessContent,
@@ -351,6 +351,9 @@ export type StagedSmsContent =
 interface StagedTelegramContent {
 	text: string;
 	entities: MessageEntity[];
+	/** Deep-linked "Manage notifications" button. Optional: rows staged before this
+	 *  field shipped deserialize with `replyMarkup: undefined` and send buttonless. */
+	replyMarkup?: InlineKeyboardMarkup;
 }
 
 export interface StagedDailyData extends ScheduledSlotKey {

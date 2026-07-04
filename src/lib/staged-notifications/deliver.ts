@@ -588,6 +588,12 @@ async function deliverStagedDaily(options: {
 					chatId: user.telegram_chat_id,
 					text: telegramPayload.text,
 					entities: telegramPayload.entities,
+					// replyMarkup rides from the staged row (prependDelayBannerToTelegram only
+					// rewrites text/entities). Legacy rows staged before this field shipped
+					// deserialize with `replyMarkup: undefined` → sent buttonless.
+					...(stagedData.telegram.replyMarkup
+						? { replyMarkup: stagedData.telegram.replyMarkup }
+						: {}),
 					// Routine scheduled digest — deliver silently like the live path.
 					disableNotification: true,
 				});

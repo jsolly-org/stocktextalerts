@@ -2,26 +2,57 @@ import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import type { buildAssetEventsContent } from "../../asset-events/content";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import { getSiteUrl } from "../../db/env";
+import type { TopMover } from "../../market-data/types";
 import type { MarketClosureInfo } from "../../time/types";
 import type { AssetPriceMap, DeliveryResult, UserAssetRow } from "../../types";
+import { formatAssetsHtmlList } from "../email/asset-price-list";
 import { renderEmailSection } from "../email/html-section";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
 import {
-	appendTelegramAssetPriceLines,
-	formatAssetsHtmlList,
 	formatAssetTextLine,
+	formatSignedChangePercent,
+	formatUsdPrice,
 } from "../parts/asset-price-list";
-import type { SparklineData, SparklineMap } from "../parts/charts/sparkline";
 import { formatContentSection } from "../parts/content-section";
 import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
 import {
-	buildMarketClosedBannerHtml,
-	buildMarketClosedBannerText,
+	buildMarketClosedBannerEmailHtml,
+	buildMarketClosedBannerEmailText,
+	buildMarketClosedBannerSms,
+	buildMarketClosedBannerTelegram,
 	buildMarketClosureLabel,
 } from "../parts/market-closure";
+import type { SparklineData, SparklineMap } from "../parts/sparkline";
 import { packSmsBlocks, type SmsBlock } from "../sms/block-packing";
 import { padDailyDigestSmsSegmentBoundaries } from "../sms/segment-utils";
-import type { NotificationExtras } from "../types";
+import { appendTelegramAssetPriceLines } from "../telegram/asset-price-lines";
+import type { NotificationExtras, TopMoversData } from "../types";
+
+/** One top-mover line: `TICKER — $1,234.56 (+1.23%)`. Shared numeric primitives keep
+ *  grouping/signs identical across channels. */
+function formatTopMoverLine(mover: TopMover): string {
+	return `${mover.ticker} — ${formatUsdPrice(mover.price)} (${formatSignedChangePercent(mover.changePercent)})`;
+}
+
+/**
+ * Render the top-movers `Gainers:` / `Losers:` block body from structured data.
+ * Reproduces the exact plain-text layout each digest channel wraps with its own
+ * section header (SMS/email/Telegram render byte-identical bodies today). Returns
+ * "" only if both lists are empty — callers gate on that to omit the section.
+ */
+function renderTopMoversBody(data: TopMoversData): string {
+	const lines: string[] = [];
+	if (data.gainers.length > 0) {
+		lines.push("Gainers:");
+		for (const m of data.gainers) lines.push(formatTopMoverLine(m));
+	}
+	if (data.losers.length > 0) {
+		if (lines.length > 0) lines.push("");
+		lines.push("Losers:");
+		for (const m of data.losers) lines.push(formatTopMoverLine(m));
+	}
+	return lines.join("\n");
+}
 
 const TICKER_LINE_RE = /^[A-Z][A-Z0-9.-]{0,9}:\s/;
 const QUOTE_TIMESTAMP_FORMAT_BASE: Intl.DateTimeFormatOptions = {
@@ -46,7 +77,7 @@ const QUOTE_TIMESTAMP_FORMATTER_24H = new Intl.DateTimeFormat("en-US", {
  *  ("Jan 2, 2025, 4:00 PM EST" / "Jan 2, 2025, 16:00 EST"), or null when none is usable.
  *  Stamps the market-closed banner with how stale the last-close prices are — shared by all
  *  three digest channels. Respects `use_24_hour_time` per the UI time convention (`is24`). */
-export function formatDigestQuoteAsOf(assetPrices: AssetPriceMap, is24: boolean): string | null {
+function formatDigestQuoteAsOf(assetPrices: AssetPriceMap, is24: boolean): string | null {
 	let latest: number | null = null;
 	for (const quote of assetPrices.values()) {
 		if (!quote || typeof quote.timestamp !== "number") continue;
@@ -169,7 +200,7 @@ function buildDailyDigestSmsBlocks(options: DailyDigestSmsFormatOptions): SmsBlo
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const marketDisclaimer =
 		options.marketOpen === false
-			? buildMarketClosedBannerText(
+			? buildMarketClosedBannerSms(
 					options.marketClosureInfo,
 					"prices",
 					formatDigestQuoteAsOf(options.assetPrices, options.is24Hour ?? false),
@@ -191,7 +222,10 @@ function buildDailyDigestSmsBlocks(options: DailyDigestSmsFormatOptions): SmsBlo
 		{
 			id: "topMovers",
 			boundary: "atomic",
-			text: formatContentSection("🚀 Top Movers", options.extras.topMovers),
+			text: formatContentSection(
+				"🚀 Top Movers",
+				options.extras.topMovers ? renderTopMoversBody(options.extras.topMovers) : null,
+			),
 		},
 		{ id: "news", boundary: "atomic", text: formatContentSection("🗞️ News", options.extras.news) },
 		{
@@ -334,7 +368,7 @@ export function formatDailyDigestEmail(options: {
 	const ipos = (ae?.eventsSection?.ipos ?? "").trim();
 	const analyst = (ae?.analystSection ?? "").trim();
 	const insider = (ae?.insiderSection ?? "").trim();
-	const topMovers = (options.extras.topMovers ?? "").trim();
+	const topMovers = options.extras.topMovers ? renderTopMoversBody(options.extras.topMovers) : "";
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
 		options.assetPrices,
@@ -358,10 +392,10 @@ export function formatDailyDigestEmail(options: {
 		? formatDigestQuoteAsOf(options.assetPrices, options.is24Hour ?? false)
 		: null;
 	const marketClosedText = showClosureBanner
-		? buildMarketClosedBannerText(closureInfo, "prices", closureAsOf)
+		? buildMarketClosedBannerEmailText(closureInfo, "prices", closureAsOf)
 		: null;
 	const marketClosedHtml = showClosureBanner
-		? buildMarketClosedBannerHtml(closureInfo, "prices", closureAsOf)
+		? buildMarketClosedBannerEmailHtml(closureInfo, "prices", closureAsOf)
 		: "";
 	const closureLabel = showClosureBanner
 		? closureInfo
@@ -448,16 +482,30 @@ export function formatDailyDigestTelegram(opts: {
 	assetEvents?: AssetEventsResult;
 	dateLabel: string;
 	delayBanner?: string | null;
-	marketClosedBanner?: string | null;
+	marketClosureInfo?: MarketClosureInfo | null;
+	/** User's 24-hour-time preference for the market-closed "as of" timestamp.
+	 *  Defaults to 12-hour (the DB default) when omitted; production callers pass it. */
+	is24Hour?: boolean;
 	sparklines?: SparklineMap;
 	marketOpen?: boolean;
 }): FormattedString {
+	// The Telegram channel renders its own market-closed banner from raw data (the
+	// Telegram-specific price map + is24 flag) so its "as of" staleness hint matches
+	// what this channel shows — no pre-rendered banner string is threaded in.
+	const marketClosedBanner =
+		opts.marketOpen === false
+			? buildMarketClosedBannerTelegram(
+					opts.marketClosureInfo,
+					"prices",
+					formatDigestQuoteAsOf(opts.assetPrices, opts.is24Hour ?? false),
+				)
+			: null;
 	let msg = fmt`${FormattedString.bold(`📊 Daily Digest · ${opts.dateLabel}`)}`;
 	if (opts.delayBanner) {
 		msg = fmt`${msg}\n${opts.delayBanner}`;
 	}
-	if (opts.marketClosedBanner) {
-		msg = fmt`${msg}\n${opts.marketClosedBanner}`;
+	if (marketClosedBanner) {
+		msg = fmt`${msg}\n${marketClosedBanner}`;
 	}
 
 	msg = appendTelegramAssetPriceLines({
@@ -470,7 +518,7 @@ export function formatDailyDigestTelegram(opts: {
 	});
 
 	if (opts.extras.topMovers) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("📈 Top movers")}\n${opts.extras.topMovers}`;
+		msg = fmt`${msg}\n\n${FormattedString.bold("📈 Top movers")}\n${renderTopMoversBody(opts.extras.topMovers)}`;
 	}
 	if (opts.extras.news) {
 		msg = fmt`${msg}\n\n${FormattedString.bold("📰 News")}\n${FormattedString.blockquote(opts.extras.news)}`;

@@ -67,8 +67,12 @@ function makeGrokResult(overrides: Partial<PriceAlertGrokResult> = {}): PriceAle
 function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 	return {
 		symbol: "LDOS",
-		priceContext: "LDOS is down 11.1% today ($173.00)",
-		signalContext: "The broader market (SPY) moved 0.85% today.",
+		priceMove: { symbol: "LDOS", changePercent: -11.1, price: 173.0, period: "today" },
+		signal: {
+			benchmarkLabel: "broader market (SPY)",
+			benchmarkMovePercent: 0.85,
+			hasEarningsNearby: false,
+		},
 		grokContext:
 			"down 11.10% ($21.42) from previous close, anomaly score 52/75 (sustained, vol 1.2x)",
 		grokResult: null,
@@ -380,7 +384,7 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 describe("deliverPriceAlert intraday sparklines", () => {
 	// Bars frame an LDOS-style selloff: opened down ~10% from prev close
 	// ($194.42) and continued lower through the session. Plausible alongside
-	// the priceContext fixture ("LDOS is down 11.1% today ($173.00)").
+	// the headline the priceMove facts render to ("LDOS is down 11.1% today ($173.00)").
 	const intradayCloses = [175.6, 174.8, 174.1, 173.7, 173.2, 172.9, 173.0];
 
 	it("SMS body contains Unicode sparkline when intradayCloses has data", async () => {

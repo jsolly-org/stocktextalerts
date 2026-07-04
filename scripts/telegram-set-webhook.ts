@@ -1,6 +1,10 @@
 /**
  * Idempotently point the Telegram bot webhook at our endpoint.
  *
+ * (The bot's command menu is registered separately by `telegram-set-commands.ts`,
+ * which needs only the token — this script is webhook-URL-coupled and shouldn't gate
+ * the rare, safe command-menu update behind a webhook re-point.)
+ *
  * Usage (human-run, requires the bot token + webhook secret in the env):
  *   npm run telegram:set-webhook            # set on drift only
  *   npm run telegram:set-webhook -- --force # always re-send (e.g. secret rotation)
@@ -12,6 +16,9 @@
  *                             the `X-Telegram-Bot-Api-Secret-Token` header.
  *   TELEGRAM_WEBHOOK_URL    — explicit webhook URL (preferred), else derived from
  *                             SITE_URL as `<SITE_URL>/api/messaging/telegram`.
+ *                             NOTE: run this with the PRODUCTION URL — a laptop's
+ *                             dev SITE_URL (localhost) is not HTTPS and Telegram
+ *                             rejects it.
  *
  * Idempotency: `getWebhookInfo` returns the currently-registered `url` (Telegram
  * never returns the secret). We compare the URL and only call `setWebhook` when

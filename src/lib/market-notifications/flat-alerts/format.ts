@@ -1,17 +1,17 @@
 import { getSiteUrl } from "../../db/env";
+import { renderIntradaySparklineImg } from "../../messaging/email/intraday-sparkline";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
+import { toSvgSparklineImg } from "../../messaging/email/svg-sparkline";
 import { formatUsdPrice, getChangeColor } from "../../messaging/parts/asset-price-list";
-import { renderIntradaySparklineImg } from "../../messaging/parts/charts/intraday-sparkline";
+import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../../messaging/parts/footer";
+import { escapeHtml } from "../../messaging/parts/html-utils";
 import {
 	downsampleEvenly,
 	EMAIL_SPARKLINE_LABEL,
 	SMS_SPARKLINE_LABEL,
 	type SparklineData,
 	toSparkline,
-} from "../../messaging/parts/charts/sparkline";
-import { toSvgSparklineImg } from "../../messaging/parts/charts/svg-sparkline";
-import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../../messaging/parts/footer";
-import { escapeHtml } from "../../messaging/parts/html-utils";
+} from "../../messaging/parts/sparkline";
 import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
 import type { ExtendedAssetQuote, IntradayBarsResult } from "../../types";
 import type { FlatPriceAlertUser } from "./users";
@@ -222,7 +222,7 @@ export function buildSubject(options: {
 	const arrow = triggerPercent >= 0 ? "↑" : "↓";
 	// Alert SUBJECT rounds change% to 1 decimal for readability — deliberately coarser
 	// than the 2-decimal precision on multi-asset price lines (asset-formatting.ts), mirroring
-	// the price-alert headline (enrichment.ts buildPriceContext).
+	// the price-alert headline (renderPriceAlertHeadline in parts/price-alert-sentences.ts).
 	const absPct = Math.abs(triggerPercent).toFixed(1);
 	const suffix = isReTrigger ? "since last alert" : "today";
 	return `${symbol} ${arrow} ${absPct}% ${suffix} — ${formatUsdPrice(currentPrice)}`;

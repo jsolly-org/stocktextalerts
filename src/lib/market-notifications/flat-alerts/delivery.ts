@@ -3,7 +3,7 @@ import { rootLogger } from "../../logging";
 import { sendUserEmail } from "../../messaging/email/index";
 import { type createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
-import type { SparklineData } from "../../messaging/parts/charts/sparkline";
+import type { SparklineData } from "../../messaging/parts/sparkline";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
 import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/telegram/eligibility";

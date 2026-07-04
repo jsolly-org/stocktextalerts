@@ -9,7 +9,7 @@ import {
 	formatDailyDigestTelegram,
 	summarizeDailyDigestSmsResults,
 } from "../messaging/notifications/daily-digest";
-import type { SparklineMap } from "../messaging/parts/charts/sparkline";
+import type { SparklineMap } from "../messaging/parts/sparkline";
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,
@@ -17,6 +17,7 @@ import {
 } from "../messaging/scheduled-channel";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
+import { buildDashboardButton } from "../messaging/telegram/dashboard-button";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
@@ -259,7 +260,8 @@ export async function processDailyDigestTelegramDelivery(options: {
 	/** Human date label in market tz, e.g. "Thu, Jun 19". */
 	dateLabel: string;
 	delayBanner?: string | null;
-	marketClosedBanner?: string | null;
+	marketClosureInfo?: MarketClosureInfo | null;
+	is24Hour?: boolean;
 	sparklines?: SparklineMap;
 	marketOpen?: boolean;
 	getTelegramSender: TelegramSenderFactory;
@@ -277,7 +279,8 @@ export async function processDailyDigestTelegramDelivery(options: {
 		assetEvents,
 		dateLabel,
 		delayBanner,
-		marketClosedBanner,
+		marketClosureInfo,
+		is24Hour,
 		sparklines,
 		marketOpen,
 		getTelegramSender,
@@ -328,7 +331,8 @@ export async function processDailyDigestTelegramDelivery(options: {
 		assetEvents,
 		dateLabel,
 		delayBanner,
-		marketClosedBanner,
+		marketClosureInfo,
+		is24Hour,
 		sparklines,
 		marketOpen,
 	});
@@ -337,6 +341,7 @@ export async function processDailyDigestTelegramDelivery(options: {
 		chatId: user.telegram_chat_id,
 		text: formatted.text,
 		entities: formatted.entities,
+		replyMarkup: buildDashboardButton("dailyNotifications"),
 		// Routine scheduled digest — deliver silently like other passive updates.
 		disableNotification: true,
 	});

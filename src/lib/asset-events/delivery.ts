@@ -13,6 +13,7 @@ import {
 } from "../messaging/scheduled-channel";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
+import { buildDashboardButton } from "../messaging/telegram/dashboard-button";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { EmailSender } from "../messaging/types";
@@ -303,6 +304,7 @@ export async function processAssetEventsTelegramDelivery(options: {
 		chatId: user.telegram_chat_id,
 		text: formatted.text,
 		entities: formatted.entities,
+		replyMarkup: buildDashboardButton("assetEvents"),
 		// Routine scheduled events digest — deliver silently.
 		disableNotification: true,
 	});

@@ -10,7 +10,7 @@ import {
 	type SparklineMap,
 	type SparklineWindow,
 	toSparkline,
-} from "../messaging/parts/charts/sparkline";
+} from "../messaging/parts/sparkline";
 import { fetchDailyCloses, fetchIntradayBars } from "./bars";
 import type { SparklineCacheOptions } from "./types";
 

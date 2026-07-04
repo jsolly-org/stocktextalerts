@@ -8,7 +8,8 @@ import {
 	formatDailyDigestSmsMessageBodies,
 	formatDailyDigestTelegram,
 } from "../messaging/notifications/daily-digest";
-import type { SparklineMap } from "../messaging/parts/charts/sparkline";
+import type { SparklineMap } from "../messaging/parts/sparkline";
+import { buildDashboardButton } from "../messaging/telegram/dashboard-button";
 import type { NotificationExtras } from "../messaging/types";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { upsertStagedNotification } from "../staged-notifications/db";
@@ -46,7 +47,6 @@ export interface StageDailyDigestOptions {
 	getLogoHtml?: (symbol: string) => string | undefined;
 	telegramDateLabel: string;
 	delayBannerText: string | null;
-	telegramMarketBanner: string | null;
 	grokAllowed: boolean;
 	hasAnyAssetEventsOption: boolean;
 	shouldUpdateAnalystMonth: boolean;
@@ -84,7 +84,6 @@ export async function stageDailyDigestContent(options: StageDailyDigestOptions):
 		getLogoHtml,
 		telegramDateLabel,
 		delayBannerText,
-		telegramMarketBanner,
 		grokAllowed,
 		hasAnyAssetEventsOption,
 		shouldUpdateAnalystMonth,
@@ -142,13 +141,18 @@ export async function stageDailyDigestContent(options: StageDailyDigestOptions):
 					assetEvents: telegramAssetEvents ?? null,
 					dateLabel: telegramDateLabel,
 					delayBanner: delayBannerText,
-					marketClosedBanner: telegramMarketBanner,
+					marketClosureInfo,
+					is24Hour: user.use_24_hour_time,
 					sparklines,
 					marketOpen,
 				})
 			: null;
 	const telegramContent = telegramFormatted
-		? { text: telegramFormatted.text, entities: [...telegramFormatted.entities] }
+		? {
+				text: telegramFormatted.text,
+				entities: [...telegramFormatted.entities],
+				replyMarkup: buildDashboardButton("dailyNotifications"),
+			}
 		: null;
 
 	const stagedData: StagedDailyData = {

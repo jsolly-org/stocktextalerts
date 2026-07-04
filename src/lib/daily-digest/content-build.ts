@@ -1,24 +1,21 @@
 import { DateTime, type DateTime as DateTimeType } from "luxon";
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
-import { fetchTopMovers, type TopMover } from "../market-data/movers";
-import { formatSignedChangePercent, formatUsdPrice } from "../messaging/parts/asset-price-list";
+import { fetchTopMovers } from "../market-data/movers";
+import type { TopMoversData } from "../messaging/types";
 import type { IsoDateString, MinuteOfDay, UserRecord } from "../types";
 import { withOptionalVendorBudget } from "../vendors/optional-vendors";
 
 const GROK_WINDOW_HOURS = 24;
 const GROK_MAX_SENDS_PER_WINDOW = 10;
 
-function formatMoverLine(mover: TopMover): string {
-	return `${mover.ticker} — ${formatUsdPrice(mover.price)} (${formatSignedChangePercent(mover.changePercent)})`;
-}
-
 /**
- * Fetch market-wide top gainers/losers and format them as a single email
- * section body. Returns `null` when both lists are empty (upstream failure
- * or all tickers filtered out) — callers skip the section in that case.
+ * Fetch market-wide top gainers/losers as structured data. Returns `null` when
+ * both lists are empty (upstream failure or all tickers filtered out) — callers
+ * skip the section in that case. Each channel renders its own layout from these
+ * arrays; this function no longer formats a string.
  */
-export async function buildTopMoversSection(): Promise<string | null> {
+export async function buildTopMoversData(): Promise<TopMoversData | null> {
 	const moversResult = await withOptionalVendorBudget("top-movers", 10_000, async () => {
 		const [gainers, losers] = await Promise.all([
 			fetchTopMovers("gainers", { optional: true }),
@@ -30,17 +27,10 @@ export async function buildTopMoversSection(): Promise<string | null> {
 		return null;
 	}
 	const { gainers, losers } = moversResult.value;
-	const lines: string[] = [];
-	if (gainers.length > 0) {
-		lines.push("Gainers:");
-		for (const m of gainers) lines.push(formatMoverLine(m));
+	if (gainers.length === 0 && losers.length === 0) {
+		return null;
 	}
-	if (losers.length > 0) {
-		if (lines.length > 0) lines.push("");
-		lines.push("Losers:");
-		for (const m of losers) lines.push(formatMoverLine(m));
-	}
-	return lines.length > 0 ? lines.join("\n") : null;
+	return { gainers, losers };
 }
 
 /** Return whether Grok is allowed within the user's rolling window limit. */

@@ -10,6 +10,16 @@ import type { DeliveryResult } from "../../src/lib/types";
 /** OTP accepted by the test double for {@link testCheckVerification}. */
 export const TEST_VERIFICATION_CODE = "000000";
 
+/**
+ * Extract the deep-link URL of the first inline-keyboard button on a Telegram
+ * message, narrowing the `InlineKeyboardButton` union (only the URL variant has
+ * `url`). Returns undefined when there's no button (e.g. a buttonless legacy row).
+ */
+export function dashboardButtonUrl(message: TelegramMessage | undefined): string | undefined {
+	const button = message?.replyMarkup?.inline_keyboard[0]?.[0];
+	return button && "url" in button ? button.url : undefined;
+}
+
 /** Deterministic email sender for tests without Mailpit. */
 export function createTestEmailSender(): EmailSender {
 	return async (_request: EmailRequest): Promise<DeliveryResult> => ({

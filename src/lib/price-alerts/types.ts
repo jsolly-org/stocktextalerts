@@ -16,12 +16,32 @@ export interface PriceAlertGrokResult {
 	links: PriceAlertLink[];
 }
 
+/** Structured price-move facts each channel renders into its own headline sentence
+ *  (e.g. "LDOS is down 11.1% today ($173.00)"). Shared as data, not a pre-rendered string. */
+export interface PriceMoveFacts {
+	symbol: string;
+	changePercent: number;
+	price: number;
+	/** Time-window phrase, e.g. "today" or "since last alert (27 min ago)". */
+	period: string;
+}
+
+/** Structured signal facts each channel renders into its own signal sentence
+ *  (benchmark move + earnings proximity). `benchmarkMovePercent` is signed (direction
+ *  from its sign, magnitude from its absolute value); null when no benchmark move is known. */
+export interface SignalFacts {
+	benchmarkLabel: string;
+	benchmarkMovePercent: number | null;
+	hasEarningsNearby: boolean;
+}
+
 /** Alert enriched with Grok-sourced context and intraday closing prices for sparkline rendering. */
 export interface EnrichedAlert {
 	symbol: string;
-	priceContext: string;
-	/** User-facing signal summary (no anomaly internals). */
-	signalContext: string;
+	/** Structured price-move facts; each channel renders its own headline sentence. */
+	priceMove: PriceMoveFacts;
+	/** Structured signal facts, or null when there's no user-facing signal to show. */
+	signal: SignalFacts | null;
 	/** Detailed context for Grok enrichment (includes anomaly score). */
 	grokContext: string;
 	/** Grok-sourced summary + links, or null if Grok failed/unavailable. */
@@ -43,6 +63,4 @@ export interface EnrichedAlert {
 	iconUrl?: string | null;
 	/** Pre-cached base64 logo data URI from the assets table. */
 	iconBase64?: string | null;
-	/** Direction of the benchmark (sector/market) move, for color-coding in emails. */
-	benchmarkDirection?: "up" | "down" | null;
 }

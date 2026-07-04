@@ -1,16 +1,24 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { AppSupabaseClient } from "../../../../src/lib/db/supabase";
 import {
+	deliverTelegramPriceAlert,
 	formatPriceAlertTelegram,
 	type TelegramPriceAlert,
 } from "../../../../src/lib/messaging/telegram/price-alert";
+import type { TelegramMessage, TelegramSender } from "../../../../src/lib/messaging/types";
 import type { EnrichedAlert } from "../../../../src/lib/price-alerts/types";
-import type { IntradayCandle } from "../../../../src/lib/types";
+import type { ChannelDeliveryStats, IntradayCandle } from "../../../../src/lib/types";
+import { dashboardButtonUrl } from "../../../helpers/messaging-doubles";
 
 function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 	return {
 		symbol: "LDOS",
-		priceContext: "LDOS is down 11.1% today ($173.00)",
-		signalContext: "The broader market (SPY) moved up 0.85% today.",
+		priceMove: { symbol: "LDOS", changePercent: -11.1, price: 173.0, period: "today" },
+		signal: {
+			benchmarkLabel: "broader market (SPY)",
+			benchmarkMovePercent: 0.85,
+			hasEarningsNearby: false,
+		},
 		grokContext: "down 11.10% from previous close, anomaly score 52/75",
 		grokResult: null,
 		intradayCloses: null,
@@ -87,5 +95,74 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 		const single = await formatPriceAlertTelegram(makeAlert(), makeCandles(1));
 		expect(single.photo).toBeNull();
 		expect(single.text).toContain("LDOS");
+	});
+});
+
+/** Minimal supabase double: notification_log insert succeeds; nothing else is touched
+ *  on a successful, non-bot-blocked send. */
+function makeInsertOnlySupabase(): AppSupabaseClient {
+	return {
+		from() {
+			return { insert: async () => ({ error: null }) };
+		},
+	} as unknown as AppSupabaseClient;
+}
+
+function makeStats(): ChannelDeliveryStats {
+	return {
+		emailsSent: 0,
+		emailsFailed: 0,
+		smsSent: 0,
+		smsFailed: 0,
+		telegramSent: 0,
+		telegramFailed: 0,
+		logFailures: 0,
+	};
+}
+
+describe("deliverTelegramPriceAlert attaches the 'Manage notifications' dashboard button", () => {
+	it("rides the candlestick sendPhoto path with a Market-Notifications deep link", async () => {
+		const sendTelegram = vi.fn<TelegramSender>(async () => ({
+			success: true,
+			messageSid: "tg-alert-1",
+		}));
+
+		const delivered = await deliverTelegramPriceAlert({
+			alert: makeAlert({ intradayCandles: makeCandles(6) }),
+			user: { id: "user-1", telegram_chat_id: 4242 },
+			sendTelegram,
+			supabase: makeInsertOnlySupabase(),
+			stats: makeStats(),
+			notificationType: "price_alert",
+			failureLogMessage: "fail",
+			failureErrorFallback: "fail",
+			failureLogContext: {},
+		});
+
+		expect(delivered).toBe(true);
+		const sent = sendTelegram.mock.calls[0]?.[0] as TelegramMessage;
+		// A candlestick PNG is present, so the button rides the sendPhoto path.
+		expect(sent.photo).toBeInstanceOf(Buffer);
+		expect(dashboardButtonUrl(sent)).toContain("#market-notifications");
+	});
+
+	it("rides the text fallback (no photo) with the same deep link", async () => {
+		const sendTelegram = vi.fn<TelegramSender>(async () => ({ success: true }));
+
+		await deliverTelegramPriceAlert({
+			alert: makeAlert({ intradayCandles: [] }),
+			user: { id: "user-2", telegram_chat_id: 4343 },
+			sendTelegram,
+			supabase: makeInsertOnlySupabase(),
+			stats: makeStats(),
+			notificationType: "price_alert",
+			failureLogMessage: "fail",
+			failureErrorFallback: "fail",
+			failureLogContext: {},
+		});
+
+		const sent = sendTelegram.mock.calls[0]?.[0] as TelegramMessage;
+		expect(sent.photo).toBeUndefined();
+		expect(dashboardButtonUrl(sent)).toContain("#market-notifications");
 	});
 });

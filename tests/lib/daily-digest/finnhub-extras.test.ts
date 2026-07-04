@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { formatAnalystSection, formatInsiderSection } from "../../../src/lib/asset-events/format";
+import {
+	formatAnalystSectionEmail,
+	formatAnalystSectionSms,
+	formatInsiderSectionEmail,
+	formatInsiderSectionSms,
+} from "../../../src/lib/asset-events/format";
 import {
 	buildNewsContextForGrok,
 	fetchFinnhubExtras,
@@ -111,7 +116,7 @@ describe("formatAnalystSection formats recommendation trends per ticker.", () =>
 			["MSFT", null],
 		]);
 
-		const result = formatAnalystSection(data, "sms");
+		const result = formatAnalystSectionSms(data);
 
 		expect(result).toBe("AAPL: 32 Buy, 6 Hold, 1 Sell");
 	});
@@ -131,7 +136,7 @@ describe("formatAnalystSection formats recommendation trends per ticker.", () =>
 			],
 		]);
 
-		const result = formatAnalystSection(data, "email");
+		const result = formatAnalystSectionEmail(data);
 
 		expect(result).toContain("15 Strong Buy");
 		expect(result).toContain("38 Buy");
@@ -144,7 +149,7 @@ describe("formatAnalystSection formats recommendation trends per ticker.", () =>
 	it("Returns null when all tickers have null data.", () => {
 		const data = new Map<string, RecommendationTrend | null>([["AAPL", null]]);
 
-		const result = formatAnalystSection(data, "sms");
+		const result = formatAnalystSectionSms(data);
 
 		expect(result).toBeNull();
 	});
@@ -178,7 +183,7 @@ describe("formatInsiderSection formats insider transactions per ticker.", () => 
 
 		const data = new Map<string, InsiderTransaction[]>([["AAPL", transactions]]);
 
-		const result = formatInsiderSection(data, "sms");
+		const result = formatInsiderSectionSms(data);
 
 		expect(result).not.toBeNull();
 		const lines = result?.split("\n");
@@ -199,7 +204,7 @@ describe("formatInsiderSection formats insider transactions per ticker.", () => 
 
 		const data = new Map<string, InsiderTransaction[]>([["TSLA", transactions]]);
 
-		const result = formatInsiderSection(data, "email");
+		const result = formatInsiderSectionEmail(data);
 
 		expect(result).not.toBeNull();
 		const lines = result?.split("\n");
@@ -210,7 +215,7 @@ describe("formatInsiderSection formats insider transactions per ticker.", () => 
 	it("Returns null when no transactions exist but tickers are present.", () => {
 		const data = new Map<string, InsiderTransaction[]>([["AAPL", []]]);
 
-		const result = formatInsiderSection(data, "sms");
+		const result = formatInsiderSectionSms(data);
 
 		expect(result).toBeNull();
 	});
@@ -218,7 +223,7 @@ describe("formatInsiderSection formats insider transactions per ticker.", () => 
 	it("Returns null when the map is empty.", () => {
 		const data = new Map<string, InsiderTransaction[]>();
 
-		const result = formatInsiderSection(data, "sms");
+		const result = formatInsiderSectionSms(data);
 
 		expect(result).toBeNull();
 	});
