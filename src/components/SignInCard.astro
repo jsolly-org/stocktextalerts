@@ -1,7 +1,6 @@
 ---
 
 import StatusMessage from "./StatusMessage.astro";
-import EmailInput from "./EmailInput.vue";
 import { REGISTRATION_ENABLED } from "../lib/constants";
 
 interface Props {
@@ -46,13 +45,12 @@ const {
       <legend class="sr-only">Sign in credentials</legend>
       <div>
         <label for="email" class="block text-sm font-medium text-label mb-2">Email</label>
-        <EmailInput
-          client:load
+        <input
           type="email"
           name="email"
           id="email"
           required
-          autocomplete="email"
+          autocomplete="username"
           class="input input-lg"
           placeholder="you@example.com"
           value={emailPrefill}

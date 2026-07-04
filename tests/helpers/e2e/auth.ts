@@ -15,20 +15,12 @@ export async function expectCurrentPath(
 		.toBe(expectedPath);
 }
 
-/** Fill a client:load EmailInput after Vue hydration (sign-in, forgot, register). */
+/** Fill the email field on the sign-in / forgot / register forms. */
 export async function fillEmailInput(page: Page, email: string): Promise<void> {
 	const emailInput = page.locator("#email");
 	await emailInput.waitFor({ state: "visible", timeout: 15_000 });
-	// EmailInput is client:load Vue — poll until fill sticks after hydration.
-	await expect
-		.poll(
-			async () => {
-				await emailInput.fill(email);
-				return emailInput.inputValue();
-			},
-			{ timeout: 10_000, message: "Email value cleared by hydration" },
-		)
-		.toBe(email);
+	await emailInput.fill(email);
+	await expect(emailInput).toHaveValue(email, { timeout: 10_000 });
 }
 
 export async function signIn(
@@ -40,8 +32,8 @@ export async function signIn(
 	const expectedPath = options.expectedPath ?? "/dashboard";
 	const signInTimeout = process.env.CI ? 60_000 : 30_000;
 	// Fresh Playwright contexts often hit /auth/signin as their first navigation.
-	// Warm the dev server and let EmailInput (client:load) hydrate before submit —
-	// otherwise HTML5 validation can block the POST (see delivery-times.e2e.spec.ts).
+	// Warm the dev server before submit so the fields are ready and HTML5
+	// validation can't block the POST (see delivery-times.e2e.spec.ts).
 	const pageUrl = page.url();
 	if (pageUrl === "about:blank" || pageUrl === "") {
 		await page.goto("/", { waitUntil: "domcontentloaded", timeout: signInTimeout });
@@ -52,7 +44,6 @@ export async function signIn(
 	});
 	await fillEmailInput(page, email);
 	await page.locator("#password").fill(password);
-	await expect(page.locator("#email")).toHaveValue(email, { timeout: 10_000 });
 	const signInResponse = page.waitForResponse(
 		(response) =>
 			response.request().method() === "POST" && response.url().includes("/api/auth/signin"),

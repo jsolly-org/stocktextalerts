@@ -1,7 +1,6 @@
 ---
 
 import { Icon } from "astro-icon/components";
-import EmailInput from "../../components/EmailInput.vue";
 import Footer from "../../components/Footer.astro";
 import StatusMessage from "../../components/StatusMessage.astro";
 import Layout from "../../layouts/Layout.astro";
@@ -85,13 +84,12 @@ if (error === "user_already_exists") {
             <legend class="sr-only">Account information</legend>
             <div>
               <label for="email" class="block text-sm font-medium text-label mb-2">Email</label>
-              <EmailInput
-                client:load
+              <input
                 type="email"
                 name="email"
                 id="email"
                 required
-                autocomplete="email"
+                autocomplete="username"
                 class="input input-lg"
                 placeholder="you@example.com"
               />

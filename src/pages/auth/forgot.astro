@@ -1,7 +1,6 @@
 ---
 
 import { Icon } from "astro-icon/components";
-import EmailInput from "../../components/EmailInput.vue";
 import Footer from "../../components/Footer.astro";
 import Navigation from "../../components/Navigation.astro";
 import StatusMessage from "../../components/StatusMessage.astro";
@@ -64,8 +63,7 @@ if (success === "true") {
           <fieldset>
             <legend class="sr-only">Reset email</legend>
             <label for="email" class="block text-sm font-medium text-label mb-2">Email</label>
-            <EmailInput
-              client:load
+            <input
               type="email"
               name="email"
               id="email"
