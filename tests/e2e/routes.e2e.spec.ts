@@ -190,7 +190,14 @@ test("A signed-in user can navigate all routes without console errors.", async (
 			const isSigninRedirect = route === "/auth/signin" && finalPath === "/dashboard";
 			const isRegisterGateRedirect =
 				route === "/auth/register" && (finalPath === "/auth/signin" || finalPath === "/dashboard");
-			if (!isSigninRedirect && !isRegisterGateRedirect && finalPath !== route) {
+			// Signed-in approved users are bounced off the landing page to the dashboard (src/pages/index.astro).
+			const isLandingRedirect = route === "/" && finalPath === "/dashboard";
+			if (
+				!isSigninRedirect &&
+				!isRegisterGateRedirect &&
+				!isLandingRedirect &&
+				finalPath !== route
+			) {
 				throw new Error(`Route ${route} redirected to ${finalPath}`);
 			}
 
