@@ -1,4 +1,3 @@
-import { buildPriceContext } from "../messaging/parts/asset-price-list";
 import type { ExtendedAssetQuote, IntradayBarsResult } from "../types";
 import type { EnrichedAlert } from "./types";
 
@@ -13,8 +12,8 @@ export function buildFlatAlertEnriched(options: {
 	const { symbol, quote, triggerPercent, since, intraday } = options;
 	return {
 		symbol,
-		priceContext: buildPriceContext(symbol, triggerPercent, quote.price, since),
-		signalContext: "",
+		priceMove: { symbol, changePercent: triggerPercent, price: quote.price, period: since },
+		signal: null,
 		grokContext: "",
 		grokResult: null,
 		intradayCloses: intraday?.closes ?? null,

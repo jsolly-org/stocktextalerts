@@ -47,7 +47,7 @@
 							/>
 							<div class="tg-caption">
 								<p class="tg-text tg-text-bold">🚨 {{ alert.symbol }}</p>
-								<p class="tg-text">{{ alert.priceContext }}</p>
+								<p class="tg-text">{{ alert.headline }}</p>
 								<p class="tg-footer-text">{{ PREVIEW_FOOTER }}</p>
 								<span class="tg-time" aria-hidden="true">9:42</span>
 							</div>

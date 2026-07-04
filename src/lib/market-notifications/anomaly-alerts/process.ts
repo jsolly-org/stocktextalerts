@@ -397,7 +397,7 @@ export async function processPriceAlerts(options: {
 		}
 
 		// Signal context is per-symbol (universal), so enrich once per symbol
-		const { grokContext, userSignalContext } = buildSignalContexts({
+		const { grokContext, signal } = buildSignalContexts({
 			percentMove,
 			dollarMove,
 			anomalyScore: anomalyResult.score,
@@ -415,15 +415,13 @@ export async function processPriceAlerts(options: {
 				symbol,
 				quote,
 				grokContext,
-				userSignalContext,
+				signal,
 				intradayCloses,
 				intradayTimestamps,
 				intradayEndTimestamp,
 				intradayCandles,
 				iconUrl: assetIconUrlMap.get(symbol) ?? null,
 				iconBase64: assetIconBase64Map.get(symbol) ?? null,
-				benchmarkDirection:
-					benchmarkMoveSigned != null ? (benchmarkMoveSigned >= 0 ? "up" : "down") : null,
 			});
 		} catch (err) {
 			rootLogger.error(

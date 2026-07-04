@@ -7,6 +7,7 @@ import type { ChannelDeliveryStats, IntradayCandle } from "../../types";
 import { buildCandlestickSvg } from "../parts/charts/candlestick";
 import { renderChartPng } from "../parts/charts/render-png";
 import { TELEGRAM_FOOTER } from "../parts/footer";
+import { renderPriceAlertHeadline, renderSignalSentence } from "../parts/price-alert-sentences";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { TelegramSender } from "../types";
 import { optOutIfBotBlocked } from "./opt-out";
@@ -36,13 +37,13 @@ export async function formatPriceAlertTelegram(
 	alert: EnrichedAlert,
 	candles: IntradayCandle[],
 ): Promise<TelegramPriceAlert> {
-	// `priceContext` already reads e.g. "AAPL is up 2.5% today ($228.50)" — reuse it as
-	// the human-readable price/change line so SMS/email/Telegram stay consistent.
-	const headline = FormattedString.bold(`🚨 ${alert.symbol}`);
-	let msg = fmt`${headline}\n${alert.priceContext}`;
+	// Render this channel's own headline from the structured price facts, e.g.
+	// "AAPL is up 2.5% today ($228.50)" — the same sentence SMS/email produce.
+	const boldTicker = FormattedString.bold(`🚨 ${alert.symbol}`);
+	let msg = fmt`${boldTicker}\n${renderPriceAlertHeadline(alert.priceMove)}`;
 
-	if (alert.signalContext) {
-		msg = fmt`${msg}\n${alert.signalContext}`;
+	if (alert.signal) {
+		msg = fmt`${msg}\n${renderSignalSentence(alert.signal)}`;
 	}
 
 	// One-line "why" from Grok, when available. Strip inline markdown links — Telegram

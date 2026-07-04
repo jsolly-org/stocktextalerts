@@ -20,5 +20,6 @@ export interface PreviewTelegramLine {
 export interface PreviewAlert {
 	symbol: string;
 	svgDataUri: string;
-	priceContext: string;
+	/** Rendered headline sentence (the Telegram channel's, which this panel previews). */
+	headline: string;
 }

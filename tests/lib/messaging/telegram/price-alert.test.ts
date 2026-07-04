@@ -9,8 +9,12 @@ import type { IntradayCandle } from "../../../../src/lib/types";
 function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 	return {
 		symbol: "LDOS",
-		priceContext: "LDOS is down 11.1% today ($173.00)",
-		signalContext: "The broader market (SPY) moved up 0.85% today.",
+		priceMove: { symbol: "LDOS", changePercent: -11.1, price: 173.0, period: "today" },
+		signal: {
+			benchmarkLabel: "broader market (SPY)",
+			benchmarkMovePercent: 0.85,
+			hasEarningsNearby: false,
+		},
 		grokContext: "down 11.10% from previous close, anomaly score 52/75",
 		grokResult: null,
 		intradayCloses: null,

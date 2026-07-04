@@ -34,20 +34,6 @@ export function formatUsdPrice(price: number): string {
 	return `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-/** Single-asset alert HEADLINE ("LDOS is down 11.1% today ($173.00)").
- *  Rounds change% to 1 decimal for readability — deliberately coarser than the 2-decimal
- *  precision on multi-asset price lines; the flat-alert subject builder mirrors this
- *  convention. `period` covers re-trigger phrasing ("since last alert"). */
-export function buildPriceContext(
-	symbol: string,
-	changePercent: number,
-	price: number,
-	period = "today",
-): string {
-	const direction = changePercent >= 0 ? "up" : "down";
-	return `${symbol} is ${direction} ${Math.abs(changePercent).toFixed(1)}% ${period} (${formatUsdPrice(price)})`;
-}
-
 /** Canonical signed change-percent rendering ("+1.23%" / "-4.50%"); `>= 0` gets a `+`.
  *  Caller adds any surrounding parens. 2 decimals fleet-wide. */
 export function formatSignedChangePercent(changePercent: number): string {

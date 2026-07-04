@@ -222,7 +222,7 @@ export function buildSubject(options: {
 	const arrow = triggerPercent >= 0 ? "↑" : "↓";
 	// Alert SUBJECT rounds change% to 1 decimal for readability — deliberately coarser
 	// than the 2-decimal precision on multi-asset price lines (asset-formatting.ts), mirroring
-	// the price-alert headline (enrichment.ts buildPriceContext).
+	// the price-alert headline (renderPriceAlertHeadline in parts/price-alert-sentences.ts).
 	const absPct = Math.abs(triggerPercent).toFixed(1);
 	const suffix = isReTrigger ? "since last alert" : "today";
 	return `${symbol} ${arrow} ${absPct}% ${suffix} — ${formatUsdPrice(currentPrice)}`;
