@@ -1,10 +1,5 @@
 ---
 import { REGISTRATION_ENABLED } from "../../lib/constants";
-
-interface Props {
-	isAuthenticated: boolean;
-}
-const { isAuthenticated } = Astro.props;
 ---
 <section class="bg-primary-strong" aria-labelledby="cta-heading">
   <div class="max-w-3xl mx-auto text-center py-20 px-6 sm:py-24 sm:px-8 lg:px-12">
@@ -14,7 +9,7 @@ const { isAuthenticated } = Astro.props;
     <p class="mt-6 text-xl leading-relaxed text-blue-100">
       Track your assets and let us handle the rest. Get updates via email, text messages, or both—your choice.
     </p>
-    {!isAuthenticated && REGISTRATION_ENABLED && (
+    {REGISTRATION_ENABLED && (
       <div class="mt-10">
         <a
           href="/auth/register"

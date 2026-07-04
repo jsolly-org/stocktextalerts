@@ -60,6 +60,46 @@ describe("Users can load pages without unexpected errors.", () => {
 		expect(response.status).toBe(200);
 	});
 
+	it("An approved signed-in user is redirected to the dashboard from the landing page.", async () => {
+		await withTestUser(
+			{
+				email: createTestEmail("approved-landing"),
+				password: TEST_PASSWORD,
+				confirmed: true,
+				approved: true,
+			},
+			async (_user, cookies) => {
+				const container = await AstroContainer.create({ renderers });
+				const response = await container.renderToResponse(IndexPage, {
+					request: buildRequest("/", cookies),
+				});
+
+				expect(response.status).toBe(302);
+				expect(response.headers.get("Location")).toBe("/dashboard");
+			},
+		);
+	});
+
+	it("An unapproved signed-in user is redirected to pending approval from the landing page.", async () => {
+		await withTestUser(
+			{
+				email: createTestEmail("pending-landing"),
+				password: TEST_PASSWORD,
+				confirmed: true,
+				approved: false,
+			},
+			async (_user, cookies) => {
+				const container = await AstroContainer.create({ renderers });
+				const response = await container.renderToResponse(IndexPage, {
+					request: buildRequest("/", cookies),
+				});
+
+				expect(response.status).toBe(302);
+				expect(response.headers.get("Location")).toBe("/auth/pending-approval");
+			},
+		);
+	});
+
 	it("A logged-out visitor can view the sign-in page.", async () => {
 		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(SignInPage, {
