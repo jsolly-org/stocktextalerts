@@ -54,7 +54,8 @@
 		"backup:restore": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/backup-restore.ts",
 		"db:fetch-assets": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/fetch-us-assets.ts",
 		"db:generate-seed": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/generate-seed.ts",
-		"telegram:set-webhook": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/telegram-set-webhook.ts"
+		"telegram:set-webhook": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/telegram-set-webhook.ts",
+		"telegram:set-commands": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/telegram-set-commands.ts"
 	},
 	"lint-staged": {
 		"**/*.{ts,tsx,json,css,astro,html,vue}": [
