@@ -18,6 +18,7 @@ import type {
 	TelegramSender,
 } from "../../../../src/lib/messaging/types";
 import type { ChannelDeliveryStats, ExtendedAssetQuote } from "../../../../src/lib/types";
+import { dashboardButtonUrl } from "../../../helpers/messaging-doubles";
 import { makePrefRows } from "../../../helpers/user-record-fixture";
 import { expectConsoleError } from "../../../setup";
 
@@ -129,6 +130,8 @@ describe("A Telegram-linked user receives a 5% flat-price alert via Telegram", (
 		const sent = sendTelegram.mock.calls[0]![0] as TelegramMessage;
 		expect(sent.chatId).toBe(778899);
 		expect(sent.text).toContain("LDOS");
+		// Price alerts deep-link to the Market Notifications section.
+		expect(dashboardButtonUrl(sent)).toContain("#market-notifications");
 		expect(stats.telegramSent).toBe(1);
 
 		const tgLog = inserts.find(

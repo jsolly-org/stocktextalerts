@@ -9,6 +9,7 @@ import { renderPriceAlertHeadline, renderSignalSentence } from "../parts/price-a
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { TelegramSender } from "../types";
 import { buildCandlestickSvg } from "./candlestick";
+import { buildDashboardButton } from "./dashboard-button";
 import { optOutIfBotBlocked } from "./opt-out";
 import { renderChartPng } from "./render-png";
 
@@ -110,6 +111,9 @@ export async function deliverTelegramPriceAlert(options: {
 		chatId: user.telegram_chat_id as number,
 		text,
 		entities,
+		// Rides both the candlestick sendPhoto path and the text fallback (sendViaBot
+		// forwards reply_markup on both). Price alerts live under Market Notifications.
+		replyMarkup: buildDashboardButton("marketNotifications"),
 		...(photo ? { photo } : {}),
 	});
 

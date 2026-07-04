@@ -1,10 +1,12 @@
 import { timingSafeEqual } from "node:crypto";
 import type { APIRoute } from "astro";
+import type { InlineKeyboardMarkup } from "grammy/types";
 import { verifyLinkToken } from "../../../lib/auth/deep-link-token";
 import { requireEnv } from "../../../lib/db/env";
 import { createSupabaseAdminClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
+import { buildDashboardButton } from "../../../lib/messaging/telegram/dashboard-button";
 import {
 	createTelegramBot,
 	createTelegramSender,
@@ -54,6 +56,7 @@ function parseCommand(text: string): { command: string; args: string } | null {
 const HELP_TEXT =
 	"StockTextAlerts sends your tracked stock & ETF updates here.\n\n" +
 	"Commands:\n" +
+	"/dashboard — open your notification dashboard\n" +
 	"/stop — pause Telegram alerts (keeps your account)\n" +
 	"/unlink — disconnect this chat from your account\n" +
 	"/help — show this message\n\n" +
@@ -174,6 +177,13 @@ async function processUpdate(
 				logger,
 			);
 			return;
+		case "dashboard":
+			await reply(
+				chatId,
+				"Open your StockTextAlerts dashboard:",
+				buildDashboardButton("notificationChannels"),
+			);
+			return;
 		case "stop":
 			await handleStop(chatId, admin, logger);
 			return;
@@ -285,10 +295,14 @@ async function handleStartLink(
  * failed reply must not turn a successful link into a non-2XX (which would make
  * Telegram retry the now-consumed update).
  */
-async function reply(chatId: number, text: string): Promise<void> {
+async function reply(
+	chatId: number,
+	text: string,
+	replyMarkup?: InlineKeyboardMarkup,
+): Promise<void> {
 	try {
 		const sender = createTelegramSender(createTelegramBot(readTelegramBotToken()));
-		await sender({ chatId, text });
+		await sender({ chatId, text, ...(replyMarkup ? { replyMarkup } : {}) });
 	} catch {
 		// Swallow: the link state is already persisted; the user can re-open the bot.
 	}

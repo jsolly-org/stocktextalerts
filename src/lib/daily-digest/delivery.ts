@@ -17,6 +17,7 @@ import {
 } from "../messaging/scheduled-channel";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
+import { buildDashboardButton } from "../messaging/telegram/dashboard-button";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
@@ -340,6 +341,7 @@ export async function processDailyDigestTelegramDelivery(options: {
 		chatId: user.telegram_chat_id,
 		text: formatted.text,
 		entities: formatted.entities,
+		replyMarkup: buildDashboardButton("dailyNotifications"),
 		// Routine scheduled digest — deliver silently like other passive updates.
 		disableNotification: true,
 	});

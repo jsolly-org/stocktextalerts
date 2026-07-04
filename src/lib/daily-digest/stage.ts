@@ -9,6 +9,7 @@ import {
 	formatDailyDigestTelegram,
 } from "../messaging/notifications/daily-digest";
 import type { SparklineMap } from "../messaging/parts/sparkline";
+import { buildDashboardButton } from "../messaging/telegram/dashboard-button";
 import type { NotificationExtras } from "../messaging/types";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { upsertStagedNotification } from "../staged-notifications/db";
@@ -147,7 +148,11 @@ export async function stageDailyDigestContent(options: StageDailyDigestOptions):
 				})
 			: null;
 	const telegramContent = telegramFormatted
-		? { text: telegramFormatted.text, entities: [...telegramFormatted.entities] }
+		? {
+				text: telegramFormatted.text,
+				entities: [...telegramFormatted.entities],
+				replyMarkup: buildDashboardButton("dailyNotifications"),
+			}
 		: null;
 
 	const stagedData: StagedDailyData = {

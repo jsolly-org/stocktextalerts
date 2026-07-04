@@ -10,6 +10,7 @@ import {
 } from "../../messaging/scheduled-channel";
 import { processSmsUpdate } from "../../messaging/sms/delivery";
 import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
+import { buildDashboardButton } from "../../messaging/telegram/dashboard-button";
 import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../../messaging/telegram/sender-factory";
 import type { EmailSender } from "../../messaging/types";
@@ -341,6 +342,7 @@ export async function processMarketScheduledTelegramDelivery(options: {
 		chatId: user.telegram_chat_id,
 		text: formatted.text,
 		entities: formatted.entities,
+		replyMarkup: buildDashboardButton("marketNotifications"),
 		// Routine scheduled update — deliver silently like other passive updates.
 		disableNotification: true,
 	});

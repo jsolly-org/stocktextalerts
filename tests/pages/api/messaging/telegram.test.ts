@@ -1,11 +1,26 @@
 import { randomInt } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { mintLinkToken } from "../../../../src/lib/auth/deep-link-token";
+import type { TelegramMessage } from "../../../../src/lib/messaging/types";
 import { POST } from "../../../../src/pages/api/messaging/telegram";
 import { createApiContext } from "../../../helpers/api-context";
+import { dashboardButtonUrl } from "../../../helpers/messaging-doubles";
 import { adminClient } from "../../../helpers/test-env";
 import { createTestUser } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
+
+// Capture the webhook's best-effort confirmation replies (reply() creates its own
+// bot/sender internally and swallows send failures, so we stub the transport to
+// observe what it would send).
+const { sentMessages } = vi.hoisted(() => ({ sentMessages: [] as TelegramMessage[] }));
+vi.mock("../../../../src/lib/messaging/telegram/sender", () => ({
+	readTelegramBotToken: () => "test-bot-token",
+	createTelegramBot: () => ({}),
+	createTelegramSender: () => async (message: TelegramMessage) => {
+		sentMessages.push(message);
+		return { success: true };
+	},
+}));
 
 const WEBHOOK_SECRET = "test-telegram-webhook-secret"; // mirrors tests/setup.ts stub
 const SECRET_HEADER = "X-Telegram-Bot-Api-Secret-Token";
@@ -384,5 +399,31 @@ describe("The Telegram bot honors /stop, /unlink, and /help on a linked chat.", 
 			}),
 		);
 		expect(response.status).toBe(200);
+	});
+
+	it("/dashboard replies with the deep-linked Manage-notifications button and mutates nothing.", async () => {
+		sentMessages.length = 0;
+		const chatId = uniqueId();
+		const response = await postCommand(
+			buildCommandUpdate({ updateId: uniqueId(), text: "/dashboard", chatId, fromId: uniqueId() }),
+		);
+		expect(response.status).toBe(200);
+
+		const reply = sentMessages.find((m) => m.chatId === chatId);
+		expect(reply?.text).toContain("dashboard");
+		// The button deep-links to the notification-channels section.
+		expect(dashboardButtonUrl(reply)).toContain("#notification-channels");
+	});
+
+	it("the help text lists the /dashboard command.", async () => {
+		sentMessages.length = 0;
+		const chatId = uniqueId();
+		const response = await postCommand(
+			buildCommandUpdate({ updateId: uniqueId(), text: "/help", chatId, fromId: uniqueId() }),
+		);
+		expect(response.status).toBe(200);
+
+		const reply = sentMessages.find((m) => m.chatId === chatId);
+		expect(reply?.text).toContain("/dashboard");
 	});
 });
