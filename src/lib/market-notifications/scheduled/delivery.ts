@@ -38,7 +38,6 @@ export async function processMarketScheduledEmailDelivery(options: {
 	scheduledDate: IsoDateString;
 	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
-	assetsList: string;
 	sendEmail: EmailSender;
 	priceMap: AssetPriceMap;
 	noSessionTrade?: Set<string>;
@@ -60,7 +59,6 @@ export async function processMarketScheduledEmailDelivery(options: {
 		scheduledDate,
 		scheduledMinutes,
 		userAssets,
-		assetsList,
 		sendEmail,
 		priceMap,
 		noSessionTrade,
@@ -92,7 +90,6 @@ export async function processMarketScheduledEmailDelivery(options: {
 		supabase,
 		user,
 		userAssets,
-		assetsList,
 		sendEmail,
 		priceMap,
 		marketSession,
@@ -144,7 +141,9 @@ export async function processMarketScheduledSmsDelivery(options: {
 	scheduledDate: IsoDateString;
 	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
-	assetsList: string;
+	priceMap: AssetPriceMap;
+	noSessionTrade?: Set<string>;
+	getSparkline?: (symbol: string) => SparklineData | null | undefined;
 	getSmsSender: SmsSenderFactory;
 	marketSession: MarketSession;
 	marketClosureInfo?: MarketClosureInfo | null;
@@ -162,7 +161,10 @@ export async function processMarketScheduledSmsDelivery(options: {
 		logger,
 		scheduledDate,
 		scheduledMinutes,
-		assetsList,
+		userAssets,
+		priceMap,
+		noSessionTrade,
+		getSparkline,
 		getSmsSender,
 		marketSession,
 		marketClosureInfo,
@@ -205,13 +207,16 @@ export async function processMarketScheduledSmsDelivery(options: {
 	const smsStats = await processSmsUpdate(
 		supabase,
 		user,
-		assetsList,
+		userAssets,
+		priceMap,
 		smsSender,
 		marketSession,
 		undefined,
 		marketClosureInfo,
 		options.delayBanner,
 		sessionFirstLine,
+		noSessionTrade,
+		getSparkline,
 	);
 
 	// Tail stays hand-rolled: processSmsUpdate records the notification_log row

@@ -1,7 +1,8 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import type { MarketClosureInfo } from "../../time/types";
-import type { MarketSession, ProcessingStats } from "../../types";
+import type { AssetPriceMap, MarketSession, ProcessingStats, UserAssetRow } from "../../types";
 import { formatMarketScheduledSms } from "../notifications/market-scheduled";
+import type { SparklineData } from "../parts/charts/sparkline";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { NotificationExtras, SmsSender, SmsUser } from "../types";
 import { sendUserSms } from "./index";
@@ -10,7 +11,8 @@ import { sendUserSms } from "./index";
 export async function processSmsUpdate(
 	supabase: AppSupabaseClient,
 	user: SmsUser,
-	assetsList: string,
+	userAssets: UserAssetRow[],
+	priceMap: AssetPriceMap,
 	sendSms: SmsSender,
 	marketSession: MarketSession,
 	extras?: NotificationExtras,
@@ -20,15 +22,20 @@ export async function processSmsUpdate(
 		scheduledEtMinutes: number;
 		is24: boolean;
 	},
+	noSessionTrade?: Set<string>,
+	getSparkline?: (symbol: string) => SparklineData | null | undefined,
 ): Promise<ProcessingStats> {
-	const smsMessage = formatMarketScheduledSms(
-		assetsList,
+	const smsMessage = formatMarketScheduledSms({
+		userAssets,
+		priceMap,
 		marketSession,
+		noSessionTrade,
+		getSparkline,
 		extras,
 		marketClosureInfo,
 		delayBanner,
 		sessionFirstLine,
-	);
+	});
 
 	const result = await sendUserSms(user, smsMessage, sendSms, supabase);
 

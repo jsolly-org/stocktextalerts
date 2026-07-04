@@ -12,7 +12,6 @@ export async function processEmailUpdate(
 	supabase: AppSupabaseClient,
 	user: EmailUser,
 	userAssets: UserAssetRow[],
-	assetsList: string,
 	sendEmail: EmailSender,
 	priceMap: AssetPriceMap,
 	marketSession: MarketSession,
@@ -27,7 +26,6 @@ export async function processEmailUpdate(
 	const message = formatMarketScheduledEmail(
 		user,
 		userAssets,
-		assetsList,
 		priceMap,
 		marketSession,
 		context,
