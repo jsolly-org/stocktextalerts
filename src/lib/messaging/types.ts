@@ -3,7 +3,7 @@ import type { Database } from "../db/generated/database.types";
 import type { TopMover } from "../market-data/types";
 import type { MarketClosureInfo } from "../time/types";
 import type { DeliveryResult } from "../types";
-import type { SparklineData } from "./parts/charts/sparkline";
+import type { SparklineData } from "./parts/sparkline";
 
 /** Structured market-wide top movers — raw data each channel renders itself. */
 export type TopMoversData = {

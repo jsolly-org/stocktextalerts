@@ -12,9 +12,9 @@ import { runLambda } from "../../lib/logging/request-context";
 import { fetchDailyCloses, fetchPrevClose } from "../../lib/market-data/bars";
 import { fetchAssetPrices } from "../../lib/market-data/prices";
 import { getCurrentMarketSession } from "../../lib/market-data/session";
-import { buildCandlestickSvg } from "../../lib/messaging/parts/charts/candlestick";
-import { renderChartPng } from "../../lib/messaging/parts/charts/render-png";
+import { buildCandlestickSvg } from "../../lib/messaging/telegram/candlestick";
 import { checkTelegramLive } from "../../lib/messaging/telegram/health";
+import { renderChartPng } from "../../lib/messaging/telegram/render-png";
 import { createTelegramBot, readTelegramBotToken } from "../../lib/messaging/telegram/sender";
 import type { IntradayCandle } from "../../lib/types";
 

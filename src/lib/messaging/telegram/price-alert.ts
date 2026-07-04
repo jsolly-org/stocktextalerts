@@ -4,13 +4,13 @@ import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import type { EnrichedAlert } from "../../price-alerts/types";
 import type { ChannelDeliveryStats, IntradayCandle } from "../../types";
-import { buildCandlestickSvg } from "../parts/charts/candlestick";
-import { renderChartPng } from "../parts/charts/render-png";
 import { TELEGRAM_FOOTER } from "../parts/footer";
 import { renderPriceAlertHeadline, renderSignalSentence } from "../parts/price-alert-sentences";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { TelegramSender } from "../types";
+import { buildCandlestickSvg } from "./candlestick";
 import { optOutIfBotBlocked } from "./opt-out";
+import { renderChartPng } from "./render-png";
 
 /** Rendered Telegram price alert: entity-formatted caption/text + optional candlestick PNG. */
 export interface TelegramPriceAlert {

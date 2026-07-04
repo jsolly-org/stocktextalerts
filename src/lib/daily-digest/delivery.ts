@@ -9,7 +9,7 @@ import {
 	formatDailyDigestTelegram,
 	summarizeDailyDigestSmsResults,
 } from "../messaging/notifications/daily-digest";
-import type { SparklineMap } from "../messaging/parts/charts/sparkline";
+import type { SparklineMap } from "../messaging/parts/sparkline";
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,

@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
 	formatAssetHtmlLine,
 	formatAssetsHtmlList,
+} from "../../../../src/lib/messaging/email/asset-price-list";
+import {
 	formatAssetTextLine,
 	formatSignedChangePercent,
 	formatUsdPrice,
 } from "../../../../src/lib/messaging/parts/asset-price-list";
-import type { SparklineData } from "../../../../src/lib/messaging/parts/charts/sparkline";
 import { getSafeHrefUrl } from "../../../../src/lib/messaging/parts/html-utils";
+import type { SparklineData } from "../../../../src/lib/messaging/parts/sparkline";
 
 describe("getSafeHrefUrl prevents XSS via dangerous URL schemes.", () => {
 	it("Returns trimmed URL for valid https URLs.", () => {

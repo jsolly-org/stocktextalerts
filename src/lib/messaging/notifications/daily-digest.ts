@@ -5,16 +5,14 @@ import { getSiteUrl } from "../../db/env";
 import type { TopMover } from "../../market-data/types";
 import type { MarketClosureInfo } from "../../time/types";
 import type { AssetPriceMap, DeliveryResult, UserAssetRow } from "../../types";
+import { formatAssetsHtmlList } from "../email/asset-price-list";
 import { renderEmailSection } from "../email/html-section";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
 import {
-	appendTelegramAssetPriceLines,
-	formatAssetsHtmlList,
 	formatAssetTextLine,
 	formatSignedChangePercent,
 	formatUsdPrice,
 } from "../parts/asset-price-list";
-import type { SparklineData, SparklineMap } from "../parts/charts/sparkline";
 import { formatContentSection } from "../parts/content-section";
 import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
 import {
@@ -24,8 +22,10 @@ import {
 	buildMarketClosedBannerTelegram,
 	buildMarketClosureLabel,
 } from "../parts/market-closure";
+import type { SparklineData, SparklineMap } from "../parts/sparkline";
 import { packSmsBlocks, type SmsBlock } from "../sms/block-packing";
 import { padDailyDigestSmsSegmentBoundaries } from "../sms/segment-utils";
+import { appendTelegramAssetPriceLines } from "../telegram/asset-price-lines";
 import type { NotificationExtras, TopMoversData } from "../types";
 
 /** One top-mover line: `TICKER — $1,234.56 (+1.23%)`. Shared numeric primitives keep

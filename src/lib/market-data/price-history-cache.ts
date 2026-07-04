@@ -3,11 +3,7 @@ import { SECTOR_ETF_MAP } from "../assets/constants";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
-import {
-	downsampleEvenly,
-	type SparklineData,
-	toSparkline,
-} from "../messaging/parts/charts/sparkline";
+import { downsampleEvenly, type SparklineData, toSparkline } from "../messaging/parts/sparkline";
 import type { DailyOHLCVBar, ExtendedQuoteMap } from "../types";
 
 export function formatChartAsOfLabel(

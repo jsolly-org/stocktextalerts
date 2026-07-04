@@ -6,8 +6,8 @@ import { createErrorForLogging, extractErrorMessage } from "../../logging/errors
 import { fetchIntradaySparklines } from "../../market-data/sparklines";
 import { type LogoCache, safePrefetchLogos } from "../../messaging/logo-fetcher";
 import { anyFacetEnabled, isFacetEnabled } from "../../messaging/notification-prefs";
-import type { SparklineMap } from "../../messaging/parts/charts/sparkline";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../../messaging/parts/delay";
+import type { SparklineMap } from "../../messaging/parts/sparkline";
 import { recordNotification } from "../../messaging/shared";
 import { shouldSendSms } from "../../messaging/sms";
 import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";

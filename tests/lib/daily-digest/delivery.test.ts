@@ -7,7 +7,7 @@ import {
 	formatDailyDigestSmsMessage,
 	formatDailyDigestSmsMessages,
 } from "../../../src/lib/messaging/notifications/daily-digest";
-import type { SparklineData } from "../../../src/lib/messaging/parts/charts/sparkline";
+import type { SparklineData } from "../../../src/lib/messaging/parts/sparkline";
 import { SMS_UCS2_SEGMENT_SIZE } from "../../../src/lib/messaging/sms/constants";
 import {
 	finalizeSmsBodyForUcs2Segments,

@@ -2,7 +2,7 @@ import type { SupabaseAdminClient } from "../../db/supabase";
 import type { Logger } from "../../logging";
 import { processEmailUpdate } from "../../messaging/email/delivery";
 import { formatMarketScheduledTelegram } from "../../messaging/notifications/market-scheduled";
-import type { SparklineData } from "../../messaging/parts/charts/sparkline";
+import type { SparklineData } from "../../messaging/parts/sparkline";
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,

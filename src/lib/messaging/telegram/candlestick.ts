@@ -1,5 +1,5 @@
-import type { IntradayCandle } from "../../../types";
-import { escapeHtml } from "../html-utils";
+import type { IntradayCandle } from "../../types";
+import { escapeHtml } from "../parts/html-utils";
 
 /** Logical chart width in px — the PNG rasterizer (render-png.ts) scales from this. */
 export const CHART_DEFAULT_WIDTH = 800;

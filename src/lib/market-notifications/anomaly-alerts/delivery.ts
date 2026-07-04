@@ -4,23 +4,23 @@ import { rootLogger } from "../../logging";
 import { isEmailChannelUsable } from "../../messaging/email/eligibility";
 import { markdownLinksToHtml, stripMarkdownLinks } from "../../messaging/email/html-section";
 import { sendUserEmail } from "../../messaging/email/index";
+import { renderIntradaySparklineImg } from "../../messaging/email/intraday-sparkline";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
-import { renderIntradaySparklineImg } from "../../messaging/parts/charts/intraday-sparkline";
-import {
-	downsampleEvenly,
-	EMAIL_SPARKLINE_LABEL,
-	SMS_SPARKLINE_LABEL,
-	type SparklineWindow,
-	toSparkline,
-} from "../../messaging/parts/charts/sparkline";
 import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../../messaging/parts/footer";
 import { escapeHtml, getSafeHrefUrl } from "../../messaging/parts/html-utils";
 import {
 	renderPriceAlertHeadline,
 	renderSignalSentence,
 } from "../../messaging/parts/price-alert-sentences";
+import {
+	downsampleEvenly,
+	EMAIL_SPARKLINE_LABEL,
+	SMS_SPARKLINE_LABEL,
+	type SparklineWindow,
+	toSparkline,
+} from "../../messaging/parts/sparkline";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";

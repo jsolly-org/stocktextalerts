@@ -2,7 +2,7 @@ import type { AppSupabaseClient } from "../../db/supabase";
 import type { MarketClosureInfo } from "../../time/types";
 import type { AssetPriceMap, MarketSession, ProcessingStats, UserAssetRow } from "../../types";
 import { formatMarketScheduledSms } from "../notifications/market-scheduled";
-import type { SparklineData } from "../parts/charts/sparkline";
+import type { SparklineData } from "../parts/sparkline";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { NotificationExtras, SmsSender, SmsUser } from "../types";
 import { sendUserSms } from "./index";

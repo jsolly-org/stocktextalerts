@@ -1,13 +1,13 @@
 import {
 	type AssetPrice,
-	directionDot,
 	formatSignedChangePercent,
 	formatUsdPrice,
 	resolveDisplayChangePercent,
 } from "../../../../lib/messaging/parts/asset-price-list";
-import { buildCandlestickSvg } from "../../../../lib/messaging/parts/charts/candlestick";
-import type { SparklineData } from "../../../../lib/messaging/parts/charts/sparkline";
 import { renderPriceAlertHeadline } from "../../../../lib/messaging/parts/price-alert-sentences";
+import type { SparklineData } from "../../../../lib/messaging/parts/sparkline";
+import { buildCandlestickSvg } from "../../../../lib/messaging/telegram/candlestick";
+import { directionDot } from "../../../../lib/messaging/telegram/direction-dot";
 import type { IntradayCandle } from "../../../../lib/types";
 import type { PreviewAlert, PreviewAsset, PreviewTelegramLine } from "./types";
 

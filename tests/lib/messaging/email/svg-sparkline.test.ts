@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { SparklineTimeLabel } from "../../../../../src/lib/messaging/parts/charts/svg-sparkline";
-import { toSvgSparklineImg } from "../../../../../src/lib/messaging/parts/charts/svg-sparkline";
+import type { SparklineTimeLabel } from "../../../../src/lib/messaging/email/svg-sparkline";
+import { toSvgSparklineImg } from "../../../../src/lib/messaging/email/svg-sparkline";
 
 function decodeSvg(imgTag: string): string {
 	const base64 = imgTag.match(/base64,([^"]+)/)?.[1] ?? "";

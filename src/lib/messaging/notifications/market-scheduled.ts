@@ -3,14 +3,9 @@ import { getSiteUrl } from "../../db/env";
 import type { MarketClosureInfo } from "../../time/types";
 import type { ActiveMarketSession, AssetPriceMap, MarketSession, UserAssetRow } from "../../types";
 import { NO_SESSION_TRADE } from "../../types";
+import { formatAssetsHtmlList } from "../email/asset-price-list";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
-import {
-	appendTelegramAssetPriceLines,
-	formatAssetsHtmlList,
-	formatAssetsTextList,
-	NO_TRACKED_ASSETS_MESSAGE,
-} from "../parts/asset-price-list";
-import type { SparklineData } from "../parts/charts/sparkline";
+import { formatAssetsTextList, NO_TRACKED_ASSETS_MESSAGE } from "../parts/asset-price-list";
 import { formatContentSection } from "../parts/content-section";
 import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
 import {
@@ -25,7 +20,9 @@ import {
 	buildSessionFirstLineSms,
 	buildSessionFirstLineTelegram,
 } from "../parts/session-label";
+import type { SparklineData } from "../parts/sparkline";
 import { padUrlsToSegmentBoundaries } from "../sms/segment-utils";
+import { appendTelegramAssetPriceLines } from "../telegram/asset-price-lines";
 import type { EmailFormatContext, EmailUser, NotificationExtras } from "../types";
 
 /** Format the optional "extras" block appended to scheduled market SMS messages. */
