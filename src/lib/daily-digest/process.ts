@@ -30,11 +30,7 @@ import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
 import { parseScheduledSlotContext } from "../time/schedule/next-send";
 import type { MarketClosureInfo } from "../time/types";
 import type { AssetPriceMap, MarketSession, UserRecord } from "../types";
-import {
-	buildTopMoversSection,
-	resolveGrokEligibility,
-	updateGrokSendCounter,
-} from "./content-build";
+import { buildTopMoversData, resolveGrokEligibility, updateGrokSendCounter } from "./content-build";
 import {
 	processDailyDigestEmailDelivery,
 	processDailyDigestSmsDelivery,
@@ -358,7 +354,7 @@ export async function processDailyDigestUser(options: {
 		/* =============
 		Fetch market-wide top movers (email and/or SMS when opted in)
 		============= */
-		const topMoversSection = wantsTopMovers ? await buildTopMoversSection() : null;
+		const topMoversSection = wantsTopMovers ? await buildTopMoversData() : null;
 
 		const mergedCitations = [
 			...new Set([...(newsResult?.citations ?? []), ...(rumorsResult?.citations ?? [])]),

@@ -2,6 +2,7 @@ import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import type { buildAssetEventsContent } from "../../asset-events/content";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import { getSiteUrl } from "../../db/env";
+import type { TopMover } from "../../market-data/types";
 import type { MarketClosureInfo } from "../../time/types";
 import type { AssetPriceMap, DeliveryResult, UserAssetRow } from "../../types";
 import { renderEmailSection } from "../email/html-section";
@@ -10,6 +11,8 @@ import {
 	appendTelegramAssetPriceLines,
 	formatAssetsHtmlList,
 	formatAssetTextLine,
+	formatSignedChangePercent,
+	formatUsdPrice,
 } from "../parts/asset-price-list";
 import type { SparklineData, SparklineMap } from "../parts/charts/sparkline";
 import { formatContentSection } from "../parts/content-section";
@@ -23,7 +26,33 @@ import {
 } from "../parts/market-closure";
 import { packSmsBlocks, type SmsBlock } from "../sms/block-packing";
 import { padDailyDigestSmsSegmentBoundaries } from "../sms/segment-utils";
-import type { NotificationExtras } from "../types";
+import type { NotificationExtras, TopMoversData } from "../types";
+
+/** One top-mover line: `TICKER — $1,234.56 (+1.23%)`. Shared numeric primitives keep
+ *  grouping/signs identical across channels. */
+function formatTopMoverLine(mover: TopMover): string {
+	return `${mover.ticker} — ${formatUsdPrice(mover.price)} (${formatSignedChangePercent(mover.changePercent)})`;
+}
+
+/**
+ * Render the top-movers `Gainers:` / `Losers:` block body from structured data.
+ * Reproduces the exact plain-text layout each digest channel wraps with its own
+ * section header (SMS/email/Telegram render byte-identical bodies today). Returns
+ * "" only if both lists are empty — callers gate on that to omit the section.
+ */
+function renderTopMoversBody(data: TopMoversData): string {
+	const lines: string[] = [];
+	if (data.gainers.length > 0) {
+		lines.push("Gainers:");
+		for (const m of data.gainers) lines.push(formatTopMoverLine(m));
+	}
+	if (data.losers.length > 0) {
+		if (lines.length > 0) lines.push("");
+		lines.push("Losers:");
+		for (const m of data.losers) lines.push(formatTopMoverLine(m));
+	}
+	return lines.join("\n");
+}
 
 const TICKER_LINE_RE = /^[A-Z][A-Z0-9.-]{0,9}:\s/;
 const QUOTE_TIMESTAMP_FORMAT_BASE: Intl.DateTimeFormatOptions = {
@@ -193,7 +222,10 @@ function buildDailyDigestSmsBlocks(options: DailyDigestSmsFormatOptions): SmsBlo
 		{
 			id: "topMovers",
 			boundary: "atomic",
-			text: formatContentSection("🚀 Top Movers", options.extras.topMovers),
+			text: formatContentSection(
+				"🚀 Top Movers",
+				options.extras.topMovers ? renderTopMoversBody(options.extras.topMovers) : null,
+			),
 		},
 		{ id: "news", boundary: "atomic", text: formatContentSection("🗞️ News", options.extras.news) },
 		{
@@ -336,7 +368,7 @@ export function formatDailyDigestEmail(options: {
 	const ipos = (ae?.eventsSection?.ipos ?? "").trim();
 	const analyst = (ae?.analystSection ?? "").trim();
 	const insider = (ae?.insiderSection ?? "").trim();
-	const topMovers = (options.extras.topMovers ?? "").trim();
+	const topMovers = options.extras.topMovers ? renderTopMoversBody(options.extras.topMovers) : "";
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
 		options.assetPrices,
@@ -486,7 +518,7 @@ export function formatDailyDigestTelegram(opts: {
 	});
 
 	if (opts.extras.topMovers) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("📈 Top movers")}\n${opts.extras.topMovers}`;
+		msg = fmt`${msg}\n\n${FormattedString.bold("📈 Top movers")}\n${renderTopMoversBody(opts.extras.topMovers)}`;
 	}
 	if (opts.extras.news) {
 		msg = fmt`${msg}\n\n${FormattedString.bold("📰 News")}\n${FormattedString.blockquote(opts.extras.news)}`;
