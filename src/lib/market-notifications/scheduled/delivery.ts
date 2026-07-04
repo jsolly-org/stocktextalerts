@@ -17,6 +17,7 @@ import { updateScheduledNotificationRow } from "../../scheduled-notifications/st
 import type { ScheduledNotificationTotals } from "../../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../../time/types";
 import type {
+	ActiveMarketSession,
 	AssetPriceMap,
 	IsoDateString,
 	MarketSession,
@@ -265,9 +266,14 @@ export async function processMarketScheduledTelegramDelivery(options: {
 	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
 	priceMap: AssetPriceMap;
-	sessionLabel?: string | null;
+	/** Active session for this slot (Telegram is only dispatched for active sessions). */
+	marketSession: ActiveMarketSession;
+	sessionFirstLine?: {
+		scheduledEtMinutes: number;
+		is24: boolean;
+	};
 	delayBanner?: string | null;
-	marketClosedBanner?: string | null;
+	marketClosureInfo?: MarketClosureInfo | null;
 	getTelegramSender: TelegramSenderFactory;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
@@ -279,9 +285,10 @@ export async function processMarketScheduledTelegramDelivery(options: {
 		scheduledMinutes,
 		userAssets,
 		priceMap,
-		sessionLabel,
+		marketSession,
+		sessionFirstLine,
 		delayBanner,
-		marketClosedBanner,
+		marketClosureInfo,
 		getTelegramSender,
 		stats,
 	} = options;
@@ -324,9 +331,10 @@ export async function processMarketScheduledTelegramDelivery(options: {
 	const formatted = formatMarketScheduledTelegram({
 		userAssets,
 		assetPrices: priceMap,
-		sessionLabel,
+		marketSession,
+		sessionFirstLine,
 		delayBanner,
-		marketClosedBanner,
+		marketClosureInfo,
 	});
 
 	const result = await telegramSenderResult.sender({

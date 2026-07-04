@@ -1,7 +1,7 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import { getSiteUrl } from "../../db/env";
 import type { MarketClosureInfo } from "../../time/types";
-import type { AssetPriceMap, MarketSession, UserAssetRow } from "../../types";
+import type { ActiveMarketSession, AssetPriceMap, MarketSession, UserAssetRow } from "../../types";
 import { NO_SESSION_TRADE } from "../../types";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
 import {
@@ -13,8 +13,18 @@ import {
 import type { SparklineData } from "../parts/charts/sparkline";
 import { formatContentSection } from "../parts/content-section";
 import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
-import { buildMarketClosedBannerHtml, buildMarketClosedBannerText } from "../parts/market-closure";
-import { buildSessionFirstLine, buildSessionFirstLineHtml } from "../parts/session-label";
+import {
+	buildMarketClosedBannerEmailHtml,
+	buildMarketClosedBannerEmailText,
+	buildMarketClosedBannerSms,
+	buildMarketClosedBannerTelegram,
+} from "../parts/market-closure";
+import {
+	buildSessionFirstLineEmailHtml,
+	buildSessionFirstLineEmailText,
+	buildSessionFirstLineSms,
+	buildSessionFirstLineTelegram,
+} from "../parts/session-label";
 import { padUrlsToSegmentBoundaries } from "../sms/segment-utils";
 import type { EmailFormatContext, EmailUser, NotificationExtras } from "../types";
 
@@ -93,10 +103,10 @@ export function formatMarketScheduledEmail(
 	const delayText = delayBanners?.text ? `\n${delayBanners.text}\n` : "";
 	const marketDisclaimer = marketOpen
 		? ""
-		: `\n${buildMarketClosedBannerText(marketClosureInfo ?? null)}\n`;
+		: `\n${buildMarketClosedBannerEmailText(marketClosureInfo ?? null)}\n`;
 	const sessionFirstLineText =
 		sessionFirstLine && marketOpen
-			? `${buildSessionFirstLine(
+			? `${buildSessionFirstLineEmailText(
 					marketSession,
 					sessionFirstLine.scheduledEtMinutes,
 					sessionFirstLine.is24,
@@ -104,7 +114,7 @@ export function formatMarketScheduledEmail(
 			: "";
 	const sessionFirstLineHtml =
 		sessionFirstLine && marketOpen
-			? buildSessionFirstLineHtml(
+			? buildSessionFirstLineEmailHtml(
 					marketSession,
 					sessionFirstLine.scheduledEtMinutes,
 					sessionFirstLine.is24,
@@ -132,7 +142,7 @@ export function formatMarketScheduledEmail(
 	});
 	const marketClosedBannerHtml = marketOpen
 		? ""
-		: buildMarketClosedBannerHtml(marketClosureInfo ?? null);
+		: buildMarketClosedBannerEmailHtml(marketClosureInfo ?? null);
 	const html = `
 <!DOCTYPE html>
 <html>
@@ -214,11 +224,11 @@ export function formatMarketScheduledSms(options: {
 		true,
 		marketOpen ? marketSession : undefined,
 	);
-	const marketDisclaimer = marketOpen ? "" : buildMarketClosedBannerText(marketClosureInfo ?? null);
+	const marketDisclaimer = marketOpen ? "" : buildMarketClosedBannerSms(marketClosureInfo ?? null);
 	const extrasBlock = formatScheduledMarketSmsExtras(extras);
 	const sessionFirstLineText =
 		sessionFirstLine && marketOpen
-			? buildSessionFirstLine(
+			? buildSessionFirstLineSms(
 					marketSession,
 					sessionFirstLine.scheduledEtMinutes,
 					sessionFirstLine.is24,
@@ -243,22 +253,38 @@ export function formatMarketScheduledSms(options: {
 interface MarketScheduledTelegramOptions {
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
-	sessionLabel?: string | null;
+	/** Active session for this scheduled slot (Telegram is only sent for active sessions). */
+	marketSession: ActiveMarketSession;
+	sessionFirstLine?: {
+		scheduledEtMinutes: number;
+		is24: boolean;
+	};
 	delayBanner?: string | null;
-	marketClosedBanner?: string | null;
+	marketClosureInfo?: MarketClosureInfo | null;
 }
 
-/** Render a scheduled multi-asset price snapshot as a Telegram message. */
+/** Render a scheduled multi-asset price snapshot as a Telegram message. The Telegram
+ *  channel renders its own session label and market-closed banner from raw data. */
 export function formatMarketScheduledTelegram(
 	opts: MarketScheduledTelegramOptions,
 ): FormattedString {
-	const header = opts.sessionLabel ? `📈 Price Update · ${opts.sessionLabel}` : "📈 Price Update";
+	const sessionLabel = opts.sessionFirstLine
+		? buildSessionFirstLineTelegram(
+				opts.marketSession,
+				opts.sessionFirstLine.scheduledEtMinutes,
+				opts.sessionFirstLine.is24,
+			)
+		: null;
+	const marketClosedBanner = opts.marketClosureInfo
+		? buildMarketClosedBannerTelegram(opts.marketClosureInfo)
+		: null;
+	const header = sessionLabel ? `📈 Price Update · ${sessionLabel}` : "📈 Price Update";
 	let msg = fmt`${FormattedString.bold(header)}`;
 	if (opts.delayBanner) {
 		msg = fmt`${msg}\n${opts.delayBanner}`;
 	}
-	if (opts.marketClosedBanner) {
-		msg = fmt`${msg}\n${opts.marketClosedBanner}`;
+	if (marketClosedBanner) {
+		msg = fmt`${msg}\n${marketClosedBanner}`;
 	}
 
 	msg = appendTelegramAssetPriceLines({

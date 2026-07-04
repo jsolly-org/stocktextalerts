@@ -8,8 +8,6 @@ import { type LogoCache, safePrefetchLogos } from "../../messaging/logo-fetcher"
 import { anyFacetEnabled, isFacetEnabled } from "../../messaging/notification-prefs";
 import type { SparklineMap } from "../../messaging/parts/charts/sparkline";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../../messaging/parts/delay";
-import { buildMarketClosedBannerText } from "../../messaging/parts/market-closure";
-import { buildSessionFirstLine } from "../../messaging/parts/session-label";
 import { recordNotification } from "../../messaging/shared";
 import { shouldSendSms } from "../../messaging/sms";
 import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
@@ -303,14 +301,6 @@ export async function processMarketScheduledUser(options: {
 		/* ============= Process Telegram ============= */
 		if (telegramEnabled) {
 			attemptedDeliveryMethod = "telegram";
-			const sessionLabel = buildSessionFirstLine(
-				marketSession,
-				sessionFirstLine.scheduledEtMinutes,
-				sessionFirstLine.is24,
-			);
-			const telegramMarketBanner = marketClosureInfo
-				? buildMarketClosedBannerText(marketClosureInfo)
-				: null;
 			await processMarketScheduledTelegramDelivery({
 				user,
 				supabase,
@@ -319,9 +309,10 @@ export async function processMarketScheduledUser(options: {
 				scheduledMinutes,
 				userAssets,
 				priceMap,
-				sessionLabel,
+				marketSession,
+				sessionFirstLine,
 				delayBanner: delayBannerText,
-				marketClosedBanner: telegramMarketBanner,
+				marketClosureInfo,
 				getTelegramSender,
 				stats,
 			});

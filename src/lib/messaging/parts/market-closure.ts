@@ -31,8 +31,9 @@ function buildSubline(context: MarketClosedBannerContext, asOf?: string | null):
 	return `Prices below reflect the last market close${asOfSuffix}.`;
 }
 
-/** Build a plain-text market-closed banner. */
-export function buildMarketClosedBannerText(
+/** Shared private core producing the exact plaintext market-closed banner. Each
+ *  channel's `buildMarketClosedBanner*` delegates here so their bytes stay identical. */
+function renderMarketClosedBannerPlain(
 	closureInfo?: MarketClosureInfo | null,
 	context: MarketClosedBannerContext = "prices",
 	asOf?: string | null,
@@ -45,8 +46,35 @@ export function buildMarketClosedBannerText(
 	return `🔔 Market Closed\n${subline}`;
 }
 
+/** Build the plain-text market-closed banner for SMS. */
+export function buildMarketClosedBannerSms(
+	closureInfo?: MarketClosureInfo | null,
+	context: MarketClosedBannerContext = "prices",
+	asOf?: string | null,
+): string {
+	return renderMarketClosedBannerPlain(closureInfo, context, asOf);
+}
+
+/** Build the plain-text market-closed banner for the email text body. */
+export function buildMarketClosedBannerEmailText(
+	closureInfo?: MarketClosureInfo | null,
+	context: MarketClosedBannerContext = "prices",
+	asOf?: string | null,
+): string {
+	return renderMarketClosedBannerPlain(closureInfo, context, asOf);
+}
+
+/** Build the plain-text market-closed banner for Telegram. */
+export function buildMarketClosedBannerTelegram(
+	closureInfo?: MarketClosureInfo | null,
+	context: MarketClosedBannerContext = "prices",
+	asOf?: string | null,
+): string {
+	return renderMarketClosedBannerPlain(closureInfo, context, asOf);
+}
+
 /** Build an HTML market-closed banner matching the daily digest style. */
-export function buildMarketClosedBannerHtml(
+export function buildMarketClosedBannerEmailHtml(
 	closureInfo?: MarketClosureInfo | null,
 	context: MarketClosedBannerContext = "prices",
 	asOf?: string | null,

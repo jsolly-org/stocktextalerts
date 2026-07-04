@@ -259,7 +259,8 @@ export async function processDailyDigestTelegramDelivery(options: {
 	/** Human date label in market tz, e.g. "Thu, Jun 19". */
 	dateLabel: string;
 	delayBanner?: string | null;
-	marketClosedBanner?: string | null;
+	marketClosureInfo?: MarketClosureInfo | null;
+	is24Hour?: boolean;
 	sparklines?: SparklineMap;
 	marketOpen?: boolean;
 	getTelegramSender: TelegramSenderFactory;
@@ -277,7 +278,8 @@ export async function processDailyDigestTelegramDelivery(options: {
 		assetEvents,
 		dateLabel,
 		delayBanner,
-		marketClosedBanner,
+		marketClosureInfo,
+		is24Hour,
 		sparklines,
 		marketOpen,
 		getTelegramSender,
@@ -328,7 +330,8 @@ export async function processDailyDigestTelegramDelivery(options: {
 		assetEvents,
 		dateLabel,
 		delayBanner,
-		marketClosedBanner,
+		marketClosureInfo,
+		is24Hour,
 		sparklines,
 		marketOpen,
 	});

@@ -16,10 +16,8 @@ import { fetchAssetPricesWithSessionState } from "../market-data/prices";
 import { getCurrentMarketSession } from "../market-data/session";
 import { fetchIntradaySparklines, fetchSparklines } from "../market-data/sparklines";
 import { type LogoCache, safePrefetchLogos } from "../messaging/logo-fetcher";
-import { formatDigestQuoteAsOf } from "../messaging/notifications/daily-digest";
 import type { SparklineMap } from "../messaging/parts/charts/sparkline";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/parts/delay";
-import { buildMarketClosedBannerText } from "../messaging/parts/market-closure";
 import { shouldSendSms } from "../messaging/sms";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
@@ -480,20 +478,13 @@ export async function processDailyDigestUser(options: {
 			telegramAssetEvents?.hasAnyContent
 		);
 
-		// Shared Telegram render inputs for both the stage-only render and the live
-		// delivery below — defined once so the date format and closed-market banner gate
-		// can't drift between the two paths.
+		// Shared Telegram date label for both the stage-only render and the live delivery
+		// below — defined once so the date format can't drift between the two paths. The
+		// market-closed banner is now rendered by formatDailyDigestTelegram itself from raw
+		// data (marketClosureInfo + is24 + the Telegram price map).
 		const telegramDateLabel = dueAtLocal.isValid
 			? dueAtLocal.toFormat("ccc, LLL d")
 			: (scheduledDate ?? "");
-		const telegramMarketBanner =
-			marketOpen === false
-				? buildMarketClosedBannerText(
-						marketClosureInfo,
-						"prices",
-						formatDigestQuoteAsOf(telegramPriceMap, user.use_24_hour_time),
-					)
-				: null;
 
 		if (!hasEmailContent && !hasSmsContent && !hasTelegramContent) {
 			logger.info("Skipping daily digest: no content available", {
@@ -553,7 +544,6 @@ export async function processDailyDigestUser(options: {
 				getLogoHtml,
 				telegramDateLabel,
 				delayBannerText,
-				telegramMarketBanner,
 				grokAllowed,
 				hasAnyAssetEventsOption,
 				shouldUpdateAnalystMonth,
@@ -616,7 +606,8 @@ export async function processDailyDigestUser(options: {
 				assetEvents: telegramAssetEvents,
 				dateLabel: telegramDateLabel,
 				delayBanner: delayBannerText,
-				marketClosedBanner: telegramMarketBanner,
+				marketClosureInfo,
+				is24Hour: user.use_24_hour_time,
 				sparklines,
 				marketOpen,
 				getTelegramSender,

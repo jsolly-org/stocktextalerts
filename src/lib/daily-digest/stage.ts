@@ -46,7 +46,6 @@ export interface StageDailyDigestOptions {
 	getLogoHtml?: (symbol: string) => string | undefined;
 	telegramDateLabel: string;
 	delayBannerText: string | null;
-	telegramMarketBanner: string | null;
 	grokAllowed: boolean;
 	hasAnyAssetEventsOption: boolean;
 	shouldUpdateAnalystMonth: boolean;
@@ -84,7 +83,6 @@ export async function stageDailyDigestContent(options: StageDailyDigestOptions):
 		getLogoHtml,
 		telegramDateLabel,
 		delayBannerText,
-		telegramMarketBanner,
 		grokAllowed,
 		hasAnyAssetEventsOption,
 		shouldUpdateAnalystMonth,
@@ -142,7 +140,8 @@ export async function stageDailyDigestContent(options: StageDailyDigestOptions):
 					assetEvents: telegramAssetEvents ?? null,
 					dateLabel: telegramDateLabel,
 					delayBanner: delayBannerText,
-					marketClosedBanner: telegramMarketBanner,
+					marketClosureInfo,
+					is24Hour: user.use_24_hour_time,
 					sparklines,
 					marketOpen,
 				})
