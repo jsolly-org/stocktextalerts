@@ -9,7 +9,7 @@ const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
 const authUser = await users.getCurrentUser({ requireApproval: false });
 ---
-<Layout title="Account Pending Approval | StockTextAlerts" description="Your StockTextAlerts account is pending manual approval. Sign in later to access your dashboard once review is complete." noindex>
+<Layout title="Account Pending Approval | StockTextAlerts" description="Your StockTextAlerts account is pending manual approval. Sign in later to access your dashboard once review is complete.">
   <main id="main-content" class="min-h-screen bg-surface-alt flex flex-col justify-center px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
     <section class="card max-w-md mx-auto p-8 text-center">
       <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-primary-soft text-primary">

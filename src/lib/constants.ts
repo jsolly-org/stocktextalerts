@@ -184,8 +184,47 @@ export const ASSET_SYMBOL_MAX_LENGTH = 10;
 Auth
 ============= */
 
-/** Set to true to allow new account registrations. */
-export const REGISTRATION_ENABLED = true;
+/**
+ * Pure registration-gate decision — fails CLOSED. Registration opens only on an explicit
+ * `true` override or a positive local/CI/test signal: a dev/test `NODE_ENV`, or the
+ * `MODE=test` our Playwright dev *and* preview servers run under (see playwright*.config.ts).
+ * Every real deploy (NODE_ENV=production, no test MODE) resolves closed — even if a Vercel
+ * system var is missing — so a config glitch can never silently reopen public signups.
+ * Exported so the truth table can be unit-tested without env mutation.
+ */
+export function resolveRegistrationEnabled(env: {
+	registrationEnabled: string | undefined;
+	nodeEnv: string | undefined;
+	mode: string | undefined;
+}): boolean {
+	const override = env.registrationEnabled?.trim().toLowerCase();
+	if (override === "true") {
+		return true;
+	}
+	if (override === "false") {
+		return false;
+	}
+	return env.nodeEnv === "development" || env.nodeEnv === "test" || env.mode === "test";
+}
+
+/**
+ * Registration gate. Open in local dev / CI / tests (so the multi-user signup + approval
+ * flow stays exercised — the app remains architecturally multi-user) and closed on every
+ * deployed environment: this is a private two-person app. Set `REGISTRATION_ENABLED=true`
+ * on a deploy to reopen signups.
+ *
+ * `process` is guarded because this module is imported by client Vue islands where
+ * `process` is undefined (see DAILY_DISPATCH_BATCH_SIZE). No island reads this flag; the
+ * browser value is inert and, like every other path, fails closed.
+ */
+export const REGISTRATION_ENABLED =
+	typeof process === "undefined"
+		? false
+		: resolveRegistrationEnabled({
+				registrationEnabled: process.env.REGISTRATION_ENABLED,
+				nodeEnv: process.env.NODE_ENV,
+				mode: process.env.MODE,
+			});
 
 /** Minimum password length enforced at the application level. */
 export const MIN_PASSWORD_LENGTH = 8;
