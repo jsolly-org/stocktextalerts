@@ -1,5 +1,11 @@
 import type { ChannelOption } from "../types";
 
+/** Hover title for a disabled email channel option; undefined when email is enabled. */
+export function getEmailChannelDisabledTitle(emailEnabled: boolean): string | undefined {
+	if (emailEnabled) return undefined;
+	return "Enable email in your notification channels to select this option.";
+}
+
 /**
  * Build the email/Telegram `ChannelOption` factories shared by the daily
  * and market panels. Disabled state and hover titles come in as getters and

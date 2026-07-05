@@ -120,7 +120,7 @@ import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
-import { getEmailChannelDisabledTitle } from "../shared/channel-disabled-titles";
+import { getEmailChannelDisabledTitle } from "../shared/channel-options";
 import type { ChannelOption } from "../types";
 
 interface Props {

@@ -246,8 +246,7 @@ import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferenc
 import { useDashboardUser } from "../composables/useDashboardUser";
 import { DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID } from "../constants";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
-import { getEmailChannelDisabledTitle } from "../shared/channel-disabled-titles";
-import { createChannelOptionBuilders } from "../shared/channel-options";
+import { createChannelOptionBuilders, getEmailChannelDisabledTitle } from "../shared/channel-options";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import type { ChannelOption, NotificationPreferencesData } from "../types";
