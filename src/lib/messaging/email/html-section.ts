@@ -25,19 +25,6 @@ const LINK_STYLE = "color: #667eea; text-decoration: underline;";
 const MARKDOWN_LINK_RE =
 	/\[((?:[^[\]]+|\[[^\]]*\])+)\]\(((?:https?:\/\/)(?:[^\s()]+|\((?:[^\s()]+|\([^\s()]*\))*\))*)\)/g;
 
-/**
- * Strip markdown links from text, keeping only the link text (for plaintext email)
- * or removing them entirely (for SMS). Handles nested bracket patterns like `[[Reuters]](url)`.
- */
-export function stripMarkdownLinks(content: string, mode: "keep-text" | "remove"): string {
-	const stripped = content.replace(MARKDOWN_LINK_RE, (_, linkText: string) => {
-		if (mode === "remove") return "";
-		// Remove surrounding brackets from citation-style text: [Reuters] → Reuters
-		return linkText.replace(/^\[|\]$/g, "");
-	});
-	return stripped.replace(/\s{2,}/g, " ").trim();
-}
-
 /** Convert markdown links (`[text](https://...)`) into safe HTML `<a>` tags. */
 export function markdownLinksToHtml(content: string): string {
 	const parts: string[] = [];

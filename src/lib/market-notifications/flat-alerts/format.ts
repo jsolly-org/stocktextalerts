@@ -200,7 +200,7 @@ export function formatFlatPriceAlertSms(options: {
 		: null;
 
 	const sections = [
-		"StockTextAlerts — 5% Price Move 🚨",
+		"StockTextAlerts — Price Move 🚨",
 		headline,
 		...(sparklineLine ? [sparklineLine] : []),
 		priceLines.join("\n"),

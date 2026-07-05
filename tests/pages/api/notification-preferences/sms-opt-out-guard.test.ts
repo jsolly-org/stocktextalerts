@@ -46,7 +46,7 @@ describe("A signed-in opted-out user attempts to re-enable SMS options.", () => 
 		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
-		formData.append("market_asset_price_alerts_include_sms", "true");
+		formData.append("price_move_alerts_include_sms", "true");
 
 		const request = new Request("http://localhost/api/notification-preferences/update", {
 			method: "POST",
@@ -61,7 +61,7 @@ describe("A signed-in opted-out user attempts to re-enable SMS options.", () => 
 		expect(payload.ok).toBe(false);
 		expect(payload.message).toBe("sms_opted_out");
 
-		expect(await readPref(testUser.id, "market_asset_price_alerts", "", "sms")).toBe(false);
+		expect(await readPref(testUser.id, "price_move_alerts", "", "sms")).toBe(false);
 	});
 
 	it("When sms_opted_out is true, re-enabling the daily prices SMS facet is rejected (regression: the old hand-kept guard list omitted this field).", async () => {

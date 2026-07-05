@@ -64,8 +64,6 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 					market_scheduled_asset_price_next_send_at:
 						dbUser.market_scheduled_asset_price_next_send_at,
 					dismiss_timezone_mismatch_prompts: dbUser.dismiss_timezone_mismatch_prompts,
-					market_asset_price_alerts_enabled: dbUser.market_asset_price_alerts_enabled,
-					market_asset_price_alert_move_size: dbUser.market_asset_price_alert_move_size,
 					...buildChannelPreferenceSnapshot(prefs),
 				},
 			} satisfies ApiJsonBody,

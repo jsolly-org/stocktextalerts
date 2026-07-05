@@ -1,5 +1,5 @@
 /**
- * Integration test for the Telegram flat-price-alert (5% move) delivery wiring.
+ * Integration test for the Telegram price-move-alert delivery wiring.
  *
  * Real-time path (mirrors deliverPriceAlert): a Telegram-linked user with the
  * price_move_alerts Telegram pref enabled gets a Telegram message + a
@@ -110,7 +110,7 @@ async function deliver(options: { user: FlatPriceAlertUser; sendTelegram: Telegr
 	return { delivered, inserts, stats };
 }
 
-describe("A Telegram-linked user receives a 5% flat-price alert via Telegram", () => {
+describe("A Telegram-linked user receives a price-move alert via Telegram", () => {
 	it("sends a Telegram message and logs delivery_method='telegram' when the price_move_alerts Telegram pref is enabled", async () => {
 		const sendTelegram = vi.fn<TelegramSender>(async () => ({
 			success: true,
@@ -143,7 +143,7 @@ describe("A Telegram-linked user receives a 5% flat-price alert via Telegram", (
 	});
 
 	it("counts a failed send, logs the failure, and records message_delivered=false", async () => {
-		expectConsoleError("Failed to send flat price alert Telegram message");
+		expectConsoleError("Failed to send price-move alert Telegram message");
 		const sendTelegram = vi.fn<TelegramSender>(async () => ({
 			success: false,
 			error: "Internal Server Error",
