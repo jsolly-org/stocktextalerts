@@ -36,19 +36,16 @@ Public Types
 /** Full `users` table row type (public schema). */
 export type User = DbUserRow;
 
-/** Every email/sms option field name, derived from the option catalog. */
-export type EmailSmsOptionFieldName = Extract<
-	NotificationOptionFieldName,
-	`${string}_${"email" | "sms"}`
->;
+/** Every email option field name, derived from the option catalog. */
+export type EmailOptionFieldName = Extract<NotificationOptionFieldName, `${string}_email`>;
 
-/** The per-option email/sms preference fields that used to be `users` columns
+/** The per-option email preference fields that used to be `users` columns
  *  and now live in notification_preferences. The dashboard augments the `users`
  *  row with these (reconstructed from the table) so the existing per-option Vue
  *  controls keep reading `user.<field>`. */
-type DashboardUserChannelPrefs = Record<EmailSmsOptionFieldName, boolean>;
+type DashboardUserChannelPrefs = Record<EmailOptionFieldName, boolean>;
 
-/** The `users` row augmented with per-option email/sms prefs for the dashboard UI. */
+/** The `users` row augmented with per-option email prefs for the dashboard UI. */
 export type DashboardUser = User & DashboardUserChannelPrefs;
 /** A user's tracked asset joined with canonical asset details. */
 export type UserAsset = Pick<DbUserAssetRow, "symbol" | "created_at"> & {
@@ -66,9 +63,6 @@ export type NotificationPreferencesSnapshot = Pick<
 	User,
 	| "market_scheduled_asset_price_enabled"
 	| "email_notifications_enabled"
-	| "sms_notifications_enabled"
-	| "sms_opted_out"
-	| "phone_verified"
 	| "timezone"
 	| "market_scheduled_asset_price_times"
 	| "daily_notification_time"

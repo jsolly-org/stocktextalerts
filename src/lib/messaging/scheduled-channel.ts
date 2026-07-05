@@ -20,7 +20,6 @@ function incrementChannelFailure(
 	stats: ScheduledNotificationTotals,
 ): void {
 	if (channel === "email") stats.emailsFailed++;
-	else if (channel === "sms") stats.smsFailed++;
 	else stats.telegramFailed++;
 }
 
@@ -29,7 +28,6 @@ function incrementChannelSuccess(
 	stats: ScheduledNotificationTotals,
 ): void {
 	if (channel === "email") stats.emailsSent++;
-	else if (channel === "sms") stats.smsSent++;
 	else stats.telegramSent++;
 }
 
@@ -87,7 +85,7 @@ export async function resolveScheduledSender<T>(
 		stats: ScheduledNotificationTotals;
 		attemptCount: number;
 		getSender: () => T;
-		/** Pipeline-specific error message, e.g. "Failed to resolve SMS sender for daily digest". */
+		/** Pipeline-specific error message, e.g. "Failed to resolve email sender for daily digest". */
 		logMessage: string;
 	} & ScheduledSlotKey,
 ): Promise<T | null> {

@@ -76,8 +76,6 @@ function makeStats(): ChannelDeliveryStats {
 	return {
 		emailsSent: 0,
 		emailsFailed: 0,
-		smsSent: 0,
-		smsFailed: 0,
 		telegramSent: 0,
 		telegramFailed: 0,
 		logFailures: 0,

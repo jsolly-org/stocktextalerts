@@ -23,14 +23,6 @@ export interface EmailRequest {
 
 export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 
-export interface SmsRequest {
-	to: string;
-	body: string;
-	from?: string;
-}
-
-export type SmsSender = (request: SmsRequest) => Promise<DeliveryResult>;
-
 /** A fully-rendered outbound Telegram message (text carries out-of-band entities). */
 export interface TelegramMessage {
 	chatId: number | string;
@@ -60,11 +52,6 @@ export type NotificationExtras = {
 
 /** Minimal user shape needed to send email. */
 export type EmailUser = Pick<Database["public"]["Tables"]["users"]["Row"], "id" | "email">;
-/** Minimal user shape needed to send SMS. */
-export type SmsUser = Pick<
-	Database["public"]["Tables"]["users"]["Row"],
-	"id" | "phone_country_code" | "phone_number"
->;
 
 /** Optional context for email rendering: sparklines, logos, market closure banners. */
 export interface EmailFormatContext {

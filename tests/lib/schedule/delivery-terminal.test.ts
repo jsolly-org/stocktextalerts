@@ -30,7 +30,6 @@ describe("shouldAdvanceScheduledNotificationSchedule", () => {
 			scheduledDate: assertIsoDateString("2026-06-07"),
 			scheduledMinutes: minuteOfDay(570),
 			emailRequired: true,
-			smsRequired: false,
 		});
 
 		expect(canAdvance).toBe(false);
@@ -51,12 +50,11 @@ describe("shouldAdvanceScheduledNotificationSchedule", () => {
 
 		const canAdvance = await shouldAdvanceScheduledNotificationSchedule({
 			supabase,
-			user: makeUser({ sms_notifications_enabled: true, phone_verified: true }),
+			user: makeUser(),
 			notificationType: "asset_events",
 			scheduledDate: assertIsoDateString("2026-06-07"),
 			scheduledMinutes: minuteOfDay(540),
 			emailRequired: true,
-			smsRequired: true,
 		});
 
 		expect(canAdvance).toBe(true);

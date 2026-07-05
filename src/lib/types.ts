@@ -201,15 +201,10 @@ export type UserRecord = Pick<
 	DbUserRow,
 	| "id"
 	| "email"
-	| "phone_country_code"
-	| "phone_number"
-	| "phone_verified"
 	| "timezone"
 	| "use_24_hour_time"
 	| "market_scheduled_asset_price_next_send_at"
 	| "email_notifications_enabled"
-	| "sms_notifications_enabled"
-	| "sms_opted_out"
 > & {
 	market_scheduled_asset_price_enabled: boolean;
 	market_scheduled_asset_price_times: number[] | null;
@@ -302,7 +297,7 @@ export type ActiveMarketSession = Exclude<MarketSession, "closed">;
 Delivery
 ============= */
 
-/** Result of attempting to deliver a single notification (email or SMS). */
+/** Result of attempting to deliver a single notification (email or Telegram). */
 export type DeliveryResult =
 	| { success: true; messageSid?: string }
 	| { success: false; error: string; errorCode?: string };
@@ -316,8 +311,6 @@ export type ProcessingStats =
 export interface ChannelDeliveryStats {
 	emailsSent: number;
 	emailsFailed: number;
-	smsSent: number;
-	smsFailed: number;
 	telegramSent: number;
 	telegramFailed: number;
 	/** `notification_log` insert failures on an otherwise completed send. */
@@ -343,11 +336,6 @@ interface StagedEmailContent {
 	html: string;
 }
 
-export type StagedSmsContent =
-	| { messages: string[] }
-	// Short-lived persisted JSON compatibility for rows staged before multipart SMS shipped.
-	| { message: string };
-
 /** Fully-rendered Telegram message: plain text plus out-of-band parse-mode entities. */
 interface StagedTelegramContent {
 	text: string;
@@ -360,7 +348,6 @@ interface StagedTelegramContent {
 export interface StagedDailyData extends ScheduledSlotKey {
 	type: "daily";
 	email: StagedEmailContent | null;
-	sms: StagedSmsContent | null;
 	telegram: StagedTelegramContent | null;
 
 	// Post-delivery metadata: these fields capture decisions made during

@@ -141,7 +141,7 @@ fi
 
 # --- Phase 0: load + validate credentials ---
 # Allowlist-load ONLY the deploy creds from .env.local — never `set -a` the
-# whole file: the rest of it (prod service keys, Twilio, vendor keys) must not
+# whole file: the rest of it (prod service keys, vendor keys) must not
 # reach the deploy's child processes (sam/zip/aws).
 DEPLOY_VARS=(DATABASE_URL_PROD PRODUCTION_SITE_URL)
 if [ "$CI_DEPLOY" != "true" ]; then

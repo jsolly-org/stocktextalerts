@@ -59,8 +59,6 @@ vi.mock("../../../src/lib/market-notifications/scheduled/process", () => ({
 		logFailures: 0,
 		emailsSent: 0,
 		emailsFailed: 0,
-		smsSent: 0,
-		smsFailed: 0,
 		telegramSent: 0,
 		telegramFailed: 0,
 	}),
@@ -72,8 +70,6 @@ vi.mock("../../../src/lib/staged-notifications/deliver", () => ({
 			logFailures: 0,
 			emailsSent: 0,
 			emailsFailed: 0,
-			smsSent: 0,
-			smsFailed: 0,
 			telegramSent: 0,
 			telegramFailed: 0,
 		},
@@ -87,8 +83,6 @@ vi.mock("../../../src/lib/staged-notifications/precompute", () => ({
 		logFailures: 0,
 		emailsSent: 0,
 		emailsFailed: 0,
-		smsSent: 0,
-		smsFailed: 0,
 	}),
 }));
 
@@ -98,10 +92,6 @@ vi.mock("../../../src/lib/market-notifications/flat-alerts/process", () => ({
 
 vi.mock("../../../src/lib/messaging/email/utils", () => ({
 	createEmailSender: () => vi.fn(),
-}));
-
-vi.mock("../../../src/lib/messaging/sms/sender-factory", () => ({
-	createSmsSenderFactory: () => () => ({ sender: "+15555550123" }),
 }));
 
 vi.mock("../../../src/lib/db/user-assets", async () => {
@@ -140,8 +130,6 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 			reTriggerAlerts: 0,
 			emailsSent: 0,
 			emailsFailed: 0,
-			smsSent: 0,
-			smsFailed: 0,
 			telegramSent: 0,
 			telegramFailed: 0,
 			logFailures: 0,
@@ -168,8 +156,6 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 			logFailures: 0,
 			emailsSent: 1,
 			emailsFailed: 0,
-			smsSent: 0,
-			smsFailed: 0,
 			telegramSent: 0,
 			telegramFailed: 0,
 		});

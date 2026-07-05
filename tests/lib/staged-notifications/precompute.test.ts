@@ -1,14 +1,6 @@
 import { DateTime } from "luxon";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { processDailyDigestUser } from "../../../src/lib/daily-digest/process";
-import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
-import type { EmailSender, SmsSender, TelegramSender } from "../../../src/lib/messaging/types";
 import { precomputeDailyDigest } from "../../../src/lib/staged-notifications/precompute";
-import type { UserRecord } from "../../../src/lib/types";
-import { getRealAssetSymbols } from "../../helpers/asset-data";
-import { adminClient } from "../../helpers/test-env";
-import { createTestUser } from "../../helpers/test-user";
-import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 const {
 	dispatchDailyDigestUserMock,
@@ -74,83 +66,6 @@ describe("A cron job precomputes daily digest content for upcoming users.", () =
 		vi.clearAllMocks();
 	});
 
-	it("stores long staged SMS digests as multiple ordered message bodies", async () => {
-		const currentTime = DateTime.fromISO("2026-06-01T13:55:00.000Z", { zone: "utc" });
-		const scheduledFor = DateTime.fromISO("2026-06-01T14:00:00.000Z", { zone: "utc" });
-		const scheduledForIso = scheduledFor.toISO();
-		expect(scheduledForIso).toBeTruthy();
-		const trackedAssets = getRealAssetSymbols(90);
-		const { id } = await createTestUser({
-			timezone: "America/New_York",
-			emailNotificationsEnabled: false,
-			smsNotificationsEnabled: true,
-			phoneVerified: true,
-			trackedAssets,
-			confirmed: true,
-		});
-		registerTestUserForCleanup(id);
-
-		await adminClient
-			.from("users")
-			.update({
-				daily_notification_time: 10 * 60,
-				daily_notification_next_send_at: scheduledForIso,
-			})
-			.eq("id", id);
-		const { data: userRow, error: userError } = await adminClient
-			.from("users")
-			.select("*")
-			.eq("id", id)
-			.single();
-		expect(userError).toBeNull();
-		expect(userRow).not.toBeNull();
-		if (!userRow) throw new Error("expected seeded user row");
-		// processDailyDigestUser reads user.prefs (daily_digest prices sms is on by
-		// default from createTestUser); attach the freshly-seeded rows.
-		const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
-
-		fetchAssetPricesWithSessionStateMock.mockImplementationOnce(async (symbols: string[]) => ({
-			prices: new Map(
-				symbols.map((symbol, index) => [
-					symbol,
-					{ price: 100 + index + 0.12, changePercent: 1.23, prevClose: 99 + index },
-				]),
-			),
-			noSessionTrade: new Set<string>(),
-		}));
-		fetchIntradaySparklinesMock.mockResolvedValueOnce(new Map());
-		fetchSparklinesMock.mockResolvedValueOnce(new Map());
-
-		await processDailyDigestUser({
-			user: userWithPrefs as unknown as UserRecord,
-			supabase: adminClient,
-			logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-			currentTime,
-			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
-			getSmsSender: () => ({ sender: vi.fn<SmsSender>(async () => ({ success: true })) }),
-			getTelegramSender: () => ({
-				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
-			}),
-			stageOnly: true,
-			marketOpen: true,
-		});
-
-		const { data: stagedRows, error: stagedError } = await adminClient
-			.from("staged_notifications")
-			.select("staged_data")
-			.eq("user_id", id)
-			.eq("notification_type", "daily");
-		expect(stagedError).toBeNull();
-		expect(stagedRows).toHaveLength(1);
-		const stagedData = stagedRows?.[0]?.staged_data as {
-			sms?: { message?: string; messages?: string[] } | null;
-		};
-
-		expect(stagedData.sms?.messages).toBeDefined();
-		expect(stagedData.sms?.messages?.length).toBeGreaterThan(1);
-		expect(stagedData.sms).not.toHaveProperty("message");
-	});
-
 	it("leaves market-closure classification to each user's scheduled instant", async () => {
 		const currentTime = DateTime.fromISO("2026-03-22T03:59:50.000Z", {
 			zone: "utc",
@@ -170,8 +85,6 @@ describe("A cron job precomputes daily digest content for upcoming users.", () =
 			logFailures: 0,
 			emailsSent: 0,
 			emailsFailed: 0,
-			smsSent: 0,
-			smsFailed: 0,
 		});
 
 		const logger = {
@@ -208,8 +121,6 @@ describe("A cron job precomputes daily digest content for upcoming users.", () =
 			logFailures: 0,
 			emailsSent: 0,
 			emailsFailed: 0,
-			smsSent: 0,
-			smsFailed: 0,
 		});
 
 		await precomputeDailyDigest({

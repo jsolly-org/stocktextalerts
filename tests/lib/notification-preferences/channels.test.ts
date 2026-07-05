@@ -11,7 +11,7 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
  * Integration test for the "single source of truth" consolidation: per-option
  * channel preferences live ONLY in notification_preferences, and the read path
  * (loadUserPreferenceRows → buildChannelPreferenceSnapshot) faithfully reflects
- * what's in the table for every channel (email, sms, telegram alike).
+ * what's in the table for every channel (email, telegram alike).
  */
 describe("notification_preferences round-trips through the read path", () => {
 	it("table rows are read back and projected into the dashboard snapshot", async () => {
@@ -53,15 +53,15 @@ describe("notification_preferences round-trips through the read path", () => {
 		const user = await createTestUser({ confirmed: true });
 		registerTestUserForCleanup(user.id);
 
-		// news/sms has never been a valid option (news is email+telegram only).
-		// parsePrefRow validates type/content/channel independently — it is
-		// combo-blind — so the composite FK added by the notification_options
-		// migration is the ONLY thing rejecting this row. Pin it.
+		// price_move_alerts is facet-less (content ""), so "prices" is never a
+		// valid content for it. parsePrefRow validates type/content/channel
+		// independently — it is combo-blind — so the composite FK added by the
+		// notification_options migration is the ONLY thing rejecting this row. Pin it.
 		const { error } = await adminClient.from("notification_preferences").insert({
 			user_id: user.id,
-			notification_type: "daily_notification",
-			content: "news",
-			channel: "sms",
+			notification_type: "price_move_alerts",
+			content: "prices",
+			channel: "telegram",
 			enabled: true,
 		});
 

@@ -9,9 +9,6 @@ import { hasAnyDailyNotificationFacet } from "./eligibility";
 export const DAILY_NOTIFICATION_USER_SELECT = `
 	id,
 	email,
-	phone_country_code,
-	phone_number,
-	phone_verified,
 	timezone,
 	use_24_hour_time,
 	market_scheduled_asset_price_enabled,
@@ -19,8 +16,6 @@ export const DAILY_NOTIFICATION_USER_SELECT = `
 	daily_notification_next_send_at,
 	market_scheduled_asset_price_next_send_at,
 	email_notifications_enabled,
-	sms_notifications_enabled,
-	sms_opted_out,
 	asset_events_last_analyst_sent_month,
 	market_scheduled_asset_price_times,
 	telegram_chat_id,
@@ -31,7 +26,7 @@ export const DAILY_NOTIFICATION_USER_SELECT = `
 `;
 
 export const HAS_DELIVERY_CHANNEL_OR =
-	"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true,telegram_chat_id.not.is.null";
+	"email_notifications_enabled.eq.true,telegram_chat_id.not.is.null";
 
 /**
  * Fetch users due for the unified daily notification pipeline.

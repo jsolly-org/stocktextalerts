@@ -6,7 +6,7 @@ import type { AppSupabaseClient } from "./supabase";
  *
  * Throws on query errors; returns a normalized list on success.
  * Set includeLogoData when the caller will render email logos to avoid
- * unnecessary DB/network payload for SMS-only runs.
+ * unnecessary DB/network payload for runs that don't send email.
  */
 export async function loadUserAssets(
 	supabase: AppSupabaseClient,
@@ -53,7 +53,7 @@ const IN_FILTER_CHUNK_SIZE = 50;
  *
  * Chunks the user_id list to avoid PostgREST in() URL length limits (414 URI Too Long).
  * Set includeLogoData when the run may send email with logos to avoid unnecessary
- * DB/network payload for SMS-only runs.
+ * DB/network payload for runs that don't send email.
  */
 export async function batchLoadUserAssets(
 	supabase: AppSupabaseClient,

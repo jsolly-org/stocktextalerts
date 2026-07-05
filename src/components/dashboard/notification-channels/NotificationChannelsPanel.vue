@@ -10,7 +10,7 @@
 		:data-hydrated="isHydrated || undefined"
 		@input="handleFormInput"
 		@change="handleFormChange"
-		@submit="handleFormSubmitWrapper"
+		@submit="handleFormSubmit"
 	>
 		<section
 			class="card relative"
@@ -27,28 +27,9 @@
 			<div class="card-accent card-accent-primary"></div>
 			<div class="card-body">
 
-			<!-- Persistent live region: always mounted so newly-pushed flash messages
-			     announce. Items use live="false" to avoid a nested live region. -->
-			<div role="status" aria-live="polite" aria-atomic="false">
-				<div v-if="flashMessages.length" class="space-y-2 mb-4">
-					<StatusMessage
-						v-for="(flash, index) in flashMessages"
-						:key="index"
-						:tone="flash.tone"
-						:live="false"
-					>
-						{{ flash.message }}
-					</StatusMessage>
-				</div>
-			</div>
-
 			<NotificationChannelsFieldset
 				v-model:email-enabled="emailEnabledModel"
-				v-model:sms-notifications-enabled="smsNotificationsEnabled"
-				:sms-opted-out="smsOptedOut"
-				:sms-phone-number="props.smsPhoneNumber"
 				:email-notifications-enabled-id="emailNotificationsEnabledId"
-				:sms-status-id="smsStatusId"
 				:notification-channels-desc-id="notificationChannelsDescId"
 				:daily-delivery-time-input="dailyDeliveryTimeInput"
 				:daily-delivery-time-minutes="dailyDeliveryTimeMinutes"
@@ -79,15 +60,13 @@
 					Notification Preview
 				</h2>
 				<p class="text-sm text-body-secondary mt-1">
-					See how your asset updates appear when delivered. Sent to whichever channels you enable — SMS, email, or Telegram.
+					See how your asset updates appear when delivered. Sent to whichever channels you enable — email or Telegram.
 				</p>
 			</header>
 
 			<SetupRequiredNotice
 				:needs-tracked-assets="needsTrackedAssets"
 				:needs-channel-selection="needsChannelSelection"
-				:needs-phone-verification="false"
-				phone-verification-section-id=""
 			/>
 
 			<div
@@ -110,9 +89,6 @@ import { DateTime } from "luxon";
 import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
-import { fetchCurrentNotificationPreferences } from "../../../lib/client/notification-preferences";
-import { formatMessage } from "../../../lib/messaging/status-messages";
-import { SMS_OPTION_FIELD_NAMES } from "../../../lib/notification-preferences/constants";
 import { etMinuteToUserLocal, getUsBeforeOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
 	formatCountdownWithSeconds,
@@ -121,13 +97,9 @@ import {
 	minutesToTimeInputValue,
 } from "../../../lib/time/display";
 import { parseTimeToMinutes } from "../../../lib/time/parse";
-import StatusMessage from "../../StatusMessage.vue";
-import type { FlashMessage, FlashTone } from "../../types";
 import { useHydrated } from "../../useHydrated";
 import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
-import { provideSmsVerificationContext } from "../composables/useSmsVerificationContext";
-import { useSmsVerificationSubmission } from "../composables/useSmsVerificationSubmission";
 import {
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID,
@@ -142,7 +114,6 @@ import type { PreviewAsset } from "./preview/types";
 
 interface Props {
 	emailEnabled: boolean;
-	smsPhoneNumber: string;
 	initialAssets: InitialAsset[];
 	hasTrackedAssets: boolean;
 }
@@ -155,7 +126,6 @@ const emit = defineEmits<(event: "update:emailEnabled", value: boolean) => void>
 // Inject the shared mutable user ref from DashboardPanels
 const user = useDashboardUser();
 
-const isEditingPhone = ref(false);
 const isHydrated = useHydrated();
 const tick = ref(0);
 let intervalId: number | null = null;
@@ -187,75 +157,8 @@ const {
 	formRef: notificationPreferencesFormElement,
 });
 
-/* ============= Flash messages ============= */
-const flashMessages = ref<FlashMessage[]>([]);
-const smsSuccessMessage = ref<string | null>(null);
-
-function clearFlashTone(tone: FlashTone) {
-	flashMessages.value = flashMessages.value.filter(
-		(item) => item.tone !== tone,
-	);
-}
-
-function setFlashMessage(tone: FlashTone, messageKey: string) {
-	const message = formatMessage(messageKey);
-	if (!message) return;
-
-	// Clear the other two tones, keeping only the incoming one
-	const otherTones: FlashTone[] = (
-		["success", "error", "warning"] as const
-	).filter((t) => t !== tone);
-	for (const t of otherTones) clearFlashTone(t);
-
-	const existing = flashMessages.value.findIndex(
-		(item) => item.tone === tone,
-	);
-	const newMessage = { tone, message };
-	if (existing >= 0) {
-		flashMessages.value.splice(existing, 1, newMessage);
-	} else {
-		flashMessages.value.push(newMessage);
-	}
-}
-
-/* ============= SMS verification ============= */
-async function handleNotificationPreferencesUpdated() {
-	const notificationPreferences = await fetchCurrentNotificationPreferences();
-	if (notificationPreferences) {
-		savedNotificationPreferencesData.value = notificationPreferences;
-	}
-}
-
-const sendVerificationDisabled = ref(true);
-
-const { handleSmsVerificationSubmit, isSendingVerification, isVerifyingCode } =
-	useSmsVerificationSubmission({
-		isEditingPhone,
-		user,
-		smsSuccessMessage,
-		setNotificationPreferencesFlashMessage: setFlashMessage,
-		clearNotificationPreferencesFlashTone: clearFlashTone,
-		handleNotificationPreferencesUpdated,
-	});
-
-// Provide SMS verification state so descendants can inject instead of prop-drilling
-provideSmsVerificationContext({
-	isEditingPhone,
-	smsSuccessMessage,
-	sendVerificationDisabled,
-	isVerifyingCode,
-	isSendingVerification,
-});
-
-async function handleFormSubmitWrapper(event: SubmitEvent) {
-	const handled = await handleSmsVerificationSubmit(event);
-	if (handled) return;
-	await handleFormSubmit(event);
-}
-
 /* ============= Channel state ============= */
 const emailNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-email_notifications_enabled`;
-const smsStatusId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-sms_status`;
 const notificationChannelsDescId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-notification-channels-desc`;
 
 const emailEnabledModel = computed({
@@ -263,15 +166,7 @@ const emailEnabledModel = computed({
 	set: (value: boolean) => emit("update:emailEnabled", value),
 });
 
-const phoneVerified = computed(() => user.value.phone_verified === true);
-const smsOptedOut = computed(() => user.value.sms_opted_out === true);
-const smsNotificationsEnabled = computed({
-	get: () => user.value.sms_notifications_enabled === true,
-	set: (value: boolean) => {
-		user.value = { ...user.value, sms_notifications_enabled: value };
-	},
-});
-watch([emailEnabledModel, smsNotificationsEnabled], () => {
+watch(emailEnabledModel, () => {
 	notifyChange();
 });
 
@@ -284,9 +179,6 @@ watch(
 			user.value = {
 				...user.value,
 				email_notifications_enabled: newData.email_notifications_enabled,
-				sms_notifications_enabled: newData.sms_notifications_enabled,
-				sms_opted_out: newData.sms_opted_out,
-				phone_verified: newData.phone_verified,
 				daily_notification_time: newData.daily_notification_time,
 				daily_notification_next_send_at: newData.daily_notification_next_send_at,
 				market_scheduled_asset_price_next_send_at: newData.market_scheduled_asset_price_next_send_at,
@@ -296,13 +188,6 @@ watch(
 		}
 	},
 );
-
-// When phone becomes verified: exit phone-edit mode
-watch(phoneVerified, (isVerified) => {
-	if (isVerified) {
-		isEditingPhone.value = false;
-	}
-});
 
 /* ============= Daily Delivery Time ============= */
 
@@ -394,13 +279,7 @@ const nextDailyDeliveryText = computed(() => {
 
 /* ============= Notification Preview ============= */
 const needsTrackedAssets = computed(() => !props.hasTrackedAssets);
-const hasAnySmsFeatureEnabled = computed(() =>
-	SMS_OPTION_FIELD_NAMES.some((field) => user.value[field]),
-);
-const hasNotificationChannel = computed(
-	() => emailEnabledProp.value || (smsNotificationsEnabled.value && hasAnySmsFeatureEnabled.value && phoneVerified.value && !smsOptedOut.value),
-);
-const needsChannelSelection = computed(() => !hasNotificationChannel.value);
+const needsChannelSelection = computed(() => !emailEnabledProp.value);
 const notificationSetupBlocked = computed(
 	() => needsChannelSelection.value || needsTrackedAssets.value,
 );

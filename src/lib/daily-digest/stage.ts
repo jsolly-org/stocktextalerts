@@ -5,7 +5,6 @@ import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import {
 	formatDailyDigestEmail,
-	formatDailyDigestSmsMessageBodies,
 	formatDailyDigestTelegram,
 } from "../messaging/notifications/daily-digest";
 import type { SparklineMap } from "../messaging/parts/sparkline";
@@ -27,19 +26,14 @@ export interface StageDailyDigestOptions {
 	scheduledMinutes: MinuteOfDay;
 	dueAtLocal: DateTimeType;
 	hasEmailContent: boolean;
-	hasSmsContent: boolean;
 	hasTelegramContent: boolean;
 	emailExtras: NotificationExtras | null;
-	smsExtras: NotificationExtras | null;
 	telegramExtras: NotificationExtras | null;
 	emailPriceAssets: UserAssetRow[];
 	emailPriceMap: AssetPriceMap;
-	smsPriceAssets: UserAssetRow[];
-	smsPriceMap: AssetPriceMap;
 	telegramPriceAssets: UserAssetRow[];
 	telegramPriceMap: AssetPriceMap;
 	emailAssetEvents: AssetEventsContent | null;
-	smsAssetEvents: AssetEventsContent | null;
 	telegramAssetEvents?: AssetEventsContent | null;
 	sparklines: SparklineMap;
 	marketOpen: boolean;
@@ -64,19 +58,14 @@ export async function stageDailyDigestContent(options: StageDailyDigestOptions):
 		scheduledMinutes,
 		dueAtLocal,
 		hasEmailContent,
-		hasSmsContent,
 		hasTelegramContent,
 		emailExtras,
-		smsExtras,
 		telegramExtras,
 		emailPriceAssets,
 		emailPriceMap,
-		smsPriceAssets,
-		smsPriceMap,
 		telegramPriceAssets,
 		telegramPriceMap,
 		emailAssetEvents,
-		smsAssetEvents,
 		telegramAssetEvents,
 		sparklines,
 		marketOpen,
@@ -116,22 +105,6 @@ export async function stageDailyDigestContent(options: StageDailyDigestOptions):
 				})
 			: null;
 
-	const smsContent =
-		hasSmsContent && smsExtras
-			? {
-					messages: formatDailyDigestSmsMessageBodies({
-						userAssets: smsPriceAssets,
-						assetPrices: smsPriceMap,
-						extras: smsExtras,
-						assetEvents: smsAssetEvents,
-						sparklines,
-						marketOpen,
-						marketClosureInfo,
-						is24Hour: user.use_24_hour_time,
-					}),
-				}
-			: null;
-
 	const telegramFormatted =
 		hasTelegramContent && telegramExtras
 			? formatDailyDigestTelegram({
@@ -160,7 +133,6 @@ export async function stageDailyDigestContent(options: StageDailyDigestOptions):
 		scheduledDate,
 		scheduledMinutes,
 		email: emailContent,
-		sms: smsContent,
 		telegram: telegramContent,
 		grokAllowed,
 		hasAnyAssetEventsOption,

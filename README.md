@@ -1,20 +1,18 @@
 # 📈 StockTextAlerts.com
 
-A securities notification app that sends scheduled SMS and email updates (scheduled asset price notifications, daily digests, and asset events) and optional per-stock price-move alerts for tracked US stocks and ETFs. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via AWS SES and Twilio. 🔔
+A securities notification app that sends scheduled email and Telegram updates (scheduled asset price notifications, daily digests, and asset events) and optional per-stock price-move alerts for tracked US stocks and ETFs. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email is sent via AWS SES; Telegram messages via the Telegram Bot API. 🔔
 
 ## Features
 
 - **Asset Tracking** - Search and track US stocks and ETFs (up to 10)
 - **Email Notifications** - Receive updates via email (AWS SES)
-- **SMS Notifications** - Optional SMS delivery (Twilio)
+- **Telegram Notifications** - Optional delivery via the Telegram bot (Telegram Bot API)
 - **Price Move Alerts** - Optional per-stock alerts during US market hours: set a threshold per tracked stock as a percent or dollar move in a single trading day. Capped at one alert per symbol per US trading day
-- **Phone Verification** - Secure phone verification via Twilio Verify
 - **Timezone Support** - Browser-detected timezones with user overrides
-- **Market Notifications** - Choose up to 8 delivery times for scheduled asset price updates (10:00 AM–3:59 PM ET on market-open days), and decide if they're delivered by email, SMS, or both
-- **Daily Digest** - Once-daily digest with asset prices by email and/or SMS, plus optional News/Rumors add-ons (email-only and may include clickable source links)
-- **Asset Events** - Daily notification of upcoming calendar events (earnings/dividends/splits) and IPOs, plus optional insider trades and analyst consensus (each event type can be toggled per channel and delivered by email and/or SMS)
-- **Format Preferences** - Customize how your updates look with live SMS/email previews and optional sparklines (weekly price trend)
-- **SMS Controls** - Reply STOP to pause SMS, START to resume SMS, STOP EMAIL to disable email notifications, or STOP ALL to disable both channels
+- **Market Notifications** - Choose up to 8 delivery times for scheduled asset price updates (10:00 AM–3:59 PM ET on market-open days), and decide if they're delivered by email, Telegram, or both
+- **Daily Digest** - Once-daily digest with asset prices by email and/or Telegram, plus optional News/Rumors add-ons (email-only and may include clickable source links)
+- **Asset Events** - Daily notification of upcoming calendar events (earnings/dividends/splits) and IPOs, plus optional insider trades and analyst consensus (each event type can be toggled per channel and delivered by email and/or Telegram)
+- **Format Preferences** - Customize how your updates look with live email/Telegram previews and optional sparklines (weekly price trend)
 
 ## Tech Stack
 
@@ -25,9 +23,8 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **Market Data**: Massive (prices/dividends/splits/IPOs) + Finnhub (symbols, earnings, market hours, analyst/insider extras)
 - **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons
 - **Email**: AWS SES
-- **SMS**: Twilio Verify API + Messaging API
+- **Telegram**: Telegram Bot API
 - **Hosting**: Vercel (dashboard) + AWS Lambda (notification crons via SAM)
-- **Phone Validation**: libphonenumber-js
 - **Search**: Server-side search over Finnhub-sourced asset data (local DB)
 - **Linting**: Biome (no ESLint or Prettier)
 - **Testing**: Vitest + Playwright
@@ -43,7 +40,6 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - Node.js (see `.nvmrc` for the required version)
 - A container runtime: **Podman** (recommended) or Docker. Podman requires `DOCKER_HOST` to point at its socket; see `AGENTS.md#local-container-runtime-podman` for the one-time shell setup.
 - Supabase account
-- Twilio account with Verify API enabled
 - Massive account (API key)
 - Finnhub account (API key)
 - xAI account (optional, only needed for News/Rumors add-ons)
@@ -68,13 +64,6 @@ npm install
 2. Choose a project name, database password, and region
 3. Wait for the project to finish provisioning
 
-**Twilio:**
-
-1. Go to [twilio.com](https://www.twilio.com) and create an account
-2. Purchase a phone number (or use trial number)
-3. Create a Verify Service in Console → Verify → Services
-4. Note your Account SID, Auth Token, Phone Number, and Verify Service SID
-
 **Vercel:**
 
 1. Push your code to GitHub (if you haven't already)
@@ -83,7 +72,7 @@ npm install
 
 ### 3. Environment Variables
 
-> **Note:** Where possible, use official [Supabase integrations](https://supabase.com/docs/guides/platform/marketplace) (e.g. Twilio) instead of manually managing API keys as environment variables. Integrations are configured in the Supabase Dashboard and inject credentials automatically — no env vars needed.
+> **Note:** Where possible, use official [Supabase integrations](https://supabase.com/docs/guides/platform/marketplace) instead of manually managing API keys as environment variables. Integrations are configured in the Supabase Dashboard and inject credentials automatically — no env vars needed.
 
 Create a `.env.local` file in the root directory (you can copy from `env.example` and fill in secrets). This file is gitignored and **must not** be committed.
 
@@ -98,14 +87,6 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 SUPABASE_SECRET_KEY=your-service-role-key
 DATABASE_URL=postgresql://postgres:password@host:5432/database
-
-# Twilio
-TWILIO_ACCOUNT_SID=your-twilio-account-sid
-TWILIO_API_KEY_SID=your-twilio-restricted-api-key-sid          # senders + Verify (scoped Restricted key)
-TWILIO_API_KEY_SECRET=your-twilio-restricted-api-key-secret
-TWILIO_AUTH_TOKEN=your-twilio-auth-token                       # inbound webhook signature validation only
-TWILIO_PHONE_NUMBER=+1234567890
-TWILIO_VERIFY_SERVICE_SID=your-verify-service-sid
 
 # Email unsubscribe token signing
 UNSUBSCRIBE_TOKEN_SECRET=your-random-secret-string  # Minimum 12 characters; use `openssl rand -hex 32`
@@ -146,7 +127,6 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`: Supabase Dashboard → Project Settings → API Keys
 - `SUPABASE_SECRET_KEY`: Supabase Dashboard → Project Settings → API Keys → Secret keys
 - `DATABASE_URL`: Supabase Dashboard → Project Settings → Database → Connection String → Transaction mode (pooler)
-- Twilio credentials: Twilio Console → Account Dashboard
 - `UNSUBSCRIBE_TOKEN_SECRET`: Generate a random string (minimum 12 characters; e.g., `openssl rand -hex 32`)
 - `EMAIL_FROM`: Verified SES sender; keep in sync with SSM `/stocktextalerts/email-from`. Lambda uses SSM at deploy time; Vercel does not need this for app-triggered emails.
 - `ADMIN_EMAILS`: Comma-separated allowlist for `/admin/users` (pending-user approval UI). Include `test@jsolly.com` locally when using the seeded dev-login account.
@@ -163,8 +143,8 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 **Platform-only config (not part of `.env.local`):**
 
 - **Vercel-managed/injected:** `VERCEL_URL` is set automatically on hosted deployments. If you use the Vercel Supabase integration, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY` come from that integration instead of a committed/shared env file.
-- **Vercel (SSR + webhooks):** `TWILIO_*`, `UNSUBSCRIBE_TOKEN_SECRET` (must match Lambda — signs email unsubscribe links), `MASSIVE_API_KEY` (asset logo proxy), `ADMIN_EMAILS`, `EMAIL_DISPATCH_URL`, and `EMAIL_DISPATCH_SECRET`. App-triggered emails are dispatched to AWS Lambda via HMAC; outbound notification email/SMS is sent by **AWS Lambda**, not Vercel — do not add Lambda-only `FINNHUB_API_KEY`, `XAI_API_KEY`, `EMAIL_FROM`, or AWS access keys to Vercel.
-- **AWS Lambda (SAM deploy from `.env.local` via `aws/sam-params.sh`):** Supabase prod keys, Twilio, `UNSUBSCRIBE_TOKEN_SECRET`, Massive, Finnhub, optional `XAI_API_KEY`. `EmailFrom` is **not** passed on the CLI — the template defaults to SSM `/stocktextalerts/email-from`. SES auth is the Lambda execution role, not static `AWS_*` keys.
+- **Vercel (SSR + webhooks):** `UNSUBSCRIBE_TOKEN_SECRET` (must match Lambda — signs email unsubscribe links), `MASSIVE_API_KEY` (asset logo proxy), `ADMIN_EMAILS`, `EMAIL_DISPATCH_URL`, and `EMAIL_DISPATCH_SECRET`. App-triggered emails are dispatched to AWS Lambda via HMAC; outbound notification email/Telegram is sent by **AWS Lambda**, not Vercel — do not add Lambda-only `FINNHUB_API_KEY`, `XAI_API_KEY`, `EMAIL_FROM`, or AWS access keys to Vercel.
+- **AWS Lambda (SAM deploy from `.env.local` via `aws/sam-params.sh`):** Supabase prod keys, `UNSUBSCRIBE_TOKEN_SECRET`, Massive, Finnhub, optional `XAI_API_KEY`. `EmailFrom` is **not** passed on the CLI — the template defaults to SSM `/stocktextalerts/email-from`. SES auth is the Lambda execution role, not static `AWS_*` keys.
 - **Local-only values:** `DATABASE_URL` and `DEFAULT_PASSWORD` are for local Supabase + seed generation and should not be added to Vercel.
 - **GitHub production deploy creds:** `DATABASE_URL_PROD` lives in the GitHub `Production` environment; AWS uses the OIDC `github-actions-deploy` role. Vercel production web deploys are handled by the Vercel GitHub integration, not a GitHub Actions `VERCEL_TOKEN`. Local `.env.local` deploy creds remain only for break-glass `npm run deploy:code`.
 - **Live provider keys** (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`): SAM parameters in gitignored `.env.local` (via `aws/sam-params.sh`), consumed by the runtime Lambdas and the scheduled `stocktextalerts-live-provider-check` Lambda (weekday mid-session live vendor health check). Failures fire `stocktextalerts-live-provider-check-lambda-errors` → **shared-infra** (SES email).
@@ -223,27 +203,6 @@ This repo includes a styled confirmation email template that matches the app’s
 - `supabase/templates/auth-email-change.html` (`content_path = "./supabase/templates/auth-email-change.html"`)
 - `supabase/templates/auth-password-changed.html` (`content_path = "./templates/auth-password-changed.html"`)
 
-### 6. Expose Local Webhooks (ngrok)
-
-If you want Twilio inbound SMS webhooks (STOP/START/HELP) to hit your local dev server, expose port 4321 with ngrok and point Twilio at the public URL.
-
-1. Install ngrok and authenticate (see [ngrok setup](https://ngrok.com/docs/getting-started/)).
-2. Start a tunnel to your local dev server:
-
-    ```bash
-    ngrok http 4321
-    ```
-
-3. Copy the `https://...ngrok-free.app` (or similar) forwarding URL and set it as `VERCEL_URL` in `.env.local`:
-
-    ```env
-    VERCEL_URL=https://YOUR_NGROK_HOSTNAME
-    ```
-
-4. Restart `npm run dev` so the app uses the new base URL.
-5. In Twilio Console → Phone Numbers → Messaging, set the inbound webhook to:
-   - `https://YOUR_NGROK_HOSTNAME/api/messaging/inbound`
-
 ## Testing
 
 GitHub CI runs the full test battery on every PR and `main` push. Local DB-backed tests are **opt-in** — see [tests/README.md](tests/README.md).
@@ -270,7 +229,7 @@ Because Vercel Git deployments start independently on `main` pushes, schema-affe
 
 ### Live provider validation
 
-Vitest runs fully offline and stubs every external provider key (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`, `XAI_API_KEY`); Twilio and SES are always faked in tests. There is **no way to run live provider tests locally** — the provider keys live only in the Lambda runtime (SAM params).
+Vitest runs fully offline and stubs every external provider key (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`, `XAI_API_KEY`); SES and Telegram are always faked in tests. There is **no way to run live provider tests locally** — the provider keys live only in the Lambda runtime (SAM params).
 
 Real Massive/Finnhub round-trips are exercised in production by the scheduled `stocktextalerts-live-provider-check` Lambda ([src/handlers/maintenance/live-provider-check.ts](src/handlers/maintenance/live-provider-check.ts)), which throws on any failure and surfaces it through the standard Lambda error alarm. The GitHub deploy workflow invokes it after every production deploy; invoke it on demand with `aws lambda invoke` only for investigation.
 
@@ -281,8 +240,8 @@ Real Massive/Finnhub round-trips are exercised in production by the scheduled `s
 1. **Register** - Create an account with email
 2. **Set Settings** - Configure timezone and notification schedule
 3. **Add Assets** - Search and add assets to track
-4. **Enable SMS** (optional) - Add phone number and verify via SMS code
-5. **Receive Notifications** - Get your asset updates via email and/or SMS
+4. **Link Telegram** (optional) - Connect your Telegram account via the bot
+5. **Receive Notifications** - Get your asset updates via email and/or Telegram
 
 ### API Endpoints
 
@@ -299,8 +258,6 @@ Real Massive/Finnhub round-trips are exercised in production by the scheduled `s
   - `POST /api/auth/account-management/change-password`
   - `POST /api/auth/account-management/delete-account`
   - `POST /api/auth/account-management/update-password`
-- `POST /api/auth/sms/send-verification`
-- `POST /api/auth/sms/verify-code`
 
 **Notification settings:**  
 The canonical endpoint for fetching current user preferences is `GET /api/notification-preferences/current`.
@@ -310,7 +267,6 @@ The canonical endpoint for fetching current user preferences is `GET /api/notifi
 - `POST /api/profile/timezone`
 - `POST /api/profile/dismiss-timezone-banner`
 - `POST /api/profile/time-format`
-- `POST /api/messaging/inbound` (Twilio webhook for STOP/START/STOP EMAIL/STOP ALL/HELP)
 
 ## Deployment to Vercel
 
@@ -320,7 +276,6 @@ Do not mirror `.env.local` into Vercel 1:1.
 
 Add the runtime variables your **Vercel SSR app** needs (Settings → Environment Variables):
 
-- `TWILIO_*` — SMS verification and inbound webhooks
 - `UNSUBSCRIBE_TOKEN_SECRET` — verify `/unsubscribe` links (must match the Lambda value)
 - `MASSIVE_API_KEY` — asset logo proxy (`/api/assets/logo/...`)
 - Supabase integration vars (if not using the Vercel Supabase integration)
@@ -347,16 +302,7 @@ SES notification sending runs on Lambda (`EMAIL_FROM` from SSM `/stocktextalerts
 
 Push to your main branch or click "Redeploy" in Vercel. The application will automatically build and deploy.
 
-### 3. Configure Twilio Webhook
-
-After deployment, configure the Twilio webhook for incoming SMS:
-
-1. Go to Twilio Console → Phone Numbers → Manage → Active numbers
-2. Select your phone number
-3. Under "Messaging", set the webhook URL to: `https://yourdomain.com/api/messaging/inbound`
-4. Save changes
-
-### 4. AWS Lambda Crons
+### 3. AWS Lambda Crons
 
 Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). EventBridge Scheduler triggers them automatically.
 
@@ -366,7 +312,7 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 2. Runs scheduled asset price notifications (batched via Massive snapshot quotes)
 3. Sends asset events notifications (earnings/dividends/splits/IPOs/analyst/insider) at the user’s daily delivery time
 4. Sends daily digest notifications (News/Rumors) at the user’s chosen daily time
-5. Sends via email and/or SMS based on settings and logs attempts to the `notification_log` table
+5. Sends via email and/or Telegram based on settings and logs attempts to the `notification_log` table
 
 **`AssetMaintenanceFunction`** (daily at 00:00 UTC) — pre-populates the `asset_events` table with earnings, dividends, splits, and IPOs; runs Finnhub analyst/insider enrichment, the asset-universe reconcile, and the delisting sweep.
 
@@ -392,8 +338,6 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 - Row Level Security (RLS) on all database tables (authenticated users have SELECT-only on assets; service_role handles sector updates)
 - URL sanitization in notification links (only http/https allowed in headline URLs, blocks javascript:, data:, etc.)
 - Cron endpoint protected by secret header
-- Phone verification via Twilio Verify API
-- SMS opt-out support (STOP keyword compliance)
 - Rate limiting on sensitive actions: password change (`CHANGE_PASSWORD_RATE_LIMIT_ATTEMPTS` / `CHANGE_PASSWORD_RATE_LIMIT_MINUTES`), email change (`CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS` / `CHANGE_EMAIL_RATE_LIMIT_MINUTES`), and account deletion (`DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS` / `DELETE_ACCOUNT_RATE_LIMIT_MINUTES`); defaults: 5 attempts per 15 minutes for each
 - Service role key never exposed to client
 - Traditional form submissions (some UI components like Vue dashboard panels and autosave maintain client-side state)

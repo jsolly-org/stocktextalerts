@@ -24,15 +24,6 @@ function renderSessionFirstLinePlain(
 	}
 }
 
-/** Session-aware first body line for SMS. */
-export function buildSessionFirstLineSms(
-	session: ActiveMarketSession,
-	scheduledEtMinutes: number,
-	is24: boolean,
-): string {
-	return renderSessionFirstLinePlain(session, scheduledEtMinutes, is24);
-}
-
 /** Session-aware first body line for the email text body. */
 export function buildSessionFirstLineEmailText(
 	session: ActiveMarketSession,

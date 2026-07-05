@@ -1,5 +1,5 @@
 import type { ActiveMarketSession, NoSessionTrade } from "../../types";
-import { SMS_SPARKLINE_LABEL, type SparklineData } from "./sparkline";
+import { PLAINTEXT_SPARKLINE_LABEL, type SparklineData } from "./sparkline";
 
 export type AssetPrice = {
 	price: number;
@@ -24,7 +24,7 @@ export type AssetWithName = { symbol: string; name: string };
 export const NO_TRACKED_ASSETS_MESSAGE = "You don't have any tracked assets";
 
 /** Canonical USD price rendering, shared across every channel: thousands separators +
- *  2 decimals ("$1,234.56"). Use everywhere a price is shown so SMS/email/Telegram/alerts
+ *  2 decimals ("$1,234.56"). Use everywhere a price is shown so email/Telegram/alerts
  *  never diverge on grouping. */
 export function formatUsdPrice(price: number): string {
 	return `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -48,7 +48,7 @@ function formatAssetPriceText(
 		base += ` (${formatSignedChangePercent(changePercent)})`;
 	}
 	if (sparkline?.ascii) {
-		const label = sparkline.cacheAsOfLabel ?? SMS_SPARKLINE_LABEL[sparkline.window];
+		const label = sparkline.cacheAsOfLabel ?? PLAINTEXT_SPARKLINE_LABEL[sparkline.window];
 		return `${base} ${label}: ${sparkline.ascii}`;
 	}
 	return base;
@@ -70,7 +70,7 @@ function getNoSessionTradeText(
 	return null;
 }
 
-/** Format a single asset line for plaintext contexts (email text / SMS / previews). */
+/** Format a single asset line for plaintext contexts (email text / previews). */
 export function formatAssetTextLine(
 	asset: AssetWithName,
 	price: AssetPriceLookup,

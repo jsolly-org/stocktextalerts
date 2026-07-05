@@ -5,8 +5,6 @@ import {
 	summaryText,
 } from "../messaging/email/delisting";
 import { deliveryResultToLogFields } from "../messaging/shared";
-import { isSmsChannelUsable, sendUserSms } from "../messaging/sms";
-import { formatDelistingSms } from "../messaging/sms/delisting";
 import { NOTIFICATION_DEDUPE_WINDOW_MS } from "./constants";
 import { fetchTickerReferences } from "./reference/delistings";
 import type { DelistingSweepDeps, DelistingSweepResult } from "./types";
@@ -19,9 +17,6 @@ const EMPTY_RESULT: DelistingSweepResult = {
 	emailsDelivered: 0,
 	emailsSkippedOptOut: 0,
 	emailsFailed: 0,
-	smsDelivered: 0,
-	smsSkippedOptOut: 0,
-	smsFailed: 0,
 	userAssetRowsDeleted: 0,
 	providerErrors: 0,
 };
@@ -31,12 +26,6 @@ const EMPTY_RESULT: DelistingSweepResult = {
  * (once per day at 00:00 UTC) in its own try/catch so failures don't
  * invalidate the calendar-events fetch.
  *
- * Multi-channel: every enabled channel (email, SMS) receives an independent
- * copy of the delisting notice. This matches the pattern used by
- * daily-digest / asset-events / market-notifications — users get notified
- * on whatever channels they have turned on, not on a single "preferred"
- * channel with the other as a fallback.
- *
  * Flow:
  *   1. Load distinct symbols held by any user.
  *   2. Partition into already-flagged (assets.delisted_at not null) vs
@@ -45,25 +34,22 @@ const EMPTY_RESULT: DelistingSweepResult = {
  *   4. UPDATE assets.delisted_at for newly detected delistings.
  *   5. Build the work set (already-flagged ∪ newly-detected) and find the
  *      users still holding any of those symbols.
- *   6. Load recipient info: email + SMS eligibility fields.
- *   7. Per-channel 48h notification_log dedupe — a delivered=true row on
- *      channel X in the window suppresses re-send on channel X only.
- *   8. For each affected user, attempt every enabled channel independently:
+ *   6. Load recipient info: email eligibility fields.
+ *   7. 48h notification_log dedupe — a delivered=true email row in the
+ *      window suppresses re-send.
+ *   8. For each affected user, attempt email delivery:
  *      a. Email: send if enabled + not deduped, otherwise log opt-out row.
- *      b. SMS: send if `isSmsChannelUsable()` + not deduped, otherwise log
- *         opt-out row with error="sms_not_usable".
- *      c. Record each attempt in notification_log.
- *   9. Cleanup gate: if any channel had a transient failure (send or log
- *      insert), skip step 10 so the next sweep retries. Opt-out rows
- *      and dedupe-skips are cleanup-safe.
+ *      b. Record the attempt in notification_log.
+ *   9. Cleanup gate: if email had a transient failure (send or log insert),
+ *      skip step 10 so the next sweep retries. Opt-out rows and dedupe-skips
+ *      are cleanup-safe.
  *  10. DELETE user_assets rows for the (user, symbol) pairs.
  *
- * Users with NO enabled channels (both email and SMS opted out / not
- * usable) still get cleanup — their data is removed silently and the
- * notification_log records why no outbound message went out.
+ * Users with email opted out still get cleanup — their data is removed
+ * silently and the notification_log records why no outbound message went out.
  */
 export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<DelistingSweepResult> {
-	const { supabase, logger, sendEmail, getSmsSender } = deps;
+	const { supabase, logger, sendEmail } = deps;
 	const result: DelistingSweepResult = { ...EMPTY_RESULT };
 
 	// 1. Load distinct symbols.
@@ -201,12 +187,10 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 	}
 	const affectedUserIds = [...userHoldings.keys()];
 
-	// 6. Load recipient info (includes SMS eligibility fields).
+	// 6. Load recipient info (email eligibility fields).
 	const { data: userRows, error: usersErr } = await supabase
 		.from("users")
-		.select(
-			"id, email, email_notifications_enabled, sms_notifications_enabled, sms_opted_out, phone_country_code, phone_number, phone_verified",
-		)
+		.select("id, email, email_notifications_enabled")
 		.in("id", affectedUserIds);
 	if (usersErr) {
 		logger.error(
@@ -221,11 +205,6 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 		id: string;
 		email: string;
 		emailNotificationsEnabled: boolean;
-		smsNotificationsEnabled: boolean;
-		smsOptedOut: boolean;
-		phoneCountryCode: string | null;
-		phoneNumber: string | null;
-		phoneVerified: boolean;
 	}
 	const userInfo = new Map<string, AffectedUser>();
 	for (const u of userRows ?? []) {
@@ -233,18 +212,12 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 			id: u.id,
 			email: u.email,
 			emailNotificationsEnabled: u.email_notifications_enabled,
-			smsNotificationsEnabled: u.sms_notifications_enabled,
-			smsOptedOut: u.sms_opted_out,
-			phoneCountryCode: u.phone_country_code,
-			phoneNumber: u.phone_number,
-			phoneVerified: u.phone_verified,
 		});
 	}
 
-	// 7. Per-channel 48h notification_log dedupe.
-	// A successful delivered=true row on channel X within the dedupe window
-	// suppresses re-sending on channel X only, so a user who got email yesterday
-	// but had SMS flake today will get only the SMS retry tomorrow.
+	// 7. 48h notification_log dedupe.
+	// A successful delivered=true email row within the dedupe window suppresses
+	// re-sending.
 	const cutoff = new Date(Date.now() - NOTIFICATION_DEDUPE_WINDOW_MS).toISOString();
 	const { data: recentNotes, error: recentErr } = await supabase
 		.from("notification_log")
@@ -262,13 +235,11 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 		throw recentErr;
 	}
 	const emailDeduped = new Set<string>();
-	const smsDeduped = new Set<string>();
 	for (const row of recentNotes ?? []) {
 		if (row.delivery_method === "email") emailDeduped.add(row.user_id);
-		else if (row.delivery_method === "sms") smsDeduped.add(row.user_id);
 	}
 
-	// 8. Process each affected user: attempt every enabled channel independently.
+	// 8. Process each affected user: attempt email delivery.
 	for (const [userId, holdings] of userHoldings) {
 		const user = userInfo.get(userId);
 		if (!user) {
@@ -282,9 +253,9 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 		const sortedHoldings = [...holdings].sort((a, b) => a.symbol.localeCompare(b.symbol));
 		const summary = summaryText(sortedHoldings);
 
-		// Per-user per-channel outcome tracking. A channel blocks cleanup only
-		// when its delivery_result.success is false OR its log insert failed
-		// after a successful send (so the dedupe trail stays intact on retry).
+		// Per-user outcome tracking. Email blocks cleanup only when its
+		// delivery_result.success is false OR its log insert failed after a
+		// successful send (so the dedupe trail stays intact on retry).
 		let hasTransientFailure = false;
 		let deliveredOnAnyChannel = false;
 
@@ -349,78 +320,6 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 				deliveredOnAnyChannel = true;
 			} else {
 				result.emailsFailed += 1;
-				hasTransientFailure = true;
-			}
-		}
-		// Else: dedupe skip — silent pass, cleanup-safe.
-
-		// --- SMS channel ---
-		const smsEligibility = {
-			sms_opted_out: user.smsOptedOut,
-			sms_notifications_enabled: user.smsNotificationsEnabled,
-			phone_verified: user.phoneVerified,
-			phone_country_code: user.phoneCountryCode,
-			phone_number: user.phoneNumber,
-		};
-		if (!isSmsChannelUsable(smsEligibility)) {
-			const { error: optOutLogErr } = await supabase.from("notification_log").insert({
-				user_id: userId,
-				type: "delisting",
-				delivery_method: "sms",
-				message_delivered: false,
-				message: summary,
-				error: "sms_not_usable",
-				error_code: null,
-			});
-			if (optOutLogErr) {
-				logger.error(
-					"Delisting sweep failed to record SMS opt-out notification_log",
-					{ action: "delisting_sweep", userId },
-					optOutLogErr,
-				);
-				hasTransientFailure = true;
-			}
-			result.smsSkippedOptOut += 1;
-		} else if (!smsDeduped.has(userId)) {
-			const smsMessage = formatDelistingSms(sortedHoldings);
-			const smsSender = getSmsSender().sender;
-			const deliveryResult = await sendUserSms(
-				{
-					id: user.id,
-					phone_country_code: user.phoneCountryCode,
-					phone_number: user.phoneNumber,
-				},
-				smsMessage,
-				smsSender,
-				supabase,
-			);
-
-			const { error: logErr } = await supabase.from("notification_log").insert({
-				user_id: userId,
-				type: "delisting",
-				delivery_method: "sms",
-				message_delivered: deliveryResult.success,
-				message: summary,
-				...deliveryResultToLogFields(deliveryResult),
-			});
-			if (logErr) {
-				logger.error(
-					"Delisting sweep failed to record SMS notification_log",
-					{
-						action: "delisting_sweep",
-						userId,
-						delivered: deliveryResult.success,
-					},
-					logErr,
-				);
-				if (deliveryResult.success) hasTransientFailure = true;
-			}
-
-			if (deliveryResult.success) {
-				result.smsDelivered += 1;
-				deliveredOnAnyChannel = true;
-			} else {
-				result.smsFailed += 1;
 				hasTransientFailure = true;
 			}
 		}

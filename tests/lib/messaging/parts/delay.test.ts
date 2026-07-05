@@ -1,3 +1,4 @@
+import type { MessageEntity } from "grammy/types";
 import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
 import {
@@ -6,7 +7,7 @@ import {
 	DELAY_THRESHOLD_MINUTES,
 	getDelayMinutes,
 	prependDelayBannerToEmail,
-	prependDelayBannerToSms,
+	prependDelayBannerToTelegram,
 } from "../../../../src/lib/messaging/parts/delay";
 
 const BASE_TIME = DateTime.fromISO("2026-03-26T14:00:00Z", { zone: "utc" });
@@ -93,23 +94,6 @@ describe("buildDelayBannerHtml", () => {
 	});
 });
 
-describe("prependDelayBannerToSms", () => {
-	it("inserts banner after the header line", () => {
-		const message = "StockTextAlerts — Your daily digest\n\nAPPL: $150.00\n\nReply STOP";
-		const result = prependDelayBannerToSms(message, "⏰ Delayed banner");
-		const lines = result.split("\n\n");
-		expect(lines[0]).toBe("StockTextAlerts — Your daily digest");
-		expect(lines[1]).toBe("⏰ Delayed banner");
-		expect(lines[2]).toBe("APPL: $150.00");
-	});
-
-	it("handles message without double newline", () => {
-		const message = "Single line message";
-		const result = prependDelayBannerToSms(message, "⏰ Delayed");
-		expect(result).toBe("⏰ Delayed\n\nSingle line message");
-	});
-});
-
 describe("prependDelayBannerToEmail", () => {
 	const sampleHtml = `<!DOCTYPE html><html><body>
 	<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 8px 8px 0 0;">
@@ -141,5 +125,41 @@ describe("prependDelayBannerToEmail", () => {
 			"<div>HTML</div>",
 		);
 		expect(text).toBe("Header\n⏰ Text banner\nContent body");
+	});
+});
+
+describe("prependDelayBannerToTelegram", () => {
+	it("inserts the banner at the first paragraph break and shifts only later entities", () => {
+		const text = "AAPL Update\n\nPrice: $150.00";
+		const entities: MessageEntity[] = [
+			{ type: "bold", offset: 0, length: 4 }, // "AAPL" in the header (before the break)
+			{ type: "code", offset: 20, length: 7 }, // "$150.00" in the body (after the break)
+		];
+		const banner = "Delayed at 2:00 PM ET";
+		const shift = `\n${banner}`.length;
+
+		const result = prependDelayBannerToTelegram(text, entities, banner);
+
+		// Banner sits right before the original paragraph break.
+		expect(result.text).toBe(`AAPL Update\n${banner}\n\nPrice: $150.00`);
+		const [header, body] = result.entities;
+		// Header entity (before the insertion point) is untouched.
+		expect(header).toEqual({ type: "bold", offset: 0, length: 4 });
+		// Body entity (after the insertion point) is shifted by the inserted length…
+		expect(body).toEqual({ type: "code", offset: 20 + shift, length: 7 });
+		// …and still spans the same substring after the shift.
+		expect(body && result.text.slice(body.offset, body.offset + body.length)).toBe("$150.00");
+	});
+
+	it("appends the banner at the end when there is no paragraph break", () => {
+		const text = "Single line update";
+		const entities: MessageEntity[] = [{ type: "bold", offset: 0, length: 6 }]; // "Single"
+		const banner = "Delayed";
+
+		const result = prependDelayBannerToTelegram(text, entities, banner);
+
+		expect(result.text).toBe(`Single line update\n\n${banner}`);
+		// Nothing sits at/after end-of-text, so every entity is untouched.
+		expect(result.entities[0]).toEqual({ type: "bold", offset: 0, length: 6 });
 	});
 });

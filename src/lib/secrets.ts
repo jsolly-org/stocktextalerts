@@ -32,10 +32,6 @@ export const STOCKTEXTALERTS_SECRET_NAMES = [
 	"EMAIL_DISPATCH_SECRET",
 	"UNSUBSCRIBE_TOKEN_SECRET",
 	"TELEGRAM_BOT_TOKEN",
-	"TWILIO_ACCOUNT_SID",
-	"TWILIO_API_KEY_SID",
-	"TWILIO_API_KEY_SECRET",
-	"TWILIO_PHONE_NUMBER",
 ] as const;
 
 // Secrets whose feature degrades gracefully when absent, so a NOT-provisioned SSM

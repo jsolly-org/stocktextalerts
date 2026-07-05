@@ -73,7 +73,6 @@ import { expectConsoleError } from "../../setup";
 describe("runScheduledNotifications: staging failure fallback", () => {
 	beforeEach(() => {
 		expectConsoleError("Staged delivery phase failed (falling back to full pipeline)");
-		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 		vi.spyOn(deliverModule, "deliverStagedNotifications").mockRejectedValue(
 			new Error("Simulated staged delivery failure"),
 		);
@@ -95,7 +94,6 @@ describe("runScheduledNotifications: staging failure fallback", () => {
 		const { id } = await createTestUser({
 			timezone,
 			emailNotificationsEnabled: true,
-			smsNotificationsEnabled: false,
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
 		});

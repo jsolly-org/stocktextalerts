@@ -7,7 +7,7 @@ const DASHBOARD_USER_KEY: InjectionKey<Ref<DashboardUser>> = Symbol("dashboard-u
  * Provide a reactive dashboard user ref for descendant components.
  *
  * The provided ref is a shallow copy of the incoming prop and stays in sync with prop changes.
- * The user carries per-option email/sms prefs reconstructed from notification_preferences
+ * The user carries per-option email prefs reconstructed from notification_preferences
  * (see dashboard.astro), so panels keep reading `user.<field>` for those controls.
  */
 export function provideDashboardUser(userProp: Ref<DashboardUser>): Ref<DashboardUser> {

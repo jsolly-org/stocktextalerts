@@ -17,14 +17,14 @@ One structure defines every valid (notification_type, content, channel) option:
 
   - object keys author the valid `notification_type` and `content` values;
   - `channels` keys author which delivery channels the option exists on —
-    news/rumors have no `sms` key because that combo is INVALID, not disabled;
+    an absent channel key means that combo is INVALID, not disabled;
   - `channels` values author the new-user signup default;
   - `family` groups daily_notification facets and selects their form-field
     prefix (see NOTIFICATION_FAMILY_FIELD_PREFIX).
 
 Everything else derives from this value or is drift-checked against it: the TS
 unions below, the flat NOTIFICATION_PREFERENCE_CATALOG (and each option's form
-fieldName), the notification-preferences form schema, the SMS opt-out guard,
+fieldName), the notification-preferences form schema,
 signup defaults (buildDefaultPreferenceRows) and the local seed, dashboard
 field bindings, and the `notification_options` DB table enforcing the same
 triples via FK (checked by `npm run check:option-catalog` inside db:reset).
@@ -48,17 +48,17 @@ export type NotificationFamily = keyof typeof NOTIFICATION_FAMILY_FIELD_PREFIX;
 
 export const NOTIFICATION_OPTION_MATRIX = {
 	daily_notification: {
-		prices: { family: "digest", channels: { email: true, sms: true, telegram: false } },
-		top_movers: { family: "digest", channels: { email: false, sms: false, telegram: false } },
+		prices: { family: "digest", channels: { email: true, telegram: false } },
+		top_movers: { family: "digest", channels: { email: false, telegram: false } },
 		news: { family: "digest", channels: { email: false, telegram: false } },
 		rumors: { family: "digest", channels: { email: false, telegram: false } },
-		calendar: { family: "asset_events", channels: { email: false, sms: false, telegram: false } },
-		ipo: { family: "asset_events", channels: { email: false, sms: false, telegram: false } },
-		analyst: { family: "asset_events", channels: { email: false, sms: false, telegram: false } },
-		insider: { family: "asset_events", channels: { email: false, sms: false, telegram: false } },
+		calendar: { family: "asset_events", channels: { email: false, telegram: false } },
+		ipo: { family: "asset_events", channels: { email: false, telegram: false } },
+		analyst: { family: "asset_events", channels: { email: false, telegram: false } },
+		insider: { family: "asset_events", channels: { email: false, telegram: false } },
 	},
-	market_scheduled_asset_price: { "": { channels: { email: false, sms: false, telegram: false } } },
-	price_move_alerts: { "": { channels: { email: false, sms: false, telegram: false } } },
+	market_scheduled_asset_price: { "": { channels: { email: false, telegram: false } } },
+	price_move_alerts: { "": { channels: { email: false, telegram: false } } },
 } as const satisfies {
 	daily_notification: Record<
 		string,
@@ -240,14 +240,6 @@ export const REGISTRATION_ENABLED =
 
 /** Minimum password length enforced at the application level. */
 export const MIN_PASSWORD_LENGTH = 8;
-
-const VERIFICATION_EXPIRATION_MINUTES = 10;
-/** Verification code lifetime in milliseconds. */
-export const VERIFICATION_EXPIRATION_MS = VERIFICATION_EXPIRATION_MINUTES * 60 * 1000;
-
-const VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
-/** Minimum time between verification-code sends (milliseconds). */
-export const VERIFICATION_RESEND_COOLDOWN_MS = VERIFICATION_RESEND_COOLDOWN_SECONDS * 1000;
 
 /* =============
 Dashboard links

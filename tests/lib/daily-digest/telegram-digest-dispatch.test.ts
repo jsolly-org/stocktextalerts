@@ -2,14 +2,14 @@
  * Integration test for the Telegram daily-digest dispatch wiring.
  *
  * Scenario: a Telegram-linked user who has selected the daily-digest "prices"
- * facet for the Telegram channel (and disabled email/SMS) runs through the
+ * facet for the Telegram channel (and disabled email) runs through the
  * normal dispatch path and receives a Telegram daily digest — a
  * notification_log row with delivery_method='telegram' and
  * message_delivered=true, with stats.telegramSent incremented.
  *
  * Uses the real Supabase client + seeded data (createTestUser). The Telegram
  * sender is a test double; provider calls (Massive prices, market calendar)
- * are stubbed exactly like the email/SMS daily-digest process tests since
+ * are stubbed exactly like the email daily-digest process tests since
  * provider keys never exist in the local suite.
  */
 import { DateTime } from "luxon";
@@ -17,7 +17,7 @@ import { describe, expect, it, vi } from "vitest";
 import { processDailyDigestUser } from "../../../src/lib/daily-digest/process";
 import { rootLogger } from "../../../src/lib/logging";
 import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
-import type { EmailSender, SmsSender, TelegramSender } from "../../../src/lib/messaging/types";
+import type { EmailSender, TelegramSender } from "../../../src/lib/messaging/types";
 import type { UserRecord } from "../../../src/lib/types";
 import { dashboardButtonUrl } from "../../helpers/messaging-doubles";
 import { adminClient } from "../../helpers/test-env";
@@ -94,7 +94,6 @@ describe("Telegram daily digest dispatch", () => {
 		const { id } = await createTestUser({
 			timezone: "America/New_York",
 			emailNotificationsEnabled: false,
-			smsNotificationsEnabled: false,
 			trackedAssets: ["NVDA"],
 			confirmed: true,
 		});
@@ -136,7 +135,6 @@ describe("Telegram daily digest dispatch", () => {
 		const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
 
 		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
-		const smsSender = vi.fn<SmsSender>(async () => ({ success: true }));
 		const telegramSender = vi.fn<TelegramSender>(async () => ({
 			success: true,
 			messageSid: "telegram-msg-1",
@@ -148,17 +146,14 @@ describe("Telegram daily digest dispatch", () => {
 			logger: rootLogger,
 			currentTime: now,
 			sendEmail,
-			getSmsSender: () => ({ sender: smsSender }),
 			getTelegramSender: () => ({ sender: telegramSender }),
 		});
 
-		// Telegram delivered; email/SMS untouched.
+		// Telegram delivered; email untouched.
 		expect(stats.telegramSent).toBe(1);
 		expect(stats.telegramFailed).toBe(0);
 		expect(stats.emailsSent).toBe(0);
-		expect(stats.smsSent).toBe(0);
 		expect(sendEmail).not.toHaveBeenCalled();
-		expect(smsSender).not.toHaveBeenCalled();
 		expect(telegramSender).toHaveBeenCalledTimes(1);
 
 		// The sender received the linked chat id and a non-empty rendered body.
@@ -194,7 +189,7 @@ describe("Telegram daily digest dispatch", () => {
 
 	it("Precompute stages the Telegram digest content so the deliver phase can send it.", async () => {
 		// Regression guard: the precompute/stage path historically persisted only
-		// email + sms, silently dropping Telegram from every staged daily digest.
+		// email, silently dropping Telegram from every staged daily digest.
 		const now = DateTime.utc();
 		const nowIso = now.toISO();
 		expect(nowIso).toBeTruthy();
@@ -202,7 +197,6 @@ describe("Telegram daily digest dispatch", () => {
 		const { id } = await createTestUser({
 			timezone: "America/New_York",
 			emailNotificationsEnabled: false,
-			smsNotificationsEnabled: false,
 			trackedAssets: ["NVDA"],
 			confirmed: true,
 		});
@@ -240,7 +234,6 @@ describe("Telegram daily digest dispatch", () => {
 			logger: rootLogger,
 			currentTime: now,
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
-			getSmsSender: () => ({ sender: vi.fn<SmsSender>(async () => ({ success: true })) }),
 			getTelegramSender: () => ({ sender: telegramSender }),
 			stageOnly: true,
 		});

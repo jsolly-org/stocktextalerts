@@ -31,23 +31,6 @@
 					</label>
 					<label
 						class="inline-flex items-center gap-1.5"
-						:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
-						:title="smsDisabledTitle"
-					>
-						<input
-							ref="selectAllSmsRef"
-							type="checkbox"
-							:checked="allSmsChecked"
-							:disabled="needsChannelSelection || !smsReady"
-							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed'"
-							aria-label="Select all SMS for asset events"
-							@change="toggleAllSms"
-						/>
-						<span class="text-sm font-medium text-body-secondary">SMS</span>
-					</label>
-					<label
-						class="inline-flex items-center gap-1.5"
 						:class="telegramConnected ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
 						:title="telegramDisabledTitle"
 					>
@@ -77,11 +60,6 @@
 						type="hidden"
 						:name="`asset_events_include_${eventType.key}_email`"
 						:value="assetEventRefs[eventType.key].email.value ? 'on' : 'off'"
-					/>
-					<input
-						type="hidden"
-						:name="`asset_events_include_${eventType.key}_sms`"
-						:value="assetEventRefs[eventType.key].sms.value ? 'on' : 'off'"
 					/>
 					<input
 						type="hidden"
@@ -142,18 +120,13 @@ import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
-import {
-	getEmailChannelDisabledTitle,
-	getSmsChannelDisabledTitle,
-} from "../shared/channel-disabled-titles";
+import { getEmailChannelDisabledTitle } from "../shared/channel-options";
 import type { ChannelOption } from "../types";
 
 interface Props {
 	emailEnabled: boolean;
-	phoneVerified: boolean;
 	hasTrackedAssets: boolean;
 	needsChannelSelection: boolean;
-	notificationSetupBlocked: boolean;
 	telegramPrefs?: Record<string, boolean>;
 	notifyChange: () => void;
 }
@@ -161,31 +134,12 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
 	telegramPrefs: () => ({}),
 });
-const {
-	emailEnabled,
-	phoneVerified,
-	hasTrackedAssets,
-	needsChannelSelection,
-	notificationSetupBlocked,
-	notifyChange,
-} = toRefs(props);
+const { emailEnabled, hasTrackedAssets, needsChannelSelection, notifyChange } = toRefs(props);
 
 const user = useDashboardUser();
 
-const smsOptedOut = computed(() => user.value.sms_opted_out === true);
-const smsNotificationsEnabled = computed(() => user.value.sms_notifications_enabled === true);
-const smsReady = computed(
-	() => phoneVerified.value && !smsOptedOut.value && smsNotificationsEnabled.value,
-);
 const emailDisabledTitle = computed(() =>
 	getEmailChannelDisabledTitle(emailEnabled.value),
-);
-const smsDisabledTitle = computed(() =>
-	getSmsChannelDisabledTitle({
-		smsNotificationsEnabled: smsNotificationsEnabled.value,
-		phoneVerified: phoneVerified.value,
-		smsOptedOut: smsOptedOut.value,
-	}),
 );
 const telegramConnected = computed(() => user.value.telegram_chat_id != null);
 const telegramDisabledTitle = computed(() =>
@@ -247,28 +201,23 @@ const assetEventRefs: Record<
 	AssetEventKey,
 	{
 		email: ReturnType<typeof ref<boolean>>;
-		sms: ReturnType<typeof ref<boolean>>;
 		telegram: ReturnType<typeof ref<boolean>>;
 	}
 > = {
 	calendar: {
 		email: ref(user.value.asset_events_include_calendar_email),
-		sms: ref(user.value.asset_events_include_calendar_sms),
 		telegram: ref(props.telegramPrefs.calendar === true),
 	},
 	ipo: {
 		email: ref(user.value.asset_events_include_ipo_email),
-		sms: ref(user.value.asset_events_include_ipo_sms),
 		telegram: ref(props.telegramPrefs.ipo === true),
 	},
 	analyst: {
 		email: ref(user.value.asset_events_include_analyst_email),
-		sms: ref(user.value.asset_events_include_analyst_sms),
 		telegram: ref(props.telegramPrefs.analyst === true),
 	},
 	insider: {
 		email: ref(user.value.asset_events_include_insider_email),
-		sms: ref(user.value.asset_events_include_insider_sms),
 		telegram: ref(props.telegramPrefs.insider === true),
 	},
 };
@@ -281,14 +230,6 @@ const allEmailChecked = computed(
 const someEmailChecked = computed(() =>
 	selectableEventTypes.value.some((t) => assetEventRefs[t.key].email.value),
 );
-const allSmsChecked = computed(
-	() =>
-		selectableEventTypes.value.length > 0 &&
-		selectableEventTypes.value.every((t) => assetEventRefs[t.key].sms.value),
-);
-const someSmsChecked = computed(() =>
-	selectableEventTypes.value.some((t) => assetEventRefs[t.key].sms.value),
-);
 const allTelegramChecked = computed(
 	() =>
 		selectableEventTypes.value.length > 0 &&
@@ -299,17 +240,11 @@ const someTelegramChecked = computed(() =>
 );
 
 const selectAllEmailRef = ref<HTMLInputElement | null>(null);
-const selectAllSmsRef = ref<HTMLInputElement | null>(null);
 const selectAllTelegramRef = ref<HTMLInputElement | null>(null);
 
 watchEffect(() => {
 	if (selectAllEmailRef.value) {
 		selectAllEmailRef.value.indeterminate = someEmailChecked.value && !allEmailChecked.value;
-	}
-});
-watchEffect(() => {
-	if (selectAllSmsRef.value) {
-		selectAllSmsRef.value.indeterminate = someSmsChecked.value && !allSmsChecked.value;
 	}
 });
 watchEffect(() => {
@@ -323,13 +258,6 @@ function toggleAllEmail() {
 	const next = !allEmailChecked.value;
 	for (const eventType of selectableEventTypes.value) {
 		assetEventRefs[eventType.key].email.value = next;
-	}
-}
-
-function toggleAllSms() {
-	const next = !allSmsChecked.value;
-	for (const eventType of selectableEventTypes.value) {
-		assetEventRefs[eventType.key].sms.value = next;
 	}
 }
 
@@ -352,13 +280,6 @@ function channelOptionsFor(key: AssetEventKey): ChannelOption[] {
 			disabledTitle: emailDisabledTitle.value,
 		},
 		{
-			value: "sms",
-			label: "SMS",
-			selected: refs.sms.value === true,
-			disabled: blocked || !smsReady.value,
-			disabledTitle: smsDisabledTitle.value,
-		},
-		{
 			value: "telegram",
 			label: "Telegram",
 			selected: refs.telegram.value === true,
@@ -371,16 +292,13 @@ function channelOptionsFor(key: AssetEventKey): ChannelOption[] {
 function handleAssetEventToggle(key: AssetEventKey, channel: string, selected: boolean) {
 	const refs = assetEventRefs[key];
 	if (channel === "email") refs.email.value = selected;
-	else if (channel === "sms") refs.sms.value = selected;
 	else if (channel === "telegram") refs.telegram.value = selected;
 }
 
 type AssetEventUserFieldEmail = `asset_events_include_${AssetEventKey}_email`;
-type AssetEventUserFieldSms = `asset_events_include_${AssetEventKey}_sms`;
 
 for (const eventType of ASSET_EVENT_TYPES) {
 	const emailField = `asset_events_include_${eventType.key}_email` as AssetEventUserFieldEmail;
-	const smsField = `asset_events_include_${eventType.key}_sms` as AssetEventUserFieldSms;
 	const refs = assetEventRefs[eventType.key];
 
 	watch(
@@ -389,16 +307,10 @@ for (const eventType of ASSET_EVENT_TYPES) {
 			refs.email.value = v;
 		},
 	);
-	watch(
-		() => user.value[smsField],
-		(v) => {
-			refs.sms.value = v;
-		},
-	);
 
-	watch([refs.email, refs.sms], ([email, sms]) => {
-		if (email === user.value[emailField] && sms === user.value[smsField]) return;
-		user.value = { ...user.value, [emailField]: email, [smsField]: sms };
+	watch(refs.email, (email) => {
+		if (email === user.value[emailField]) return;
+		user.value = { ...user.value, [emailField]: email };
 		notifyChange.value();
 	});
 
@@ -409,10 +321,7 @@ for (const eventType of ASSET_EVENT_TYPES) {
 
 const assetEventsEnabled = computed(() =>
 	ASSET_EVENT_TYPES.some(
-		(t) =>
-			assetEventRefs[t.key].email.value ||
-			assetEventRefs[t.key].sms.value ||
-			assetEventRefs[t.key].telegram.value,
+		(t) => assetEventRefs[t.key].email.value || assetEventRefs[t.key].telegram.value,
 	),
 );
 

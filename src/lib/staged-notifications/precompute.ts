@@ -37,8 +37,6 @@ export async function precomputeDailyDigest(options: {
 		logFailures: 0,
 		emailsSent: 0,
 		emailsFailed: 0,
-		smsSent: 0,
-		smsFailed: 0,
 		telegramSent: 0,
 		telegramFailed: 0,
 	};
@@ -83,7 +81,7 @@ export async function precomputeDailyDigest(options: {
 	// instant, not the scheduler's current clock time. Near US midnight those can
 	// land on different market dates.
 	const marketOpen = options.marketOpen ?? (await getCurrentMarketSession()) === "regular";
-	const { sendEmail, getSmsSender, logoCache } = createNotificationSenders();
+	const { sendEmail, logoCache } = createNotificationSenders();
 
 	for (let index = 0; index < upcomingUsers.length; index += DAILY_DISPATCH_BATCH_SIZE) {
 		const batch = upcomingUsers.slice(index, index + DAILY_DISPATCH_BATCH_SIZE);
@@ -99,7 +97,6 @@ export async function precomputeDailyDigest(options: {
 					marketOpen,
 					supabase,
 					sendEmail,
-					getSmsSender,
 					logoCache,
 				}),
 			),

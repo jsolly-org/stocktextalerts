@@ -11,8 +11,6 @@ import { getUserAssets } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import type { PriceMoveThresholdMap } from "../components/dashboard/types";
 import { rootLogger } from "../lib/logging";
-import { requireEnv } from "../lib/db/env";
-import { formatPhoneFromE164 } from "../lib/messaging/format-phone";
 import {
 	buildChannelPreferenceSnapshot,
 	loadUserPreferenceRows,
@@ -77,7 +75,7 @@ for (const row of thresholdRows ?? []) {
 // ALL per-option channel prefs live in `notification_preferences` (single source of
 // truth), not on the users row, so they aren't carried by `getById`. Rebuild the
 // flat per-option snapshot (catalog-derived; missing rows default false). Telegram
-// entries feed the panels' telegram multiselect (grouped by type/facet); email/sms
+// entries feed the panels' telegram multiselect (grouped by type/facet); email
 // entries are folded back onto the user object so the existing per-option controls
 // keep reading `user.<field>`.
 const prefRows = await loadUserPreferenceRows(supabase, authUser.id);
@@ -102,11 +100,8 @@ for (const entry of NOTIFICATION_PREFERENCE_CATALOG) {
 	}
 }
 const user = { ...dbUser, ...channelPrefDefaults } as import("../lib/db/types").DashboardUser;
-
-const rawTwilioNumber = requireEnv("TWILIO_PHONE_NUMBER");
-const smsPhoneNumber = formatPhoneFromE164(rawTwilioNumber);
 ---
-<Layout title="Dashboard" description="Review and manage your asset notifications. Add or remove tracked assets, set your delivery schedule, and choose email or SMS delivery." hideRegistrationBanner>
+<Layout title="Dashboard" description="Review and manage your asset notifications. Add or remove tracked assets, set your delivery schedule, and choose email or Telegram delivery." hideRegistrationBanner>
 	<div class="min-h-screen bg-surface-alt">
 		<header>
 			<Navigation user={authUser} />
@@ -123,7 +118,6 @@ const smsPhoneNumber = formatPhoneFromE164(rawTwilioNumber);
 				client:load
 				user={user}
 				initialAssets={initialAssets}
-				smsPhoneNumber={smsPhoneNumber}
 				dailyDigestTelegramPrefs={dailyDigestTelegramPrefs}
 				assetEventsTelegramPrefs={assetEventsTelegramPrefs}
 				marketTelegramPrefs={marketTelegramPrefs}

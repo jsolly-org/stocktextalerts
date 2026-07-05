@@ -58,7 +58,7 @@ export function getValidatedUnsubscribeTokenSecret(): string | null {
 }
 
 /**
- * Compute the canonical site base URL for links in emails/SMS.
+ * Compute the canonical site base URL for links in emails.
  *
  * Prefers SITE_URL (explicit override, used in Lambda), then falls back to
  * Vercel-provided variables for dashboard deployments.

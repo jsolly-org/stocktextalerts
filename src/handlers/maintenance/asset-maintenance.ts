@@ -16,7 +16,6 @@ import { createSupabaseAdminClient } from "../../lib/db/supabase";
 import { createLogger } from "../../lib/logging";
 import { runLambda } from "../../lib/logging/request-context";
 import { createEmailSender } from "../../lib/messaging/email/utils";
-import { createSmsSenderFactory } from "../../lib/messaging/sms/sender-factory";
 import { enqueueAssetEventsIngestRetry } from "../../lib/vendors/backfill/enqueue";
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
@@ -167,12 +166,10 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 		// events job's success — the sweep runs again tomorrow.
 		try {
 			const sendEmail = createEmailSender();
-			const getSmsSender = createSmsSenderFactory();
 			const sweepResult = await runDelistingSweep({
 				supabase,
 				logger,
 				sendEmail,
-				getSmsSender,
 			});
 			logger.info("Delisting sweep complete", {
 				action: "daily_delisting_sweep",

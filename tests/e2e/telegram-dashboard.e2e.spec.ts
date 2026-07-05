@@ -156,11 +156,10 @@ test.describe("Telegram dashboard UI", () => {
 		// --- Open one multiselect and screenshot the open listbox --------------
 		const topMoversListbox = await openChannelMultiselect(page, "daily_digest_include_top_movers");
 		await expect(topMoversListbox).toHaveAttribute("role", "listbox");
-		// All three channels render for prices/top_movers (Email, SMS, Telegram).
+		// Both channels render for prices/top_movers (Email, Telegram).
 		const telegramOption = topMoversListbox.getByRole("option", { name: "Telegram" });
 		await expect(telegramOption).toBeVisible();
 		await expect(topMoversListbox.getByRole("option", { name: "Email" })).toBeVisible();
-		await expect(topMoversListbox.getByRole("option", { name: "SMS" })).toBeVisible();
 		await page.screenshot({ path: SCREENSHOT_DROPDOWN });
 
 		// --- Behavior: toggling Telegram on for Top Movers flips the DB row ---

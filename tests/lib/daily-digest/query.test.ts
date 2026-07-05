@@ -12,15 +12,14 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
  * Telegram-only subscribers are silently never selected.
  */
 describe("fetchDailyNotificationUsers daily-digest candidate selection", () => {
-	it("selects a Telegram-only subscriber (email + SMS off, Telegram linked)", async () => {
+	it("selects a Telegram-only subscriber (email off, Telegram linked)", async () => {
 		const user = await createTestUser({
 			emailNotificationsEnabled: false,
-			smsNotificationsEnabled: false,
 			confirmed: true,
 		});
 		registerTestUserForCleanup(user.id);
 
-		// No usable email/SMS channel, but a linked Telegram chat + the daily_digest
+		// No usable email channel, but a linked Telegram chat + the daily_digest
 		// prices Telegram facet on — a legitimate Telegram-only digest subscriber.
 		const { error } = await adminClient
 			.from("users")
@@ -54,10 +53,9 @@ describe("fetchDailyNotificationUsers daily-digest candidate selection", () => {
 		).toBe(true);
 	});
 
-	it("excludes a user with no usable channel (email + SMS off, no Telegram)", async () => {
+	it("excludes a user with no usable channel (email off, no Telegram)", async () => {
 		const user = await createTestUser({
 			emailNotificationsEnabled: false,
-			smsNotificationsEnabled: false,
 			confirmed: true,
 		});
 		registerTestUserForCleanup(user.id);
