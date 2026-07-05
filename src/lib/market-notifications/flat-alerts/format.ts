@@ -3,7 +3,7 @@ import { renderIntradaySparklineImg } from "../../messaging/email/intraday-spark
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
 import { toSvgSparklineImg } from "../../messaging/email/svg-sparkline";
 import { formatUsdPrice, getChangeColor } from "../../messaging/parts/asset-price-list";
-import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../../messaging/parts/footer";
+import { SMS_OPT_OUT } from "../../messaging/parts/footer";
 import { escapeHtml } from "../../messaging/parts/html-utils";
 import {
 	downsampleEvenly,
@@ -206,7 +206,6 @@ export function formatFlatPriceAlertSms(options: {
 		priceLines.join("\n"),
 		`Manage your notifications: ${dashboardUrl}`,
 		SMS_OPT_OUT,
-		NOT_FINANCIAL_ADVICE,
 	];
 
 	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
@@ -293,7 +292,6 @@ export function formatFlatPriceAlertEmail(options: {
 	textLines.push("");
 	textLines.push(`Manage alerts: ${urls.scheduleUrl}`);
 	textLines.push(`Unsubscribe from all emails: ${urls.unsubscribeUrl}`);
-	textLines.push(NOT_FINANCIAL_ADVICE);
 	const text = textLines.join("\n");
 
 	// HTML
