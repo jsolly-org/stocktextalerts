@@ -1,5 +1,4 @@
 import type { SupabaseAdminClient } from "../db/supabase";
-import { shouldSendSms } from "../messaging/sms/index";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { MAX_NOTIFICATION_RETRIES } from "../scheduled-notifications/constants";
 import type {
@@ -60,7 +59,6 @@ export async function shouldAdvanceScheduledNotificationSchedule(
 		user: UserRecord;
 		notificationType: ScheduledNotificationType;
 		emailRequired: boolean;
-		smsRequired: boolean;
 		telegramRequired?: boolean;
 	} & ScheduledSlotKey,
 ): Promise<boolean> {
@@ -71,7 +69,6 @@ export async function shouldAdvanceScheduledNotificationSchedule(
 		scheduledDate,
 		scheduledMinutes,
 		emailRequired,
-		smsRequired,
 		telegramRequired,
 	} = options;
 
@@ -85,20 +82,6 @@ export async function shouldAdvanceScheduledNotificationSchedule(
 			channel: "email",
 		});
 		if (!channelDeliveryIsTerminal(email.status, email.attemptCount)) {
-			return false;
-		}
-	}
-
-	if (smsRequired && shouldSendSms(user)) {
-		const sms = await getChannelDeliveryState({
-			supabase,
-			userId: user.id,
-			notificationType,
-			scheduledDate,
-			scheduledMinutes,
-			channel: "sms",
-		});
-		if (!channelDeliveryIsTerminal(sms.status, sms.attemptCount)) {
 			return false;
 		}
 	}

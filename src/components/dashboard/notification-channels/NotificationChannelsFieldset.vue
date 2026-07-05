@@ -35,38 +35,6 @@
 				/>
 			</div>
 
-			<div>
-				<div class="flex items-center justify-between gap-3 py-4">
-					<input
-						type="hidden"
-						name="sms_notifications_enabled"
-						:value="smsEnabledModel ? 'on' : 'off'"
-					/>
-					<div>
-						<span :id="`${props.smsStatusId}_label`" class="text-sm font-medium text-heading">SMS Notifications</span>
-						<span :id="`${props.smsStatusId}_desc`" class="block text-sm text-muted">
-							Global SMS toggle. Individual notification types are configured in each section.
-						</span>
-					</div>
-					<ToggleSwitch
-						v-model="smsEnabledModel"
-						sr-label="SMS notifications"
-						:disabled="props.smsOptedOut"
-						:aria-labelledby="`${props.smsStatusId}_label`"
-						:aria-describedby="`${props.smsStatusId}_desc`"
-					/>
-				</div>
-
-				<StatusMessage v-if="props.smsOptedOut" tone="warning" class="mb-4">
-					SMS notifications are paused. Reply <strong>START</strong> to <a v-if="props.smsPhoneNumber" :href="`sms:${props.smsPhoneNumber}`" class="link-action font-medium">{{ props.smsPhoneNumber }}</a><span v-else>the number you receive alerts from</span> to resume.
-				</StatusMessage>
-
-				<SmsVerificationSection
-					v-if="smsEnabledModel"
-					:sms-opted-out="props.smsOptedOut"
-				/>
-			</div>
-
 			<div class="py-4">
 				<ConnectTelegramCard />
 			</div>
@@ -122,19 +90,13 @@
 import { computed } from "vue";
 import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
 import { DASHBOARD_SECTION_HASHES, DASHBOARD_SECTION_IDS } from "../../../lib/constants";
-import StatusMessage from "../../StatusMessage.vue";
 import ToggleSwitch from "../../ToggleSwitch.vue";
 import TimePicker from "../shared/TimePicker.vue";
 import ConnectTelegramCard from "./ConnectTelegramCard.vue";
-import SmsVerificationSection from "./SmsVerificationSection.vue";
 
 interface Props {
 	emailEnabled: boolean;
-	smsNotificationsEnabled: boolean;
-	smsOptedOut: boolean;
-	smsPhoneNumber: string;
 	emailNotificationsEnabledId: string;
-	smsStatusId: string;
 	notificationChannelsDescId: string;
 	/** Current daily delivery time as an HH:MM string, or null. */
 	dailyDeliveryTimeInput: string | null;
@@ -152,7 +114,6 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<{
 	(event: "update:emailEnabled", value: boolean): void;
-	(event: "update:smsNotificationsEnabled", value: boolean): void;
 	(event: "dailyTimeChange", value: string): void;
 	(event: "clearDeliveryTime"): void;
 	(event: "setBeforeOpen"): void;
@@ -161,11 +122,6 @@ const emit = defineEmits<{
 const emailEnabledModel = computed({
 	get: () => props.emailEnabled,
 	set: (value: boolean) => emit("update:emailEnabled", value),
-});
-
-const smsEnabledModel = computed({
-	get: () => props.smsNotificationsEnabled,
-	set: (value: boolean) => emit("update:smsNotificationsEnabled", value),
 });
 
 const canSetBeforeOpen = computed(

@@ -1,8 +1,8 @@
 /**
  * Primary notification scheduler (EventBridge: every minute). Finds users due for
- * delivery and runs the two-pass pipeline: price alerts, then scheduled SMS/email
- * (daily digest, market notifications, asset events). Also purges
- * expired short URLs and email-dispatch idempotency keys.
+ * delivery and runs the two-pass pipeline: price alerts, then scheduled email/Telegram
+ * (daily digest, market notifications, asset events). Also purges expired
+ * email-dispatch idempotency keys.
  */
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";
@@ -26,27 +26,6 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 
 		try {
 			const totals = await runScheduledNotifications({ supabase, logger });
-
-			// Purge expired short URLs (non-blocking)
-			try {
-				const { data: purgedUrls, error: purgeError } = await supabase.rpc(
-					"purge_expired_short_urls",
-				);
-				if (purgeError) {
-					logger.error(
-						"Failed to purge expired short URLs",
-						{ action: "purge_short_urls" },
-						purgeError,
-					);
-				} else if (purgedUrls && purgedUrls > 0) {
-					logger.info("Purged expired short URLs", {
-						action: "purge_short_urls",
-						deletedCount: purgedUrls,
-					});
-				}
-			} catch (error) {
-				logger.error("Failed to purge expired short URLs", { action: "purge_short_urls" }, error);
-			}
 
 			// Purge expired email-dispatch idempotency keys (non-blocking)
 			try {

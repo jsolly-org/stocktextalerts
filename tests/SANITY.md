@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-Validate all major happy-path features end-to-end on production with the shortest possible flow. This plan covers registration, asset tracking, email/SMS notifications, profile management, inbound SMS keywords, and account deletion.
+Validate all major happy-path features end-to-end on production with the shortest possible flow. This plan covers registration, asset tracking, email notifications, profile management, and account deletion.
 
 **Estimated Duration:** 15-30 minutes (cron runs every minute)
 
@@ -21,10 +21,9 @@ Validate all major happy-path features end-to-end on production with the shortes
   - [ ] Production URL
   - [ ] Date/time started (and your timezone)
   - [ ] Browser + version
-  - [ ] Test email + phone used
+  - [ ] Test email used
 - [ ] Test email inbox you control (and can receive verification + notification emails)
 - [ ] A second email alias you control (for email update test)
-- [ ] Test phone number that can receive SMS (and you can reply to)
 - [ ] Access to the production site
 - [ ] Modern browser (Chrome, Firefox, or Safari)
 - [ ] Ability to wait a few minutes for the scheduled notification
@@ -327,45 +326,6 @@ Verify account deletion, session termination, and access revocation.
 
 ---
 
-## TC-INBOUND-001: User can use inbound SMS keywords to manage notifications
-
-**Priority:** P1 (High)
-**Type:** Functional / Integration
-**Estimated Time:** 5 minutes
-
-### Objective
-
-Verify HELP, STOP, and START SMS keyword handling and dashboard state synchronization.
-
-### Preconditions
-
-- SMS notifications previously enabled (requires a separate test account or re-registration since TC-DEL-001 deletes the account)
-- Access to the phone that received SMS notifications
-
-### Test Steps
-
-**Step 1:** Reply `HELP` to the inbound SMS thread and read the response.
-
-- [ ] `HELP` returns the help response (keywords + dashboard link).
-
-**Step 2:** Reply `STOP` to the inbound SMS thread and read the response. Then go to the dashboard and confirm SMS notifications status.
-
-- [ ] `STOP` returns an opt-out acknowledgment.
-- [ ] SMS notifications are turned off/disabled on the dashboard.
-
-**Step 3:** Reply `START` to the inbound SMS thread and read the response. Then go to the dashboard and confirm SMS notifications status.
-
-- [ ] A response is sent that you cannot re-enable SMS notifications by replying `START`, and it includes a link to your dashboard.
-- [ ] SMS notifications are still turned off/disabled on the dashboard (must re-enable from dashboard).
-
-### Notes
-
-- Keywords are case-insensitive (STOP, stop, Stop all work).
-- The STOP/START behavior follows Twilio's compliance requirements.
-- If carrier re-opt-in behavior differs, the product requirement is: **dashboard state remains the source of truth**.
-
----
-
 ## Test Execution Order
 
 The tests above are designed to run sequentially in a single session:
@@ -381,9 +341,6 @@ The tests above are designed to run sequentially in a single session:
 | 7 | TC-UNSUB-001 | Unsubscribe via email link | TC-NOTIF-001 |
 | 8 | TC-PROF-001 | Change password + update email | TC-REG-001 |
 | 9 | TC-DEL-001 | Delete account | TC-REG-001 |
-| 10 | TC-INBOUND-001 | Inbound SMS keywords | Separate account with SMS enabled |
-
-> **Note:** TC-INBOUND-001 requires an account with active SMS notifications. Since TC-DEL-001 deletes the account, either run TC-INBOUND-001 before TC-DEL-001 (between steps 6 and 7), or use a separate test account.
 
 ---
 
@@ -393,8 +350,8 @@ The tests above are designed to run sequentially in a single session:
 
 **FAIL (block release):**
 
-- Any TC-REG, TC-AST, TC-EMAIL, or TC-SMS test fails (P0 tests)
-- Notification email or SMS never arrives
+- Any TC-REG, TC-AST, or TC-EMAIL test fails (P0 tests)
+- Notification email never arrives
 - Account cannot be created or deleted
 - Security issue discovered (e.g., dashboard accessible after deletion)
 
@@ -408,17 +365,15 @@ The tests above are designed to run sequentially in a single session:
 
 ## Known Considerations
 
-- Twilio SMS delivery can have carrier-dependent delays.
 - Cron runs every minute, so notification delivery should be near-immediate.
-- SMS messages may span multiple segments when tracking many assets with price data.
 - Email updates via Supabase Auth may require verifying both old and new addresses depending on configuration.
 
 ---
 
-## Troubleshooting: scheduled email/SMS never arrives
+## Troubleshooting: scheduled email never arrives
 
 - [ ] Confirm the delivery time you set is in the expected timezone.
 - [ ] Wait at least 2 minutes after the selected time.
-- [ ] Verify both Email/SMS toggles are still enabled after refresh.
+- [ ] Verify the Email toggle is still enabled after refresh.
 - [ ] Check spam/junk for email.
 - [ ] Try reducing tracked assets to 1-2 to rule out long-message/format issues.

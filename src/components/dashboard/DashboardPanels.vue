@@ -27,7 +27,6 @@
 			<AsyncNotificationChannelsPanel
 				v-if="shouldRender(1)"
 				v-model:email-enabled="emailEnabled"
-				:sms-phone-number="smsPhoneNumber"
 				:initial-assets="currentAssets"
 				:has-tracked-assets="hasTrackedAssets"
 			/>
@@ -37,7 +36,6 @@
 			<AsyncDailyNotificationsPanel
 				v-if="shouldRender(2)"
 				:email-enabled="emailEnabled"
-				:phone-verified="phoneVerified"
 				:has-tracked-assets="hasTrackedAssets"
 				:telegram-prefs="dailyDigestTelegramPrefs"
 				:asset-event-telegram-prefs="assetEventsTelegramPrefs"
@@ -48,7 +46,6 @@
 			<AsyncMarketNotificationsPanel
 				v-if="shouldRender(3)"
 				:email-enabled="emailEnabled"
-				:phone-verified="phoneVerified"
 				:has-tracked-assets="hasTrackedAssets"
 				:tracked-assets="currentAssets"
 				:price-move-thresholds="priceMoveThresholds"
@@ -89,7 +86,6 @@ const AsyncMarketNotificationsPanel = defineAsyncComponent({
 interface Props {
 	user: DashboardUser;
 	initialAssets: InitialAsset[];
-	smsPhoneNumber: string;
 	/**
 	 * The user's current Telegram selections, loaded server-side from
 	 * `notification_preferences` (channel='telegram') since these prefs aren't on the
@@ -113,7 +109,6 @@ const {
 	initialAssets,
 	marketTelegramPrefs,
 	priceMoveThresholds,
-	smsPhoneNumber,
 	user: userProp,
 } = toRefs(props);
 
@@ -125,7 +120,6 @@ const currentAssets = ref<InitialAsset[]>([...props.initialAssets]);
 const hasTrackedAssets = computed(() => currentAssets.value.length > 0);
 
 const emailEnabled = ref(dashboardUser.value.email_notifications_enabled);
-const phoneVerified = computed(() => dashboardUser.value.phone_verified);
 
 // Sync channel flags when user changes (e.g., after auto-save response)
 watch(

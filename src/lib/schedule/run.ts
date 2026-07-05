@@ -68,8 +68,6 @@ const EMPTY_TOTALS: ScheduledNotificationTotals = {
 	logFailures: 0,
 	emailsSent: 0,
 	emailsFailed: 0,
-	smsSent: 0,
-	smsFailed: 0,
 	telegramSent: 0,
 	telegramFailed: 0,
 };
@@ -84,8 +82,6 @@ function mergeTotals(
 		logFailures: a.logFailures + b.logFailures,
 		emailsSent: a.emailsSent + b.emailsSent,
 		emailsFailed: a.emailsFailed + b.emailsFailed,
-		smsSent: a.smsSent + b.smsSent,
-		smsFailed: a.smsFailed + b.smsFailed,
 		telegramSent: a.telegramSent + b.telegramSent,
 		telegramFailed: a.telegramFailed + b.telegramFailed,
 	};
@@ -133,7 +129,6 @@ async function runPass(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	sendEmail: NotificationSenders["sendEmail"];
-	getSmsSender: NotificationSenders["getSmsSender"];
 	getTelegramSender: NotificationSenders["getTelegramSender"];
 	marketSession: MarketSession;
 	schedulerQuoteCache: SchedulerQuoteCache;
@@ -145,7 +140,6 @@ async function runPass(options: {
 		supabase,
 		logger,
 		sendEmail,
-		getSmsSender,
 		getTelegramSender,
 		marketSession,
 		schedulerQuoteCache,
@@ -167,18 +161,12 @@ async function runPass(options: {
 			logger,
 			currentTime,
 			sendEmail,
-			getSmsSender,
 			getTelegramSender,
 		});
 		stagedStats = staged.stats;
 		deliveredUserTypes = staged.deliveredUserTypes;
 
-		if (
-			stagedStats.emailsSent > 0 ||
-			stagedStats.smsSent > 0 ||
-			stagedStats.telegramSent > 0 ||
-			stagedStats.skipped > 0
-		) {
+		if (stagedStats.emailsSent > 0 || stagedStats.telegramSent > 0 || stagedStats.skipped > 0) {
 			logger.info("Staged notifications delivered", {
 				action: "staged_deliver",
 				...stagedStats,
@@ -312,7 +300,6 @@ async function runPass(options: {
 					logger,
 					currentTime,
 					sendEmail,
-					getSmsSender,
 					getTelegramSender,
 					priceMap,
 					noSessionTrade: marketNoSessionTrade,
@@ -340,7 +327,6 @@ async function runPass(options: {
 						marketOpen,
 						supabase,
 						sendEmail,
-						getSmsSender,
 						getTelegramSender,
 						logoCache,
 					}),
@@ -361,8 +347,6 @@ async function runPass(options: {
 						logFailures: 0,
 						emailsSent: 0,
 						emailsFailed: 0,
-						smsSent: 0,
-						smsFailed: 0,
 						telegramSent: 0,
 						telegramFailed: 0,
 					});
@@ -512,7 +496,7 @@ export async function runScheduledNotifications(options: {
 		);
 	}
 
-	const { sendEmail, getSmsSender, getTelegramSender, logoCache } = createNotificationSenders();
+	const { sendEmail, getTelegramSender, logoCache } = createNotificationSenders();
 	// Seed from the captured (superset) map so fallback passes reuse the watched-symbol
 	// quotes the price-history capture already fetched, instead of re-fetching them.
 	const schedulerQuoteCache = createSchedulerQuoteCache(capturedQuoteMap);
@@ -525,7 +509,6 @@ export async function runScheduledNotifications(options: {
 		supabase,
 		logger,
 		sendEmail,
-		getSmsSender,
 		getTelegramSender,
 		marketSession: schedulerMarketSession,
 		schedulerQuoteCache,
@@ -546,7 +529,6 @@ export async function runScheduledNotifications(options: {
 		supabase,
 		logger,
 		sendEmail,
-		getSmsSender,
 		getTelegramSender,
 		marketSession: schedulerMarketSession,
 		schedulerQuoteCache,

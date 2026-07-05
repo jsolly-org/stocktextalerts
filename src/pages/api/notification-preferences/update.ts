@@ -16,10 +16,7 @@ import {
 	loadUserPreferenceRows,
 	persistChannelPreferences,
 } from "../../../lib/notification-preferences/channels";
-import {
-	NOTIFICATION_PREFERENCES_SCHEMA,
-	SMS_INCLUDE_OPTIONS,
-} from "../../../lib/notification-preferences/constants";
+import { NOTIFICATION_PREFERENCES_SCHEMA } from "../../../lib/notification-preferences/constants";
 import {
 	buildNotificationPreferencesUpdatePayload,
 	DAILY_NOTIFICATION_SCHEDULE_FIELDS,
@@ -31,8 +28,8 @@ import { parseScheduledTimes } from "../../../lib/time/schedule/next-send";
 /**
  * Update the authenticated user's notification-preferences.
  *
- * Accepts a form POST, validates input, enforces SMS opt-out/phone invariants,
- * persists the update, and returns the updated preference snapshot.
+ * Accepts a form POST, validates input, persists the update, and returns the
+ * updated preference snapshot.
  */
 export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
@@ -145,7 +142,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 	// Per-option channel facets live in notification_preferences. Load the user's
 	// CURRENT rows so we can compute the post-update daily notification state (for
-	// daily_notification_next_send_at) and enforce the SMS opt-out guard.
+	// daily_notification_next_send_at).
 	let existingPrefs: Awaited<ReturnType<typeof loadUserPreferenceRows>>;
 	try {
 		existingPrefs = await loadUserPreferenceRows(supabase, user.id);
@@ -207,51 +204,6 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	}
 
 	try {
-		if (
-			dbUser.sms_opted_out &&
-			safeNotificationPreferenceUpdates.sms_notifications_enabled === true
-		) {
-			logger.info("sms_notifications_enabled rejected: user is sms_opted_out", {
-				userId: user.id,
-			});
-			return Response.json({ ok: false, message: "sms_opted_out" } satisfies ApiJsonBody, {
-				status: 400,
-			});
-		}
-
-		// An SMS include field is being newly enabled when the form submits it as true
-		// AND it wasn't already enabled in the table.
-		const enablesAnySmsIncludeField = SMS_INCLUDE_OPTIONS.some((target) => {
-			const field = target.fieldName;
-			if (!formData.has(field) || parsed.data[field as keyof typeof parsed.data] !== true) {
-				return false;
-			}
-			const alreadyEnabled = existingPrefs.some(
-				(p) =>
-					p.notification_type === target.notification_type &&
-					p.channel === "sms" &&
-					p.content === target.content &&
-					p.enabled,
-			);
-			return !alreadyEnabled;
-		});
-		if (dbUser.sms_opted_out && enablesAnySmsIncludeField) {
-			logger.info("SMS enable rejected: user is sms_opted_out", {
-				userId: user.id,
-			});
-			return Response.json({ ok: false, message: "sms_opted_out" } satisfies ApiJsonBody, {
-				status: 400,
-			});
-		}
-		if (enablesAnySmsIncludeField && (!dbUser.phone_country_code || !dbUser.phone_number)) {
-			logger.info("SMS notification-preferences enabled without phone number", {
-				userId: user.id,
-			});
-			return Response.json({ ok: false, message: "phone_not_set" } satisfies ApiJsonBody, {
-				status: 400,
-			});
-		}
-
 		// A facet-only submission carries no `users`-column changes, so the payload
 		// can be empty. Skip the no-op `users` UPDATE (PostgREST returns 0 rows for an
 		// empty update, which `.single()` rejects) and reuse the freshly-fetched row.
@@ -266,7 +218,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			});
 		}
 
-		// Persist every submitted channel facet (email/sms/telegram alike) to
+		// Persist every submitted channel facet (email/telegram alike) to
 		// notification_preferences — the single source of truth. The session-scoped
 		// `supabase` client (authed in getCurrentUser) satisfies the per-user RLS.
 		await persistChannelPreferences({
@@ -287,9 +239,6 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				notificationPreferences: {
 					market_scheduled_asset_price_enabled: updatedUser.market_scheduled_asset_price_enabled,
 					email_notifications_enabled: updatedUser.email_notifications_enabled,
-					sms_notifications_enabled: updatedUser.sms_notifications_enabled,
-					sms_opted_out: updatedUser.sms_opted_out,
-					phone_verified: updatedUser.phone_verified,
 					timezone: updatedUser.timezone,
 					market_scheduled_asset_price_times: updatedUser.market_scheduled_asset_price_times,
 					daily_notification_time: updatedUser.daily_notification_time,

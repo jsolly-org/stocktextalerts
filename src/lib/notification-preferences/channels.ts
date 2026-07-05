@@ -6,7 +6,7 @@ import { isFacetEnabled, parsePrefRow } from "../messaging/notification-prefs";
 import type { PrefRow } from "../types";
 
 /* =============
-Channel notification-preference persistence (email, sms, telegram).
+Channel notification-preference persistence (email, telegram).
 
 ALL per-option channel preferences live in `notification_preferences`, one row
 per (user_id, notification_type, content, channel). This is the single source of
@@ -24,7 +24,7 @@ const CHANNEL_PREFERENCE_FIELD_MAP: ReadonlyMap<string, FacetCatalogEntry> = new
 
 /**
  * Upsert `notification_preferences` rows for every channel preference present in
- * this submission (email, sms, telegram alike — uniform peers).
+ * this submission (email, telegram alike — uniform peers).
  *
  * Only fields actually submitted are written (no-drift). `supabase` must be the
  * request's session-scoped client; RLS allows a user to write only their own rows.

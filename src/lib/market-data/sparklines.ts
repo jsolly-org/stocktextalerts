@@ -121,8 +121,8 @@ function appendCurrentPriceIfStale(
  * `min.c` can move ahead of the 5-minute bar endpoint during pre/after-hours,
  * which otherwise leaves the chart red while the headline change-% is green.
  *
- * `values` holds the full series for SVG rendering; `ascii` is downsampled to
- * `SMS_SPARKLINE_LENGTH` blocks so SMS bodies stay within their UCS-2 budget.
+ * `values` holds the full series for SVG rendering; `ascii` is a downsampled
+ * block-character series for compact plaintext contexts.
  */
 export async function fetchIntradaySparklines(
 	symbols: string[],

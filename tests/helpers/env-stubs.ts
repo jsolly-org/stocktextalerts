@@ -10,11 +10,6 @@ export function restoreBaselineTestEnvStubs(): void {
 	vi.stubEnv("TELEGRAM_WEBHOOK_SECRET", "test-telegram-webhook-secret");
 	vi.stubEnv("TELEGRAM_BOT_USERNAME", "StockTextAlertsTestBot");
 	vi.stubEnv("TELEGRAM_BOT_TOKEN", "123456:test-telegram-bot-token");
-	vi.stubEnv("TWILIO_ACCOUNT_SID", "ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-	vi.stubEnv("TWILIO_API_KEY_SID", "SKaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-	vi.stubEnv("TWILIO_API_KEY_SECRET", "stubaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-	vi.stubEnv("TWILIO_PHONE_NUMBER", "+15005550006");
-	vi.stubEnv("TWILIO_VERIFY_SERVICE_SID", "VAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 	delete process.env.EMAIL_DISPATCH_URL;
 	delete process.env.EMAIL_DISPATCH_SECRET;
 }

@@ -46,8 +46,9 @@ describe("notification_options mirrors the authored option catalog", () => {
 		const dropped = rows[0]!;
 		const mutated = [
 			...rows.slice(1),
-			// news/sms is never a valid option — an off-catalog straggler.
-			{ notification_type: "daily_notification", content: "news", channel: "sms" },
+			// price_move_alerts is facet-less (content ""), so "prices" is never a
+			// valid content for it — an off-catalog straggler.
+			{ notification_type: "price_move_alerts", content: "prices", channel: "telegram" },
 		];
 		const fakeClient = {
 			query: async () => ({ rows: mutated }),
@@ -66,7 +67,7 @@ describe("notification_options mirrors the authored option catalog", () => {
 		expect(
 			errors.some(
 				(e) =>
-					e.includes("(daily_notification|news|sms)") &&
+					e.includes("(price_move_alerts|prices|telegram)") &&
 					e.includes("not in NOTIFICATION_OPTION_MATRIX"),
 			),
 		).toBe(true);

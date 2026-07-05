@@ -1,10 +1,9 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import type { buildAssetEventsContent } from "../../asset-events/content";
 import { US_MARKET_TIMEZONE } from "../../constants";
-import { getSiteUrl } from "../../db/env";
 import type { TopMover } from "../../market-data/types";
 import type { MarketClosureInfo } from "../../time/types";
-import type { AssetPriceMap, DeliveryResult, UserAssetRow } from "../../types";
+import type { AssetPriceMap, UserAssetRow } from "../../types";
 import { formatAssetsHtmlList } from "../email/asset-price-list";
 import { renderEmailSection } from "../email/html-section";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
@@ -13,18 +12,14 @@ import {
 	formatSignedChangePercent,
 	formatUsdPrice,
 } from "../parts/asset-price-list";
-import { formatContentSection } from "../parts/content-section";
-import { SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
+import { TELEGRAM_FOOTER } from "../parts/footer";
 import {
 	buildMarketClosedBannerEmailHtml,
 	buildMarketClosedBannerEmailText,
-	buildMarketClosedBannerSms,
 	buildMarketClosedBannerTelegram,
 	buildMarketClosureLabel,
 } from "../parts/market-closure";
 import type { SparklineData, SparklineMap } from "../parts/sparkline";
-import { packSmsBlocks, type SmsBlock } from "../sms/block-packing";
-import { padDailyDigestSmsSegmentBoundaries } from "../sms/segment-utils";
 import { appendTelegramAssetPriceLines } from "../telegram/asset-price-lines";
 import type { NotificationExtras, TopMoversData } from "../types";
 
@@ -37,7 +32,7 @@ function formatTopMoverLine(mover: TopMover): string {
 /**
  * Render the top-movers `Gainers:` / `Losers:` block body from structured data.
  * Reproduces the exact plain-text layout each digest channel wraps with its own
- * section header (SMS/email/Telegram render byte-identical bodies today). Returns
+ * section header (email/Telegram render byte-identical bodies today). Returns
  * "" only if both lists are empty — callers gate on that to omit the section.
  */
 function renderTopMoversBody(data: TopMoversData): string {
@@ -117,21 +112,6 @@ function ensureBlankLineBetweenTickerSnippets(content: string): string {
 
 type AssetEventsResult = Awaited<ReturnType<typeof buildAssetEventsContent>> | null;
 
-type DailyDigestSmsFormatOptions = {
-	userAssets: UserAssetRow[];
-	assetPrices: AssetPriceMap;
-	extras: NotificationExtras;
-	assetEvents?: AssetEventsResult;
-	sparklines?: SparklineMap;
-	marketOpen?: boolean;
-	marketClosureInfo?: MarketClosureInfo | null;
-	/** User's 24-hour-time preference for the market-closed "as of" timestamp.
-	 *  Defaults to 12-hour (the DB default) when omitted; production callers pass it. */
-	is24Hour?: boolean;
-	/** Optional delay banner text (inserted after header when notification is late). */
-	delayBanner?: string | null;
-};
-
 /** Show change % on closed-market digests only when a 7-day sparkline anchors it. */
 function shouldShowDigestChangePercent(
 	marketOpen: boolean | undefined,
@@ -141,137 +121,7 @@ function shouldShowDigestChangePercent(
 	return sparkline?.window === "7-trading-days" && sparkline.values.length >= 2;
 }
 
-/** Format the daily digest message body for SMS delivery. */
-export function formatDailyDigestSmsMessage(options: DailyDigestSmsFormatOptions): string {
-	return formatDailyDigestSmsMessages(options).join("\n\n");
-}
-
-/** Format packed daily digest SMS bodies before segment-boundary padding. */
-export function formatDailyDigestSmsMessageBodies(options: DailyDigestSmsFormatOptions): string[] {
-	return packSmsBlocks(buildDailyDigestSmsBlocks(options));
-}
-
-/** Format the daily digest SMS payload as one or more boundary-aware bodies. */
-export function formatDailyDigestSmsMessages(options: DailyDigestSmsFormatOptions): string[] {
-	return formatDailyDigestSmsMessageBodies(options).map((message) =>
-		padDailyDigestSmsSegmentBoundaries(message),
-	);
-}
-
-/** Format one notification_log message for a single-part or multipart SMS attempt. */
-export function formatDailyDigestSmsLogMessage(messages: string[]): string {
-	if (messages.length === 1) {
-		return messages[0] ?? "";
-	}
-
-	return messages
-		.map((message, index) => `--- SMS part ${index + 1}/${messages.length} ---\n${message}`)
-		.join("\n\n");
-}
-
-/** Collapse per-part SMS delivery results into one attempt-level result. */
-export function summarizeDailyDigestSmsResults(
-	results: DeliveryResult[],
-	totalParts: number,
-): DeliveryResult {
-	if (totalParts === 0) {
-		return { success: false, error: "No SMS parts to send" };
-	}
-
-	if (results.length === totalParts && results.every((result) => result.success)) {
-		return { success: true };
-	}
-
-	const failedIndex = results.findIndex((result) => !result.success);
-	const failed = failedIndex >= 0 ? results[failedIndex] : null;
-	const failedPartNumber = failedIndex >= 0 ? failedIndex + 1 : results.length + 1;
-	const error = failed?.success === false ? failed.error : "Unknown error";
-	const errorCode = failed?.success === false ? failed.errorCode : undefined;
-
-	return {
-		success: false,
-		error: `SMS part ${failedPartNumber}/${totalParts} failed: ${error}`,
-		...(errorCode !== undefined ? { errorCode } : {}),
-	};
-}
-
-/** Build the daily digest SMS as ordered blocks for body packing. */
-function buildDailyDigestSmsBlocks(options: DailyDigestSmsFormatOptions): SmsBlock[] {
-	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const marketDisclaimer =
-		options.marketOpen === false
-			? buildMarketClosedBannerSms(
-					options.marketClosureInfo,
-					"prices",
-					formatDigestQuoteAsOf(options.assetPrices, options.is24Hour ?? false),
-				)
-			: "";
-	const ae = options.assetEvents;
-
-	return [
-		{ id: "header", boundary: "atomic", text: "StockTextAlerts — Your daily digest 🗓️" },
-		{ id: "delayBanner", boundary: "atomic", text: options.delayBanner },
-		{ id: "marketDisclaimer", boundary: "atomic", text: marketDisclaimer },
-		{
-			id: "assets",
-			boundary: "split-between-children",
-			header: "💰 Your Assets",
-			children: buildDailyDigestPriceLines(options),
-			childSeparator: "\n\n",
-		},
-		{
-			id: "topMovers",
-			boundary: "atomic",
-			text: formatContentSection(
-				"🚀 Top Movers",
-				options.extras.topMovers ? renderTopMoversBody(options.extras.topMovers) : null,
-			),
-		},
-		{ id: "news", boundary: "atomic", text: formatContentSection("🗞️ News", options.extras.news) },
-		{
-			id: "rumors",
-			boundary: "atomic",
-			text: formatContentSection("🤫 Rumors", options.extras.rumors),
-		},
-		{
-			id: "earnings",
-			boundary: "atomic",
-			text: formatContentSection("📈 Earnings", ae?.eventsSection?.earnings),
-		},
-		{
-			id: "dividends",
-			boundary: "atomic",
-			text: formatContentSection("💰 Dividends", ae?.eventsSection?.dividends),
-		},
-		{
-			id: "splits",
-			boundary: "atomic",
-			text: formatContentSection("✂️ Splits", ae?.eventsSection?.splits),
-		},
-		{
-			id: "ipos",
-			boundary: "atomic",
-			text: formatContentSection("🆕 Upcoming IPOs", ae?.eventsSection?.ipos),
-		},
-		{
-			id: "analystConsensus",
-			boundary: "atomic",
-			text: formatContentSection("📊 Analyst Consensus", ae?.analystSection),
-		},
-		{
-			id: "insiderTrades",
-			boundary: "atomic",
-			text: formatContentSection("🏦 Insider Trades", ae?.insiderSection),
-		},
-		{
-			id: "footer",
-			boundary: "atomic",
-			text: `Manage your notifications:\n${dashboardUrl}\n\n${SMS_OPT_OUT}`,
-		},
-	];
-}
-
-/** Format a single asset price line for the SMS/plain-text digest. */
+/** Format a single asset price line for the plain-text digest. */
 function formatDailyDigestPriceLine(
 	asset: UserAssetRow,
 	quote: { price: number; changePercent: number } | null | undefined,
@@ -279,19 +129,6 @@ function formatDailyDigestPriceLine(
 	showChangePercent = true,
 ): string {
 	return formatAssetTextLine(asset, quote ?? undefined, sparkline, showChangePercent);
-}
-
-/** Build per-asset SMS price lines so the asset block can split between entries. */
-function buildDailyDigestPriceLines(options: DailyDigestSmsFormatOptions): string[] {
-	return options.userAssets.map((asset) => {
-		const sparkline = options.sparklines?.get(asset.symbol);
-		return formatDailyDigestPriceLine(
-			asset,
-			options.assetPrices.get(asset.symbol),
-			sparkline,
-			shouldShowDigestChangePercent(options.marketOpen, sparkline),
-		);
-	});
 }
 
 /** Build the plain-text "Your Assets" section for the digest. */

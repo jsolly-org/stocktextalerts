@@ -4,7 +4,6 @@ import type { SupabaseAdminClient } from "../../db/supabase";
 import { createLogger } from "../../logging";
 import { getIntradayBarsPreferCache } from "../../market-data/price-history-cache";
 import { fetchSparklines } from "../../market-data/sparklines";
-import { isFacetEnabled } from "../../messaging/notification-prefs";
 import type { SparklineData } from "../../messaging/parts/sparkline";
 import { createNotificationSenders } from "../../messaging/senders";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
@@ -55,8 +54,6 @@ function emptyTotals(): FlatPriceAlertTotals {
 		reTriggerAlerts: 0,
 		emailsSent: 0,
 		emailsFailed: 0,
-		smsSent: 0,
-		smsFailed: 0,
 		telegramSent: 0,
 		telegramFailed: 0,
 		logFailures: 0,
@@ -300,11 +297,7 @@ export async function processFlatPriceAlerts(options: {
 	}
 
 	// Delivery
-	const { sendEmail, getSmsSender, getTelegramSender, logoCache } = createNotificationSenders();
-	const anySmsEnabled = eligibleAlerts.some((a) =>
-		isFacetEnabled(a.user.prefs, "price_move_alerts", "sms"),
-	);
-	const sendSms = anySmsEnabled ? getSmsSender().sender : null;
+	const { sendEmail, getTelegramSender, logoCache } = createNotificationSenders();
 	const anyTelegramUsable = eligibleAlerts.some((a) => isTelegramChannelUsable(a.user));
 	const sendTelegram = anyTelegramUsable ? getTelegramSender().sender : null;
 	const nowMs = Date.now();
@@ -329,7 +322,6 @@ export async function processFlatPriceAlerts(options: {
 			iconBase64: alert.iconBase64,
 			supabase,
 			sendEmail,
-			sendSms,
 			sendTelegram,
 			logoCache,
 			stats: totals,

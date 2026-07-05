@@ -8,8 +8,6 @@ import {
 	completeScheduledChannelFromResult,
 	resolveScheduledSender,
 } from "../../messaging/scheduled-channel";
-import { processSmsUpdate } from "../../messaging/sms/delivery";
-import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
 import { buildDashboardButton } from "../../messaging/telegram/dashboard-button";
 import { optOutIfBotBlocked } from "../../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../../messaging/telegram/sender-factory";
@@ -131,133 +129,13 @@ export async function processMarketScheduledEmailDelivery(options: {
 }
 
 /**
- * Deliver a scheduled market asset update via SMS and record the result.
- *
- * Uses `claim_scheduled_notification` for idempotency. SMS sender initialization can fail
- * (e.g. missing Twilio config); that failure is recorded and the notification is marked failed.
- */
-export async function processMarketScheduledSmsDelivery(options: {
-	user: UserRecord;
-	supabase: SupabaseAdminClient;
-	logger: Logger;
-	scheduledDate: IsoDateString;
-	scheduledMinutes: MinuteOfDay;
-	userAssets: UserAssetRow[];
-	priceMap: AssetPriceMap;
-	noSessionTrade?: Set<string>;
-	getSparkline?: (symbol: string) => SparklineData | null | undefined;
-	getSmsSender: SmsSenderFactory;
-	marketSession: MarketSession;
-	marketClosureInfo?: MarketClosureInfo | null;
-	stats: ScheduledNotificationTotals;
-	/** Optional delay banner text for late notifications. */
-	delayBanner?: string | null;
-	sessionFirstLine?: {
-		scheduledEtMinutes: number;
-		is24: boolean;
-	};
-}): Promise<void> {
-	const {
-		user,
-		supabase,
-		logger,
-		scheduledDate,
-		scheduledMinutes,
-		userAssets,
-		priceMap,
-		noSessionTrade,
-		getSparkline,
-		getSmsSender,
-		marketSession,
-		marketClosureInfo,
-		stats,
-		sessionFirstLine,
-	} = options;
-
-	const attemptCount = await claimScheduledChannel({
-		supabase,
-		userId: user.id,
-		notificationType: "market",
-		scheduledDate,
-		scheduledMinutes,
-		channel: "sms",
-		logger,
-		stats,
-	});
-	if (attemptCount === null) {
-		return;
-	}
-
-	const smsSenderResult = await resolveScheduledSender({
-		supabase,
-		userId: user.id,
-		notificationType: "market",
-		scheduledDate,
-		scheduledMinutes,
-		channel: "sms",
-		logger,
-		stats,
-		attemptCount,
-		getSender: getSmsSender,
-		logMessage: "Failed to resolve SMS sender",
-	});
-	if (smsSenderResult === null) {
-		return;
-	}
-	const smsSender = smsSenderResult.sender;
-
-	const smsStats = await processSmsUpdate(
-		supabase,
-		user,
-		userAssets,
-		priceMap,
-		smsSender,
-		marketSession,
-		undefined,
-		marketClosureInfo,
-		options.delayBanner,
-		sessionFirstLine,
-		noSessionTrade,
-		getSparkline,
-	);
-
-	// Tail stays hand-rolled: processSmsUpdate records the notification_log row
-	// internally, so completeScheduledChannelFromResult would double-insert it.
-	const { sent, logged } = smsStats;
-	const error = smsStats.sent ? undefined : smsStats.error;
-
-	if (sent) {
-		stats.smsSent++;
-	} else {
-		stats.smsFailed++;
-	}
-
-	if (!logged) {
-		stats.logFailures++;
-	}
-
-	await updateScheduledNotificationRow({
-		supabase,
-		userId: user.id,
-		notificationType: "market",
-		scheduledDate,
-		scheduledMinutes,
-		channel: "sms",
-		status: sent ? "sent" : "failed",
-		error,
-		attemptCount,
-		logger,
-	});
-}
-
-/**
  * Deliver a scheduled market asset update via Telegram and record the result.
  *
- * Mirrors `processMarketScheduledSmsDelivery`: claims the `telegram` channel of the
- * market slot (so it retries/advances independently of email/SMS) and renders the
- * Telegram-native multi-asset price snapshot (parse-mode entities, no chart). Channel
- * usability is re-checked by the caller; the per-option Telegram pref gate runs in
- * process.ts before this is invoked.
+ * Claims the `telegram` channel of the market slot (so it retries/advances
+ * independently of email) and renders the Telegram-native multi-asset price
+ * snapshot (parse-mode entities, no chart). Channel usability is re-checked by
+ * the caller; the per-option Telegram pref gate runs in process.ts before this
+ * is invoked.
  */
 export async function processMarketScheduledTelegramDelivery(options: {
 	user: UserRecord;

@@ -12,7 +12,6 @@ export type SeedUser = Omit<Partial<DbUserInsert>, "email"> & {
   // Per-option channel facets now live in notification_preferences, not on `users`.
   // Seed JSON may still set the scheduled-market facets; emitted as table rows.
   market_scheduled_asset_price_include_email?: boolean;
-  market_scheduled_asset_price_include_sms?: boolean;
 };
 
 /**
@@ -22,72 +21,6 @@ export type SeedUser = Omit<Partial<DbUserInsert>, "email"> & {
  */
 export function escapeSql(str: string): string {
   return str.replace(/'/g, "''");
-}
-
-/** Render a non-null SQL string literal, trimming and escaping. */
-function sqlString(value: string): string {
-  const trimmed = value.trim();
-  return `'${escapeSql(trimmed)}'`;
-}
-
-/**
- * Validate an optional string field from seed JSON.
- *
- * Returns `null` when the field is absent; throws when present but invalid.
- */
-function validateOptionalString(
-  value: unknown,
-  fieldName: string,
-): string | null {
-  if (value === null || value === undefined) return null;
-  if (typeof value !== "string") {
-    throw new Error(
-      `Seed user: ${fieldName} must be a string, null, or undefined. Received: ${typeof value}`,
-    );
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    throw new Error(
-      `Seed user: ${fieldName} cannot be an empty string. Use null to omit the field.`,
-    );
-  }
-  return trimmed;
-}
-
-/**
- * Validate an E.164-ish country calling code (e.g. "+1", "+44") from seed JSON.
- *
- * Returns `null` when absent; throws when present but invalid.
- */
-function validatePhoneCountryCode(value: unknown, fieldName: string): string | null {
-  const validated = validateOptionalString(value, fieldName);
-  if (validated === null) return null;
-  
-  if (!/^\+[0-9]{1,4}$/.test(validated)) {
-    throw new Error(
-      `Seed user: ${fieldName} must match format ^\\+[0-9]{1,4}$ (e.g., "+1", "+44"). Received: "${validated}"`,
-    );
-  }
-  
-  return validated;
-}
-
-/**
- * Validate a national phone number digit string from seed JSON.
- *
- * Returns `null` when absent; throws when present but invalid.
- */
-function validatePhoneNumber(value: unknown, fieldName: string): string | null {
-  const validated = validateOptionalString(value, fieldName);
-  if (validated === null) return null;
-  
-  if (!/^[0-9]{10,14}$/.test(validated)) {
-    throw new Error(
-      `Seed user: ${fieldName} must match format ^[0-9]{10,14}$ (10-14 digits). Received: "${validated}"`,
-    );
-  }
-  
-  return validated;
 }
 
 /**
@@ -276,12 +209,6 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
   const timezoneRaw = validateTimezone(user.timezone, "timezone");
   const timezone = escapeSql(timezoneRaw);
 
-  const phoneCountryCode = validatePhoneCountryCode(
-    user.phone_country_code,
-    "phone_country_code",
-  );
-  const phoneNumber = validatePhoneNumber(user.phone_number, "phone_number");
-
   const insertColumns: string[] = ["id", "email", "timezone", "approved_at", "approved_by"];
   const insertValues: string[] = [
     `'${userId}'::uuid`,
@@ -296,25 +223,6 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
     "approved_at = EXCLUDED.approved_at",
     "approved_by = EXCLUDED.approved_by",
   ];
-
-  if ((phoneCountryCode === null) !== (phoneNumber === null)) {
-    throw new Error(
-      "Seed user: phone_country_code and phone_number must both be provided or both be omitted.",
-    );
-  }
-
-  if (phoneCountryCode !== null && phoneNumber !== null) {
-    insertColumns.push("phone_country_code", "phone_number");
-    insertValues.push(sqlString(phoneCountryCode), sqlString(phoneNumber));
-    updateFields.push("phone_country_code = EXCLUDED.phone_country_code", "phone_number = EXCLUDED.phone_number");
-  }
-
-  const phoneVerified = validateOptionalBoolean(user.phone_verified, "phone_verified");
-  if (phoneVerified !== undefined) {
-    insertColumns.push("phone_verified");
-    insertValues.push(String(phoneVerified));
-    updateFields.push("phone_verified = EXCLUDED.phone_verified");
-  }
 
   const scheduledUpdateTimes = validateOptionalNumberArray(
     user.market_scheduled_asset_price_times,
@@ -383,13 +291,6 @@ function buildNotificationPreferencesSql(userId: string, user: SeedUser): string
   );
   if (scheduledEmail !== undefined) {
     overrides.set("market_scheduled_asset_price||email", scheduledEmail);
-  }
-  const scheduledSms = validateOptionalBoolean(
-    user.market_scheduled_asset_price_include_sms,
-    "market_scheduled_asset_price_include_sms",
-  );
-  if (scheduledSms !== undefined) {
-    overrides.set("market_scheduled_asset_price||sms", scheduledSms);
   }
   // override key = `${notification_type}|${content}|${channel}`; content is "" for market types.
 

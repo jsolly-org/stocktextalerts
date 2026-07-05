@@ -27,8 +27,6 @@ export default defineConfig({
 			// it stays correct if the shared port is ever changed.
 			EMAIL_SMTP_PORT: process.env.EMAIL_SMTP_PORT ?? "1025",
 			SITE_URL: "http://localhost:4322",
-			// Inbound SMS webhook signature validation (tests/e2e/inbound-sms.e2e.spec.ts).
-			TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN ?? "stubaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		},
 	},
 });

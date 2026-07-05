@@ -112,7 +112,7 @@ export async function fetchPriceMoveThresholds(
  * another cron tick already updated it and we back off.
  *
  * On unexpected errors, fails closed. If the delivery-state RPC is unavailable,
- * sending would bypass idempotency and can duplicate SMS on every cron tick.
+ * sending would bypass idempotency and can duplicate alerts on every cron tick.
  */
 export async function reserveFlatPriceAlert(
 	supabase: SupabaseAdminClient,

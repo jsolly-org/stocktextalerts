@@ -9,8 +9,6 @@ import type { SupabaseAdminClient } from "../db/supabase";
 import { loadUserAssets, type UserAssetsMap } from "../db/user-assets";
 import type { Logger } from "../logging";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/parts/delay";
-import { shouldSendSms } from "../messaging/sms";
-import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { EmailSender } from "../messaging/types";
@@ -20,11 +18,7 @@ import { parseScheduledSlotContext } from "../time/schedule/next-send";
 import type { MarketClosureInfo } from "../time/types";
 import type { UserRecord } from "../types";
 import { buildAssetEventsContentForChannels } from "./content";
-import {
-	processAssetEventsEmailDelivery,
-	processAssetEventsSmsDelivery,
-	processAssetEventsTelegramDelivery,
-} from "./delivery";
+import { processAssetEventsEmailDelivery, processAssetEventsTelegramDelivery } from "./delivery";
 import { shouldAdvanceAssetEventsSchedule } from "./schedule-state";
 import type { AssetEventsTelegramFacets } from "./types";
 
@@ -40,7 +34,6 @@ export async function processAssetEventsUser(options: {
 	logger: Logger;
 	currentTime: DateTime;
 	sendEmail: EmailSender;
-	getSmsSender: SmsSenderFactory;
 	getTelegramSender: TelegramSenderFactory;
 	/** Pre-fetched user assets (avoids N+1 when batch processing). */
 	userAssetsMap?: UserAssetsMap;
@@ -52,8 +45,6 @@ export async function processAssetEventsUser(options: {
 		logFailures: 0,
 		emailsSent: 0,
 		emailsFailed: 0,
-		smsSent: 0,
-		smsFailed: 0,
 		telegramSent: 0,
 		telegramFailed: 0,
 	};
@@ -63,7 +54,6 @@ export async function processAssetEventsUser(options: {
 		logger,
 		currentTime,
 		sendEmail,
-		getSmsSender,
 		getTelegramSender,
 		userAssetsMap,
 		marketClosureInfo: passedMarketClosureInfo,
@@ -129,9 +119,8 @@ export async function processAssetEventsUser(options: {
 		const tickers = userAssets.map((s) => s.symbol);
 
 		const emailEnabled = user.email_notifications_enabled;
-		const smsEnabled = shouldSendSms(user);
 
-		if (!emailEnabled && !smsEnabled && !wantsTelegram) {
+		if (!emailEnabled && !wantsTelegram) {
 			stats.skipped++;
 			await updateUserDailyNotificationNextSendAt({
 				user,
@@ -150,19 +139,16 @@ export async function processAssetEventsUser(options: {
 				: await getUsMarketClosureInfoForInstant(currentTime);
 
 		const wantsEmail = emailEnabled && anyDailyAssetEventFacetEnabled(user.prefs, "email");
-		const wantsSms = smsEnabled && anyDailyAssetEventFacetEnabled(user.prefs, "sms");
 
 		let emailContent: Awaited<ReturnType<typeof buildAssetEventsContentForChannels>>["email"] =
 			null;
-		let smsContent: Awaited<ReturnType<typeof buildAssetEventsContentForChannels>>["sms"] = null;
 		let telegramContent: Awaited<
 			ReturnType<typeof buildAssetEventsContentForChannels>
 		>["telegram"] = null;
 		let shouldUpdateAnalystMonth = false;
 
-		const channels: Array<"email" | "sms"> = [];
+		const channels: Array<"email"> = [];
 		if (wantsEmail) channels.push("email");
-		if (wantsSms) channels.push("sms");
 
 		if (channels.length > 0 || wantsTelegram) {
 			const built = await buildAssetEventsContentForChannels({
@@ -175,7 +161,6 @@ export async function processAssetEventsUser(options: {
 				...(wantsTelegram ? { telegramFacets } : {}),
 			});
 			emailContent = built.email;
-			smsContent = built.sms;
 			telegramContent = built.telegram;
 			shouldUpdateAnalystMonth = built.shouldUpdateAnalystMonth;
 		}
@@ -198,26 +183,6 @@ export async function processAssetEventsUser(options: {
 				stats,
 				delayBannerText,
 				delayBannerHtml,
-			});
-		}
-
-		if (wantsSms && smsContent?.hasAnyContent) {
-			await processAssetEventsSmsDelivery({
-				user,
-				supabase,
-				logger,
-				scheduledDate,
-				scheduledMinutes,
-				earningsSection: smsContent.eventsSection?.earnings ?? null,
-				dividendsSection: smsContent.eventsSection?.dividends ?? null,
-				splitsSection: smsContent.eventsSection?.splits ?? null,
-				iposSection: smsContent.eventsSection?.ipos ?? null,
-				analystSection: smsContent.analystSection,
-				insiderSection: smsContent.insiderSection,
-				marketClosureInfo,
-				getSmsSender,
-				stats,
-				delayBanner: delayBannerText,
 			});
 		}
 
@@ -259,7 +224,6 @@ export async function processAssetEventsUser(options: {
 		}
 
 		const emailRequired = wantsEmail && Boolean(emailContent?.hasAnyContent);
-		const smsRequired = wantsSms && Boolean(smsContent?.hasAnyContent);
 		const telegramRequired = wantsTelegram && Boolean(telegramContent?.hasAnyContent);
 		const canAdvance = await shouldAdvanceAssetEventsSchedule({
 			supabase,
@@ -267,7 +231,6 @@ export async function processAssetEventsUser(options: {
 			scheduledDate,
 			scheduledMinutes,
 			emailRequired,
-			smsRequired,
 			telegramRequired,
 		});
 
@@ -285,7 +248,6 @@ export async function processAssetEventsUser(options: {
 				scheduledDate,
 				scheduledMinutes,
 				emailRequired,
-				smsRequired,
 				telegramRequired,
 			});
 		}

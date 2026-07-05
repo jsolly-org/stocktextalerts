@@ -558,27 +558,6 @@ export type Database = {
           },
         ]
       }
-      short_urls: {
-        Row: {
-          created_at: string
-          expires_at: string
-          id: string
-          original_url: string
-        }
-        Insert: {
-          created_at?: string
-          expires_at?: string
-          id: string
-          original_url: string
-        }
-        Update: {
-          created_at?: string
-          expires_at?: string
-          id?: string
-          original_url?: string
-        }
-        Relationships: []
-      }
       staged_notifications: {
         Row: {
           id: string
@@ -726,7 +705,6 @@ export type Database = {
           dismiss_timezone_mismatch_prompts: boolean
           email: string
           email_notifications_enabled: boolean
-          full_phone: string | null
           grok_sends_in_window: number
           grok_window_start: string | null
           id: string
@@ -734,11 +712,6 @@ export type Database = {
           market_scheduled_asset_price_enabled: boolean
           market_scheduled_asset_price_next_send_at: string | null
           market_scheduled_asset_price_times: number[] | null
-          phone_country_code: string | null
-          phone_number: string | null
-          phone_verified: boolean
-          sms_notifications_enabled: boolean
-          sms_opted_out: boolean
           telegram_chat_id: number | null
           telegram_id: number | null
           telegram_linked_at: string | null
@@ -746,7 +719,6 @@ export type Database = {
           timezone: string
           updated_at: string
           use_24_hour_time: boolean
-          verification_sent_at: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -758,7 +730,6 @@ export type Database = {
           dismiss_timezone_mismatch_prompts?: boolean
           email: string
           email_notifications_enabled?: boolean
-          full_phone?: string | null
           grok_sends_in_window?: number
           grok_window_start?: string | null
           id?: string
@@ -766,11 +737,6 @@ export type Database = {
           market_scheduled_asset_price_enabled?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
-          phone_country_code?: string | null
-          phone_number?: string | null
-          phone_verified?: boolean
-          sms_notifications_enabled?: boolean
-          sms_opted_out?: boolean
           telegram_chat_id?: number | null
           telegram_id?: number | null
           telegram_linked_at?: string | null
@@ -778,7 +744,6 @@ export type Database = {
           timezone?: string
           updated_at?: string
           use_24_hour_time?: boolean
-          verification_sent_at?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -790,7 +755,6 @@ export type Database = {
           dismiss_timezone_mismatch_prompts?: boolean
           email?: string
           email_notifications_enabled?: boolean
-          full_phone?: string | null
           grok_sends_in_window?: number
           grok_window_start?: string | null
           id?: string
@@ -798,11 +762,6 @@ export type Database = {
           market_scheduled_asset_price_enabled?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
-          phone_country_code?: string | null
-          phone_number?: string | null
-          phone_verified?: boolean
-          sms_notifications_enabled?: boolean
-          sms_opted_out?: boolean
           telegram_chat_id?: number | null
           telegram_id?: number | null
           telegram_linked_at?: string | null
@@ -810,7 +769,6 @@ export type Database = {
           timezone?: string
           updated_at?: string
           use_24_hour_time?: boolean
-          verification_sent_at?: string | null
         }
         Relationships: [
           {
@@ -868,7 +826,6 @@ export type Database = {
         Returns: boolean
       }
       purge_expired_email_dispatch_keys: { Args: never; Returns: number }
-      purge_expired_short_urls: { Args: never; Returns: number }
       purge_old_asset_daily_closes: {
         Args: { p_retention_days?: number }
         Returns: number
@@ -896,30 +853,13 @@ export type Database = {
         }
         Returns: boolean
       }
-      reserve_sms_verification: {
-        Args: {
-          p_cooldown_ms: number
-          p_phone_country_code: string
-          p_phone_number: string
-          p_user_id: string
-        }
-        Returns: boolean
-      }
-      rollback_sms_verification_reservation: {
-        Args: {
-          p_expected_verification_sent_at: string
-          p_restore_verification_sent_at: string
-          p_user_id: string
-        }
-        Returns: boolean
-      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       asset_event_type: "earnings" | "dividend" | "split"
       asset_type: "stock" | "etf"
-      delivery_method: "email" | "sms" | "telegram"
+      delivery_method: "email" | "telegram"
       price_move_threshold_unit: "percent" | "dollar"
       scheduled_notification_status: "sending" | "sent" | "failed"
       scheduled_notification_type: "market" | "daily" | "asset_events"
@@ -1053,7 +993,7 @@ export const Constants = {
     Enums: {
       asset_event_type: ["earnings", "dividend", "split"],
       asset_type: ["stock", "etf"],
-      delivery_method: ["email", "sms", "telegram"],
+      delivery_method: ["email", "telegram"],
       price_move_threshold_unit: ["percent", "dollar"],
       scheduled_notification_status: ["sending", "sent", "failed"],
       scheduled_notification_type: ["market", "daily", "asset_events"],

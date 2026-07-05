@@ -120,7 +120,7 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 		}
 
 		// Seed default notification_preferences rows (all channels). These replace the
-		// old per-column DEFAULTs on `users` (prices email+sms = on; everything else off).
+		// old per-column DEFAULTs on `users` (prices email = on; everything else off).
 		// Without this, a new user would have zero preference rows once the columns are gone.
 		const { error: prefsError } = await adminSupabase
 			.from("notification_preferences")

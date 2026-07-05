@@ -42,8 +42,6 @@
 		<SetupRequiredNotice
 			:needs-tracked-assets="needsTrackedAssets"
 			:needs-channel-selection="needsChannelSelection"
-			:needs-phone-verification="needsPhoneVerification"
-			:phone-verification-section-id="phoneVerificationSectionId"
 		/>
 
 	<fieldset
@@ -58,11 +56,6 @@
 						type="hidden"
 					name="daily_digest_include_prices_email"
 					:value="includePricesEmail ? 'on' : 'off'"
-				/>
-					<input
-						type="hidden"
-					name="daily_digest_include_prices_sms"
-					:value="includePricesSms ? 'on' : 'off'"
 				/>
 					<input
 						type="hidden"
@@ -100,11 +93,6 @@
 						type="hidden"
 						name="daily_digest_include_top_movers_email"
 						:value="includeTopMoversEmail ? 'on' : 'off'"
-					/>
-					<input
-						type="hidden"
-						name="daily_digest_include_top_movers_sms"
-						:value="includeTopMoversSms ? 'on' : 'off'"
 					/>
 					<input
 						type="hidden"
@@ -219,10 +207,8 @@
 
 				<DailyAssetEventsFieldset
 					:email-enabled="emailEnabled"
-					:phone-verified="phoneVerified"
 					:has-tracked-assets="hasTrackedAssets"
 					:needs-channel-selection="needsChannelSelection"
-					:notification-setup-blocked="notificationSetupBlocked"
 					:telegram-prefs="assetEventTelegramPrefs"
 					:notify-change="notifyChange"
 				/>
@@ -249,7 +235,6 @@ import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import { DASHBOARD_SECTION_IDS } from "../../../lib/constants";
-import { SMS_OPTION_FIELD_NAMES } from "../../../lib/notification-preferences/constants";
 import { etMinuteToUserLocal } from "../../../lib/time/conversion";
 import {
 	formatCountdownWithSeconds,
@@ -259,16 +244,9 @@ import {
 import { useHydrated } from "../../useHydrated";
 import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
-import {
-	DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID,
-	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
-} from "../constants";
+import { DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID } from "../constants";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
-import {
-	getEmailChannelDisabledTitle,
-	getSmsChannelDisabledTitle,
-} from "../shared/channel-disabled-titles";
-import { createChannelOptionBuilders } from "../shared/channel-options";
+import { createChannelOptionBuilders, getEmailChannelDisabledTitle } from "../shared/channel-options";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import type { ChannelOption, NotificationPreferencesData } from "../types";
@@ -276,7 +254,6 @@ import DailyAssetEventsFieldset from "./DailyAssetEventsFieldset.vue";
 
 interface Props {
 	emailEnabled: boolean;
-	phoneVerified: boolean;
 	hasTrackedAssets: boolean;
 	/**
 	 * The user's current daily-digest Telegram selections, keyed by content facet
@@ -293,29 +270,14 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
 	assetEventTelegramPrefs: () => ({}),
 });
-const { emailEnabled, phoneVerified, hasTrackedAssets, assetEventTelegramPrefs } =
-	toRefs(props);
+const { emailEnabled, hasTrackedAssets, assetEventTelegramPrefs } = toRefs(props);
 
 const user = useDashboardUser();
 
-const smsOptedOut = computed(() => user.value.sms_opted_out === true);
-const smsNotificationsEnabled = computed(() => user.value.sms_notifications_enabled === true);
-const smsReady = computed(
-	() => phoneVerified.value && !smsOptedOut.value && smsNotificationsEnabled.value,
-);
-const hasAnySmsFeatureEnabled = computed(() =>
-	SMS_OPTION_FIELD_NAMES.some((field) => user.value[field]),
-);
-const hasNotificationChannel = computed(
-	() => emailEnabled.value || (smsReady.value && hasAnySmsFeatureEnabled.value),
-);
-const needsChannelSelection = computed(() => !hasNotificationChannel.value);
+const needsChannelSelection = computed(() => !emailEnabled.value);
 const needsTrackedAssets = computed(() => !hasTrackedAssets.value);
 const notificationSetupBlocked = computed(
 	() => needsChannelSelection.value || needsTrackedAssets.value,
-);
-const needsPhoneVerification = computed(
-	() => hasAnySmsFeatureEnabled.value && !phoneVerified.value,
 );
 
 /** News & Rumors are email-only — disable when email channel isn't enabled */
@@ -331,14 +293,6 @@ const emailOnlyDisabled = computed(
 const emailDisabledTitle = computed(() =>
 	getEmailChannelDisabledTitle(emailEnabled.value),
 );
-const smsDisabledTitle = computed(() =>
-	getSmsChannelDisabledTitle({
-		smsNotificationsEnabled: smsNotificationsEnabled.value,
-		phoneVerified: phoneVerified.value,
-		smsOptedOut: smsOptedOut.value,
-	}),
-);
-const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
 
 const isHydrated = useHydrated();
 const tick = ref(0);
@@ -371,12 +325,8 @@ const {
 });
 
 const includePricesEmail = ref(user.value.daily_digest_include_prices_email);
-const includePricesSms = ref(user.value.daily_digest_include_prices_sms);
 const includeTopMoversEmail = ref(
 	user.value.daily_digest_include_top_movers_email,
-);
-const includeTopMoversSms = ref(
-	user.value.daily_digest_include_top_movers_sms,
 );
 const includeNewsEmail = ref(user.value.daily_digest_include_news_email);
 const includeRumorsEmail = ref(user.value.daily_digest_include_rumors_email);
@@ -385,7 +335,7 @@ const includeRumorsEmail = ref(user.value.daily_digest_include_rumors_email);
 Telegram per-option state. These prefs live in `notification_preferences`
 (channel='telegram'), not the users row, so they initialize from the server-loaded
 `telegramPrefs` prop (absent facet ⇒ off) and are NOT re-synced from `user.value`
-the way the email/sms refs are. Telegram is offered on every option — including
+the way the email refs are. Telegram is offered on every option — including
 news/rumors, which are email-only on the legacy columns.
 ============= */
 const includePricesTelegram = ref(props.telegramPrefs.prices === true);
@@ -403,10 +353,8 @@ const telegramDisabledTitle = computed(() =>
 
 const dailyEnabled = computed(() =>
 	includePricesEmail.value ||
-	includePricesSms.value ||
 	includePricesTelegram.value ||
 	includeTopMoversEmail.value ||
-	includeTopMoversSms.value ||
 	includeTopMoversTelegram.value ||
 	includeNewsEmail.value ||
 	includeNewsTelegram.value ||
@@ -416,30 +364,25 @@ const dailyEnabled = computed(() =>
 
 /* =============
 Channel multiselect options. Each option carries its selected/disabled/title so the
-multiselect can show every channel that exists for the facet (prices/top_movers get
-Email+SMS+Telegram; news/rumors are Email+Telegram — no SMS) while still surfacing
-why a channel is unavailable. Email/SMS disabled logic mirrors the prior checkboxes.
+multiselect can show every channel that exists for the facet (Email+Telegram) while
+still surfacing why a channel is unavailable. Email disabled logic mirrors the prior
+checkboxes.
 ============= */
-const { emailOption, smsOption, telegramOption } = createChannelOptionBuilders({
+const { emailOption, telegramOption } = createChannelOptionBuilders({
 	emailDisabled: () => emailOnlyDisabled.value,
 	emailDisabledTitle: () => emailDisabledTitle.value,
-	smsDisabled: () => notificationSetupBlocked.value || !smsReady.value,
-	smsDisabledTitle: () => smsDisabledTitle.value,
 	telegramDisabled: () => !telegramConnected.value,
 	telegramDisabledTitle: () => telegramDisabledTitle.value,
 });
 
 const pricesChannelOptions = computed<ChannelOption[]>(() => [
 	emailOption(includePricesEmail.value),
-	smsOption(includePricesSms.value),
 	telegramOption(includePricesTelegram.value),
 ]);
 const topMoversChannelOptions = computed<ChannelOption[]>(() => [
 	emailOption(includeTopMoversEmail.value),
-	smsOption(includeTopMoversSms.value),
 	telegramOption(includeTopMoversTelegram.value),
 ]);
-// News & Rumors are email-only on the legacy columns — no SMS channel offered.
 const newsChannelOptions = computed<ChannelOption[]>(() => [
 	emailOption(includeNewsEmail.value),
 	telegramOption(includeNewsTelegram.value),
@@ -451,12 +394,10 @@ const rumorsChannelOptions = computed<ChannelOption[]>(() => [
 
 function handlePricesToggle(channel: string, selected: boolean) {
 	if (channel === "email") includePricesEmail.value = selected;
-	else if (channel === "sms") includePricesSms.value = selected;
 	else if (channel === "telegram") includePricesTelegram.value = selected;
 }
 function handleTopMoversToggle(channel: string, selected: boolean) {
 	if (channel === "email") includeTopMoversEmail.value = selected;
-	else if (channel === "sms") includeTopMoversSms.value = selected;
 	else if (channel === "telegram") includeTopMoversTelegram.value = selected;
 }
 function handleNewsToggle(channel: string, selected: boolean) {
@@ -471,16 +412,12 @@ function handleRumorsToggle(channel: string, selected: boolean) {
 const hasAnyAssetEventsOptionEnabled = computed(
 	() =>
 		user.value.asset_events_include_calendar_email ||
-		user.value.asset_events_include_calendar_sms ||
 		props.telegramPrefs.calendar === true ||
 		user.value.asset_events_include_ipo_email ||
-		user.value.asset_events_include_ipo_sms ||
 		props.telegramPrefs.ipo === true ||
 		user.value.asset_events_include_analyst_email ||
-		user.value.asset_events_include_analyst_sms ||
 		props.telegramPrefs.analyst === true ||
 		user.value.asset_events_include_insider_email ||
-		user.value.asset_events_include_insider_sms ||
 		props.telegramPrefs.insider === true,
 );
 
@@ -567,10 +504,8 @@ const nextDailyDeliveryText = computed(() => {
 watch(
 	[
 		includePricesEmail,
-		includePricesSms,
 		includePricesTelegram,
 		includeTopMoversEmail,
-		includeTopMoversSms,
 		includeTopMoversTelegram,
 		includeNewsEmail,
 		includeNewsTelegram,
@@ -589,21 +524,9 @@ watch(
 	},
 );
 watch(
-	() => user.value.daily_digest_include_prices_sms,
-	(value) => {
-		includePricesSms.value = value;
-	},
-);
-watch(
 	() => user.value.daily_digest_include_top_movers_email,
 	(value) => {
 		includeTopMoversEmail.value = value;
-	},
-);
-watch(
-	() => user.value.daily_digest_include_top_movers_sms,
-	(value) => {
-		includeTopMoversSms.value = value;
 	},
 );
 watch(
@@ -627,36 +550,21 @@ watch(savedData, (newData) => {
 	user.value = {
 		...user.value,
 		daily_digest_include_prices_email: newData.daily_digest_include_prices_email,
-		daily_digest_include_prices_sms: newData.daily_digest_include_prices_sms,
 		daily_digest_include_top_movers_email:
 			newData.daily_digest_include_top_movers_email,
-		daily_digest_include_top_movers_sms:
-			newData.daily_digest_include_top_movers_sms,
 		daily_digest_include_news_email: newData.daily_digest_include_news_email,
 		daily_digest_include_rumors_email: newData.daily_digest_include_rumors_email,
 		...(newData.asset_events_include_calendar_email !== undefined && {
 			asset_events_include_calendar_email: newData.asset_events_include_calendar_email,
 		}),
-		...(newData.asset_events_include_calendar_sms !== undefined && {
-			asset_events_include_calendar_sms: newData.asset_events_include_calendar_sms,
-		}),
 		...(newData.asset_events_include_ipo_email !== undefined && {
 			asset_events_include_ipo_email: newData.asset_events_include_ipo_email,
-		}),
-		...(newData.asset_events_include_ipo_sms !== undefined && {
-			asset_events_include_ipo_sms: newData.asset_events_include_ipo_sms,
 		}),
 		...(newData.asset_events_include_analyst_email !== undefined && {
 			asset_events_include_analyst_email: newData.asset_events_include_analyst_email,
 		}),
-		...(newData.asset_events_include_analyst_sms !== undefined && {
-			asset_events_include_analyst_sms: newData.asset_events_include_analyst_sms,
-		}),
 		...(newData.asset_events_include_insider_email !== undefined && {
 			asset_events_include_insider_email: newData.asset_events_include_insider_email,
-		}),
-		...(newData.asset_events_include_insider_sms !== undefined && {
-			asset_events_include_insider_sms: newData.asset_events_include_insider_sms,
 		}),
 		daily_notification_time: newData.daily_notification_time,
 		daily_notification_next_send_at: newData.daily_notification_next_send_at,

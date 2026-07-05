@@ -40,7 +40,7 @@ export function toSparkline(values: number[]): string {
 
 /**
  * Which price window a sparkline represents. The label rendered next to the
- * sparkline (in SMS and email) is derived from this discriminator.
+ * sparkline (in plaintext and email bodies) is derived from this discriminator.
  *
  * `intraday-since-prev-close` starts at yesterday's close (so its first-to-last
  * delta equals the prev-close-anchored headline change-%) and is the default for scheduled
@@ -55,17 +55,20 @@ export type SparklineWindow =
 	| "7-trading-days";
 
 /**
- * Max sparkline chars for SMS. Unicode blocks force UCS-2 (70 chars/segment);
- * 12 fits comfortably with the surrounding price line. Used as the downsample
- * target for any series longer than this (e.g., intraday 5-min bars ~78/day).
+ * Max points in a plaintext sparkline. 12 fits comfortably with the surrounding
+ * price line. Used as the downsample target for any series longer than this
+ * (e.g., intraday 5-min bars ~78/day).
  */
-const SMS_SPARKLINE_LENGTH = 12;
+const PLAINTEXT_SPARKLINE_MAX_POINTS = 12;
 
 /**
  * Downsample to at most `maxLength` evenly spaced points, preserving endpoints.
  * Returns the input unchanged when it already fits, or when `maxLength < 2`.
  */
-export function downsampleEvenly(values: number[], maxLength = SMS_SPARKLINE_LENGTH): number[] {
+export function downsampleEvenly(
+	values: number[],
+	maxLength = PLAINTEXT_SPARKLINE_MAX_POINTS,
+): number[] {
 	if (maxLength < 2 || values.length <= maxLength) return values;
 	const out: number[] = [];
 	for (let i = 0; i < maxLength; i++) {
@@ -88,12 +91,12 @@ export interface SparklineData {
 /** Map of symbol to sparkline data (values + ASCII + window) or null when unavailable. */
 export type SparklineMap = Map<string, SparklineData | null>;
 
-/** Per-line label rendered before a sparkline in SMS. Names the anchor window
- *  unambiguously — bare "today" / "7d" left readers guessing whether the
+/** Per-line label rendered before a sparkline in plaintext bodies. Names the anchor
+ *  window unambiguously — bare "today" / "7d" left readers guessing whether the
  *  chart started at the open, prev close, or 7 days back. `today` is reserved
  *  for charts anchored at yesterday's close (so the chart's net move equals
  *  the prev-close-anchored headline %, Robinhood/Yahoo convention). */
-export const SMS_SPARKLINE_LABEL: Record<SparklineWindow, string> = {
+export const PLAINTEXT_SPARKLINE_LABEL: Record<SparklineWindow, string> = {
 	"intraday-since-prev-close": "today",
 	"intraday-since-open": "since open",
 	"7-trading-days": "past 7 days",

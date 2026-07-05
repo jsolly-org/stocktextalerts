@@ -36,7 +36,7 @@ function formatScheduledTime(
 	return `${local.toLocaleString({ ...DateTime.TIME_SIMPLE, hourCycle: "h12" })} ${tz}`;
 }
 
-/** Build a plain-text delay banner for SMS/email text. Returns null if not delayed. */
+/** Build a plain-text delay banner for email text. Returns null if not delayed. */
 export function buildDelayBannerText(options: {
 	scheduledFor: DateTime;
 	now: DateTime;
@@ -69,18 +69,6 @@ export function buildDelayBannerHtml(options: {
 			<div style="font-size: 14px; color: #92400e; font-weight: 600;">⏰ Delayed Notification</div>
 			<div style="font-size: 12px; color: #92400e; margin-top: 4px;">This was originally scheduled for ${time}.</div>
 		</div>`;
-}
-
-/**
- * Prepend a delay banner to a pre-rendered SMS message.
- * Inserts the banner after the first line (header) of the message.
- */
-export function prependDelayBannerToSms(message: string, bannerText: string): string {
-	const firstNewline = message.indexOf("\n\n");
-	if (firstNewline === -1) {
-		return `${bannerText}\n\n${message}`;
-	}
-	return `${message.slice(0, firstNewline)}\n\n${bannerText}${message.slice(firstNewline)}`;
 }
 
 /**

@@ -105,7 +105,7 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 	const asset = { symbol: "AAPL", name: "Apple Inc." };
 	const price = { price: 187.42, changePercent: 1.23 };
 
-	it("A 7-day sparkline in SMS is prefixed with `past 7 days:` so the reader knows the window", () => {
+	it("A 7-day sparkline in the plaintext line is prefixed with `past 7 days:` so the reader knows the window", () => {
 		const sparkline: SparklineData = {
 			values: [180, 182, 183, 185, 187, 189, 190],
 			ascii: "▁▂▃▄▅▆▇",
@@ -115,7 +115,7 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 		expect(line).toBe("AAPL — $187.42 (+5.56%) past 7 days: ▁▂▃▄▅▆▇");
 	});
 
-	it("An intraday-since-prev-close sparkline in SMS is prefixed with `today:` (Robinhood-style)", () => {
+	it("An intraday-since-prev-close sparkline in the plaintext line is prefixed with `today:` (Robinhood-style)", () => {
 		const sparkline: SparklineData = {
 			// First value is yesterday's close; the rest are today's bars.
 			values: [180, 181, 184, 187, 188, 187, 188],
@@ -127,7 +127,7 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 		expect(line).toBe("AAPL — $187.42 (+4.44%) today: ▁▂▄▆▇▆▇");
 	});
 
-	it("A flat-alert intraday-since-open sparkline in SMS is prefixed with `since open:` to disambiguate from the prev-close-anchored default", () => {
+	it("A flat-alert intraday-since-open sparkline in the plaintext line is prefixed with `since open:` to disambiguate from the prev-close-anchored default", () => {
 		const sparkline: SparklineData = {
 			values: [180, 181, 184, 187, 188, 187, 188],
 			ascii: "▁▂▄▆▇▆▇",
@@ -221,7 +221,7 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 		expect(html).toContain("color: #166534");
 	});
 
-	it("No sparkline data → no label appears in SMS", () => {
+	it("No sparkline data → no label appears in the plaintext line", () => {
 		const line = formatAssetTextLine(asset, price, null);
 		expect(line).toBe("AAPL — $187.42 (+1.23%)");
 		expect(line).not.toContain("past 7 days:");
@@ -233,17 +233,17 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 describe("No-session-trade rendering distinguishes inactive tickers from fetch failures", () => {
 	const asset = { symbol: "CACI", name: "CACI International" };
 
-	it("Pre-market SMS row reads `no pre-market trades` when ticker has no live extended-hours bar", () => {
+	it("Pre-market plaintext row reads `no pre-market trades` when ticker has no live extended-hours bar", () => {
 		const line = formatAssetTextLine(asset, "no_session_trade", null, true, "pre");
 		expect(line).toBe("CACI — no pre-market trades");
 	});
 
-	it("After-hours SMS row reads `no after-hours trades` when ticker has no live extended-hours bar", () => {
+	it("After-hours plaintext row reads `no after-hours trades` when ticker has no live extended-hours bar", () => {
 		const line = formatAssetTextLine(asset, "no_session_trade", null, true, "after");
 		expect(line).toBe("CACI — no after-hours trades");
 	});
 
-	it("Pre-market SMS row still reads `price unavailable` when the snapshot fetch missed the ticker entirely", () => {
+	it("Pre-market plaintext row still reads `price unavailable` when the snapshot fetch missed the ticker entirely", () => {
 		const line = formatAssetTextLine(asset, undefined, null, true, "pre");
 		expect(line).toBe("CACI — price unavailable");
 	});
@@ -300,7 +300,7 @@ describe("Change-% beside an intraday chart derives from the chart itself, never
 		expect(svg).not.toContain("#b91c1c");
 	});
 
-	it("SMS row shows the same chart-derived +0.45% beside the ascii sparkline", () => {
+	it("The plaintext row shows the same chart-derived +0.45% beside the ascii sparkline", () => {
 		const line = formatAssetTextLine(asset, quote, sparkline);
 		expect(line).toBe("LDOS — $122.24 (+0.45%) today: ▂▁▅▁▁█");
 	});
@@ -312,7 +312,7 @@ describe("Change-% beside an intraday chart derives from the chart itself, never
 });
 
 describe("After-hours change-% rendering", () => {
-	it("A subscriber receiving a 6 PM ET SMS sees the day's prev-close-anchored move (Robinhood-style)", () => {
+	it("A subscriber receiving a 6 PM ET plaintext line sees the day's prev-close-anchored move (Robinhood-style)", () => {
 		// Headline change-% during after-hours is anchored to yesterday's close,
 		// matching the convention used by Robinhood/Yahoo/Apple Stocks. The
 		// sparkline is anchored to the same yesterday's close (prev close

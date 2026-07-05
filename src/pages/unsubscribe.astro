@@ -28,27 +28,14 @@ const isLoggedIn = !!(await users.getCurrentUser());
 let tone: "success" | "error" = "error";
 let message =
 	"This unsubscribe link is invalid or has expired. Please sign in to manage your email notification-preferences.";
-let canOfferSmsOptOut = false;
-let smsOptOutUrl: string | null = null;
 
 if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 	const supabase = createSupabaseAdminClient();
 	const { data: user, error } = await supabase
 		.from("users")
-		.select("id,email,email_notifications_enabled,phone_verified")
+		.select("id,email,email_notifications_enabled")
 		.eq("id", userId)
 		.maybeSingle();
-
-	// Per-option SMS facets live in notification_preferences; load this user's enabled
-	// SMS rows so we can offer (and apply) a one-click SMS opt-out alongside email.
-	const { data: smsPrefRows } = user
-		? await supabase
-				.from("notification_preferences")
-				.select("notification_type, content")
-				.eq("user_id", user.id)
-				.eq("channel", "sms")
-				.eq("enabled", true)
-		: { data: null };
 
 	if (error) {
 		logger.error(
@@ -71,49 +58,20 @@ if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 				reason: verification.reason,
 			});
 		} else {
-			const wantsSmsOptOut = Astro.url.searchParams.get("sms") === "true";
-			const enabledSmsRows = smsPrefRows ?? [];
-			const canOptOutSms = user.phone_verified && enabledSmsRows.length > 0;
-
 			const { error: updateError } = await supabase
 				.from("users")
 				.update({ email_notifications_enabled: false })
 				.eq("id", user.id);
 
-			// Turn off every enabled SMS facet row when the user asked to also opt out of SMS.
-			let smsUpdateError = updateError;
-			if (!updateError && wantsSmsOptOut && canOptOutSms) {
-				const { error: smsError } = await supabase
-					.from("notification_preferences")
-					.update({ enabled: false })
-					.eq("user_id", user.id)
-					.eq("channel", "sms")
-					.eq("enabled", true);
-				smsUpdateError = smsError;
-			}
-
-			if (smsUpdateError) {
+			if (updateError) {
 				logger.error(
 					"Failed to disable email notifications via unsubscribe",
 					{ userId },
-					smsUpdateError,
+					updateError,
 				);
 			} else {
 				tone = "success";
-				message =
-					wantsSmsOptOut && canOptOutSms
-						? `Email and SMS notifications are now turned off. You can ${isLoggedIn ? "visit your dashboard" : "sign in"} anytime to adjust your delivery schedule.`
-						: `Email notifications are now turned off. You can ${isLoggedIn ? "visit your dashboard" : "sign in"} anytime to adjust your delivery schedule.`;
-
-				if (canOptOutSms && !wantsSmsOptOut) {
-					const params = new URLSearchParams({
-						user: userId,
-						token,
-						sms: "true",
-					});
-					smsOptOutUrl = `/unsubscribe?${params.toString()}`;
-					canOfferSmsOptOut = true;
-				}
+				message = `Email notifications are now turned off. You can ${isLoggedIn ? "visit your dashboard" : "sign in"} anytime to adjust your delivery schedule.`;
 			}
 		}
 	}
@@ -135,21 +93,6 @@ if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 			</header>
 
 			<StatusMessage tone={tone}>{message}</StatusMessage>
-
-			{tone === "success" && canOfferSmsOptOut && smsOptOutUrl && (
-				<div class="rounded-lg border border-edge bg-surface p-4 text-sm text-body-secondary">
-					<p class="font-medium text-heading">Also unsubscribe from SMS?</p>
-					<p class="mt-1">
-						You can turn off SMS alerts from this same page.
-					</p>
-					<a
-						href={smsOptOutUrl}
-						class="mt-3 inline-flex w-full items-center justify-center rounded-md border border-edge-strong bg-surface px-4 py-2 text-sm font-semibold text-heading shadow-sm transition hover:bg-surface-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-					>
-						Unsubscribe from SMS too
-					</a>
-				</div>
-			)}
 
 			<div>
 				{isLoggedIn ? (

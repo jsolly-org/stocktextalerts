@@ -1,6 +1,5 @@
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
-import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import type { EmailSender } from "../messaging/types";
 
 // --- Universe reconcile ---
@@ -75,7 +74,6 @@ export interface DelistingSweepDeps {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	sendEmail: EmailSender;
-	getSmsSender: SmsSenderFactory;
 }
 
 /** Summary counters returned by `runDelistingSweep`. */
@@ -89,9 +87,6 @@ export interface DelistingSweepResult {
 	emailsDelivered: number;
 	emailsSkippedOptOut: number;
 	emailsFailed: number;
-	smsDelivered: number;
-	smsSkippedOptOut: number;
-	smsFailed: number;
 	userAssetRowsDeleted: number;
 	providerErrors: number;
 }

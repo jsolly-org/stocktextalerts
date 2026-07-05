@@ -31,7 +31,6 @@ export const DASHBOARD_HASH_TO_TAB_INDEX: Record<string, number> = {
 	// Legacy hash — asset events now live in the daily notification panel.
 	[DASHBOARD_SECTION_IDS.assetEvents]: 2,
 	daily_digest_time: 1,
-	[`${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`]: 1,
 };
 
 /** Reverse map: tab index → canonical hash for URL persistence. */

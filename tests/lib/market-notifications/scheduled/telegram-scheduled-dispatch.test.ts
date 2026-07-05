@@ -2,7 +2,7 @@
  * Integration test for the Telegram scheduled-market-price dispatch wiring.
  *
  * Scenario: a Telegram-linked user who selected the market_scheduled_asset_price
- * option for the Telegram channel (email/SMS off) runs through the normal
+ * option for the Telegram channel (email off) runs through the normal
  * `processMarketScheduledUser` path and receives a Telegram price snapshot — a
  * notification_log row with delivery_method='telegram', the telegram
  * scheduled_notifications row marked sent, and stats.telegramSent incremented.
@@ -17,7 +17,7 @@ import { describe, expect, it, vi } from "vitest";
 import { rootLogger } from "../../../../src/lib/logging";
 import { processMarketScheduledUser } from "../../../../src/lib/market-notifications/scheduled/process";
 import { attachPrefsToUsers } from "../../../../src/lib/messaging/load-prefs";
-import type { EmailSender, SmsSender, TelegramSender } from "../../../../src/lib/messaging/types";
+import type { EmailSender, TelegramSender } from "../../../../src/lib/messaging/types";
 import type { UserRecord } from "../../../../src/lib/types";
 import { dashboardButtonUrl } from "../../../helpers/messaging-doubles";
 import { adminClient } from "../../../helpers/test-env";
@@ -64,7 +64,6 @@ async function seedTelegramScheduledUser(prefEnabled: boolean) {
 	const { id } = await createTestUser({
 		timezone: "America/New_York",
 		emailNotificationsEnabled: false,
-		smsNotificationsEnabled: false,
 		trackedAssets: ["NVDA"],
 		confirmed: true,
 	});
@@ -83,7 +82,7 @@ async function seedTelegramScheduledUser(prefEnabled: boolean) {
 	expect(updateError).toBeNull();
 
 	// Per-option prefs live in notification_preferences. createTestUser already seeded
-	// market_scheduled email/sms off; enable (or not) the Telegram facet here.
+	// market_scheduled email off; enable (or not) the Telegram facet here.
 	await setTestUserPrefs(id, [["market_scheduled_asset_price", "", "telegram", prefEnabled]]);
 
 	const { data: userRow, error: selectError } = await adminClient
@@ -103,7 +102,6 @@ describe("Telegram scheduled market-price dispatch", () => {
 		const { id, telegramChatId, userRow, now } = await seedTelegramScheduledUser(true);
 
 		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
-		const smsSender = vi.fn<SmsSender>(async () => ({ success: true }));
 		const telegramSender = vi.fn<TelegramSender>(async () => ({
 			success: true,
 			messageSid: "tg-sched-1",
@@ -115,7 +113,6 @@ describe("Telegram scheduled market-price dispatch", () => {
 			logger: rootLogger,
 			currentTime: now,
 			sendEmail,
-			getSmsSender: () => ({ sender: smsSender }),
 			getTelegramSender: () => ({ sender: telegramSender }),
 			priceMap: new Map([["NVDA", { price: 178.42, changePercent: 1.37, prevClose: 176.01 }]]),
 			marketSession: "regular",
@@ -124,9 +121,7 @@ describe("Telegram scheduled market-price dispatch", () => {
 		expect(stats.telegramSent).toBe(1);
 		expect(stats.telegramFailed).toBe(0);
 		expect(stats.emailsSent).toBe(0);
-		expect(stats.smsSent).toBe(0);
 		expect(sendEmail).not.toHaveBeenCalled();
-		expect(smsSender).not.toHaveBeenCalled();
 		expect(telegramSender).toHaveBeenCalledTimes(1);
 
 		const sent = telegramSender.mock.calls[0]?.[0];
@@ -166,7 +161,6 @@ describe("Telegram scheduled market-price dispatch", () => {
 			logger: rootLogger,
 			currentTime: now,
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
-			getSmsSender: () => ({ sender: vi.fn<SmsSender>(async () => ({ success: true })) }),
 			getTelegramSender: () => ({ sender: telegramSender }),
 			priceMap: new Map([["NVDA", { price: 178.42, changePercent: 1.37, prevClose: 176.01 }]]),
 			marketSession: "regular",
@@ -201,7 +195,6 @@ describe("Telegram scheduled market-price dispatch", () => {
 			logger: rootLogger,
 			currentTime: now,
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
-			getSmsSender: () => ({ sender: vi.fn<SmsSender>(async () => ({ success: true })) }),
 			getTelegramSender: () => ({ sender: telegramSender }),
 			priceMap: new Map([["NVDA", { price: 178.42, changePercent: 1.37, prevClose: 176.01 }]]),
 			marketSession: "regular",
