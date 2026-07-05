@@ -109,10 +109,6 @@ Resources:
           TELEGRAM_BOT_TOKEN_SSM_PARAM: /stocktextalerts/telegram-bot-token
           SUPABASE_URL_SSM_PARAM: /stocktextalerts/supabase-url
           SUPABASE_SECRET_KEY_SSM_PARAM: /stocktextalerts/supabase-secret-key
-          TWILIO_ACCOUNT_SID_SSM_PARAM: /stocktextalerts/twilio-account-sid
-          TWILIO_API_KEY_SID_SSM_PARAM: /stocktextalerts/twilio-api-key-sid
-          TWILIO_API_KEY_SECRET_SSM_PARAM: /stocktextalerts/twilio-api-key-secret
-          TWILIO_PHONE_NUMBER_SSM_PARAM: /stocktextalerts/twilio-phone-number
           UNSUBSCRIBE_TOKEN_SECRET_SSM_PARAM: /stocktextalerts/unsubscribe-token-secret
       Events:
         EveryMinute:
@@ -159,10 +155,6 @@ Resources:
           UNSUBSCRIBE_TOKEN_SECRET_SSM_PARAM: /stocktextalerts/unsubscribe-token-secret
           SUPABASE_URL_SSM_PARAM: /stocktextalerts/supabase-url
           SUPABASE_SECRET_KEY_SSM_PARAM: /stocktextalerts/supabase-secret-key
-          TWILIO_ACCOUNT_SID_SSM_PARAM: /stocktextalerts/twilio-account-sid
-          TWILIO_API_KEY_SID_SSM_PARAM: /stocktextalerts/twilio-api-key-sid
-          TWILIO_API_KEY_SECRET_SSM_PARAM: /stocktextalerts/twilio-api-key-secret
-          TWILIO_PHONE_NUMBER_SSM_PARAM: /stocktextalerts/twilio-phone-number
       Policies:
         - Version: "2012-10-17"
           Statement:
