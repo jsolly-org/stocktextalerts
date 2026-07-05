@@ -3,7 +3,7 @@ import { formatDailyDigestTelegram } from "../../../../src/lib/messaging/notific
 import type { AssetPriceMap } from "../../../../src/lib/types";
 
 describe("Telegram daily digest formatting", () => {
-	it("renders a multi-asset digest with entities, color dots, and a disclaimer", () => {
+	it("renders a multi-asset digest with entities, color dots, and the /stop hint (no disclaimer)", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 228.5, changePercent: 2.5 }],
 			["TSLA", { price: 410.12, changePercent: -1.8 }],
@@ -25,8 +25,9 @@ describe("Telegram daily digest formatting", () => {
 		expect(msg.text).toContain("🔴 TSLA");
 		expect(msg.text).toContain("(-1.80%)");
 		expect(msg.text).toContain("Apple unveils a new in-house modem chip.");
-		expect(msg.text).toContain("Not financial advice.");
-		// Footer contract: Telegram now also carries an opt-out hint.
+		// Personal-app footer: no "not financial advice" disclaimer; Telegram keeps the
+		// actionable /stop hint.
+		expect(msg.text.toLowerCase()).not.toContain("financial advice");
 		expect(msg.text).toContain("/stop");
 
 		// Entities travel out-of-band (no escaping): bold header/tickers + a news blockquote.

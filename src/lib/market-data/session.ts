@@ -1,55 +1,32 @@
 import { DateTime } from "luxon";
-import { rootLogger } from "../logging";
+import { US_MARKET_TIMEZONE } from "../constants";
 import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
-import { isRecord, type MarketSession } from "../types";
-import { marketDataFetch } from "../vendors/massive";
+import { getScheduledMarketSession, isOutsideMarketHours } from "../time/market/session";
+import { minuteOfDayFromDateTime } from "../time/utils";
+import type { MarketSession } from "../types";
 
+/**
+ * Determine the current US market session locally — no live vendor call.
+ *
+ * Weekend / full holiday / past a half-day's early close come from the 12h-cached holiday
+ * calendar (`getUsMarketClosureInfoForInstant`); the pre/regular/after split is a pure
+ * ET-clock classification against the market-notification window (4:30 AM–7:30 PM ET).
+ *
+ * This replaced a per-scheduler-tick Massive `/v1/marketstatus/now` call (dropped for the
+ * free-tier migration): the only remaining vendor dependency is the holiday calendar's
+ * 12h-cached `/v1/marketstatus/upcoming` fetch (~2 calls/day). A half-day after its early
+ * close reports `half-day-after-close` from the calendar → "closed", matching the prior
+ * override behavior.
+ */
 export async function getCurrentMarketSession(): Promise<MarketSession> {
-	const [data, closure] = await Promise.all([
-		marketDataFetch("/v1/marketstatus/now", {}, "market-status"),
-		getUsMarketClosureInfoForInstant(DateTime.utc()),
-	]);
-	// Calendar-aware override: on US half-days, the regular session ends at the
-	// early close (typically 1pm ET) and there is NO after-hours session.
-	// Massive's `/v1/marketstatus/now` half-day behavior is undocumented; if it
-	// flips to `afterHours: true` in the dead zone we'd otherwise classify the
-	// session as "after" and fire scheduled notifications with a stale baseline.
-	// The calendar tells us this is a half-day-after-close — force "closed".
-	if (closure?.reason === "half-day-after-close") {
+	const now = DateTime.utc();
+	// Weekend, full holiday, or past a half-day's early close → no trading session.
+	if ((await getUsMarketClosureInfoForInstant(now)) !== null) {
 		return "closed";
 	}
-	return parseMarketSession(data);
-}
-
-export function parseMarketSession(payload: unknown): MarketSession {
-	if (!isRecord(payload)) {
-		rootLogger.warn("Massive market-status payload is not an object", { payload });
+	const etMinutes = minuteOfDayFromDateTime(now.setZone(US_MARKET_TIMEZONE));
+	if (isOutsideMarketHours(etMinutes)) {
 		return "closed";
 	}
-
-	const record = payload;
-	const market = typeof record.market === "string" ? record.market : null;
-
-	if (market === null) {
-		rootLogger.warn("Massive market-status payload missing 'market' field", { payload });
-		return "closed";
-	}
-
-	// Authoritative: market === "open" means regular session, regardless of other flags.
-	if (market === "open") return "regular";
-
-	const earlyHours = record.earlyHours === true;
-	const afterHours = record.afterHours === true;
-
-	// Corrupt-payload guard: only fires when market !== "open" AND both flags set.
-	if (earlyHours && afterHours) {
-		rootLogger.warn("Massive market-status returned both earlyHours and afterHours true", {
-			payload,
-		});
-		return "closed";
-	}
-
-	if (earlyHours) return "pre";
-	if (afterHours) return "after";
-	return "closed";
+	return getScheduledMarketSession(etMinutes);
 }

@@ -511,8 +511,7 @@ describe("deliverStagedNotifications", () => {
 		const scheduledForIso = currentTime.toISO();
 		if (!scheduledForIso) throw new Error("Expected valid scheduled_for timestamp");
 		const userId = await createTelegramDigestUser({ scheduledForIso });
-		const text =
-			"📊 Daily Digest · Mon, Jun 1\n🟢 AAPL  $192.00  (+1.20%)\n\nNot financial advice.";
+		const text = "📊 Daily Digest · Mon, Jun 1\n🟢 AAPL  $192.00  (+1.20%)";
 		const entities: MessageEntity[] = [{ type: "bold", offset: 0, length: 24 }];
 		const replyMarkup: InlineKeyboardMarkup = {
 			inline_keyboard: [
@@ -597,8 +596,7 @@ describe("deliverStagedNotifications", () => {
 		const scheduledForIso = currentTime.toISO();
 		if (!scheduledForIso) throw new Error("Expected valid scheduled_for timestamp");
 		const userId = await createTelegramDigestUser({ scheduledForIso });
-		const text =
-			"📊 Daily Digest · Mon, Jun 1\n🟢 AAPL  $192.00  (+1.20%)\n\nNot financial advice.";
+		const text = "📊 Daily Digest · Mon, Jun 1\n🟢 AAPL  $192.00  (+1.20%)";
 		const entities: MessageEntity[] = [{ type: "bold", offset: 0, length: 24 }];
 		// Note: no replyMarkup — the legacy shape.
 		await insertStagedDailyTelegram({ userId, scheduledForIso, telegram: { text, entities } });
@@ -629,8 +627,7 @@ describe("deliverStagedNotifications", () => {
 		const scheduledForIso = currentTime.toISO();
 		if (!scheduledForIso) throw new Error("Expected valid scheduled_for timestamp");
 		const userId = await createTelegramDigestUser({ scheduledForIso });
-		const text =
-			"📊 Daily Digest · Mon, Jun 1\n🔴 TSLA  $201.50  (-2.10%)\n\nNot financial advice.";
+		const text = "📊 Daily Digest · Mon, Jun 1\n🔴 TSLA  $201.50  (-2.10%)";
 		const entities: MessageEntity[] = [{ type: "bold", offset: 0, length: 24 }];
 		await insertStagedDailyTelegram({ userId, scheduledForIso, telegram: { text, entities } });
 		const telegramSender = vi.fn<(message: TelegramMessage) => Promise<DeliveryResult>>(

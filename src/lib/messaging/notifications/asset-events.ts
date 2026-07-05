@@ -3,7 +3,7 @@ import { getSiteUrl } from "../../db/env";
 import type { MarketClosureInfo } from "../../time/types";
 import { renderEmailSection } from "../email/html-section";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
-import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
+import { SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
 import {
 	buildMarketClosedBannerEmailHtml,
 	buildMarketClosedBannerEmailText,
@@ -57,7 +57,6 @@ export function formatAssetEventsSms(options: {
 
 	parts.push(`Manage your notifications: ${dashboardUrl}`);
 	parts.push(optOutSuffix);
-	parts.push(NOT_FINANCIAL_ADVICE);
 
 	return padUrlsToSegmentBoundaries(parts.join("\n\n"));
 }
@@ -110,7 +109,6 @@ export function formatAssetEventsEmail(options: {
 	textParts.push(`\nManage your notifications: ${urls.dashboardUrl}`);
 	textParts.push(`Manage your delivery schedule: ${urls.scheduleUrl}`);
 	textParts.push(`Unsubscribe from all emails: ${urls.unsubscribeUrl}`);
-	textParts.push(NOT_FINANCIAL_ADVICE);
 
 	const subject = "Asset Events";
 	const text = textParts.join("\n");
