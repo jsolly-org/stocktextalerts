@@ -208,7 +208,6 @@ describe("buildAssetEventsContent", () => {
 			logger: logger as never,
 			localDate: "2026-02-10",
 			tickers: [],
-			channel: "email",
 		});
 
 		expect(result.hasAnyContent).toBe(true);

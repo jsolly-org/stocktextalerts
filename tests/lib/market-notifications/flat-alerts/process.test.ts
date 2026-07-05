@@ -83,10 +83,7 @@ function makeQuote(overrides: Partial<ExtendedAssetQuote>): ExtendedAssetQuote {
 	};
 }
 
-async function enableFlatAlerts(
-	userId: string,
-	channels: { email?: boolean } = {},
-): Promise<void> {
+async function enableFlatAlerts(userId: string, channels: { email?: boolean } = {}): Promise<void> {
 	const wantEmail = channels.email ?? true;
 	const { error } = await adminClient
 		.from("users")

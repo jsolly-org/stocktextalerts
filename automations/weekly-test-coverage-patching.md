@@ -27,7 +27,7 @@ This is a scheduled `main` coverage patching run:
    - What users do, such as sign up, track assets, manage notification preferences, and receive alerts
    - What cron jobs do, such as fetch market data, compute digests, detect anomalies, and send notifications
    - What the notification pipeline looks like, including scheduling, timezone handling, format preferences, and delivery
-   - What external integrations exist, such as Twilio SMS, AWS SES email, and Finnhub market data
+   - What external integrations exist, such as the Telegram Bot API, AWS SES email, and Finnhub market data
 4. Read existing test files in `tests/` to understand what scenarios are already covered.
 5. Identify the highest-value missing scenarios on `main`:
    - User journeys

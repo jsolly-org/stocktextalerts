@@ -1,4 +1,4 @@
--- squawk-ignore-file ban-drop-table,ban-drop-column
+-- squawk-ignore-file ban-drop-table,ban-drop-column,changing-column-type,adding-foreign-key-constraint,constraint-missing-not-valid
 -- Remove the SMS (Twilio) delivery channel end to end. Going forward the app
 -- delivers only via email and Telegram. This drops:
 --   · every notification_preferences / notification_options row for channel='sms',

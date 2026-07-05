@@ -175,5 +175,4 @@ describe("User input is validated against required data format rules.", () => {
 			code: "22P02",
 		});
 	});
-
 });
