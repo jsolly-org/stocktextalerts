@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.unmock("../../../src/lib/market-data/session");
 
@@ -16,97 +16,117 @@ vi.mock("../../../src/lib/runtime/mode", () => ({
 
 type MarketDataSession = typeof import("../../../src/lib/market-data/session");
 
-describe("getCurrentMarketSession — calendar-aware half-day override", () => {
-	let marketDataSession: MarketDataSession;
-	let now: DateTime;
+/** Calendar record shape returned by Massive `/v1/marketstatus/upcoming`. */
+type CalendarRecord = {
+	exchange: string;
+	date: string;
+	status: "closed" | "early-close";
+	name?: string;
+	open?: string;
+	close?: string;
+};
 
-	beforeEach(async () => {
-		marketDataFetchMock.mockReset();
-		// Module-level cache in market-calendar persists across tests; reset
-		// the module graph so each test gets a fresh cache + fresh DateTime.utc().
+describe("getCurrentMarketSession — local, no live vendor call", () => {
+	let marketDataSession: MarketDataSession;
+
+	async function sessionAt(isoUtc: string, calendar: CalendarRecord[] = []): Promise<string> {
+		// Module-level calendar cache persists across imports; reset the graph so each
+		// case gets a fresh cache and re-reads DateTime.utc() under fake timers.
 		vi.resetModules();
 		vi.useFakeTimers();
+		vi.setSystemTime(DateTime.fromISO(isoUtc, { zone: "utc" }).toJSDate());
+		marketDataFetchMock.mockReset();
+		marketDataFetchMock.mockImplementation(async (path: string) => {
+			if (path === "/v1/marketstatus/upcoming") return calendar;
+			throw new Error(`unexpected Massive call in local session: ${path}`);
+		});
 		marketDataSession = await import("../../../src/lib/market-data/session");
-	});
+		return marketDataSession.getCurrentMarketSession();
+	}
+
 	afterEach(() => {
 		vi.useRealTimers();
 	});
 
-	it("On a half-day after the early close, even when Massive reports afterHours: true, the session is overridden to 'closed'", async () => {
-		// 2:00 PM ET on Friday Nov 27, 2026 (half-day after Thanksgiving).
-		// The early close was at 18:00 UTC (1pm ET); we're an hour past it.
-		now = DateTime.fromISO("2026-11-27T19:00:00.000Z", { zone: "utc" });
-		vi.setSystemTime(now.toJSDate());
-
-		marketDataFetchMock.mockImplementation(async (path: string) => {
-			if (path === "/v1/marketstatus/now") {
-				// Hypothetical worst-case: Massive flags afterHours during the
-				// half-day dead zone. The override should take over.
-				return { market: "extended-hours", earlyHours: false, afterHours: true };
-			}
-			if (path === "/v1/marketstatus/upcoming") {
-				return [
-					{
-						exchange: "NYSE",
-						date: "2026-11-27",
-						status: "early-close",
-						name: "Day after Thanksgiving",
-						open: "2026-11-27T14:30:00.000Z",
-						close: "2026-11-27T18:00:00.000Z",
-					},
-				];
-			}
-			throw new Error(`unexpected path ${path}`);
-		});
-
-		const session = await marketDataSession.getCurrentMarketSession();
-		expect(session).toBe("closed");
+	it("classifies a regular-session weekday afternoon as 'regular' (no /marketstatus/now call)", async () => {
+		// Mon Jan 12 2026, 11:00 AM ET (EST = UTC-5) → 16:00 UTC.
+		expect(await sessionAt("2026-01-12T16:00:00.000Z")).toBe("regular");
+		// The session is computed locally now — the only vendor call is the cached calendar.
+		const calledPaths = marketDataFetchMock.mock.calls.map((call) => call[0]);
+		expect(calledPaths).not.toContain("/v1/marketstatus/now");
 	});
 
-	it("On a half-day BEFORE the early close, Massive's response is honored — the override does NOT fire", async () => {
-		// 10:00 AM ET on Nov 27, 2026 — regular session is in effect.
-		now = DateTime.fromISO("2026-11-27T15:00:00.000Z", { zone: "utc" });
-		vi.setSystemTime(now.toJSDate());
-
-		marketDataFetchMock.mockImplementation(async (path: string) => {
-			if (path === "/v1/marketstatus/now") {
-				return { market: "open", earlyHours: false, afterHours: false };
-			}
-			if (path === "/v1/marketstatus/upcoming") {
-				return [
-					{
-						exchange: "NYSE",
-						date: "2026-11-27",
-						status: "early-close",
-						name: "Day after Thanksgiving",
-						open: "2026-11-27T14:30:00.000Z",
-						close: "2026-11-27T18:00:00.000Z",
-					},
-				];
-			}
-			throw new Error(`unexpected path ${path}`);
-		});
-
-		const session = await marketDataSession.getCurrentMarketSession();
-		expect(session).toBe("regular");
+	it("classifies pre-market (8:00 AM ET) as 'pre'", async () => {
+		expect(await sessionAt("2026-01-12T13:00:00.000Z")).toBe("pre");
 	});
 
-	it("On a regular trading day, Massive's afterHours: true is honored — the override does NOT fire", async () => {
-		// 5:00 PM ET on a regular Monday (Jan 12, 2026).
-		now = DateTime.fromISO("2026-01-12T22:00:00.000Z", { zone: "utc" });
-		vi.setSystemTime(now.toJSDate());
+	it("classifies after-hours (5:00 PM ET) as 'after'", async () => {
+		expect(await sessionAt("2026-01-12T22:00:00.000Z")).toBe("after");
+	});
 
-		marketDataFetchMock.mockImplementation(async (path: string) => {
-			if (path === "/v1/marketstatus/now") {
-				return { market: "extended-hours", earlyHours: false, afterHours: true };
-			}
-			if (path === "/v1/marketstatus/upcoming") {
-				return [];
-			}
-			throw new Error(`unexpected path ${path}`);
-		});
+	it("classifies the overnight dead zone (2:00 AM ET) as 'closed'", async () => {
+		expect(await sessionAt("2026-01-12T07:00:00.000Z")).toBe("closed");
+	});
 
-		const session = await marketDataSession.getCurrentMarketSession();
-		expect(session).toBe("after");
+	it("classifies a Saturday as 'closed' from the weekday check", async () => {
+		// Sat Jan 10 2026, midday.
+		expect(await sessionAt("2026-01-10T17:00:00.000Z")).toBe("closed");
+	});
+
+	it("classifies a full holiday as 'closed' from the calendar", async () => {
+		// MLK Day, Mon Jan 19 2026, 11:00 AM ET.
+		expect(
+			await sessionAt("2026-01-19T16:00:00.000Z", [
+				{
+					exchange: "NYSE",
+					date: "2026-01-19",
+					status: "closed",
+					name: "Martin Luther King Jr. Day",
+				},
+			]),
+		).toBe("closed");
+	});
+
+	it("honors a half-day BEFORE its early close as 'regular'", async () => {
+		// Day after Thanksgiving, Fri Nov 27 2026, 10:00 AM ET (early close 1pm ET = 18:00 UTC).
+		expect(
+			await sessionAt("2026-11-27T15:00:00.000Z", [
+				{
+					exchange: "NYSE",
+					date: "2026-11-27",
+					status: "early-close",
+					name: "Day after Thanksgiving",
+					open: "2026-11-27T14:30:00.000Z",
+					close: "2026-11-27T18:00:00.000Z",
+				},
+			]),
+		).toBe("regular");
+	});
+
+	it("forces a half-day AFTER its early close to 'closed' (no stale after-hours session)", async () => {
+		// Same half-day, 2:00 PM ET (19:00 UTC) — one hour past the 1pm early close.
+		expect(
+			await sessionAt("2026-11-27T19:00:00.000Z", [
+				{
+					exchange: "NYSE",
+					date: "2026-11-27",
+					status: "early-close",
+					name: "Day after Thanksgiving",
+					open: "2026-11-27T14:30:00.000Z",
+					close: "2026-11-27T18:00:00.000Z",
+				},
+			]),
+		).toBe("closed");
+	});
+
+	it("handles the EST→EDT offset correctly (summer regular session)", async () => {
+		// Wed Jul 15 2026, 11:00 AM ET (EDT = UTC-4) → 15:00 UTC. A fixed -5 offset would
+		// misread this as 10:00 AM (still regular) — pick a boundary that would break:
+		// 9:00 AM EDT = 13:00 UTC is 'pre'; a wrong -5 read (8:00 AM) is also 'pre', so use
+		// the regular case plus an explicit close-boundary check below.
+		expect(await sessionAt("2026-07-15T15:00:00.000Z")).toBe("regular");
+		// 4:00 PM EDT (20:00 UTC) is exactly the close → 'after'. A -5 misread (3pm) would
+		// wrongly say 'regular', so this pins DST handling.
+		expect(await sessionAt("2026-07-15T20:00:00.000Z")).toBe("after");
 	});
 });
