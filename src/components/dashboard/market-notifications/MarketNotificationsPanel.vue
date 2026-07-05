@@ -49,93 +49,6 @@
 				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
 					<input
 						type="hidden"
-						name="market_asset_price_alerts_enabled"
-						:value="priceAlertsEnabled ? 'on' : 'off'"
-					/>
-					<input
-						type="hidden"
-						name="market_asset_price_alerts_include_email"
-						:value="priceAlertsIncludeEmail ? 'on' : 'off'"
-					/>
-					<input
-						type="hidden"
-						name="market_asset_price_alerts_include_sms"
-						:value="priceAlertsIncludeSms ? 'on' : 'off'"
-					/>
-					<input
-						type="hidden"
-						name="market_asset_price_alerts_include_telegram"
-						:value="priceAlertsIncludeTelegram ? 'on' : 'off'"
-					/>
-					<input
-						type="hidden"
-						name="market_asset_price_alert_move_size"
-						:value="priceAlertMoveSize"
-					/>
-					<div class="min-w-0">
-						<div class="flex items-center gap-2">
-							<span
-								id="market_asset_price_alerts_enabled_label"
-								class="text-base font-semibold text-heading"
-							>
-								Smart Price Alerts
-							</span>
-							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
-							<GrokLogoLightIcon class="h-4.5 w-auto shrink-0 dark:hidden" aria-label="Powered by Grok" role="img" />
-							<GrokLogoDarkIcon class="hidden h-4.5 w-auto shrink-0 dark:inline" aria-label="Powered by Grok" role="img" />
-						</div>
-						<p id="market_asset_price_alerts_enabled_description" class="text-sm text-body-secondary mt-0.5">
-							Automatically detects unusual price movements for your tracked assets during US trading hours. Adapts to each asset's typical volatility — one alert per asset per day.
-						</p>
-					</div>
-					<div class="shrink-0">
-						<ChannelMultiSelect
-							id-prefix="market_asset_price_alerts"
-							labelledby="market_asset_price_alerts_enabled_label"
-							:options="priceAlertsChannelOptions"
-							@toggle="handlePriceAlertsToggle"
-						/>
-					</div>
-				</div>
-
-				<FadeTransition>
-					<div
-						v-if="priceAlertsEnabled"
-						class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4"
-					>
-						<fieldset :disabled="notificationSetupBlocked">
-							<legend class="sr-only">Alert sensitivity</legend>
-							<p id="price-alert-move-size-help" class="text-sm text-label mb-1.5">How sensitive should anomaly detection be?</p>
-							<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-								<label
-									v-for="option in moveSizeOptions"
-									:key="option.value"
-									class="rounded-lg border px-2.5 py-2 text-sm text-label cursor-pointer transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-500"
-									:class="priceAlertMoveSize === option.value ? 'border-emerald-500 bg-emerald-500/10' : 'border-edge bg-surface-alt hover:border-edge-strong'"
-								>
-									<input
-										v-model="priceAlertMoveSize"
-										type="radio"
-										name="price_alert_move_size"
-										:value="option.value"
-										class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-0 align-middle"
-									/>
-									<span class="ml-1.5 align-middle">{{ option.label }}</span>
-									<p class="mt-1 text-xs text-muted">{{ option.description }}</p>
-								</label>
-							</div>
-						</fieldset>
-					</div>
-				</FadeTransition>
-				</div>
-
-			<div
-				class="mt-4 rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
-				:class="{ 'opacity-50': notificationSetupBlocked }"
-			>
-				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-					<input
-						type="hidden"
 						name="market_scheduled_asset_price_enabled"
 						:value="marketNotificationsEnabled ? 'on' : 'off'"
 					/>
@@ -248,13 +161,13 @@
 							id="price_move_alerts_label"
 							class="text-base font-semibold text-heading"
 						>
-							5% Price Move Alerts
+							Price Move Alerts
 						</span>
 						<p id="price_move_alerts_description" class="text-sm text-body-secondary mt-0.5">
-							Get notified whenever any asset you track moves 5% or more in a trading day. Measured from yesterday's close on the first alert, then re-triggered on each additional 5% move from the last alert.
+							Get notified when a tracked stock moves past a threshold you set — as a percent or a dollar change in a single trading day. Measured from yesterday's close on the first alert, then re-triggered on each additional move of that size.
 						</p>
 						<p class="text-xs text-muted mt-1">
-							Applies to every asset in your watchlist — stocks and ETFs alike (although a 5% ETF move is rare). Independent of your other price alerts.
+							Set a threshold per stock below. Leave a stock blank to skip it.
 						</p>
 					</div>
 					<div class="shrink-0">
@@ -266,6 +179,78 @@
 						/>
 					</div>
 				</div>
+
+				<FadeTransition>
+					<p
+						v-if="!notificationSetupBlocked && trackedAssets.length === 0"
+						class="mt-3 border-t border-divider pt-3 text-sm text-muted"
+					>
+						Add assets to your watchlist to set price-move thresholds.
+					</p>
+					<div
+						v-else-if="!notificationSetupBlocked"
+						class="mt-3 border-t border-divider pt-3"
+						data-autosave-ignore
+					>
+						<div class="mb-2 flex items-center justify-between gap-2">
+							<p class="text-sm text-label">Per-stock thresholds</p>
+							<span
+								class="text-xs transition-opacity duration-200"
+								:class="[
+									thresholdStatus.kind === 'idle' ? 'opacity-0' : 'opacity-100',
+									thresholdStatus.kind === 'error' ? 'text-red-600 dark:text-red-400' : 'text-muted',
+								]"
+								role="status"
+								aria-live="polite"
+							>{{ thresholdStatusText }}</span>
+						</div>
+						<ul class="flex flex-col gap-2">
+							<li
+								v-for="asset in trackedAssets"
+								:key="asset.symbol"
+								class="flex items-center gap-2"
+							>
+								<span class="min-w-0 flex-1 truncate text-sm font-medium text-heading">{{ asset.symbol }}</span>
+								<div class="flex shrink-0 items-center gap-1">
+									<span v-if="thresholdUnitFor(asset.symbol) === 'dollar'" class="text-sm text-muted">$</span>
+									<input
+										type="number"
+										inputmode="decimal"
+										min="0"
+										step="any"
+										class="w-20 rounded-md border bg-surface-alt px-2 py-1 text-right text-sm text-heading focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+										:class="thresholdErrors[asset.symbol] ? 'border-red-500' : 'border-edge'"
+										:placeholder="thresholdPlaceholder"
+										:aria-label="`Price-move threshold for ${asset.symbol} in ${thresholdUnitFor(asset.symbol) === 'percent' ? 'percent' : 'dollars'}`"
+										:aria-invalid="thresholdErrors[asset.symbol] ? 'true' : undefined"
+										:value="thresholdValueFor(asset.symbol)"
+										@change="handleThresholdValueChange(asset.symbol, $event)"
+										@keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
+									/>
+									<span v-if="thresholdUnitFor(asset.symbol) === 'percent'" class="text-sm text-muted">%</span>
+									<div class="inline-flex overflow-hidden rounded-md border border-edge">
+										<button
+											type="button"
+											class="px-2 py-1 text-xs transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-emerald-500"
+											:class="thresholdUnitFor(asset.symbol) === 'percent' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' : 'bg-surface-alt text-muted hover:text-heading'"
+											:aria-pressed="thresholdUnitFor(asset.symbol) === 'percent'"
+											:aria-label="`Use percent threshold for ${asset.symbol}`"
+											@click="setThresholdUnit(asset.symbol, 'percent')"
+										>%</button>
+										<button
+											type="button"
+											class="border-l border-edge px-2 py-1 text-xs transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-emerald-500"
+											:class="thresholdUnitFor(asset.symbol) === 'dollar' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' : 'bg-surface-alt text-muted hover:text-heading'"
+											:aria-pressed="thresholdUnitFor(asset.symbol) === 'dollar'"
+											:aria-label="`Use dollar threshold for ${asset.symbol}`"
+											@click="setThresholdUnit(asset.symbol, 'dollar')"
+										>$</button>
+									</div>
+								</div>
+							</li>
+						</ul>
+					</div>
+				</FadeTransition>
 			</div>
 
 			</fieldset>
@@ -276,17 +261,16 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, type Ref, ref, toRefs, watch } from "vue";
+import { computed, type Ref, reactive, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
-import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
-import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import { DASHBOARD_SECTION_IDS,
 	DEFAULT_MARKET_UPDATE_TIME_MINUTES,
+	DEFAULT_PRICE_MOVE_THRESHOLD_PERCENT,
 	US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,} from "../../../lib/constants";
-import type { AlertMoveSize } from "../../../lib/db/types";
+import type { PriceMoveThresholdUnit } from "../../../lib/db/types";
 import { etMinuteToUserLocal, getUsAfterOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
 	formatMinutesAsLocalTime,
@@ -309,20 +293,25 @@ import {
 import { createChannelOptionBuilders } from "../shared/channel-options";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
-import type { ChannelOption, NotificationPreferencesData } from "../types";
+import type { ChannelOption, InitialAsset, NotificationPreferencesData, PriceMoveThresholdMap } from "../types";
 import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
 
 interface Props {
 	emailEnabled: boolean;
 	phoneVerified: boolean;
 	hasTrackedAssets: boolean;
+	/** Live tracked-asset list (updated by watchlist edits) — one price-move
+	 *  threshold row is rendered per asset. */
+	trackedAssets: InitialAsset[];
+	/** Per-symbol price-move thresholds loaded server-side; absent = off. */
+	priceMoveThresholds: PriceMoveThresholdMap;
 	/**
 	 * The user's current market-notification Telegram selections, keyed by
-	 * notification_type ("market_asset_price_alerts" | "market_scheduled_asset_price"
-	 * | "price_move_alerts"). Loaded server-side from
-	 * `notification_preferences` (channel='telegram', content=''); absent types
-	 * default to off. The autosave endpoint persists Telegram to that table but does
-	 * NOT echo it back in its snapshot, so these refs are the panel's own source of truth.
+	 * notification_type ("market_scheduled_asset_price" | "price_move_alerts").
+	 * Loaded server-side from `notification_preferences` (channel='telegram',
+	 * content=''); absent types default to off. The autosave endpoint persists
+	 * Telegram to that table but does NOT echo it back in its snapshot, so these
+	 * refs are the panel's own source of truth.
 	 */
 	telegramPrefs?: Record<string, boolean>;
 }
@@ -334,6 +323,7 @@ const {
 	emailEnabled,
 	phoneVerified,
 	hasTrackedAssets,
+	trackedAssets,
 } = toRefs(props);
 
 // Inject the shared mutable user ref from DashboardPanels
@@ -356,9 +346,6 @@ const {
 const marketIncludeEmail = ref(user.value.market_scheduled_asset_price_include_email);
 const marketIncludeSms = ref(user.value.market_scheduled_asset_price_include_sms);
 
-const priceAlertsIncludeEmail = ref(user.value.market_asset_price_alerts_include_email);
-const priceAlertsIncludeSms = ref(user.value.market_asset_price_alerts_include_sms);
-
 const priceMoveAlertsIncludeEmail = ref(user.value.price_move_alerts_include_email);
 const priceMoveAlertsIncludeSms = ref(user.value.price_move_alerts_include_sms);
 
@@ -370,9 +357,6 @@ server-loaded `telegramPrefs` prop (absent type ⇒ off) and are NOT re-synced f
 ============= */
 const marketIncludeTelegram = ref(
 	props.telegramPrefs.market_scheduled_asset_price === true,
-);
-const priceAlertsIncludeTelegram = ref(
-	props.telegramPrefs.market_asset_price_alerts === true,
 );
 const priceMoveAlertsIncludeTelegram = ref(
 	props.telegramPrefs.price_move_alerts === true,
@@ -395,27 +379,6 @@ email/sms already gate `*_enabled`.
 const marketNotificationsEnabled = computed(
 	() => marketIncludeEmail.value || marketIncludeSms.value || marketIncludeTelegram.value,
 );
-const priceAlertsEnabled = computed(
-	() =>
-		priceAlertsIncludeEmail.value ||
-		priceAlertsIncludeSms.value ||
-		priceAlertsIncludeTelegram.value,
-);
-
-const priceAlertMoveSize = ref<AlertMoveSize>(user.value.market_asset_price_alert_move_size);
-
-const moveSizeOptions = [
-	{
-		value: "significant" as const,
-		label: "Significant",
-		description: "More sensitive — alerts on moderate anomalies relative to each asset's typical volatility.",
-	},
-	{
-		value: "extreme" as const,
-		label: "Extreme",
-		description: "Less sensitive — only alerts on large anomalies that strongly deviate from normal trading.",
-	},
-];
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
 const SCHEDULED_UPDATE_INCREMENT_MINUTES = 1;
@@ -529,9 +492,7 @@ const smsReady = computed(
 const hasNotificationChannel = computed(
 	() =>
 		emailEnabled.value ||
-		(user.value.market_scheduled_asset_price_include_sms ||
-			user.value.market_asset_price_alerts_include_sms) &&
-			smsReady.value,
+		(user.value.market_scheduled_asset_price_include_sms && smsReady.value),
 );
 const needsChannelSelection = computed(() => !hasNotificationChannel.value);
 const needsTrackedAssets = computed(() => !hasTrackedAssets.value);
@@ -569,11 +530,6 @@ const { emailOption, smsOption, telegramOption } = createChannelOptionBuilders({
 	telegramDisabledTitle: () => telegramDisabledTitle.value,
 });
 
-const priceAlertsChannelOptions = computed<ChannelOption[]>(() => [
-	emailOption(priceAlertsIncludeEmail.value),
-	smsOption(priceAlertsIncludeSms.value),
-	telegramOption(priceAlertsIncludeTelegram.value),
-]);
 const marketScheduledChannelOptions = computed<ChannelOption[]>(() => [
 	emailOption(marketIncludeEmail.value),
 	smsOption(marketIncludeSms.value),
@@ -585,11 +541,6 @@ const priceMoveChannelOptions = computed<ChannelOption[]>(() => [
 	telegramOption(priceMoveAlertsIncludeTelegram.value),
 ]);
 
-function handlePriceAlertsToggle(channel: string, selected: boolean) {
-	if (channel === "email") priceAlertsIncludeEmail.value = selected;
-	else if (channel === "sms") priceAlertsIncludeSms.value = selected;
-	else if (channel === "telegram") priceAlertsIncludeTelegram.value = selected;
-}
 function handleMarketScheduledToggle(channel: string, selected: boolean) {
 	if (channel === "email") marketIncludeEmail.value = selected;
 	else if (channel === "sms") marketIncludeSms.value = selected;
@@ -601,11 +552,125 @@ function handlePriceMoveToggle(channel: string, selected: boolean) {
 	else if (channel === "telegram") priceMoveAlertsIncludeTelegram.value = selected;
 }
 
+/* =============
+Per-stock price-move thresholds. Row presence in price_move_alert_thresholds =
+alerts on for that asset. Seeded from the server-loaded map; edits POST to
+/api/price-move-alerts (its own table, separate from the notification-prefs
+autosave form). A blank value clears the threshold (disables that stock).
+============= */
+const thresholdInputs = reactive<Record<string, { value: string; unit: PriceMoveThresholdUnit }>>(
+	Object.fromEntries(
+		Object.entries(props.priceMoveThresholds).map(([symbol, t]) => [
+			symbol,
+			{ value: String(t.value), unit: t.unit },
+		]),
+	),
+);
+const thresholdPlaceholder = String(DEFAULT_PRICE_MOVE_THRESHOLD_PERCENT);
+
+/** Per-symbol failed-save flags (drives aria-invalid + the red row border). */
+const thresholdErrors = reactive<Record<string, boolean>>({});
+/** Per-symbol monotonic request ids so a stale response can't overwrite a newer one. */
+const thresholdSaveSeq: Record<string, number> = {};
+const thresholdStatus = ref<{ kind: "idle" | "saving" | "saved" | "error"; symbol: string }>({
+	kind: "idle",
+	symbol: "",
+});
+const thresholdStatusText = computed(() => {
+	const { kind, symbol } = thresholdStatus.value;
+	switch (kind) {
+		case "saving":
+			return `Saving ${symbol}…`;
+		case "saved":
+			return `${symbol} saved`;
+		case "error":
+			return `Couldn't save ${symbol} — check the value and retry`;
+		default:
+			return "";
+	}
+});
+
+/** Symbols leaving the watchlist take their (server-pruned) thresholds with them —
+ *  drop the local entries so a remove-then-re-add can't render a stale armed value. */
+watch(trackedAssets, (assets) => {
+	const tracked = new Set(assets.map((a) => a.symbol));
+	for (const symbol of Object.keys(thresholdInputs)) {
+		if (!tracked.has(symbol)) {
+			delete thresholdInputs[symbol];
+			delete thresholdErrors[symbol];
+		}
+	}
+});
+
+function thresholdValueFor(symbol: string): string {
+	return thresholdInputs[symbol]?.value ?? "";
+}
+function thresholdUnitFor(symbol: string): PriceMoveThresholdUnit {
+	return thresholdInputs[symbol]?.unit ?? "percent";
+}
+function handleThresholdValueChange(symbol: string, event: Event) {
+	const target = event.target as HTMLInputElement;
+	// A number input with unparseable text reports value "" but badInput=true —
+	// treating that as "clear the threshold" would announce a success the user
+	// didn't ask for while the garbage text stays visible. Bump the seq too so
+	// an earlier in-flight save can't settle afterward and overwrite this error.
+	if (target.validity.badInput) {
+		thresholdSaveSeq[symbol] = (thresholdSaveSeq[symbol] ?? 0) + 1;
+		thresholdErrors[symbol] = true;
+		thresholdStatus.value = { kind: "error", symbol };
+		return;
+	}
+	const entry = thresholdInputs[symbol] ?? { value: "", unit: "percent" as PriceMoveThresholdUnit };
+	entry.value = target.value;
+	thresholdInputs[symbol] = entry;
+	void saveThreshold(symbol);
+}
+function setThresholdUnit(symbol: string, unit: PriceMoveThresholdUnit) {
+	const entry = thresholdInputs[symbol] ?? { value: "", unit };
+	if (entry.unit === unit) return;
+	entry.unit = unit;
+	thresholdInputs[symbol] = entry;
+	// Persist only when a value is set; changing the unit with no value is a no-op.
+	if (entry.value.trim() !== "") void saveThreshold(symbol);
+}
+
+async function saveThreshold(symbol: string): Promise<void> {
+	const entry = thresholdInputs[symbol];
+	const raw = (entry?.value ?? "").trim();
+	const unit = entry?.unit ?? "percent";
+	const value = raw === "" ? null : Number(raw);
+	if (value !== null && (!Number.isFinite(value) || value <= 0)) {
+		thresholdErrors[symbol] = true;
+		thresholdStatus.value = { kind: "error", symbol };
+		return;
+	}
+	const seq = (thresholdSaveSeq[symbol] ?? 0) + 1;
+	thresholdSaveSeq[symbol] = seq;
+	thresholdStatus.value = { kind: "saving", symbol };
+	let ok = false;
+	try {
+		const res = await fetch("/api/price-move-alerts", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ symbol, value, unit }),
+		});
+		const body = (await res.json().catch(() => null)) as { ok?: boolean } | null;
+		ok = res.ok && body?.ok === true;
+	} catch {
+		ok = false;
+	}
+	// A newer save for this symbol superseded us — its outcome wins.
+	if (thresholdSaveSeq[symbol] !== seq) return;
+	if (ok) {
+		delete thresholdErrors[symbol];
+	} else {
+		thresholdErrors[symbol] = true;
+	}
+	thresholdStatus.value = { kind: ok ? "saved" : "error", symbol };
+}
+
 const needsPhoneVerification = computed(
-	() =>
-		(user.value.market_scheduled_asset_price_include_sms ||
-			user.value.market_asset_price_alerts_include_sms) &&
-		!phoneVerified.value,
+	() => user.value.market_scheduled_asset_price_include_sms && !phoneVerified.value,
 );
 const timePickerDisabled = computed(() => notificationSetupBlocked.value);
 const maxTimesReached = computed(
@@ -683,26 +748,12 @@ watchUserPreference(
 	marketIncludeSms,
 );
 watchUserPreference(
-	() => user.value.market_asset_price_alerts_include_email,
-	priceAlertsIncludeEmail,
-);
-watchUserPreference(
-	() => user.value.market_asset_price_alerts_include_sms,
-	priceAlertsIncludeSms,
-);
-watchUserPreference(
 	() => user.value.price_move_alerts_include_email,
 	priceMoveAlertsIncludeEmail,
 );
 watchUserPreference(
 	() => user.value.price_move_alerts_include_sms,
 	priceMoveAlertsIncludeSms,
-);
-watch(
-	() => user.value.market_asset_price_alert_move_size,
-	(value) => {
-		priceAlertMoveSize.value = value;
-	},
 );
 watch(
 	() => user.value.market_scheduled_asset_price_times,
@@ -744,19 +795,7 @@ watch(
 			market_scheduled_asset_price_next_send_at: newData.market_scheduled_asset_price_next_send_at,
 			// Keep other panels' scheduling in sync with the server response.
 			daily_notification_next_send_at: newData.daily_notification_next_send_at,
-			// Sync price alerts state from server response
-			...(newData.market_asset_price_alerts_enabled !== undefined && {
-				market_asset_price_alerts_enabled: newData.market_asset_price_alerts_enabled,
-			}),
-			...(newData.market_asset_price_alerts_include_email !== undefined && {
-				market_asset_price_alerts_include_email: newData.market_asset_price_alerts_include_email,
-			}),
-			...(newData.market_asset_price_alerts_include_sms !== undefined && {
-				market_asset_price_alerts_include_sms: newData.market_asset_price_alerts_include_sms,
-			}),
-			...(newData.market_asset_price_alert_move_size !== undefined && {
-				market_asset_price_alert_move_size: newData.market_asset_price_alert_move_size,
-			}),
+			// Sync price-move alert channel state from the server response.
 			...(newData.price_move_alerts_include_email !== undefined && {
 				price_move_alerts_include_email: newData.price_move_alerts_include_email,
 			}),
@@ -784,33 +823,6 @@ watch([marketIncludeEmail, marketIncludeSms], ([email, sms]) => {
 	notifyChange();
 });
 
-watch(priceAlertMoveSize, (moveSize) => {
-	if (moveSize === user.value.market_asset_price_alert_move_size) {
-		return;
-	}
-	user.value = {
-		...user.value,
-		market_asset_price_alert_move_size: moveSize,
-	};
-	notifyChange();
-});
-
-watch([priceAlertsIncludeEmail, priceAlertsIncludeSms], ([email, sms]) => {
-	if (
-		email === user.value.market_asset_price_alerts_include_email &&
-		sms === user.value.market_asset_price_alerts_include_sms
-	) {
-		return;
-	}
-	user.value = {
-		...user.value,
-		market_asset_price_alerts_include_email: email,
-		market_asset_price_alerts_include_sms: sms,
-		market_asset_price_alerts_enabled: email || sms,
-	};
-	notifyChange();
-});
-
 watch([priceMoveAlertsIncludeEmail, priceMoveAlertsIncludeSms], ([email, sms]) => {
 	if (
 		email === user.value.price_move_alerts_include_email &&
@@ -833,16 +845,9 @@ trigger autosave so the hidden `*_telegram` form fields submit. The hidden
 `*_enabled` fields are bound to the master computeds (which include Telegram), so
 the form already carries the coupled enable flag.
 ============= */
-watch(
-	[
-		priceAlertsIncludeTelegram,
-		marketIncludeTelegram,
-		priceMoveAlertsIncludeTelegram,
-	],
-	() => {
-		notifyChange();
-	},
-);
+watch([marketIncludeTelegram, priceMoveAlertsIncludeTelegram], () => {
+	notifyChange();
+});
 
 function handleTimeChange(index: number, value: string) {
 	const parsedMinutes = parseTimeToMinutes(value);

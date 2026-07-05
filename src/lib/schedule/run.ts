@@ -43,16 +43,11 @@ import {
 } from "../market-data/price-history-cache";
 import { fetchAssetPricesWithSessionState, fetchExtendedQuotes } from "../market-data/prices";
 import {
-	type PriceAlertTotals,
-	processPriceAlerts,
-} from "../market-notifications/anomaly-alerts/process";
-import {
 	type FlatPriceAlertTotals,
 	processFlatPriceAlerts,
 } from "../market-notifications/flat-alerts/process";
 import { processMarketScheduledUser } from "../market-notifications/scheduled/process";
 import { fetchMarketScheduledUsers } from "../market-notifications/scheduled/query";
-import { purgeOldAssetSnapshots } from "../market-notifications/snapshot-store";
 import type { LogoCache } from "../messaging/logo-fetcher";
 import type { NotificationSenders } from "../messaging/senders";
 import { createNotificationSenders } from "../messaging/senders";
@@ -102,15 +97,15 @@ type SchedulerQuoteCache = {
 	noSessionTrade: Set<string>;
 };
 
-function createSchedulerQuoteCache(priceAlertQuoteMap?: ExtendedQuoteMap): SchedulerQuoteCache {
+function createSchedulerQuoteCache(seedQuoteMap?: ExtendedQuoteMap): SchedulerQuoteCache {
 	const cache: SchedulerQuoteCache = {
 		prices: new Map(),
 		noSessionTrade: new Set(),
 	};
-	if (!priceAlertQuoteMap) {
+	if (!seedQuoteMap) {
 		return cache;
 	}
-	for (const [symbol, quote] of priceAlertQuoteMap) {
+	for (const [symbol, quote] of seedQuoteMap) {
 		if (quote !== null) {
 			cache.prices.set(symbol, quote);
 		}
@@ -409,28 +404,10 @@ export async function runScheduledNotifications(options: {
 	logger: Logger;
 }): Promise<
 	ScheduledNotificationTotals & {
-		priceAlerts?: PriceAlertTotals;
 		flatPriceAlerts?: FlatPriceAlertTotals;
 	}
 > {
 	const { supabase, logger } = options;
-
-	// Purge old asset_snapshots (60-minute retention) so the table does not grow unbounded
-	try {
-		const purged = await purgeOldAssetSnapshots(supabase);
-		if (purged > 0) {
-			logger.info("Purged old asset snapshots", {
-				action: "purge_asset_snapshots",
-				purgedCount: purged,
-			});
-		}
-	} catch (error) {
-		logger.warn(
-			"Failed to purge old asset snapshots (non-fatal)",
-			{ action: "purge_asset_snapshots" },
-			error,
-		);
-	}
 
 	// Resolve market session once per scheduler invocation — passed to price alerts,
 	// both fallback passes, and precompute to avoid redundant Massive status calls.
@@ -445,49 +422,20 @@ export async function runScheduledNotifications(options: {
 		});
 	}
 
-	// Run price alerts first — this also returns an extended quote map
-	// that could be reused by scheduled notifications to avoid duplicate API calls.
-	let priceAlertTotals: PriceAlertTotals | undefined;
-	let priceAlertQuoteMap: ExtendedQuoteMap | undefined;
-	let priceAlertIsMarketOpen: boolean | undefined;
-	try {
-		const priceAlertResult = await processPriceAlerts({
-			supabase,
-			marketSession: schedulerMarketSession,
-		});
-		priceAlertTotals = priceAlertResult.totals;
-		priceAlertQuoteMap = priceAlertResult.quoteMap;
-		priceAlertIsMarketOpen = priceAlertResult.isMarketOpen;
-
-		if (priceAlertTotals.alertsTriggered > 0) {
-			logger.info("Price alerts processed", {
-				action: "price_alerts",
-				...priceAlertTotals,
-			});
-		}
-	} catch (error) {
-		logger.warn("Price alerts processing failed (non-fatal)", { action: "price_alerts" }, error);
-	}
-
-	// Quotes fetched for the price-history capture are a SUPERSET of the price-alert map
-	// (they add the watched-symbol universe). Hold the merged map so it can seed the
-	// scheduler quote cache below — otherwise both passes re-fetch those extra symbols.
-	let capturedQuoteMap = priceAlertQuoteMap;
+	// Fetch the watched-symbol quote universe for the price-history capture below. The
+	// resulting map is a superset of the price-move-alert symbols, so it both seeds the
+	// scheduler quote cache (both fallback passes) and feeds the flat price-alert check —
+	// no extra Massive call for those. Stays `undefined` when the capture throws, so
+	// the flat-alert step below can tell "fetch failed" apart from "no quotes".
+	let capturedQuoteMap: ExtendedQuoteMap | undefined;
 	if (schedulerMarketSession !== "closed") {
 		try {
 			const cacheSymbols = await getPriceCacheSymbols(supabase);
-			const missingSymbols = cacheSymbols.filter((symbol) => {
-				const quote = capturedQuoteMap?.get(symbol);
-				return quote === undefined || quote === null;
-			});
-			if (missingSymbols.length > 0) {
-				const extraQuotes = await fetchExtendedQuotes(missingSymbols, schedulerMarketSession);
-				capturedQuoteMap = new Map(capturedQuoteMap ?? []);
-				for (const [symbol, quote] of extraQuotes) {
-					capturedQuoteMap.set(symbol, quote);
-				}
-			}
-			if (capturedQuoteMap && capturedQuoteMap.size > 0) {
+			capturedQuoteMap =
+				cacheSymbols.length > 0
+					? await fetchExtendedQuotes(cacheSymbols, schedulerMarketSession)
+					: new Map();
+			if (capturedQuoteMap.size > 0) {
 				const failedRows = await storePriceHistoryMinuteSnapshots(supabase, capturedQuoteMap);
 				if (failedRows) {
 					const enqueued = await enqueuePriceHistoryStoreRetry({
@@ -529,18 +477,20 @@ export async function runScheduledNotifications(options: {
 		);
 	}
 
-	// Run flat price alerts — own state, own users, own emails; shares the
-	// quote map and market-hours gating from processPriceAlerts to avoid
-	// duplicate Massive snapshot calls. If processPriceAlerts threw, the
-	// quote map is undefined and this is skipped — logged so the skip is
-	// observable, not silent.
+	// Run flat price alerts — own state, own users, own emails. Reuses the captured
+	// quote map (a superset of the watched-symbol universe) and derives market-hours
+	// gating from the resolved session, so there is no extra Massive snapshot call.
+	// An `undefined` map means the quote capture FAILED (not "no quotes") — skip the
+	// pass and log it explicitly so a blind alerting tick is observable, not silent.
+	// Error level during regular hours on purpose: it means the market is open and
+	// the headline alert feature cannot see prices, which should page.
 	let flatPriceAlertTotals: FlatPriceAlertTotals | undefined;
-	if (priceAlertQuoteMap && priceAlertIsMarketOpen !== undefined) {
+	if (capturedQuoteMap !== undefined) {
 		try {
 			flatPriceAlertTotals = await processFlatPriceAlerts({
 				supabase,
-				quoteMap: priceAlertQuoteMap,
-				isMarketOpen: priceAlertIsMarketOpen,
+				quoteMap: capturedQuoteMap,
+				isMarketOpen: schedulerMarketSession === "regular",
 			});
 
 			logger.info("Flat price alerts processed", {
@@ -554,15 +504,12 @@ export async function runScheduledNotifications(options: {
 				error,
 			);
 		}
-	} else {
-		// Upstream price-alert processing already logged at error if it threw;
-		// this is a defensive trace explaining why the downstream step is
-		// skipped, not a separate failure to alarm on.
-		logger.info("Flat price alerts skipped: upstream quote fetch unavailable", {
-			action: "flat_price_alerts",
-			hasQuoteMap: Boolean(priceAlertQuoteMap),
-			hasMarketStatus: priceAlertIsMarketOpen !== undefined,
-		});
+	} else if (schedulerMarketSession === "regular") {
+		logger.error(
+			"Flat price alerts skipped: quote capture unavailable during market hours",
+			{ action: "flat_price_alerts", session: schedulerMarketSession },
+			new Error("Quote capture failed; price-move alerting is blind this tick"),
+		);
 	}
 
 	const { sendEmail, getSmsSender, getTelegramSender, logoCache } = createNotificationSenders();
@@ -610,7 +557,6 @@ export async function runScheduledNotifications(options: {
 
 	return {
 		...combinedTotals,
-		priceAlerts: priceAlertTotals,
 		flatPriceAlerts: flatPriceAlertTotals,
 	};
 }

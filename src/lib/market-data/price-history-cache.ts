@@ -1,10 +1,11 @@
 import { DateTime } from "luxon";
-import { SECTOR_ETF_MAP } from "../assets/constants";
+import { US_MARKET_TIMEZONE } from "../constants";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
 import { downsampleEvenly, type SparklineData, toSparkline } from "../messaging/parts/sparkline";
-import type { DailyOHLCVBar, ExtendedQuoteMap } from "../types";
+import type { DailyOHLCVBar, ExtendedQuoteMap, IntradayBarsResult, IntradayCandle } from "../types";
+import { fetchIntradayBars } from "./bars";
 
 export function formatChartAsOfLabel(
 	isoTimestamp: string,
@@ -23,11 +24,12 @@ export function formatChartAsOfLabel(
 }
 
 const MINUTE_RETENTION_HOURS = 36;
-const DAILY_RETENTION_DAYS = 30;
+// Only the 7-trading-day watchlist sparkline reads daily closes now, so 14
+// calendar days (safely > 7 trading days across a holiday week) is plenty. The
+// wider 30-day window was for the removed anomaly ATR-14 / ADV-20 baseline.
+const DAILY_RETENTION_DAYS = 14;
 const INTRADAY_CACHE_MAX_AGE_MS = 15 * 60 * 1000;
 const REQUIRED_DAILY_CLOSES = 7;
-
-const MARKET_BENCHMARK_SYMBOL = "SPY";
 
 export type PriceHistoryRow = {
 	symbol: string;
@@ -41,22 +43,14 @@ type DailyCloseRow = {
 	close: number;
 };
 
-/** Benchmark + sector ETF symbols used for price-alert context charts. */
-export function getBenchmarkCacheSymbols(): string[] {
-	return [MARKET_BENCHMARK_SYMBOL, ...new Set(Object.values(SECTOR_ETF_MAP))];
-}
-
+/** Distinct tracked symbols to cache price history for. */
 export async function getPriceCacheSymbols(supabase: SupabaseAdminClient): Promise<string[]> {
 	const { data, error } = await supabase.from("user_assets").select("symbol");
 	if (error) {
 		rootLogger.error("Failed to load tracked symbols for price cache", {}, error);
-		return getBenchmarkCacheSymbols();
+		return [];
 	}
-	const symbols = new Set(getBenchmarkCacheSymbols());
-	for (const row of data ?? []) {
-		symbols.add(row.symbol);
-	}
-	return [...symbols];
+	return [...new Set((data ?? []).map((row) => row.symbol))];
 }
 
 export async function storePriceHistoryRows(
@@ -217,6 +211,93 @@ export async function getIntradaySparklineFromCache(
 		window: "intraday-since-prev-close",
 		cacheAsOfLabel,
 	};
+}
+
+const FIVE_MINUTES_MS = 5 * 60 * 1000;
+/** Minimum synthesized candles before we trust the cache over a live vendor fetch. */
+const MIN_CACHE_CANDLES = 3;
+
+/**
+ * Aggregate time-ordered minute price samples into fixed-width OHLC candles.
+ *
+ * The minute price-history capture stores one price point per symbol per minute (no
+ * volume), so each bucket's open = first sample, close = last, high/low = the extent seen.
+ * Pure and order-dependent: `samples` must be ascending by `t`.
+ */
+export function bucketSamplesToCandles(
+	samples: { price: number; t: number }[],
+	bucketMs: number,
+): IntradayCandle[] {
+	const buckets = new Map<number, IntradayCandle>();
+	for (const { price, t } of samples) {
+		if (!Number.isFinite(price)) continue;
+		const bucketStart = Math.floor(t / bucketMs) * bucketMs;
+		const existing = buckets.get(bucketStart);
+		if (existing) {
+			existing.h = Math.max(existing.h, price);
+			existing.l = Math.min(existing.l, price);
+			existing.c = price;
+		} else {
+			buckets.set(bucketStart, { o: price, h: price, l: price, c: price, t: bucketStart });
+		}
+	}
+	return [...buckets.values()].sort((a, b) => a.t - b.t);
+}
+
+/**
+ * Synthesize today's intraday OHLC bars from the app's own minute price-history capture,
+ * so charts need no live vendor intraday fetch. Scoped to the current US-market calendar day
+ * (the 36h retention window otherwise spans two sessions). Returns null when too few candles
+ * exist yet (e.g. early in the session) so callers can fall back to the vendor.
+ */
+async function getIntradayBarsFromCache(
+	supabase: SupabaseAdminClient,
+	symbol: string,
+): Promise<IntradayBarsResult | null> {
+	const sessionStart = DateTime.now().setZone(US_MARKET_TIMEZONE).startOf("day").toUTC().toISO();
+	if (!sessionStart) return null;
+
+	const { data, error } = await supabase
+		.from("asset_price_history")
+		.select("price, captured_at")
+		.eq("symbol", symbol)
+		.gte("captured_at", sessionStart)
+		.order("captured_at", { ascending: true });
+
+	if (error) {
+		rootLogger.error("Failed to read asset_price_history for candles", { symbol }, error);
+		return null;
+	}
+
+	const samples = (data ?? []).map((row) => ({
+		price: row.price,
+		t: new Date(row.captured_at).getTime(),
+	}));
+	const candles = bucketSamplesToCandles(samples, FIVE_MINUTES_MS);
+	if (candles.length < MIN_CACHE_CANDLES) return null;
+
+	return {
+		closes: candles.map((candle) => candle.c),
+		timestamps: candles.map((candle) => candle.t),
+		startTimestamp: candles[0]?.t ?? null,
+		endTimestamp: candles.at(-1)?.t ?? null,
+		candles,
+	};
+}
+
+/**
+ * Prefer self-sourced intraday bars (from the minute capture); fall back to a live vendor
+ * fetch only when the cache is still too thin. This is the seam that lets the app run on a
+ * free market-data tier: once the capture reliably covers the session, the vendor fallback
+ * can be dropped and no per-symbol intraday vendor calls remain.
+ */
+export async function getIntradayBarsPreferCache(
+	supabase: SupabaseAdminClient,
+	symbol: string,
+): Promise<IntradayBarsResult | null> {
+	const fromCache = await getIntradayBarsFromCache(supabase, symbol);
+	if (fromCache) return fromCache;
+	return fetchIntradayBars(symbol);
 }
 
 export async function getSevenDaySparklineFromCache(

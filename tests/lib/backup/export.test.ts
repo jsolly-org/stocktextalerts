@@ -11,6 +11,7 @@ describe("exportSnapshot", () => {
 
 		// One COPY payload per table.
 		expect(Object.keys(snap.tables).sort()).toEqual([
+			"public.price_move_alert_thresholds",
 			"public.scheduled_notifications",
 			"public.user_assets",
 			"public.users",

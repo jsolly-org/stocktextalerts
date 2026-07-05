@@ -1,7 +1,7 @@
 /* =============
 Notification family boundaries (domain taxonomy).
 
-1. Trigger-based — event-driven (anomaly, price move).
+1. Trigger-based — event-driven (price move).
 2. Scheduled slot — user-chosen times (market scheduled price updates).
 3. Daily notification — one slot per day; digest + asset-event facets share it.
 ============= */

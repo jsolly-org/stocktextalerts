@@ -57,7 +57,6 @@ export const NOTIFICATION_OPTION_MATRIX = {
 		analyst: { family: "asset_events", channels: { email: false, sms: false, telegram: false } },
 		insider: { family: "asset_events", channels: { email: false, sms: false, telegram: false } },
 	},
-	market_asset_price_alerts: { "": { channels: { email: false, sms: false, telegram: false } } },
 	market_scheduled_asset_price: { "": { channels: { email: false, sms: false, telegram: false } } },
 	price_move_alerts: { "": { channels: { email: false, sms: false, telegram: false } } },
 } as const satisfies {
@@ -172,6 +171,19 @@ if (
 ) {
 	throw new Error("NOTIFICATION_OPTION_MATRIX derives duplicate form field names");
 }
+
+/* =============
+Price-move alerts
+============= */
+
+/** Default threshold suggested for a newly-added price-move alert, and the value the
+ *  rollout migration replicated for existing users. Expressed as a percent move. */
+export const DEFAULT_PRICE_MOVE_THRESHOLD_PERCENT = 5;
+
+/** Largest per-stock thresholds accepted (guard fat-finger input); the DB only
+ *  enforces > 0. 1000% or $100k covers any realistic single-day move. */
+export const MAX_PRICE_MOVE_PERCENT_THRESHOLD = 1000;
+export const MAX_PRICE_MOVE_DOLLAR_THRESHOLD = 100_000;
 
 /* =============
 Assets

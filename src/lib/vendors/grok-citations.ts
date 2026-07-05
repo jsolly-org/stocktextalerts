@@ -32,11 +32,6 @@ const DOMAIN_LABELS: Record<string, string> = {
 	"arstechnica.com": "Ars Technica",
 };
 
-/** Determine whether a URL is from X/Twitter. */
-export function isXUrl(url: string): boolean {
-	return /^https?:\/\/(?:x|twitter)\.com\//.test(url);
-}
-
 /**
  * Derive a human-readable link label from a URL.
  *
@@ -44,7 +39,7 @@ export function isXUrl(url: string): boolean {
  * - Known news domains → friendly name (e.g. "CNBC")
  * - Other URLs → bare domain (e.g. "example.com")
  */
-export function linkLabelFromUrl(url: string): string | null {
+function linkLabelFromUrl(url: string): string | null {
 	// X/Twitter posts: show @handle
 	const xMatch = url.match(/^https?:\/\/(?:x|twitter)\.com\/([^/]+)\/status\/\d+/);
 	if (xMatch) {

@@ -53,16 +53,12 @@ function chunksOf<T>(items: T[], size: number): T[][] {
  * Re-qualifies on missing enrichment as well as an advanced reference timestamp:
  * step 2 already wrote `reference_updated_utc` for *every* active symbol, so a
  * capped-out candidate's stored timestamp now equals the incoming value and would
- * never re-qualify on the advance check alone. Gating on missing `sector`/`icon_url`
- * is what lets the backlog drain past one cap's worth over subsequent runs.
- *
- * ETFs legitimately have a null `sector` (no SIC code), so for ETFs we gate on
- * `icon_url` only — otherwise they would re-enrich forever.
+ * never re-qualify on the advance check alone. Gating on a missing `icon_url` is
+ * what lets the backlog drain past one cap's worth over subsequent runs.
  */
 function needsEnrichment(ticker: ActiveTicker, prior: StoredAsset | undefined): boolean {
 	if (!prior) return true; // new symbol
 	if (prior.icon_url === null) return true; // never got an icon
-	if (ticker.type === "stock" && prior.sector === null) return true; // stock missing sector
 	if (!prior.reference_updated_utc) return true; // pre-migration / never enriched
 	if (!ticker.lastUpdatedUtc) return false; // can't gate without a value → don't churn
 	// Compare by parsed instant, NOT lexicographically: Massive emits `...Z` ISO
@@ -77,7 +73,7 @@ function needsEnrichment(ticker: ActiveTicker, prior: StoredAsset | undefined): 
 
 /**
  * Run detail fetches over `candidates` with bounded concurrency, writing
- * `icon_url` (always) and `sector` (stocks only) per symbol. Mutates `result`.
+ * `icon_url` per symbol. Mutates `result`.
  */
 async function enrichSymbols(
 	candidates: ActiveTicker[],
@@ -113,13 +109,10 @@ async function enrichSymbols(
 					return;
 				}
 
-				// ETFs have no SIC code → never set sector for them (it would always be null).
-				const update =
-					ticker.type === "stock"
-						? { icon_url: detail.iconUrl, sector: detail.sector }
-						: { icon_url: detail.iconUrl };
-
-				const { error } = await supabase.from("assets").update(update).eq("symbol", ticker.symbol);
+				const { error } = await supabase
+					.from("assets")
+					.update({ icon_url: detail.iconUrl })
+					.eq("symbol", ticker.symbol);
 				if (error) {
 					result.enrichmentFailed += 1;
 					logger.error(
@@ -155,7 +148,7 @@ async function enrichSymbols(
  *      here; tracked delisting stays exclusively on the confirm-based sweep, which
  *      does not re-confirm an already-flagged row before notify+remove, so a
  *      false-positive flag there would wrongly delete a live subscription.
- *   4. Enrich sector/icon for new symbols and symbols whose reference advanced or
+ *   4. Enrich the icon for new symbols and symbols whose reference advanced or
  *      whose enrichment is missing, capped per run with bounded concurrency.
  *   5. Enqueue a warmup backfill for each newly-inserted symbol.
  *
@@ -206,7 +199,7 @@ export async function runUniverseReconcile(
 	for (let from = 0; ; from += STORED_PAGE_SIZE) {
 		const { data: page, error: storedErr } = await supabase
 			.from("assets")
-			.select("symbol, name, delisted_at, sector, icon_url, reference_updated_utc")
+			.select("symbol, name, delisted_at, icon_url, reference_updated_utc")
 			.order("symbol", { ascending: true })
 			.range(from, from + STORED_PAGE_SIZE - 1);
 		if (storedErr) {
@@ -351,7 +344,7 @@ export async function runUniverseReconcile(
 		);
 	}
 
-	// --- Step 4: Capped enrichment (sector/icon for new + stale + missing). ---
+	// --- Step 4: Capped enrichment (icon for new + stale + missing). ---
 	try {
 		const candidates = active.filter((t) => needsEnrichment(t, stored.get(t.symbol)));
 		result.enrichmentCandidates = candidates.length;

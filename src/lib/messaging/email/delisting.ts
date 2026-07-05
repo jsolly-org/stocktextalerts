@@ -1,4 +1,3 @@
-import { NOT_FINANCIAL_ADVICE } from "../parts/footer";
 import { escapeHtml } from "../parts/html-utils";
 import type { EmailUser } from "../types";
 import { buildEmailUrls, renderEmailFooter } from "./layout";
@@ -69,7 +68,6 @@ ${urls.dashboardUrl}
 
 Manage your delivery schedule: ${urls.scheduleUrl}
 Unsubscribe from all emails: ${urls.unsubscribeUrl}
-${NOT_FINANCIAL_ADVICE}
 `;
 
 	// HTML

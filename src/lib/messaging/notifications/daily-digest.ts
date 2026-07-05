@@ -14,7 +14,7 @@ import {
 	formatUsdPrice,
 } from "../parts/asset-price-list";
 import { formatContentSection } from "../parts/content-section";
-import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
+import { SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
 import {
 	buildMarketClosedBannerEmailHtml,
 	buildMarketClosedBannerEmailText,
@@ -266,7 +266,7 @@ function buildDailyDigestSmsBlocks(options: DailyDigestSmsFormatOptions): SmsBlo
 		{
 			id: "footer",
 			boundary: "atomic",
-			text: `Manage your notifications:\n${dashboardUrl}\n\n${SMS_OPT_OUT}\n\n${NOT_FINANCIAL_ADVICE}`,
+			text: `Manage your notifications:\n${dashboardUrl}\n\n${SMS_OPT_OUT}`,
 		},
 	];
 }
@@ -421,7 +421,6 @@ export function formatDailyDigestEmail(options: {
 		`\nManage your notifications: ${urls.dashboardUrl}`,
 		`Manage your delivery schedule: ${urls.scheduleUrl}`,
 		`Unsubscribe from all emails: ${urls.unsubscribeUrl}`,
-		NOT_FINANCIAL_ADVICE,
 	].filter(Boolean);
 
 	const text = sectionsText.join("\n");

@@ -2,22 +2,23 @@ import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import type { SupabaseAdminClient } from "../../db/supabase";
 import { createLogger } from "../../logging";
-import { fetchIntradayBars } from "../../market-data/bars";
+import { getIntradayBarsPreferCache } from "../../market-data/price-history-cache";
 import { fetchSparklines } from "../../market-data/sparklines";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
 import type { SparklineData } from "../../messaging/parts/sparkline";
 import { createNotificationSenders } from "../../messaging/senders";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import type { ChannelDeliveryStats, ExtendedQuoteMap, IntradayBarsResult } from "../../types";
-import { FLAT_PRICE_ALERT_THRESHOLD_PERCENT } from "./constants";
 import { deliverFlatPriceAlert } from "./delivery";
 import {
 	fetchFlatPriceAlertState,
+	fetchPriceMoveThresholds,
 	finalizeFlatPriceAlert,
 	releaseFlatPriceAlert,
 	reserveFlatPriceAlert,
 	stateKey,
 } from "./state";
+import type { PriceMoveThreshold } from "./types";
 import { type FlatPriceAlertUser, fetchFlatPriceAlertUsers } from "./users";
 
 const logger = createLogger({ module: "flat-price-alerts" });
@@ -81,12 +82,14 @@ function etIsoDateOf(date: Date): string {
 }
 
 /**
- * Process the flat-price-alert pipeline: load enabled users, compute baselines
- * from cached state vs. prev close, check the 5% threshold, claim eligible
- * alerts atomically, and deliver emails.
+ * Process the price-move-alert pipeline: load enabled users and their per-symbol
+ * thresholds, compute baselines from cached state vs. prev close, check each
+ * asset's configured threshold (percent or dollar), claim eligible alerts
+ * atomically, and deliver across channels.
  *
- * Reuses the `quoteMap` already fetched by `processPriceAlerts()` to avoid a
- * duplicate Massive snapshot call. Only runs when the US market is open.
+ * Reuses the scheduler's captured watched-symbol `quoteMap` (a superset of the
+ * threshold symbols) to avoid a duplicate Massive snapshot call. Only runs when
+ * the US market is open.
  */
 export async function processFlatPriceAlerts(options: {
 	supabase: SupabaseAdminClient;
@@ -108,26 +111,32 @@ export async function processFlatPriceAlerts(options: {
 
 	const userIds = users.map((u) => u.id);
 
-	// Load tracked assets for enabled users
-	const { data: userAssetRows, error: userAssetsError } = await supabase
-		.from("user_assets")
-		.select("user_id, symbol")
-		.in("user_id", userIds);
-
-	if (userAssetsError) {
-		logger.error(
-			"Failed to load user_assets for flat price alerts",
-			{ userCount: userIds.length },
-			userAssetsError,
-		);
+	// Load each user's per-symbol thresholds. Row presence = that asset is opted
+	// into price-move alerts; absence = no alert. Replaces the old blanket 5%
+	// applied to the whole watchlist.
+	const thresholdsByUser = await fetchPriceMoveThresholds(supabase, userIds);
+	if (thresholdsByUser.size === 0) {
 		return totals;
 	}
 
-	if (!userAssetRows || userAssetRows.length === 0) {
+	// Flatten to (user, threshold) evaluation items, keyed to the loaded users.
+	const userMap = new Map<string, FlatPriceAlertUser>();
+	for (const user of users) {
+		userMap.set(user.id, user);
+	}
+	const evaluations: { user: FlatPriceAlertUser; threshold: PriceMoveThreshold }[] = [];
+	for (const [userId, thresholds] of thresholdsByUser) {
+		const user = userMap.get(userId);
+		if (!user) continue;
+		for (const threshold of thresholds) {
+			evaluations.push({ user, threshold });
+		}
+	}
+	if (evaluations.length === 0) {
 		return totals;
 	}
 
-	const uniqueSymbols = [...new Set(userAssetRows.map((r) => r.symbol))];
+	const uniqueSymbols = [...new Set(evaluations.map((e) => e.threshold.symbol))];
 
 	// Load asset metadata (name, icon) for display in the email
 	const { data: assetRows, error: assetsError } = await supabase
@@ -165,18 +174,10 @@ export async function processFlatPriceAlerts(options: {
 	const todayEt = todayEtIso();
 
 	// Pass 1: compute eligibility and claim slots
-	const userMap = new Map<string, FlatPriceAlertUser>();
-	for (const user of users) {
-		userMap.set(user.id, user);
-	}
-
 	const eligibleAlerts: EligibleAlert[] = [];
 
-	for (const row of userAssetRows) {
-		const user = userMap.get(row.user_id);
-		if (!user) continue;
-
-		const symbol = row.symbol;
+	for (const { user, threshold } of evaluations) {
+		const symbol = threshold.symbol;
 		const quote = quoteMap.get(symbol);
 		if (!quote) {
 			logger.debug("Skipped: no quote", { userId: user.id, symbol });
@@ -210,9 +211,15 @@ export async function processFlatPriceAlerts(options: {
 			lastNotificationAt = null;
 		}
 
-		// Threshold check
+		// Unit-aware threshold check against the per-stock configured value.
+		// movePct is always computed for display, regardless of the trigger unit.
 		const movePct = ((quote.price - baseline) / baseline) * 100;
-		if (Math.abs(movePct) < FLAT_PRICE_ALERT_THRESHOLD_PERCENT) {
+		const moveDollar = quote.price - baseline;
+		const meetsThreshold =
+			threshold.unit === "percent"
+				? Math.abs(movePct) >= threshold.value
+				: Math.abs(moveDollar) >= threshold.value;
+		if (!meetsThreshold) {
 			continue;
 		}
 
@@ -222,7 +229,8 @@ export async function processFlatPriceAlerts(options: {
 			symbol,
 			baselinePrice: baseline,
 			newPrice: quote.price,
-			thresholdPercent: FLAT_PRICE_ALERT_THRESHOLD_PERCENT,
+			thresholdValue: threshold.value,
+			thresholdUnit: threshold.unit,
 		});
 		if (!claimed) {
 			totals.claimLost++;
@@ -275,14 +283,15 @@ export async function processFlatPriceAlerts(options: {
 		);
 	}
 
-	// Intraday bars — one call per unique symbol, memoized
+	// Intraday bars — prefer self-sourced candles from the minute capture, falling back to a
+	// live vendor fetch only when the cache is still thin. One call per unique symbol.
 	const intradayMap = new Map<string, IntradayBarsResult | null>();
 	for (const symbol of triggeredSymbols) {
 		try {
-			intradayMap.set(symbol, await fetchIntradayBars(symbol));
+			intradayMap.set(symbol, await getIntradayBarsPreferCache(supabase, symbol));
 		} catch (err) {
 			logger.info(
-				"Failed to fetch intraday bars; email will render without sparkline",
+				"Failed to resolve intraday bars; email will render without sparkline",
 				{ symbol },
 				err,
 			);

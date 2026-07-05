@@ -7,7 +7,7 @@ import { formatAssetsHtmlList } from "../email/asset-price-list";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
 import { formatAssetsTextList, NO_TRACKED_ASSETS_MESSAGE } from "../parts/asset-price-list";
 import { formatContentSection } from "../parts/content-section";
-import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
+import { SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
 import {
 	buildMarketClosedBannerEmailHtml,
 	buildMarketClosedBannerEmailText,
@@ -61,7 +61,7 @@ export function formatMarketScheduledEmail(
 	const { getSparkline, marketClosureInfo, getLogoHtml } = context ?? {};
 	const marketOpen = marketSession !== "closed";
 	const urls = buildEmailUrls(user.id, user.email, "marketNotifications");
-	const textFooter = `\n\nManage your delivery schedule: ${urls.scheduleUrl}\nUnsubscribe from all emails: ${urls.unsubscribeUrl}\n${NOT_FINANCIAL_ADVICE}`;
+	const textFooter = `\n\nManage your delivery schedule: ${urls.scheduleUrl}\nUnsubscribe from all emails: ${urls.unsubscribeUrl}`;
 	const htmlFooter = renderEmailFooter(urls);
 
 	if (userAssets.length === 0) {
@@ -208,7 +208,7 @@ export function formatMarketScheduledSms(options: {
 
 	if (userAssets.length === 0) {
 		return padUrlsToSegmentBoundaries(
-			`${header}\n\n${NO_TRACKED_ASSETS_MESSAGE}.\n\nManage your notifications: ${dashboardUrl}\n\n${optOutSuffix}\n\n${NOT_FINANCIAL_ADVICE}`,
+			`${header}\n\n${NO_TRACKED_ASSETS_MESSAGE}.\n\nManage your notifications: ${dashboardUrl}\n\n${optOutSuffix}`,
 		);
 	}
 
@@ -241,7 +241,6 @@ export function formatMarketScheduledSms(options: {
 		extrasBlock,
 		`Manage your notifications: ${dashboardUrl}`,
 		optOutSuffix,
-		NOT_FINANCIAL_ADVICE,
 	].filter(Boolean);
 
 	return padUrlsToSegmentBoundaries(sections.join("\n\n"));

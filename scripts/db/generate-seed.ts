@@ -9,7 +9,6 @@ type Asset = {
   name: string;
   type: string;
   icon_url: string | null;
-  sector: string | null;
 };
 import { rootLogger } from '../../src/lib/logging';
 import {
@@ -151,21 +150,19 @@ function generateAssetsSql(assets: Asset[]): string {
     .map(
       (s) => {
         const iconUrl = s.icon_url ? `'${escapeSql(s.icon_url)}'` : 'NULL';
-        const sector = s.sector ? `'${escapeSql(s.sector)}'` : 'NULL';
-        return `('${escapeSql(s.symbol)}', '${escapeSql(s.name)}', '${escapeSql(s.type)}', ${iconUrl}, ${sector})`;
+        return `('${escapeSql(s.symbol)}', '${escapeSql(s.name)}', '${escapeSql(s.type)}', ${iconUrl})`;
       }
     )
     .join(',\n  ');
 
   return `
-INSERT INTO public.assets (symbol, name, type, icon_url, sector)
+INSERT INTO public.assets (symbol, name, type, icon_url)
 VALUES
   ${values}
 ON CONFLICT (symbol) DO UPDATE SET
   name = EXCLUDED.name,
   type = EXCLUDED.type,
-  icon_url = COALESCE(EXCLUDED.icon_url, assets.icon_url),
-  sector = COALESCE(EXCLUDED.sector, assets.sector);
+  icon_url = COALESCE(EXCLUDED.icon_url, assets.icon_url);
 `;
 }
 
@@ -518,12 +515,6 @@ async function main() {
       throw new SeedError(
         "assets_read_failed",
         `${ASSETS_FILE}: assets[${i}].icon_url must be present and be a string or null. Received: ${typeof asset.icon_url}`,
-      );
-    }
-    if (!("sector" in asset) || (asset.sector !== null && typeof asset.sector !== "string")) {
-      throw new SeedError(
-        "assets_read_failed",
-        `${ASSETS_FILE}: assets[${i}].sector must be present and be a string or null. Received: ${typeof asset.sector}`,
       );
     }
   }

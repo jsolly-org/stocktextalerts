@@ -13,9 +13,6 @@ export function buildFlatAlertEnriched(options: {
 	return {
 		symbol,
 		priceMove: { symbol, changePercent: triggerPercent, price: quote.price, period: since },
-		signal: null,
-		grokContext: "",
-		grokResult: null,
 		intradayCloses: intraday?.closes ?? null,
 		intradayTimestamps: intraday?.timestamps ?? null,
 		intradayEndTimestamp: intraday?.endTimestamp ?? null,
