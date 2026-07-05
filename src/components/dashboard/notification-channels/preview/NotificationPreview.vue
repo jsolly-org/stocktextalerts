@@ -68,8 +68,8 @@ import { buildPreviewAlert, buildPreviewTelegramLines } from "./preview-data";
 import type { PreviewAsset } from "./types";
 
 // The preview is its own presentation artifact (channels own their formatting), so it
-// carries a trimmed footer: the opt-out hint only, without the "Not financial advice."
-// disclaimer the real Telegram messages send. Deliberately NOT the shared TELEGRAM_FOOTER.
+// carries its own footer constant — just the opt-out hint — rather than importing the
+// shared TELEGRAM_FOOTER. Deliberately decoupled so preview copy never rides channel wiring.
 const PREVIEW_FOOTER = "Send /stop to pause alerts.";
 
 interface Props {

@@ -1,9 +1,8 @@
 /**
- * Nightly market-stats precompute (EventBridge: 22:00 UTC weekdays). Fetches
- * daily OHLCV from Massive for every tracked symbol plus benchmark ETFs, computes
- * 20-day average volume and 14-day ATR, upserts daily_asset_stats, and caches
- * daily closes for anomaly detection. Enqueues vendor-backfill on fetch/store
- * failures.
+ * Nightly daily-close cache precompute (EventBridge: 22:00 UTC weekdays). Fetches
+ * daily OHLCV from Massive for every tracked symbol and caches the daily closes in
+ * `asset_daily_closes` — the source for the dashboard watchlist sparklines. Enqueues
+ * vendor-backfill on fetch/store failures.
  */
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";
@@ -12,11 +11,8 @@ import { runLambda } from "../../lib/logging/request-context";
 import { fetchDailyOHLCV } from "../../lib/market-data/bars";
 import {
 	dailyBarsToCloseRows,
-	getBenchmarkCacheSymbols,
 	storeDailyCloseRows,
 } from "../../lib/market-data/price-history-cache";
-import { computeADV, computeATR } from "../../lib/market-notifications/daily-stats";
-import { upsertDailyStatsInChunks } from "../../lib/market-notifications/daily-stats-upsert";
 import { enqueueDailyCloseBackfill } from "../../lib/vendors/backfill/enqueue";
 
 /** Batch size for Massive API calls to stay under ~100 req/s. */
@@ -25,8 +21,9 @@ const BATCH_SIZE = 50;
 /** Delay between batches (ms). */
 const BATCH_DELAY_MS = 600;
 
-/** Calendar days to fetch for ~20 trading days of data. */
-const LOOKBACK_DAYS = 35;
+/** Calendar days to fetch — the 7-trading-day sparkline needs only ~7 closes;
+ *  14 days safely covers that across a holiday week. */
+const LOOKBACK_DAYS = 14;
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
 	return runLambda(context, async () => {
@@ -55,9 +52,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			throw new Error("Failed to load user assets");
 		}
 
-		const symbols = [
-			...new Set([...(allUserAssets ?? []).map((a) => a.symbol), ...getBenchmarkCacheSymbols()]),
-		];
+		const symbols = [...new Set((allUserAssets ?? []).map((a) => a.symbol))];
 		if (symbols.length === 0) {
 			logger.info("No symbols to compute daily stats for", {
 				action: "compute_daily_stats",
@@ -71,15 +66,9 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			.toISOString()
 			.slice(0, 10);
 
-		let computed = 0;
 		let failed = 0;
 		const failedDailyCloseSymbols: string[] = [];
-		const rows: Array<{
-			symbol: string;
-			computed_at: string;
-			avg_volume_20d: number | null;
-			atr_14: number | null;
-		}> = [];
+		const processedSymbols = new Set<string>();
 
 		for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
 			const batch = symbols.slice(i, i + BATCH_SIZE);
@@ -105,16 +94,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				}
 
 				const { symbol, bars } = result.value;
-				const adv = computeADV(bars);
-				const atr = computeATR(bars);
-
-				rows.push({
-					symbol,
-					computed_at: to,
-					avg_volume_20d: adv !== null ? Math.round(adv) : null,
-					atr_14: atr !== null ? Math.round(atr * 10000) / 10000 : null,
-				});
-				computed++;
+				processedSymbols.add(symbol);
 
 				const closeRows = dailyBarsToCloseRows(symbol, bars);
 				const storedCloses = await storeDailyCloseRows(supabase, closeRows);
@@ -129,34 +109,10 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			}
 		}
 
-		// Upsert all rows in independent chunks so a single chunk failure doesn't
-		// discard a full day of computed stats across every symbol.
-		if (rows.length > 0) {
-			const upsertResult = await upsertDailyStatsInChunks(rows, async (chunk) => {
-				const { error } = await supabase
-					.from("daily_asset_stats")
-					.upsert(chunk, { onConflict: "symbol" });
-				return { error };
-			});
-			if (upsertResult.failedChunks > 0) {
-				// Still an error (alarms fire) but the successful chunks persisted.
-				logger.error(
-					"Some daily_asset_stats chunks failed to upsert",
-					{
-						action: "compute_daily_stats",
-						upserted: upsertResult.upserted,
-						failedChunks: upsertResult.failedChunks,
-						failedRows: upsertResult.failedRows,
-					},
-					new Error("Partial upsert failure"),
-				);
-			}
-		}
-
-		logger.info("Daily stats computed", {
+		logger.info("Daily closes cached", {
 			action: "compute_daily_stats",
 			total: symbols.length,
-			computed,
+			cached: processedSymbols.size,
 			failed,
 			failedDailyCloseSymbols,
 		});
@@ -181,9 +137,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 		}
 
 		if (failed > 0) {
-			const failedSymbols = symbols.filter((symbol) => {
-				return !rows.some((row) => row.symbol === symbol);
-			});
+			const failedSymbols = symbols.filter((symbol) => !processedSymbols.has(symbol));
 			if (failedSymbols.length > 0) {
 				const enqueued = await enqueueDailyCloseBackfill({
 					symbols: failedSymbols,

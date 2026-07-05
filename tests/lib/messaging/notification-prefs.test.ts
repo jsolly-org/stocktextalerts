@@ -15,7 +15,7 @@ describe("notification-prefs channel-parametric helpers", () => {
 		["daily_notification", "top_movers", "email", true],
 		["daily_notification", "prices", "sms", false],
 		["daily_notification", "news", "telegram", true],
-		["market_asset_price_alerts", "", "telegram", true],
+		["price_move_alerts", "", "telegram", true],
 	]);
 
 	describe("isFacetEnabled", () => {
@@ -26,8 +26,8 @@ describe("notification-prefs channel-parametric helpers", () => {
 		});
 
 		it("defaults content to '' for facet-less notification types", () => {
-			expect(isFacetEnabled(prefs, "market_asset_price_alerts", "telegram")).toBe(true);
-			expect(isFacetEnabled(prefs, "market_asset_price_alerts", "email")).toBe(false);
+			expect(isFacetEnabled(prefs, "price_move_alerts", "telegram")).toBe(true);
+			expect(isFacetEnabled(prefs, "price_move_alerts", "email")).toBe(false);
 		});
 	});
 
@@ -45,7 +45,7 @@ describe("notification-prefs channel-parametric helpers", () => {
 		it("is true when at least one facet is enabled for (type, channel)", () => {
 			expect(anyFacetEnabled(prefs, "daily_notification", "email")).toBe(true);
 			expect(anyFacetEnabled(prefs, "daily_notification", "sms")).toBe(false);
-			expect(anyFacetEnabled(prefs, "market_asset_price_alerts", "telegram")).toBe(true);
+			expect(anyFacetEnabled(prefs, "price_move_alerts", "telegram")).toBe(true);
 		});
 	});
 

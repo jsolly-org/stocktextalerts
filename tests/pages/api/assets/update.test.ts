@@ -303,4 +303,49 @@ describe("A signed-in user updates their tracked assets.", () => {
 			await deleteAssets([delistedSymbol]);
 		}
 	});
+
+	it("Removing a stock from the watchlist prunes its price-move threshold and keeps the survivor's.", async () => {
+		const testUser = await createTestUser({
+			email: `threshold-prune-${randomUUID()}@example.com`,
+			password: TEST_PASSWORD,
+			confirmed: true,
+			trackedAssets: ["AAPL", "MSFT"],
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		// Opt both stocks into price-move alerts (row presence = enabled).
+		const { error: seedError } = await adminClient.from("price_move_alert_thresholds").insert([
+			{ user_id: testUser.id, symbol: "AAPL", threshold_value: 5, threshold_unit: "percent" },
+			{ user_id: testUser.id, symbol: "MSFT", threshold_value: 3, threshold_unit: "dollar" },
+		]);
+		expect(seedError).toBeNull();
+
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
+		const formData = new FormData();
+		formData.append("tracked_assets", JSON.stringify(["AAPL"]));
+
+		const response = await POST(
+			createApiContext({
+				request: new Request("http://localhost/api/assets/update", {
+					method: "POST",
+					body: formData,
+				}),
+				cookies,
+			}),
+		);
+		expect(response.status).toBe(200);
+
+		// replace_user_assets pruned the dropped symbol's threshold — the only
+		// mechanism preventing orphan rows (FKs deliberately don't cascade off
+		// user_assets) — and left the surviving symbol's row intact.
+		const { data: thresholds } = await adminClient
+			.from("price_move_alert_thresholds")
+			.select("symbol, threshold_value, threshold_unit")
+			.eq("user_id", testUser.id)
+			.order("symbol");
+		expect(thresholds).toHaveLength(1);
+		expect(thresholds?.[0]?.symbol).toBe("AAPL");
+		expect(Number(thresholds?.[0]?.threshold_value)).toBe(5);
+		expect(thresholds?.[0]?.threshold_unit).toBe("percent");
+	});
 });

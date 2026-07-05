@@ -57,7 +57,6 @@ export const NOTIFICATION_OPTION_MATRIX = {
 		analyst: { family: "asset_events", channels: { email: false, sms: false, telegram: false } },
 		insider: { family: "asset_events", channels: { email: false, sms: false, telegram: false } },
 	},
-	market_asset_price_alerts: { "": { channels: { email: false, sms: false, telegram: false } } },
 	market_scheduled_asset_price: { "": { channels: { email: false, sms: false, telegram: false } } },
 	price_move_alerts: { "": { channels: { email: false, sms: false, telegram: false } } },
 } as const satisfies {
@@ -174,6 +173,19 @@ if (
 }
 
 /* =============
+Price-move alerts
+============= */
+
+/** Default threshold suggested for a newly-added price-move alert, and the value the
+ *  rollout migration replicated for existing users. Expressed as a percent move. */
+export const DEFAULT_PRICE_MOVE_THRESHOLD_PERCENT = 5;
+
+/** Largest per-stock thresholds accepted (guard fat-finger input); the DB only
+ *  enforces > 0. 1000% or $100k covers any realistic single-day move. */
+export const MAX_PRICE_MOVE_PERCENT_THRESHOLD = 1000;
+export const MAX_PRICE_MOVE_DOLLAR_THRESHOLD = 100_000;
+
+/* =============
 Assets
 ============= */
 
@@ -184,8 +196,47 @@ export const ASSET_SYMBOL_MAX_LENGTH = 10;
 Auth
 ============= */
 
-/** Set to true to allow new account registrations. */
-export const REGISTRATION_ENABLED = true;
+/**
+ * Pure registration-gate decision — fails CLOSED. Registration opens only on an explicit
+ * `true` override or a positive local/CI/test signal: a dev/test `NODE_ENV`, or the
+ * `MODE=test` our Playwright dev *and* preview servers run under (see playwright*.config.ts).
+ * Every real deploy (NODE_ENV=production, no test MODE) resolves closed — even if a Vercel
+ * system var is missing — so a config glitch can never silently reopen public signups.
+ * Exported so the truth table can be unit-tested without env mutation.
+ */
+export function resolveRegistrationEnabled(env: {
+	registrationEnabled: string | undefined;
+	nodeEnv: string | undefined;
+	mode: string | undefined;
+}): boolean {
+	const override = env.registrationEnabled?.trim().toLowerCase();
+	if (override === "true") {
+		return true;
+	}
+	if (override === "false") {
+		return false;
+	}
+	return env.nodeEnv === "development" || env.nodeEnv === "test" || env.mode === "test";
+}
+
+/**
+ * Registration gate. Open in local dev / CI / tests (so the multi-user signup + approval
+ * flow stays exercised — the app remains architecturally multi-user) and closed on every
+ * deployed environment: this is a private two-person app. Set `REGISTRATION_ENABLED=true`
+ * on a deploy to reopen signups.
+ *
+ * `process` is guarded because this module is imported by client Vue islands where
+ * `process` is undefined (see DAILY_DISPATCH_BATCH_SIZE). No island reads this flag; the
+ * browser value is inert and, like every other path, fails closed.
+ */
+export const REGISTRATION_ENABLED =
+	typeof process === "undefined"
+		? false
+		: resolveRegistrationEnabled({
+				registrationEnabled: process.env.REGISTRATION_ENABLED,
+				nodeEnv: process.env.NODE_ENV,
+				mode: process.env.MODE,
+			});
 
 /** Minimum password length enforced at the application level. */
 export const MIN_PASSWORD_LENGTH = 8;

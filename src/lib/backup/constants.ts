@@ -6,5 +6,6 @@
 export const BACKUP_TABLES = [
 	"public.users",
 	"public.user_assets",
+	"public.price_move_alert_thresholds",
 	"public.scheduled_notifications",
 ] as const;

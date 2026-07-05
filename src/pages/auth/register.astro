@@ -10,9 +10,9 @@ import { MIN_PASSWORD_LENGTH, REGISTRATION_ENABLED } from "../../lib/constants";
 import { formatMessage } from "../../lib/messaging/status-messages";
 import { getTimezoneOptions } from "../../lib/time/timezone/cache";
 
-if (!REGISTRATION_ENABLED) {
-	return Astro.redirect("/auth/signin?error=registration_closed");
-}
+// Registration may be closed (private app). Keep the route reachable but render the
+// form read-only with a notice; the API refuses any submission server-side.
+const registrationOpen = REGISTRATION_ENABLED;
 
 const search = Astro.url.searchParams;
 const error = search.get("error");
@@ -35,7 +35,7 @@ if (error === "user_already_exists") {
 	showSignInLink = true;
 }
 ---
-<Layout title="Create Your Account | StockTextAlerts" description="Create a new StockTextAlerts account. Sign up to get updates for your tracked US assets via email and optional text messages." noindex>
+<Layout title="Create Your Account | StockTextAlerts" description="Create a new StockTextAlerts account. Sign up to get updates for your tracked US assets via email and optional text messages." hideRegistrationBanner>
   <main id="main-content" class="min-h-screen bg-surface-alt flex flex-col justify-center px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
     <header class="sm:mx-auto sm:w-full sm:max-w-md">
       <div class="flex justify-center">
@@ -50,7 +50,9 @@ if (error === "user_already_exists") {
         Create your account
       </h1>
       <p class="mt-2 text-center text-sm text-body-secondary">
-        Get price alerts, daily digests, and market event notifications.
+        {registrationOpen
+          ? "Get price alerts, daily digests, and market event notifications."
+          : "This is a private application and new registrations are closed."}
       </p>
       <p class="mt-2 text-center text-sm text-body-secondary">
         Already have an account? <a href="/auth/signin" class="link-primary">Sign in</a>
@@ -63,6 +65,12 @@ if (error === "user_already_exists") {
         aria-labelledby="register-heading"
       >
         <h2 id="register-heading" class="sr-only">Registration form</h2>
+
+        {!registrationOpen && (
+          <StatusMessage class="mb-6" tone="info">
+            Registration is currently closed. StockTextAlerts is a private application.
+          </StatusMessage>
+        )}
 
         {message && (
           <StatusMessage class="mb-6" tone="error">
@@ -89,6 +97,7 @@ if (error === "user_already_exists") {
                 name="email"
                 id="email"
                 required
+                disabled={!registrationOpen}
                 autocomplete="username"
                 class="input input-lg"
                 placeholder="you@example.com"
@@ -101,6 +110,7 @@ if (error === "user_already_exists") {
                 name="password"
                 id="password"
                 required
+                disabled={!registrationOpen}
                 minlength={MIN_PASSWORD_LENGTH}
                 autocomplete="new-password"
                 spellcheck="false"
@@ -121,7 +131,7 @@ if (error === "user_already_exists") {
               id="timezone"
               name="timezone"
               class="input cursor-pointer"
-              disabled={timezoneLoadError}
+              disabled={timezoneLoadError || !registrationOpen}
               aria-describedby="timezone-help"
             >
               <option value="">
@@ -139,6 +149,7 @@ if (error === "user_already_exists") {
           <button
             type="submit"
             class="btn btn-lg btn-primary w-full"
+            disabled={!registrationOpen}
             data-submit-loading
           >
             <span>Create account</span>

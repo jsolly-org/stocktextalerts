@@ -29,12 +29,6 @@ const RULES: Rule[] = [
 		forbiddenImport: /schedule\/helpers/,
 		message: "time must not import schedule/helpers",
 	},
-	{
-		fromPrefix: "messaging/",
-		forbiddenImport: /market-notifications\/anomaly-alerts\/enrichment/,
-		message:
-			"messaging must not import market-notifications/anomaly-alerts/enrichment (use price-alerts/types)",
-	},
 ];
 
 function walkTsFiles(dir: string, out: string[] = []): string[] {

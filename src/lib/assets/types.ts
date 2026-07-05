@@ -3,15 +3,6 @@ import type { Logger } from "../logging";
 import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import type { EmailSender } from "../messaging/types";
 
-// --- Sector mapping ---
-
-/** A SIC-code range mapped to a human-readable sector name. */
-export interface SicRange {
-	min: number;
-	max: number;
-	sector: string;
-}
-
 // --- Universe reconcile ---
 
 /** One active-universe row from Massive's list endpoint. */
@@ -24,14 +15,13 @@ export interface ActiveTicker {
 }
 
 /** Detail-fetch result returned by the Massive enrichment seam. */
-export type TickerDetail = { ok: boolean; iconUrl: string | null; sector: string | null };
+export type TickerDetail = { ok: boolean; iconUrl: string | null };
 
 /** A stored `assets` row, the subset reconcile reads for classification + enrichment gating. */
 export interface StoredAsset {
 	symbol: string;
 	name: string;
 	delisted_at: string | null;
-	sector: string | null;
 	icon_url: string | null;
 	reference_updated_utc: string | null;
 }
@@ -64,7 +54,7 @@ export interface UniverseReconcileResult {
 	delistFlagSkippedShrunkActive: boolean;
 	/** Candidates for enrichment (new ∪ stale-reference ∪ missing-enrichment), pre-cap. */
 	enrichmentCandidates: number;
-	/** Detail calls that succeeded and wrote sector/icon. */
+	/** Detail calls that succeeded and wrote the icon. */
 	enriched: number;
 	/** Detail calls that returned `ok:false` or threw. */
 	enrichmentFailed: number;

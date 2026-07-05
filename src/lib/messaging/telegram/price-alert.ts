@@ -5,7 +5,7 @@ import { rootLogger } from "../../logging";
 import type { EnrichedAlert } from "../../price-alerts/types";
 import type { ChannelDeliveryStats, IntradayCandle } from "../../types";
 import { TELEGRAM_FOOTER } from "../parts/footer";
-import { renderPriceAlertHeadline, renderSignalSentence } from "../parts/price-alert-sentences";
+import { renderPriceAlertHeadline } from "../parts/price-alert-sentences";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { TelegramSender } from "../types";
 import { buildCandlestickSvg } from "./candlestick";
@@ -22,10 +22,9 @@ export interface TelegramPriceAlert {
 }
 
 /**
- * Render an anomaly price-move alert as a Telegram message.
+ * Render a price-move alert as a Telegram message.
  *
- * Telegram-native: bold ticker, price + signed change%, and a one-line "why it's
- * moving" context when Grok enrichment is present — all carried out-of-band as
+ * Telegram-native: bold ticker and price + signed change%, carried out-of-band as
  * parse-mode entities (no MarkdownV2/HTML escaping). When ≥2 candles render to a PNG,
  * the caller sends it via `sendPhoto` with this text as the caption; otherwise the
  * text stands alone. Never throws: a render failure or too-few candles degrades to a
@@ -42,20 +41,6 @@ export async function formatPriceAlertTelegram(
 	// "AAPL is up 2.5% today ($228.50)" — the same sentence SMS/email produce.
 	const boldTicker = FormattedString.bold(`🚨 ${alert.symbol}`);
 	let msg = fmt`${boldTicker}\n${renderPriceAlertHeadline(alert.priceMove)}`;
-
-	if (alert.signal) {
-		msg = fmt`${msg}\n${renderSignalSentence(alert.signal)}`;
-	}
-
-	// One-line "why" from Grok, when available. Strip inline markdown links — Telegram
-	// renders link text via entities, and the raw summary's `[[label]](url)` markup would
-	// otherwise show as literal brackets. We keep just the plain prose for the caption.
-	if (alert.grokResult?.summary) {
-		const why = alert.grokResult.summary.replace(/\[\[([^\]]+)\]\]\([^)]*\)/g, "$1").trim();
-		if (why) {
-			msg = fmt`${msg}\n\n${FormattedString.bold("Why it's moving")}\n${FormattedString.blockquote(why)}`;
-		}
-	}
 
 	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
 
@@ -83,7 +68,7 @@ export async function formatPriceAlertTelegram(
 /**
  * Send a rendered price alert via Telegram and record the attempt.
  *
- * Shared tail of the real-time alert pipelines (anomaly, flat):
+ * Tail of the price-move alert pipeline:
  * format → send → stats + failure log → bot-blocked opt-out →
  * notification_log. Callers must gate on channel usability
  * (isTelegramChannelUsable / shouldSendTelegram) BEFORE calling — the chatId
@@ -95,12 +80,8 @@ export async function deliverTelegramPriceAlert(options: {
 	sendTelegram: TelegramSender;
 	supabase: AppSupabaseClient;
 	stats: ChannelDeliveryStats;
-	notificationType: "price_alert" | "flat_price_alert";
-	failureLogMessage: string;
-	failureErrorFallback: string;
-	failureLogContext: Record<string, unknown>;
 }): Promise<boolean> {
-	const { alert, user, sendTelegram, supabase, stats, notificationType } = options;
+	const { alert, user, sendTelegram, supabase, stats } = options;
 
 	const { text, entities, photo } = await formatPriceAlertTelegram(
 		alert,
@@ -122,9 +103,14 @@ export async function deliverTelegramPriceAlert(options: {
 	} else {
 		stats.telegramFailed++;
 		rootLogger.error(
-			options.failureLogMessage,
-			{ userId: user.id, ...options.failureLogContext, errorCode: result.errorCode ?? null },
-			new Error(result.error ?? options.failureErrorFallback),
+			"Failed to send price-move alert Telegram message",
+			{
+				userId: user.id,
+				symbol: alert.symbol,
+				triggerPercent: alert.priceMove.changePercent,
+				errorCode: result.errorCode ?? null,
+			},
+			new Error(result.error ?? "Price-move alert Telegram send failed"),
 		);
 	}
 
@@ -132,7 +118,7 @@ export async function deliverTelegramPriceAlert(options: {
 
 	const logged = await recordNotification(supabase, {
 		user_id: user.id,
-		type: notificationType,
+		type: "flat_price_alert",
 		delivery_method: "telegram",
 		message_delivered: result.success,
 		message: text,

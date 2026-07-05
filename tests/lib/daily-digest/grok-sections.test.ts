@@ -3,7 +3,6 @@ import {
 	generateNewsWithGrok,
 	generateRumorsWithGrok,
 } from "../../../src/lib/daily-digest/grok-sections";
-import { generatePriceAlertSummary } from "../../../src/lib/market-notifications/anomaly-alerts/grok-summary";
 
 vi.mock("node:timers/promises", () => ({
 	setTimeout: vi.fn().mockResolvedValue(undefined),
@@ -28,7 +27,7 @@ function mockXaiResponse(text: string): Response {
 	);
 }
 
-describe("Grok response parsers strip stray markdown bold", () => {
+describe("Grok digest parsers strip stray markdown bold", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 		vi.unstubAllEnvs();
@@ -70,23 +69,5 @@ describe("Grok response parsers strip stray markdown bold", () => {
 		expect(result?.content).not.toContain("**");
 		expect(result?.content).toContain("@TechBullish");
 		expect(result?.content).toContain("reportedly");
-	});
-
-	it("price-alert summary: a model that bolds the whole summary renders as plain prose", async () => {
-		vi.stubEnv("XAI_API_KEY", "test-key");
-		const summaryBody =
-			"**Palantir rallied 8% after the company announced an expanded DoD contract worth $480M over four years.**";
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(mockXaiResponse(summaryBody));
-
-		const result = await generatePriceAlertSummary({
-			symbol: "PLTR",
-			priceContext: "up 8.2% at $45.7",
-			signalContext: "high volume, breakout above 50-day MA",
-		});
-
-		expect(result).not.toBeNull();
-		expect(result?.summary).not.toContain("**");
-		expect(result?.summary).toContain("Palantir rallied 8%");
-		expect(result?.summary).toContain("$480M");
 	});
 });

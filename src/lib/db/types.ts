@@ -1,13 +1,23 @@
 import type { NotificationOptionFieldName } from "../constants";
 import type { AssetType } from "../types";
-import type { Database } from "./generated/database.types";
+import { Constants, type Database } from "./generated/database.types";
 
 /* =============
 Enum aliases (Postgres enums)
 ============= */
 
-export type AlertMoveSize = Database["public"]["Enums"]["alert_move_size"];
 export type StagedNotificationType = Database["public"]["Enums"]["staged_notification_type"];
+
+/** Unit a per-stock price-move threshold is expressed in (percent vs absolute dollars). */
+export type PriceMoveThresholdUnit = Database["public"]["Enums"]["price_move_threshold_unit"];
+
+/** Narrow unknown input (API bodies) to a valid price-move threshold unit. */
+export function isPriceMoveThresholdUnit(value: unknown): value is PriceMoveThresholdUnit {
+	return (
+		typeof value === "string" &&
+		(Constants.public.Enums.price_move_threshold_unit as readonly string[]).includes(value)
+	);
+}
 
 /* =============
 Row Types
@@ -66,8 +76,6 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "market_scheduled_asset_price_next_send_at"
 	| "dismiss_timezone_mismatch_prompts"
 	| "asset_events_last_analyst_sent_month"
-	| "market_asset_price_alerts_enabled"
-	| "market_asset_price_alert_move_size"
 > &
 	Partial<Record<string, boolean>>;
 

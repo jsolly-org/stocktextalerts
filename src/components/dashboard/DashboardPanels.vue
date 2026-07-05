@@ -50,6 +50,8 @@
 				:email-enabled="emailEnabled"
 				:phone-verified="phoneVerified"
 				:has-tracked-assets="hasTrackedAssets"
+				:tracked-assets="currentAssets"
+				:price-move-thresholds="priceMoveThresholds"
 				:telegram-prefs="marketTelegramPrefs"
 			/>
 		</template>
@@ -68,7 +70,7 @@ import { provideDashboardUser } from "./composables/useDashboardUser";
 import { DASHBOARD_ASSETS_FORM_ID } from "./constants";
 import DashboardCarousel from "./DashboardCarousel.vue";
 import PanelSkeleton from "./PanelSkeleton.vue";
-import type { InitialAsset } from "./types";
+import type { InitialAsset, PriceMoveThresholdMap } from "./types";
 
 // Lazy-load panels 2-5 so mobile only fetches the chunk when the tab is visited.
 // On desktop all loaders fire immediately in parallel (shouldRender returns true for all).
@@ -99,6 +101,8 @@ interface Props {
 	dailyDigestTelegramPrefs: Record<string, boolean>;
 	assetEventsTelegramPrefs: Record<string, boolean>;
 	marketTelegramPrefs: Record<string, boolean>;
+	/** Per-symbol price-move alert thresholds, loaded server-side. */
+	priceMoveThresholds: PriceMoveThresholdMap;
 }
 
 const props = defineProps<Props>();
@@ -108,6 +112,7 @@ const {
 	dailyDigestTelegramPrefs,
 	initialAssets,
 	marketTelegramPrefs,
+	priceMoveThresholds,
 	smsPhoneNumber,
 	user: userProp,
 } = toRefs(props);
