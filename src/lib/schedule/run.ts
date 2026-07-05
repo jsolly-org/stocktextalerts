@@ -91,7 +91,7 @@ function mergeTotals(
 	};
 }
 
-/** Per-invocation cache of successful Massive quotes reused across both scheduler passes. */
+/** Per-invocation cache of successful live quotes reused across both scheduler passes. */
 type SchedulerQuoteCache = {
 	prices: AssetPriceMap;
 	noSessionTrade: Set<string>;
@@ -237,7 +237,7 @@ async function runPass(options: {
 
 	// Collect unique asset symbols across scheduled users and fetch prices in batch
 	const priceMap: AssetPriceMap = new Map();
-	// Symbols Massive recognized but had no live trade in the current session
+	// Symbols recognized by the vendor but with no live trade in the current session
 	// (typical for illiquid pre/after-hours tickers). The scheduled-notification
 	// renderer uses this to show "no pre-market trades" / "no after-hours trades"
 	// instead of the generic "price unavailable".
@@ -479,7 +479,7 @@ export async function runScheduledNotifications(options: {
 
 	// Run flat price alerts — own state, own users, own emails. Reuses the captured
 	// quote map (a superset of the watched-symbol universe) and derives market-hours
-	// gating from the resolved session, so there is no extra Massive snapshot call.
+	// gating from the resolved session, so there is no extra live-quote fetch.
 	// An `undefined` map means the quote capture FAILED (not "no quotes") — skip the
 	// pass and log it explicitly so a blind alerting tick is observable, not silent.
 	// Error level during regular hours on purpose: it means the market is open and

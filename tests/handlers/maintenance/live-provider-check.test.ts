@@ -86,6 +86,19 @@ describe("live-provider-check Lambda", () => {
 		await expect(handler(event, context)).rejects.toThrow(/massive:prev-close/);
 	});
 
+	it("A full Finnhub quote outage (null/zero prices, right map size) still fails the check", async () => {
+		// The fetcher pre-seeds every symbol to null, so `size === 2` would pass on a total
+		// outage — the strengthened per-symbol finite-positive-price assertion must catch it.
+		vi.mocked(fetchAssetPrices).mockResolvedValue(
+			new Map([
+				["SPY", null],
+				["AAPL", { price: 0, changePercent: 0 }],
+			]) as Awaited<ReturnType<typeof fetchAssetPrices>>,
+		);
+		expectConsoleError(/Live provider checks failed/);
+		await expect(handler(event, context)).rejects.toThrow(/finnhub:asset-prices/);
+	});
+
 	it("A Finnhub earnings-feed outage fails the check and pages", async () => {
 		vi.mocked(fetchEarnings).mockResolvedValue({
 			failed: true,

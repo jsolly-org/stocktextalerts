@@ -1,13 +1,24 @@
 import { setTimeout as realDelay } from "node:timers/promises";
 import { requireEnv } from "../db/env";
 import { rootLogger } from "../logging";
+import { createSlidingWindowLimiter } from "../rate-limit";
 import {
 	FINNHUB_BASE_URL,
+	FINNHUB_MAX_CALLS_PER_MINUTE,
 	VENDOR_FETCH_MAX_RETRIES as MAX_RETRIES,
 	VENDOR_FETCH_REQUEST_TIMEOUT_MS as REQUEST_TIMEOUT_MS,
 	VENDOR_FETCH_RETRY_DELAY_MS as RETRY_DELAY_MS,
 } from "./constants";
 import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "./optional-vendors";
+
+/**
+ * Shared across every Finnhub call site (quotes, earnings, enrichment) so the whole
+ * per-process budget can't be blown by one caller. Acquired before each HTTP attempt.
+ */
+const finnhubLimiter = createSlidingWindowLimiter({
+	maxPerWindow: FINNHUB_MAX_CALLS_PER_MINUTE,
+	windowMs: 60_000,
+});
 
 export type FinnhubFetchPolicy = {
 	/** When true, terminal failures log as optional degradation (warn), not vendor_retry_exhausted. */
@@ -77,6 +88,9 @@ export async function finnhubFetch(
 
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 		const isLastAttempt = attempt === MAX_RETRIES;
+
+		// Each HTTP attempt (including retries) consumes API budget, so gate here.
+		await finnhubLimiter.acquire();
 
 		try {
 			const response = await fetch(url, {
