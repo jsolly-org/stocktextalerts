@@ -1,65 +1,13 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
-import { getSiteUrl } from "../../db/env";
 import type { MarketClosureInfo } from "../../time/types";
 import { renderEmailSection } from "../email/html-section";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
-import { SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
+import { TELEGRAM_FOOTER } from "../parts/footer";
 import {
 	buildMarketClosedBannerEmailHtml,
 	buildMarketClosedBannerEmailText,
-	buildMarketClosedBannerSms,
 	buildMarketClosedBannerTelegram,
 } from "../parts/market-closure";
-import { padUrlsToSegmentBoundaries } from "../sms/segment-utils";
-
-/** Build the SMS body for an asset-events digest. */
-export function formatAssetEventsSms(options: {
-	earningsSection: string | null;
-	dividendsSection: string | null;
-	splitsSection: string | null;
-	iposSection: string | null;
-	analystSection: string | null;
-	insiderSection: string | null;
-	marketClosureInfo?: MarketClosureInfo | null;
-	delayBanner?: string | null;
-}): string {
-	const optOutSuffix = SMS_OPT_OUT;
-	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-
-	const parts: string[] = ["StockTextAlerts — Asset Events 🗓️"];
-
-	if (options.delayBanner) {
-		parts.push(options.delayBanner);
-	}
-
-	if (options.marketClosureInfo) {
-		parts.push(buildMarketClosedBannerSms(options.marketClosureInfo, "events"));
-	}
-
-	if (options.earningsSection) {
-		parts.push(`📅 Earnings\n${options.earningsSection}`);
-	}
-	if (options.dividendsSection) {
-		parts.push(`💰 Ex-Dividend\n${options.dividendsSection}`);
-	}
-	if (options.splitsSection) {
-		parts.push(`✂️ Splits\n${options.splitsSection}`);
-	}
-	if (options.iposSection) {
-		parts.push(`🆕 Upcoming IPOs\n${options.iposSection}`);
-	}
-	if (options.insiderSection) {
-		parts.push(`🏦 Insider Trades\n${options.insiderSection}`);
-	}
-	if (options.analystSection) {
-		parts.push(`📊 Analyst Consensus (published monthly on the 1st)\n${options.analystSection}`);
-	}
-
-	parts.push(`Manage your notifications: ${dashboardUrl}`);
-	parts.push(optOutSuffix);
-
-	return padUrlsToSegmentBoundaries(parts.join("\n\n"));
-}
 
 /** Build the email payload (subject/text/html) for an asset-events digest. */
 export function formatAssetEventsEmail(options: {

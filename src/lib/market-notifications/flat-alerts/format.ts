@@ -1,18 +1,9 @@
-import { getSiteUrl } from "../../db/env";
 import { renderIntradaySparklineImg } from "../../messaging/email/intraday-sparkline";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
 import { toSvgSparklineImg } from "../../messaging/email/svg-sparkline";
 import { formatUsdPrice, getChangeColor } from "../../messaging/parts/asset-price-list";
-import { SMS_OPT_OUT } from "../../messaging/parts/footer";
 import { escapeHtml } from "../../messaging/parts/html-utils";
-import {
-	downsampleEvenly,
-	EMAIL_SPARKLINE_LABEL,
-	SMS_SPARKLINE_LABEL,
-	type SparklineData,
-	toSparkline,
-} from "../../messaging/parts/sparkline";
-import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
+import { EMAIL_SPARKLINE_LABEL, type SparklineData } from "../../messaging/parts/sparkline";
 import type { ExtendedAssetQuote, IntradayBarsResult } from "../../types";
 import type { FlatPriceAlertUser } from "./users";
 
@@ -133,82 +124,6 @@ function buildPriceChangeRows(options: {
 	}
 
 	return rows;
-}
-
-/** Build the SMS body for a flat price alert. */
-export function formatFlatPriceAlertSms(options: {
-	symbol: string;
-	quote: ExtendedAssetQuote;
-	baseline: number;
-	triggerPercent: number;
-	isReTrigger: boolean;
-	lastNotificationAt: Date | null;
-	nowMs: number;
-	intraday: IntradayBarsResult | null;
-	sevenDaySparkline: SparklineData | null;
-}): string {
-	const {
-		symbol,
-		quote,
-		baseline,
-		triggerPercent,
-		isReTrigger,
-		lastNotificationAt,
-		nowMs,
-		intraday,
-		sevenDaySparkline,
-	} = options;
-
-	const currentPrice = quote.price;
-	const arrow = triggerPercent >= 0 ? "↑" : "↓";
-	const absPct = Math.abs(triggerPercent).toFixed(1);
-	const since =
-		isReTrigger && lastNotificationAt !== null
-			? formatRelativeMinutesAgo(lastNotificationAt.getTime(), nowMs)
-			: "today";
-
-	const rows = buildPriceChangeRows({
-		currentPrice,
-		prevClose: quote.prevClose,
-		dayOpen: quote.dayOpen,
-		lastNotificationPrice: isReTrigger ? baseline : null,
-		sevenDayBaseline:
-			sevenDaySparkline && sevenDaySparkline.values.length > 0
-				? (sevenDaySparkline.values[0] ?? null)
-				: null,
-		relativeTime:
-			isReTrigger && lastNotificationAt !== null
-				? formatRelativeMinutesAgo(lastNotificationAt.getTime(), nowMs)
-				: null,
-	});
-
-	const intradayCloses = intraday?.closes ?? null;
-	const sparkline =
-		intradayCloses && intradayCloses.length >= 2
-			? toSparkline(downsampleEvenly(intradayCloses))
-			: "";
-
-	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-
-	const headline = `${symbol} ${arrow} ${absPct}% ${since} — ${formatUsdPrice(currentPrice)}`;
-	const priceLines = rows.map(
-		(row) =>
-			`${row.label}: ${formatDollarChange(row.dollarChange)} (${formatPercentChange(row.percentChange)})`,
-	);
-	const sparklineLine = sparkline
-		? `${SMS_SPARKLINE_LABEL["intraday-since-open"]}: ${sparkline}`
-		: null;
-
-	const sections = [
-		"StockTextAlerts — Price Move 🚨",
-		headline,
-		...(sparklineLine ? [sparklineLine] : []),
-		priceLines.join("\n"),
-		`Manage your notifications: ${dashboardUrl}`,
-		SMS_OPT_OUT,
-	];
-
-	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
 }
 
 export function buildSubject(options: {

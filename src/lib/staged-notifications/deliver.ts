@@ -3,7 +3,7 @@
  *
  * This module is the "send" side of the pre-compute/deliver pipeline. It reads
  * fully rendered content from `staged_notifications`, sends it via the same
- * email/SMS channels used by the normal pipeline, and handles all post-delivery
+ * email/Telegram channels used by the normal pipeline, and handles all post-delivery
  * bookkeeping (claim idempotency, notifications_log, next_send_at advancement,
  * Grok counter updates, analyst month tracking).
  *
@@ -21,24 +21,15 @@ import type { Logger } from "../logging";
 import { sendUserEmail } from "../messaging/email/index";
 import { loadPrefsByUser } from "../messaging/load-prefs";
 import {
-	formatDailyDigestSmsLogMessage,
-	summarizeDailyDigestSmsResults,
-} from "../messaging/notifications/daily-digest";
-import {
 	buildDelayBannerHtml,
 	buildDelayBannerText,
 	prependDelayBannerToEmail,
-	prependDelayBannerToSms,
 	prependDelayBannerToTelegram,
 } from "../messaging/parts/delay";
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,
 } from "../messaging/scheduled-channel";
-import { SMS_BODY_CHAR_BUDGET } from "../messaging/sms/block-packing";
-import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
-import { padDailyDigestSmsSegmentBoundaries } from "../messaging/sms/segment-utils";
-import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
@@ -51,13 +42,9 @@ import {
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { toIsoOrThrow } from "../time/display";
 import {
-	type DeliveryResult,
-	type IsoDateString,
 	isRecord,
-	type MinuteOfDay,
 	type StagedDailyData,
 	type StagedNotificationRow,
-	type StagedSmsContent,
 	type UserRecord,
 } from "../types";
 import {
@@ -68,53 +55,6 @@ import {
 } from "./db";
 
 const STALE_MAX_AGE_MINUTES = 5;
-const TWILIO_SMS_HARD_LIMIT = 1600;
-
-function normalizeStagedSmsMessages(sms: StagedSmsContent): string[] {
-	if ("messages" in sms) {
-		return sms.messages;
-	}
-
-	return [sms.message];
-}
-
-function padStagedDailyDigestSmsMessages(messages: string[]): string[] {
-	return messages.map((message) => padDailyDigestSmsSegmentBoundaries(message));
-}
-
-function buildFinalStagedSmsMessages(
-	sms: StagedSmsContent,
-	delayText: string | null,
-	logger: Logger,
-	context: { userId: string; scheduledDate: IsoDateString; scheduledMinutes: MinuteOfDay },
-): string[] {
-	const messages = normalizeStagedSmsMessages(sms);
-	if (!delayText || messages.length === 0) {
-		return padStagedDailyDigestSmsMessages(messages);
-	}
-
-	const delayedFirst = padDailyDigestSmsSegmentBoundaries(
-		prependDelayBannerToSms(messages[0] ?? "", delayText),
-	);
-	if (delayedFirst.length <= TWILIO_SMS_HARD_LIMIT) {
-		return [delayedFirst, ...padStagedDailyDigestSmsMessages(messages.slice(1))];
-	}
-
-	logger.warn(
-		"Delayed staged Daily Digest SMS first part exceeds Twilio limit; sending delay notice separately",
-		{
-			...context,
-			partLength: delayedFirst.length,
-			budget: SMS_BODY_CHAR_BUDGET,
-			hardLimit: TWILIO_SMS_HARD_LIMIT,
-		},
-	);
-
-	return [
-		padDailyDigestSmsSegmentBoundaries(delayText),
-		...padStagedDailyDigestSmsMessages(messages),
-	];
-}
 
 /** Deliver all staged notifications that are due (scheduled_for <= now). */
 export async function deliverStagedNotifications(options: {
@@ -122,21 +62,18 @@ export async function deliverStagedNotifications(options: {
 	logger: Logger;
 	currentTime: DateTime;
 	sendEmail: EmailSender;
-	getSmsSender: SmsSenderFactory;
 	getTelegramSender: TelegramSenderFactory;
 }): Promise<{
 	stats: ScheduledNotificationTotals;
 	deliveredUserTypes: Set<string>;
 }> {
-	const { supabase, logger, currentTime, sendEmail, getSmsSender, getTelegramSender } = options;
+	const { supabase, logger, currentTime, sendEmail, getTelegramSender } = options;
 
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
 		logFailures: 0,
 		emailsSent: 0,
 		emailsFailed: 0,
-		smsSent: 0,
-		smsFailed: 0,
 		telegramSent: 0,
 		telegramFailed: 0,
 	};
@@ -188,9 +125,6 @@ export async function deliverStagedNotifications(options: {
 			`
 			id,
 			email,
-			phone_country_code,
-			phone_number,
-			phone_verified,
 			timezone,
 			use_24_hour_time,
 			market_scheduled_asset_price_enabled,
@@ -199,8 +133,6 @@ export async function deliverStagedNotifications(options: {
 			daily_notification_next_send_at,
 			market_scheduled_asset_price_next_send_at,
 			email_notifications_enabled,
-			sms_notifications_enabled,
-			sms_opted_out,
 			asset_events_last_analyst_sent_month,
 			telegram_chat_id,
 			telegram_opted_out,
@@ -259,7 +191,6 @@ export async function deliverStagedNotifications(options: {
 				logger,
 				currentTime,
 				sendEmail,
-				getSmsSender,
 				getTelegramSender,
 				deliveredUserTypes,
 				stats,
@@ -268,7 +199,6 @@ export async function deliverStagedNotifications(options: {
 			const stagedRaw = row.staged_data;
 			const stagedKeys = isRecord(stagedRaw) ? Object.keys(stagedRaw) : [];
 			const staged = stagedRaw as StagedDailyData | null;
-			const smsPartCount = staged?.sms ? normalizeStagedSmsMessages(staged.sms).length : 0;
 			logger.error(
 				"Error delivering staged notification",
 				{
@@ -279,9 +209,7 @@ export async function deliverStagedNotifications(options: {
 					scheduledFor: row.scheduled_for,
 					stagedDataKeys: stagedKeys,
 					hasEmail: Boolean(staged?.email),
-					hasSms: Boolean(staged?.sms),
 					hasTelegram: Boolean(staged?.telegram),
-					smsPartCount,
 					emailHtmlLength: staged?.email?.html?.length ?? 0,
 					emailSubjectLength: staged?.email?.subject?.length ?? 0,
 				},
@@ -334,7 +262,6 @@ async function deliverStagedDaily(options: {
 	logger: Logger;
 	currentTime: DateTime;
 	sendEmail: EmailSender;
-	getSmsSender: SmsSenderFactory;
 	getTelegramSender: TelegramSenderFactory;
 	deliveredUserTypes: Set<string>;
 	stats: ScheduledNotificationTotals;
@@ -347,7 +274,6 @@ async function deliverStagedDaily(options: {
 		logger,
 		currentTime,
 		sendEmail,
-		getSmsSender,
 		getTelegramSender,
 		deliveredUserTypes,
 		stats,
@@ -355,7 +281,6 @@ async function deliverStagedDaily(options: {
 	const { scheduledDate, scheduledMinutes } = stagedData;
 	const deliveredKey = `${row.user_id}:daily`;
 	let localEmailDelivered = false;
-	let localSmsDelivered = false;
 	let localTelegramDelivered = false;
 
 	// Detect delay for staged content delivered after scheduled time
@@ -426,137 +351,6 @@ async function deliverStagedDaily(options: {
 				result,
 				logMessage: emailContent.text,
 			});
-		}
-	}
-
-	// SMS delivery
-	if (stagedData.sms) {
-		const dailySmsMessages = buildFinalStagedSmsMessages(stagedData.sms, dailyDelayText, logger, {
-			userId: user.id,
-			scheduledDate,
-			scheduledMinutes,
-		});
-
-		const smsEnabled = shouldSendSms(user);
-		if (smsEnabled) {
-			// On claim denial (held by another worker or backoff pending) the helper only
-			// bumps stats — fallback is not suppressed.
-			const attemptCount = await claimScheduledChannel({
-				supabase,
-				userId: user.id,
-				notificationType: "daily",
-				scheduledDate,
-				scheduledMinutes,
-				channel: "sms",
-				logger,
-				stats,
-			});
-
-			if (attemptCount !== null) {
-				try {
-					const { sender } = getSmsSender();
-					const partResults: DeliveryResult[] = [];
-					for (const [index, smsMessage] of dailySmsMessages.entries()) {
-						if (smsMessage.length > SMS_BODY_CHAR_BUDGET) {
-							logger.warn("Staged Daily Digest SMS part exceeds preferred body budget", {
-								userId: user.id,
-								scheduledDate,
-								scheduledMinutes,
-								partNumber: index + 1,
-								totalParts: dailySmsMessages.length,
-								partLength: smsMessage.length,
-								budget: SMS_BODY_CHAR_BUDGET,
-								hardLimit: TWILIO_SMS_HARD_LIMIT,
-							});
-						}
-
-						if (smsMessage.length > TWILIO_SMS_HARD_LIMIT) {
-							const partResult: DeliveryResult = {
-								success: false,
-								error: `SMS body exceeds Twilio hard limit (${smsMessage.length}/${TWILIO_SMS_HARD_LIMIT})`,
-								errorCode: "SMS_BODY_TOO_LONG",
-							};
-							partResults.push(partResult);
-							logger.error(
-								"Staged Daily Digest SMS part exceeds Twilio hard limit",
-								{
-									userId: user.id,
-									scheduledDate,
-									scheduledMinutes,
-									partNumber: index + 1,
-									totalParts: dailySmsMessages.length,
-									partLength: smsMessage.length,
-									hardLimit: TWILIO_SMS_HARD_LIMIT,
-								},
-								new Error(partResult.error),
-							);
-							break;
-						}
-
-						const partResult = await sendUserSms(user, smsMessage, sender, supabase);
-						partResults.push(partResult);
-
-						if (!partResult.success) {
-							logger.error(
-								"Failed to send staged Daily Digest SMS part",
-								{
-									userId: user.id,
-									scheduledDate,
-									scheduledMinutes,
-									partNumber: index + 1,
-									totalParts: dailySmsMessages.length,
-									partLength: smsMessage.length,
-									errorCode: partResult.errorCode ?? null,
-								},
-								new Error(partResult.error ?? "Staged Daily Digest SMS part failed"),
-							);
-							break;
-						}
-					}
-
-					const result = summarizeDailyDigestSmsResults(partResults, dailySmsMessages.length);
-
-					// Mark as delivered immediately after a successful send so fallback doesn't
-					// reprocess if later bookkeeping fails.
-					if (result.success) {
-						localSmsDelivered = true;
-						deliveredUserTypes.add(deliveredKey);
-					}
-
-					await completeScheduledChannelFromResult({
-						supabase,
-						userId: user.id,
-						notificationType: "daily",
-						scheduledDate,
-						scheduledMinutes,
-						channel: "sms",
-						logger,
-						stats,
-						attemptCount,
-						result,
-						logMessage: formatDailyDigestSmsLogMessage(dailySmsMessages),
-					});
-				} catch (error) {
-					stats.smsFailed++;
-					logger.error(
-						"Failed to resolve SMS sender for staged daily delivery",
-						{ userId: user.id },
-						error,
-					);
-					await updateScheduledNotificationRow({
-						supabase,
-						userId: user.id,
-						notificationType: "daily",
-						scheduledDate,
-						scheduledMinutes,
-						channel: "sms",
-						status: "failed",
-						error: error instanceof Error ? error.message : String(error),
-						attemptCount,
-						logger,
-					});
-				}
-			}
 		}
 	}
 
@@ -660,7 +454,7 @@ async function deliverStagedDaily(options: {
 
 	// Post-delivery: Grok counter update (gated on this user's sends, not the
 	// run-cumulative stats — see updateGrokSendCounter's delivered param).
-	const localDelivered = localEmailDelivered || localSmsDelivered || localTelegramDelivered;
+	const localDelivered = localEmailDelivered || localTelegramDelivered;
 	await updateGrokSendCounter(
 		user,
 		supabase,
@@ -672,7 +466,6 @@ async function deliverStagedDaily(options: {
 	);
 
 	const emailRequired = stagedData.email !== null;
-	const smsRequired = stagedData.sms !== null;
 	// Loose `!= null`: rows staged before the `telegram` field existed deserialize with
 	// `telegram: undefined`. Strict `!== null` would make those legacy rows "require"
 	// Telegram while the delivery block (falsy guard above) skips it — wedging canAdvance.
@@ -683,7 +476,6 @@ async function deliverStagedDaily(options: {
 		scheduledDate,
 		scheduledMinutes,
 		emailRequired,
-		smsRequired,
 		telegramRequired,
 	});
 

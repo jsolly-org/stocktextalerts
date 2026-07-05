@@ -17,14 +17,14 @@ One structure defines every valid (notification_type, content, channel) option:
 
   - object keys author the valid `notification_type` and `content` values;
   - `channels` keys author which delivery channels the option exists on —
-    news/rumors have no `sms` key because that combo is INVALID, not disabled;
+    an absent channel key means that combo is INVALID, not disabled;
   - `channels` values author the new-user signup default;
   - `family` groups daily_notification facets and selects their form-field
     prefix (see NOTIFICATION_FAMILY_FIELD_PREFIX).
 
 Everything else derives from this value or is drift-checked against it: the TS
 unions below, the flat NOTIFICATION_PREFERENCE_CATALOG (and each option's form
-fieldName), the notification-preferences form schema, the SMS opt-out guard,
+fieldName), the notification-preferences form schema,
 signup defaults (buildDefaultPreferenceRows) and the local seed, dashboard
 field bindings, and the `notification_options` DB table enforcing the same
 triples via FK (checked by `npm run check:option-catalog` inside db:reset).

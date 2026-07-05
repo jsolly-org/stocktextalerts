@@ -38,7 +38,7 @@ export async function formatPriceAlertTelegram(
 	candles: IntradayCandle[],
 ): Promise<TelegramPriceAlert> {
 	// Render this channel's own headline from the structured price facts, e.g.
-	// "AAPL is up 2.5% today ($228.50)" — the same sentence SMS/email produce.
+	// "AAPL is up 2.5% today ($228.50)" — the same sentence the email produces.
 	const boldTicker = FormattedString.bold(`🚨 ${alert.symbol}`);
 	let msg = fmt`${boldTicker}\n${renderPriceAlertHeadline(alert.priceMove)}`;
 

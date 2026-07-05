@@ -11,11 +11,10 @@ interface TelegramEligibilityUser {
 /**
  * True when the user can receive Telegram messages at all: a chat is linked and
  * they haven't been opted out (set only by a verified outbound 403 — "bot blocked").
- * The Telegram analog of `isSmsChannelUsable` (linked + not opted out), independent
- * of any per-option preference.
+ * Independent of any per-option preference.
  *
  * `telegram_opted_out` is the SOLE channel-disable signal — there is no
- * `telegram_notifications_enabled` peer to SMS's two-flag model (see opt-out.ts).
+ * `telegram_notifications_enabled` peer flag (see opt-out.ts).
  * Every send path must funnel through this helper (or `shouldSendTelegram`).
  */
 export function isTelegramChannelUsable(user: TelegramEligibilityUser): boolean {

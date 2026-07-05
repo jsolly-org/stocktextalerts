@@ -20,7 +20,6 @@ type ParsedNotificationPreferencesForm = {
 	market_scheduled_asset_price_enabled?: boolean;
 	timezone?: string;
 	email_notifications_enabled?: boolean;
-	sms_notifications_enabled?: boolean;
 	market_scheduled_asset_price_times?: string[];
 	daily_digest_time?: number;
 } & Partial<Record<NotificationOptionFieldName, boolean>>;
@@ -143,7 +142,6 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	const boolFields = [
 		"market_scheduled_asset_price_enabled",
 		"email_notifications_enabled",
-		"sms_notifications_enabled",
 	] as const satisfies ReadonlyArray<keyof ParsedNotificationPreferencesForm>;
 
 	const boolUpdates: Record<string, boolean> = {};

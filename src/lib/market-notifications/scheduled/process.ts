@@ -9,8 +9,6 @@ import { anyFacetEnabled, isFacetEnabled } from "../../messaging/notification-pr
 import { buildDelayBannerHtml, buildDelayBannerText } from "../../messaging/parts/delay";
 import type { SparklineMap } from "../../messaging/parts/sparkline";
 import { recordNotification } from "../../messaging/shared";
-import { shouldSendSms } from "../../messaging/sms";
-import type { SmsSenderFactory } from "../../messaging/sms/sender-factory";
 import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../../messaging/telegram/sender-factory";
 import type { EmailSender } from "../../messaging/types";
@@ -26,7 +24,6 @@ import type { MarketClosureInfo } from "../../time/types";
 import type { AssetPriceMap, MarketSession, UserRecord } from "../../types";
 import {
 	processMarketScheduledEmailDelivery,
-	processMarketScheduledSmsDelivery,
 	processMarketScheduledTelegramDelivery,
 } from "./delivery";
 import { updateUserMarketScheduledNextSendAt } from "./next-send-at";
@@ -39,7 +36,6 @@ export async function processMarketScheduledUser(options: {
 	logger: Logger;
 	currentTime: DateTime;
 	sendEmail: EmailSender;
-	getSmsSender: SmsSenderFactory;
 	getTelegramSender: TelegramSenderFactory;
 	priceMap: AssetPriceMap;
 	/** Symbols Massive recognized but had no live trade in the current session.
@@ -59,8 +55,6 @@ export async function processMarketScheduledUser(options: {
 		logFailures: 0,
 		emailsSent: 0,
 		emailsFailed: 0,
-		smsSent: 0,
-		smsFailed: 0,
 		telegramSent: 0,
 		telegramFailed: 0,
 	};
@@ -71,7 +65,6 @@ export async function processMarketScheduledUser(options: {
 		logger,
 		sendEmail,
 		currentTime,
-		getSmsSender,
 		getTelegramSender,
 		priceMap,
 		noSessionTrade,
@@ -226,7 +219,6 @@ export async function processMarketScheduledUser(options: {
 			"market_scheduled_asset_price",
 			"email",
 		);
-		const scheduledIncludeSms = isFacetEnabled(user.prefs, "market_scheduled_asset_price", "sms");
 		const shouldPrepareEmail = user.email_notifications_enabled && scheduledIncludeEmail;
 		const { getLogoHtml } = await safePrefetchLogos({
 			assets: userAssets,
@@ -236,8 +228,6 @@ export async function processMarketScheduledUser(options: {
 			logContext: { action: "market_notifications_run", userId: user.id },
 			cache: options.logoCache,
 		});
-
-		const shouldAttemptSms = shouldSendSms(user);
 
 		// All channel preferences (incl. Telegram) live in notification_preferences,
 		// carried on user.prefs. Telegram gates on the usable-channel check + facet row.
@@ -276,28 +266,6 @@ export async function processMarketScheduledUser(options: {
 			});
 		}
 
-		/* ============= Process SMS ============= */
-		if (shouldAttemptSms && scheduledIncludeSms) {
-			attemptedDeliveryMethod = "sms";
-			await processMarketScheduledSmsDelivery({
-				user,
-				supabase,
-				logger,
-				scheduledDate,
-				scheduledMinutes,
-				userAssets,
-				priceMap,
-				noSessionTrade,
-				getSparkline,
-				getSmsSender,
-				marketSession,
-				marketClosureInfo,
-				stats,
-				delayBanner: delayBannerText,
-				sessionFirstLine,
-			});
-		}
-
 		/* ============= Process Telegram ============= */
 		if (telegramEnabled) {
 			attemptedDeliveryMethod = "telegram";
@@ -319,7 +287,6 @@ export async function processMarketScheduledUser(options: {
 		}
 
 		const emailRequired = user.email_notifications_enabled && scheduledIncludeEmail;
-		const smsRequired = shouldAttemptSms && scheduledIncludeSms;
 		const telegramRequired = telegramEnabled;
 		const canAdvance = await shouldAdvanceMarketScheduledSchedule({
 			supabase,
@@ -327,7 +294,6 @@ export async function processMarketScheduledUser(options: {
 			scheduledDate,
 			scheduledMinutes,
 			emailRequired,
-			smsRequired,
 			telegramRequired,
 		});
 
@@ -345,7 +311,6 @@ export async function processMarketScheduledUser(options: {
 				scheduledDate,
 				scheduledMinutes,
 				emailRequired,
-				smsRequired,
 			});
 		}
 
@@ -356,33 +321,13 @@ export async function processMarketScheduledUser(options: {
 
 		try {
 			const deliveryAttempts =
-				stats.emailsSent +
-				stats.emailsFailed +
-				stats.smsSent +
-				stats.smsFailed +
-				stats.telegramSent +
-				stats.telegramFailed;
+				stats.emailsSent + stats.emailsFailed + stats.telegramSent + stats.telegramFailed;
 
 			// Avoid false negatives: if delivery already happened (or was at least recorded as
 			// attempted) on ANY channel — including Telegram — a later failure (e.g. updating
 			// market_scheduled_asset_price_next_send_at) shouldn't log as undelivered.
 			if (deliveryAttempts === 0) {
-				const shouldAttemptSms = shouldSendSms(user);
-				const eligibleEmail =
-					user.email_notifications_enabled &&
-					isFacetEnabled(user.prefs, "market_scheduled_asset_price", "email");
-				const eligibleSms =
-					shouldAttemptSms && isFacetEnabled(user.prefs, "market_scheduled_asset_price", "sms");
-
-				const deliveryMethod: DeliveryMethod =
-					attemptedDeliveryMethod ??
-					(eligibleEmail
-						? "email"
-						: eligibleSms
-							? "sms"
-							: user.email_notifications_enabled
-								? "email"
-								: "sms");
+				const deliveryMethod: DeliveryMethod = attemptedDeliveryMethod ?? "email";
 				const logged = await recordNotification(supabase, {
 					user_id: user.id,
 					type: "market",

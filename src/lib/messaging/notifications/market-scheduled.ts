@@ -1,45 +1,23 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
-import { getSiteUrl } from "../../db/env";
 import type { MarketClosureInfo } from "../../time/types";
 import type { ActiveMarketSession, AssetPriceMap, MarketSession, UserAssetRow } from "../../types";
 import { NO_SESSION_TRADE } from "../../types";
 import { formatAssetsHtmlList } from "../email/asset-price-list";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
-import { formatAssetsTextList, NO_TRACKED_ASSETS_MESSAGE } from "../parts/asset-price-list";
-import { formatContentSection } from "../parts/content-section";
-import { SMS_OPT_OUT, TELEGRAM_FOOTER } from "../parts/footer";
+import { formatAssetsTextList } from "../parts/asset-price-list";
+import { TELEGRAM_FOOTER } from "../parts/footer";
 import {
 	buildMarketClosedBannerEmailHtml,
 	buildMarketClosedBannerEmailText,
-	buildMarketClosedBannerSms,
 	buildMarketClosedBannerTelegram,
 } from "../parts/market-closure";
 import {
 	buildSessionFirstLineEmailHtml,
 	buildSessionFirstLineEmailText,
-	buildSessionFirstLineSms,
 	buildSessionFirstLineTelegram,
 } from "../parts/session-label";
-import type { SparklineData } from "../parts/sparkline";
-import { padUrlsToSegmentBoundaries } from "../sms/segment-utils";
 import { appendTelegramAssetPriceLines } from "../telegram/asset-price-lines";
-import type { EmailFormatContext, EmailUser, NotificationExtras } from "../types";
-
-/** Format the optional "extras" block appended to scheduled market SMS messages. */
-function formatScheduledMarketSmsExtras(extras?: NotificationExtras): string {
-	if (!extras) {
-		return "";
-	}
-
-	const sections = [
-		formatContentSection("🗞️ News", extras.news),
-		formatContentSection("🤫 Rumors", extras.rumors),
-		formatContentSection("📊 Analyst Consensus", extras.analyst),
-		formatContentSection("🏦 Insider Trades", extras.insider),
-	].filter(Boolean);
-
-	return sections.join("\n\n");
-}
+import type { EmailFormatContext, EmailUser } from "../types";
 
 /** Build the plaintext + HTML email body for a scheduled asset update. */
 export function formatMarketScheduledEmail(
@@ -120,7 +98,7 @@ export function formatMarketScheduledEmail(
 
 	// Each channel renders its own asset list from raw data (userAssets + priceMap);
 	// the pipeline no longer pre-renders one shared string. `formatAssetsTextList` is a
-	// shared plaintext helper — both the email text part and SMS call it themselves.
+	// shared plaintext helper the email text part calls itself.
 	const getPrice = (symbol: string) =>
 		noSessionTrade?.has(symbol) ? NO_SESSION_TRADE : (priceMap.get(symbol) ?? undefined);
 	const assetsList = formatAssetsTextList(
@@ -170,80 +148,6 @@ export function formatMarketScheduledEmail(
 </html>`;
 
 	return { text, html };
-}
-
-/** Format the SMS body for a scheduled asset update. Renders its own asset list from
- *  raw data (userAssets + priceMap), sharing only the plaintext `formatAssetsTextList`
- *  helper with the email text part — the pipeline no longer pre-renders one string. */
-export function formatMarketScheduledSms(options: {
-	userAssets: UserAssetRow[];
-	priceMap: AssetPriceMap;
-	marketSession: MarketSession;
-	noSessionTrade?: Set<string>;
-	getSparkline?: (symbol: string) => SparklineData | null | undefined;
-	extras?: NotificationExtras;
-	marketClosureInfo?: MarketClosureInfo | null;
-	delayBanner?: string | null;
-	sessionFirstLine?: {
-		scheduledEtMinutes: number;
-		is24: boolean;
-	};
-}): string {
-	const {
-		userAssets,
-		priceMap,
-		marketSession,
-		noSessionTrade,
-		getSparkline,
-		extras,
-		marketClosureInfo,
-		delayBanner,
-		sessionFirstLine,
-	} = options;
-	const optOutSuffix = SMS_OPT_OUT;
-	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const marketOpen = marketSession !== "closed";
-
-	const header = "StockTextAlerts — Your scheduled price notification 📈";
-
-	if (userAssets.length === 0) {
-		return padUrlsToSegmentBoundaries(
-			`${header}\n\n${NO_TRACKED_ASSETS_MESSAGE}.\n\nManage your notifications: ${dashboardUrl}\n\n${optOutSuffix}`,
-		);
-	}
-
-	const getPrice = (symbol: string) =>
-		noSessionTrade?.has(symbol) ? NO_SESSION_TRADE : (priceMap.get(symbol) ?? undefined);
-	const assetsList = formatAssetsTextList(
-		userAssets,
-		getPrice,
-		getSparkline,
-		true,
-		marketOpen ? marketSession : undefined,
-	);
-	const marketDisclaimer = marketOpen ? "" : buildMarketClosedBannerSms(marketClosureInfo ?? null);
-	const extrasBlock = formatScheduledMarketSmsExtras(extras);
-	const sessionFirstLineText =
-		sessionFirstLine && marketOpen
-			? buildSessionFirstLineSms(
-					marketSession,
-					sessionFirstLine.scheduledEtMinutes,
-					sessionFirstLine.is24,
-				)
-			: "";
-
-	const sections = [
-		header,
-		sessionFirstLineText,
-		delayBanner || "",
-		marketDisclaimer,
-		assetsList,
-		extrasBlock,
-		`Manage your notifications: ${dashboardUrl}`,
-		optOutSuffix,
-	].filter(Boolean);
-
-	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
 }
 
 interface MarketScheduledTelegramOptions {
