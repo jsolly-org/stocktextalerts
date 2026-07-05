@@ -8,7 +8,6 @@ export async function shouldAdvanceMarketScheduledSchedule(
 		supabase: SupabaseAdminClient;
 		user: UserRecord;
 		emailRequired: boolean;
-		smsRequired: boolean;
 		telegramRequired?: boolean;
 	} & ScheduledSlotKey,
 ): Promise<boolean> {

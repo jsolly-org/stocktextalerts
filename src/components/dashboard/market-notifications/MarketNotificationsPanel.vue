@@ -38,8 +38,6 @@
 			<SetupRequiredNotice
 				:needs-tracked-assets="needsTrackedAssets"
 				:needs-channel-selection="needsChannelSelection"
-				:needs-phone-verification="needsPhoneVerification"
-				:phone-verification-section-id="phoneVerificationSectionId"
 			/>
 
 			<div
@@ -56,11 +54,6 @@
 						type="hidden"
 						name="market_scheduled_asset_price_include_email"
 						:value="marketIncludeEmail ? 'on' : 'off'"
-					/>
-					<input
-						type="hidden"
-						name="market_scheduled_asset_price_include_sms"
-						:value="marketIncludeSms ? 'on' : 'off'"
 					/>
 					<input
 						type="hidden"
@@ -144,11 +137,6 @@
 					type="hidden"
 					name="price_move_alerts_include_email"
 					:value="priceMoveAlertsIncludeEmail ? 'on' : 'off'"
-				/>
-				<input
-					type="hidden"
-					name="price_move_alerts_include_sms"
-					:value="priceMoveAlertsIncludeSms ? 'on' : 'off'"
 				/>
 				<input
 					type="hidden"
@@ -281,16 +269,9 @@ import FadeTransition from "../../FadeTransition.vue";
 import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import { useScheduledUpdateTiming } from "../composables/useScheduledUpdateTiming";
-import {
-	DASHBOARD_MARKET_FORM_ID,
-	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
-} from "../constants";
+import { DASHBOARD_MARKET_FORM_ID } from "../constants";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
-import {
-	getEmailChannelDisabledTitle,
-	getSmsChannelDisabledTitle,
-} from "../shared/channel-disabled-titles";
-import { createChannelOptionBuilders } from "../shared/channel-options";
+import { createChannelOptionBuilders, getEmailChannelDisabledTitle } from "../shared/channel-options";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import type { ChannelOption, InitialAsset, NotificationPreferencesData, PriceMoveThresholdMap } from "../types";
@@ -298,7 +279,6 @@ import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
 
 interface Props {
 	emailEnabled: boolean;
-	phoneVerified: boolean;
 	hasTrackedAssets: boolean;
 	/** Live tracked-asset list (updated by watchlist edits) — one price-move
 	 *  threshold row is rendered per asset. */
@@ -319,12 +299,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
 	telegramPrefs: () => ({}),
 });
-const {
-	emailEnabled,
-	phoneVerified,
-	hasTrackedAssets,
-	trackedAssets,
-} = toRefs(props);
+const { emailEnabled, hasTrackedAssets, trackedAssets } = toRefs(props);
 
 // Inject the shared mutable user ref from DashboardPanels
 const user = useDashboardUser();
@@ -344,16 +319,14 @@ const {
 });
 
 const marketIncludeEmail = ref(user.value.market_scheduled_asset_price_include_email);
-const marketIncludeSms = ref(user.value.market_scheduled_asset_price_include_sms);
 
 const priceMoveAlertsIncludeEmail = ref(user.value.price_move_alerts_include_email);
-const priceMoveAlertsIncludeSms = ref(user.value.price_move_alerts_include_sms);
 
 /* =============
 Telegram per-option state. These prefs live in `notification_preferences`
 (channel='telegram', content=''), not the users row, so they initialize from the
 server-loaded `telegramPrefs` prop (absent type ⇒ off) and are NOT re-synced from
-`user.value` the way the email/sms refs are.
+`user.value` the way the email refs are.
 ============= */
 const marketIncludeTelegram = ref(
 	props.telegramPrefs.market_scheduled_asset_price === true,
@@ -374,10 +347,10 @@ const telegramDisabledTitle = computed(() =>
 Master-flag coupling: the hidden `*_enabled` fields drive whether the notification
 fires at all. Telegram must flip them too — otherwise selecting only Telegram would
 persist a Telegram pref but leave the feature disabled, so nothing sends. Mirrors how
-email/sms already gate `*_enabled`.
+email already gates `*_enabled`.
 ============= */
 const marketNotificationsEnabled = computed(
-	() => marketIncludeEmail.value || marketIncludeSms.value || marketIncludeTelegram.value,
+	() => marketIncludeEmail.value || marketIncludeTelegram.value,
 );
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
@@ -476,25 +449,13 @@ const scheduledUpdateTimesMinutes = ref<number[]>(
 	hydrateScheduledTimesFromEt(user.value.market_scheduled_asset_price_times),
 );
 
-const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
-
 const scheduledUpdateTimes = computed(() =>
 	scheduledUpdateTimesMinutes.value.map((value) => minutesToTimeInputValue(value)),
 );
 
 const timezone = computed(() => user.value.timezone);
 
-const smsOptedOut = computed(() => user.value.sms_opted_out === true);
-const smsNotificationsEnabled = computed(() => user.value.sms_notifications_enabled === true);
-const smsReady = computed(
-	() => phoneVerified.value && !smsOptedOut.value && smsNotificationsEnabled.value,
-);
-const hasNotificationChannel = computed(
-	() =>
-		emailEnabled.value ||
-		(user.value.market_scheduled_asset_price_include_sms && smsReady.value),
-);
-const needsChannelSelection = computed(() => !hasNotificationChannel.value);
+const needsChannelSelection = computed(() => !emailEnabled.value);
 const needsTrackedAssets = computed(() => !hasTrackedAssets.value);
 const notificationSetupBlocked = computed(
 	() => needsChannelSelection.value || needsTrackedAssets.value,
@@ -508,47 +469,34 @@ const notificationSetupBlocked = computed(
 const emailDisabledTitle = computed(() =>
 	getEmailChannelDisabledTitle(emailEnabled.value),
 );
-const smsDisabledTitle = computed(() =>
-	getSmsChannelDisabledTitle({
-		smsNotificationsEnabled: smsNotificationsEnabled.value,
-		phoneVerified: phoneVerified.value,
-		smsOptedOut: smsOptedOut.value,
-	}),
-);
 
 /* =============
 Channel multiselect options. Each option carries its selected/disabled/title so the
 multiselect can show every channel while still surfacing why a channel is unavailable.
-Email/SMS disabled logic mirrors the prior per-option checkboxes verbatim.
+Email disabled logic mirrors the prior per-option checkboxes verbatim.
 ============= */
-const { emailOption, smsOption, telegramOption } = createChannelOptionBuilders({
+const { emailOption, telegramOption } = createChannelOptionBuilders({
 	emailDisabled: () => notificationSetupBlocked.value || !emailEnabled.value,
 	emailDisabledTitle: () => emailDisabledTitle.value,
-	smsDisabled: () => notificationSetupBlocked.value || !smsReady.value,
-	smsDisabledTitle: () => smsDisabledTitle.value,
 	telegramDisabled: () => !telegramConnected.value,
 	telegramDisabledTitle: () => telegramDisabledTitle.value,
 });
 
 const marketScheduledChannelOptions = computed<ChannelOption[]>(() => [
 	emailOption(marketIncludeEmail.value),
-	smsOption(marketIncludeSms.value),
 	telegramOption(marketIncludeTelegram.value),
 ]);
 const priceMoveChannelOptions = computed<ChannelOption[]>(() => [
 	emailOption(priceMoveAlertsIncludeEmail.value),
-	smsOption(priceMoveAlertsIncludeSms.value),
 	telegramOption(priceMoveAlertsIncludeTelegram.value),
 ]);
 
 function handleMarketScheduledToggle(channel: string, selected: boolean) {
 	if (channel === "email") marketIncludeEmail.value = selected;
-	else if (channel === "sms") marketIncludeSms.value = selected;
 	else if (channel === "telegram") marketIncludeTelegram.value = selected;
 }
 function handlePriceMoveToggle(channel: string, selected: boolean) {
 	if (channel === "email") priceMoveAlertsIncludeEmail.value = selected;
-	else if (channel === "sms") priceMoveAlertsIncludeSms.value = selected;
 	else if (channel === "telegram") priceMoveAlertsIncludeTelegram.value = selected;
 }
 
@@ -669,9 +617,6 @@ async function saveThreshold(symbol: string): Promise<void> {
 	thresholdStatus.value = { kind: ok ? "saved" : "error", symbol };
 }
 
-const needsPhoneVerification = computed(
-	() => user.value.market_scheduled_asset_price_include_sms && !phoneVerified.value,
-);
 const timePickerDisabled = computed(() => notificationSetupBlocked.value);
 const maxTimesReached = computed(
 	() => scheduledUpdateTimesMinutes.value.length >= MAX_DELIVERY_TIMES,
@@ -744,16 +689,8 @@ watchUserPreference(
 	marketIncludeEmail,
 );
 watchUserPreference(
-	() => user.value.market_scheduled_asset_price_include_sms,
-	marketIncludeSms,
-);
-watchUserPreference(
 	() => user.value.price_move_alerts_include_email,
 	priceMoveAlertsIncludeEmail,
-);
-watchUserPreference(
-	() => user.value.price_move_alerts_include_sms,
-	priceMoveAlertsIncludeSms,
 );
 watch(
 	() => user.value.market_scheduled_asset_price_times,
@@ -790,7 +727,6 @@ watch(
 			...user.value,
 			market_scheduled_asset_price_enabled: newData.market_scheduled_asset_price_enabled,
 			market_scheduled_asset_price_include_email: newData.market_scheduled_asset_price_include_email,
-			market_scheduled_asset_price_include_sms: newData.market_scheduled_asset_price_include_sms,
 			market_scheduled_asset_price_times: newData.market_scheduled_asset_price_times,
 			market_scheduled_asset_price_next_send_at: newData.market_scheduled_asset_price_next_send_at,
 			// Keep other panels' scheduling in sync with the server response.
@@ -799,47 +735,36 @@ watch(
 			...(newData.price_move_alerts_include_email !== undefined && {
 				price_move_alerts_include_email: newData.price_move_alerts_include_email,
 			}),
-			...(newData.price_move_alerts_include_sms !== undefined && {
-				price_move_alerts_include_sms: newData.price_move_alerts_include_sms,
-			}),
 			};
 		}
 	},
 );
 
-watch([marketIncludeEmail, marketIncludeSms], ([email, sms]) => {
-	if (
-		email === user.value.market_scheduled_asset_price_include_email &&
-		sms === user.value.market_scheduled_asset_price_include_sms
-	) {
+watch(marketIncludeEmail, (email) => {
+	if (email === user.value.market_scheduled_asset_price_include_email) {
 		return;
 	}
 	user.value = {
 		...user.value,
 		market_scheduled_asset_price_include_email: email,
-		market_scheduled_asset_price_include_sms: sms,
-		market_scheduled_asset_price_enabled: email || sms,
+		market_scheduled_asset_price_enabled: email,
 	};
 	notifyChange();
 });
 
-watch([priceMoveAlertsIncludeEmail, priceMoveAlertsIncludeSms], ([email, sms]) => {
-	if (
-		email === user.value.price_move_alerts_include_email &&
-		sms === user.value.price_move_alerts_include_sms
-	) {
+watch(priceMoveAlertsIncludeEmail, (email) => {
+	if (email === user.value.price_move_alerts_include_email) {
 		return;
 	}
 	user.value = {
 		...user.value,
 		price_move_alerts_include_email: email,
-		price_move_alerts_include_sms: sms,
 	};
 	notifyChange();
 });
 
 /* =============
-Telegram refs have no `users` columns, so unlike email/sms they don't push into
+Telegram refs have no `users` columns, so unlike email they don't push into
 `user.value` — they persist to `notification_preferences` server-side. We still
 trigger autosave so the hidden `*_telegram` form fields submit. The hidden
 `*_enabled` fields are bound to the master computeds (which include Telegram), so

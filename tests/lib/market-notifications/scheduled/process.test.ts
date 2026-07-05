@@ -15,7 +15,6 @@ vi.mock("../../../../src/lib/market-notifications/scheduled/schedule-state", () 
 
 vi.mock("../../../../src/lib/market-notifications/scheduled/delivery", () => ({
 	processMarketScheduledEmailDelivery: vi.fn(),
-	processMarketScheduledSmsDelivery: vi.fn(),
 	processMarketScheduledTelegramDelivery: vi.fn(),
 }));
 
@@ -43,10 +42,7 @@ vi.mock("../../../../src/lib/time/market/calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn(async () => null),
 }));
 
-import {
-	processMarketScheduledEmailDelivery,
-	processMarketScheduledSmsDelivery,
-} from "../../../../src/lib/market-notifications/scheduled/delivery";
+import { processMarketScheduledEmailDelivery } from "../../../../src/lib/market-notifications/scheduled/delivery";
 
 describe("processMarketScheduledUser schedule advancement", () => {
 	afterEach(() => {
@@ -69,7 +65,6 @@ describe("processMarketScheduledUser schedule advancement", () => {
 			logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } as never,
 			currentTime: DateTime.fromISO("2026-06-07T13:35:00.000Z"),
 			sendEmail: vi.fn() as never,
-			getSmsSender: vi.fn() as never,
 			getTelegramSender: vi.fn() as never,
 			priceMap: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 } as never]]),
 			marketSession: "regular",
@@ -81,17 +76,11 @@ describe("processMarketScheduledUser schedule advancement", () => {
 	it("advances next_send_at when all required channels are terminal", async () => {
 		vi.mocked(shouldAdvanceMarketScheduledSchedule).mockResolvedValue(true);
 		vi.mocked(processMarketScheduledEmailDelivery).mockResolvedValue();
-		vi.mocked(processMarketScheduledSmsDelivery).mockResolvedValue();
 
 		const user = makeUserRecord({
 			market_scheduled_asset_price_next_send_at: "2026-06-07T13:30:00.000Z",
 			email_notifications_enabled: true,
-			sms_notifications_enabled: true,
-			phone_verified: true,
-			prefs: makePrefRows([
-				["market_scheduled_asset_price", "", "email", true],
-				["market_scheduled_asset_price", "", "sms", true],
-			]),
+			prefs: makePrefRows([["market_scheduled_asset_price", "", "email", true]]),
 		});
 
 		await processMarketScheduledUser({
@@ -100,7 +89,6 @@ describe("processMarketScheduledUser schedule advancement", () => {
 			logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } as never,
 			currentTime: DateTime.fromISO("2026-06-07T13:35:00.000Z"),
 			sendEmail: vi.fn() as never,
-			getSmsSender: vi.fn(() => ({ sender: vi.fn() })) as never,
 			getTelegramSender: vi.fn(() => ({ sender: vi.fn() })) as never,
 			priceMap: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 } as never]]),
 			marketSession: "regular",

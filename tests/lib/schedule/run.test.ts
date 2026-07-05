@@ -7,7 +7,7 @@
  * path that advances next_send_at without sending.
  */
 import { DateTime } from "luxon";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../src/lib/time/market/calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
@@ -126,18 +126,10 @@ async function fetchUserNextSendAt(userId: string): Promise<string | null> {
 describe("runScheduledNotifications: fallback pipeline", () => {
 	beforeEach(() => {
 		resetMarketSessionCache();
-		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 		// Default to a regular-hours session so callers that don't override
 		// keep their prior behavior. Individual tests override per scenario.
 		getCurrentMarketSessionMock.mockReset();
 		getCurrentMarketSessionMock.mockResolvedValue("regular");
-	});
-
-	afterEach(() => {
-		// Do not call vi.unstubAllEnvs() — it strips global Twilio stubs from
-		// tests/setup.ts. Email-only cases never call getSmsSender(), so the first
-		// SMS test would fail on CI where .env.local lacks TWILIO_API_KEY_*.
-		// beforeEach re-stubs SMS_TEST_BEHAVIOR each test.
 	});
 
 	it("fallback still delivers when no staging row exists for the user", async () => {
@@ -151,7 +143,6 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		const { id } = await createTestUser({
 			timezone,
 			emailNotificationsEnabled: true,
-			smsNotificationsEnabled: false,
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
 		});
@@ -193,7 +184,6 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		const { id } = await createTestUser({
 			timezone,
 			emailNotificationsEnabled: true,
-			smsNotificationsEnabled: false,
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
 		});
@@ -234,7 +224,7 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		// Pre-market sessions use the same prev-close-anchored intraday chart as
 		// RTH/AH — Massive's 5-minute bars endpoint returns pre-market bars from
 		// 4 AM ET, and prepending prev close makes the chart's first-to-last
-		// delta agree with the headline change-%. SMS-style label is "today".
+		// delta agree with the headline change-%. The sparkline label is "today".
 		expect(emailLog?.message).toContain("today:");
 		expect(emailLog?.message).not.toContain("past 7 days:");
 	});
@@ -250,7 +240,6 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		const { id } = await createTestUser({
 			timezone,
 			emailNotificationsEnabled: true,
-			smsNotificationsEnabled: false,
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
 		});
@@ -291,62 +280,10 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		// (148.5 → 150 = +1.01%), so chart and % can never disagree.
 		expect(emailLog?.message).toContain("1.01%");
 		// After-hours session shows the today (prev-close-anchored) sparkline so
-		// shape and color always agree with the headline %; SMS label is "today".
+		// shape and color always agree with the headline %; the label is "today".
 		expect(emailLog?.message).toContain("today:");
 		// No legacy 4 PM-close anchor in the header.
 		expect(emailLog?.message).not.toContain("vs. 4:00 PM close");
-	});
-
-	it("An SMS-only user receives an after-hours SMS with prev-close-anchored change-% and no 4 PM-close header anchor", async () => {
-		const timezone = "America/New_York";
-		const fixedDueAt = DateTime.fromISO("2026-01-12T22:00:00.000Z", {
-			zone: "utc",
-		});
-		const scheduledUpdateTime = 17 * 60;
-
-		const { id } = await createTestUser({
-			timezone,
-			emailNotificationsEnabled: false,
-			smsNotificationsEnabled: true,
-			phoneVerified: true,
-			scheduledUpdateTimes: [scheduledUpdateTime],
-			trackedAssets: ["AAPL"],
-		});
-		registerTestUserForCleanup(id);
-
-		const { error: updateError } = await adminClient
-			.from("users")
-			.update({
-				market_scheduled_asset_price_next_send_at: fixedDueAt.toISO(),
-				market_scheduled_asset_price_enabled: true,
-			})
-			.eq("id", id);
-		expect(updateError).toBeNull();
-
-		getCurrentMarketSessionMock.mockResolvedValue("after");
-
-		const logger = {
-			debug: vi.fn(),
-			info: vi.fn(),
-			warn: vi.fn(),
-			error: vi.fn(),
-		};
-
-		await runScheduledNotifications({
-			supabase: adminClient,
-			logger: logger as never,
-		});
-
-		const logs = await fetchMarketLogs(id);
-		const smsLog = logs.find((l) => l.delivery_method === "sms");
-		expect(smsLog).toBeDefined();
-		expect(smsLog?.message_delivered).toBe(true);
-		// Header has session label only — no 4 PM-close anchor parenthetical.
-		expect(smsLog?.message).toMatch(/After-hours — \d+:\d{2} (AM|PM) ET/);
-		expect(smsLog?.message).not.toContain("vs. 4:00 PM close");
-		// Change-% derives from the sparkline endpoints (prev-close anchored):
-		// 148.5 → 150 = +1.01%.
-		expect(smsLog?.message).toContain("1.01%");
 	});
 
 	it("A scheduled time on a half-day in the after-hours dead zone is skipped at delivery (runtime session = 'closed'), logged at 'info', next_send_at advances", async () => {
@@ -362,7 +299,6 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		const { id } = await createTestUser({
 			timezone,
 			emailNotificationsEnabled: true,
-			smsNotificationsEnabled: false,
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
 		});
@@ -424,7 +360,6 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		const { id } = await createTestUser({
 			timezone,
 			emailNotificationsEnabled: true,
-			smsNotificationsEnabled: false,
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
 		});

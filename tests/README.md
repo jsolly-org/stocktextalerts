@@ -107,7 +107,7 @@ Direct Vitest invocation (IDE, `npx vitest`) loads `.env.local` then applies `no
 
 ## Baseline env stubs
 
-`tests/helpers/env-stubs.ts` centralizes provider/messaging stub env vars (Massive, Finnhub, XAI, Telegram, Twilio, unsubscribe secrets). `tests/setup.ts` applies them at startup and restores them in `afterEach` so specs that call `vi.unstubAllEnvs()` cannot poison later files.
+`tests/helpers/env-stubs.ts` centralizes provider/messaging stub env vars (Massive, Finnhub, XAI, Telegram, unsubscribe secrets). `tests/setup.ts` applies them at startup and restores them in `afterEach` so specs that call `vi.unstubAllEnvs()` cannot poison later files.
 
 For scoped env overrides inside a file, prefer `resetTestEnvStubs()` (`unstubAllEnvs` + restore baseline) in `afterEach`/`afterAll`.
 
@@ -129,7 +129,7 @@ Test email never hits real SES.
 - **Global retries:** `0` in `playwright.shared.ts`. Serial suites that mutate DB/page state must not auto-retry.
 - **Route walker exception:** `tests/e2e/routes.e2e.spec.ts` sets `retries: 1` locally (stateless navigation).
 - **`reuseExistingServer`:** enabled locally, disabled in CI (`playwright.config.ts`).
-- **Web server env:** vendor modules aliased to no-op stubs when `MODE=test` (see `astro.config.ts`); deterministic `TWILIO_AUTH_TOKEN` stub for inbound SMS E2E, Mailpit SMTP settings inherited from `.env.local`.
+- **Web server env:** vendor modules aliased to no-op stubs when `MODE=test` (see `astro.config.ts`); Mailpit SMTP settings inherited from `.env.local`.
 - **Origins:** derive from Playwright `baseURL` / `page` origin instead of hardcoding `:4322` where practical.
 - **Waits:** prefer route gates, response barriers, and `expect.poll` over fixed `waitForTimeout`.
 

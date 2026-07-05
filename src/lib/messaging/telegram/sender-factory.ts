@@ -10,7 +10,7 @@ export type TelegramSenderFactory = () => TelegramSenderResult;
 /**
  * Create a lazily-initialized, cached Telegram sender factory for batch notification runs.
  *
- * Mirrors `createSmsSenderFactory`: caches the bot/sender across the run.
+ * Caches the bot/sender across the run.
  */
 export function createTelegramSenderFactory(): TelegramSenderFactory {
 	let bot: Bot | null = null;

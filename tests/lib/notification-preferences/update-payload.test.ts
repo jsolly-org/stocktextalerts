@@ -14,8 +14,6 @@ function makeUser(overrides: Partial<User> = {}): User {
 		daily_notification_time: 1020,
 		daily_notification_next_send_at: "2026-01-14T22:00:00.000Z",
 		email_notifications_enabled: true,
-		sms_notifications_enabled: false,
-		sms_opted_out: false,
 		market_scheduled_asset_price_enabled: true,
 		...overrides,
 	} as unknown as User;
@@ -64,16 +62,14 @@ describe("Notification preference update payloads stay aligned with user schedul
 	});
 
 	it("Only persists booleans explicitly submitted in the form payload.", () => {
-		const user = makeUser({
-			sms_notifications_enabled: false,
-		});
+		const user = makeUser();
 		const formData = new FormData();
 		formData.set("email_notifications_enabled", "on");
 
 		const payload = buildNotificationPreferencesUpdatePayload({
 			parsedData: {
 				email_notifications_enabled: true,
-				sms_notifications_enabled: true,
+				market_scheduled_asset_price_enabled: true,
 			},
 			formData,
 			rawTimesValue: null,
@@ -83,16 +79,18 @@ describe("Notification preference update payloads stay aligned with user schedul
 		});
 
 		expect(payload.email_notifications_enabled).toBe(true);
-		expect(payload.sms_notifications_enabled).toBeUndefined();
+		// market_scheduled_asset_price_enabled was in parsedData but not the
+		// submitted formData, so it must be omitted (no unchecked-drift).
+		expect(payload.market_scheduled_asset_price_enabled).toBeUndefined();
 	});
 
 	it("Schedules daily_notification_next_send_at when a daily facet becomes enabled.", () => {
 		const user = makeUser();
 		const formData = new FormData();
-		formData.set("asset_events_include_insider_sms", "on");
+		formData.set("asset_events_include_insider_telegram", "on");
 
 		const payload = buildNotificationPreferencesUpdatePayload({
-			parsedData: { asset_events_include_insider_sms: true },
+			parsedData: { asset_events_include_insider_telegram: true },
 			formData,
 			rawTimesValue: null,
 			dbUser: user,

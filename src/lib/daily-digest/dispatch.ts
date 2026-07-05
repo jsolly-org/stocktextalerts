@@ -5,7 +5,6 @@ import { createSupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import type { LogoCache } from "../messaging/logo-fetcher";
 import { createNotificationSenders } from "../messaging/senders";
-import type { SmsSenderFactory } from "../messaging/sms/sender-factory";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { EmailSender } from "../messaging/types";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
@@ -18,8 +17,6 @@ const EMPTY_STATS: ScheduledNotificationTotals = {
 	logFailures: 0,
 	emailsSent: 0,
 	emailsFailed: 0,
-	smsSent: 0,
-	smsFailed: 0,
 	telegramSent: 0,
 	telegramFailed: 0,
 };
@@ -41,8 +38,6 @@ export async function dispatchDailyDigestUser(options: {
 	supabase?: SupabaseAdminClient;
 	/** Shared email sender from the cron run (reuses SES setup). */
 	sendEmail?: EmailSender;
-	/** Shared SMS provider from the cron run (reuses Twilio client cache). */
-	getSmsSender?: SmsSenderFactory;
 	/** Shared Telegram provider from the cron run (reuses bot/sender cache). */
 	getTelegramSender?: TelegramSenderFactory;
 	/** Shared per-pass logo cache so a symbol's logo is resolved once per pass, not per user. */
@@ -56,7 +51,6 @@ export async function dispatchDailyDigestUser(options: {
 		marketClosureInfo,
 		supabase: supabaseOption,
 		sendEmail: sendEmailOption,
-		getSmsSender: getSmsSenderOption,
 		getTelegramSender: getTelegramSenderOption,
 	} = options;
 
@@ -74,7 +68,6 @@ export async function dispatchDailyDigestUser(options: {
 		const supabase = supabaseOption ?? createSupabaseAdminClient();
 		const senders = createNotificationSenders();
 		const sendEmail = sendEmailOption ?? senders.sendEmail;
-		const getSmsSender = getSmsSenderOption ?? senders.getSmsSender;
 		const getTelegramSender = getTelegramSenderOption ?? senders.getTelegramSender;
 
 		// Reuse the UserRecord (with prefs) the scheduler already loaded when provided;
@@ -100,7 +93,6 @@ export async function dispatchDailyDigestUser(options: {
 			logger: rootLogger,
 			currentTime,
 			sendEmail,
-			getSmsSender,
 			getTelegramSender,
 			stageOnly: precompute === true,
 			marketOpen,

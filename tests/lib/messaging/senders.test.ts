@@ -1,28 +1,21 @@
 /**
  * Regression tests for outbound messaging test doubles wired in tests/setup.ts.
  *
- * Production factories (SES, Twilio, Telegram Bot API, Verify) no longer branch on
+ * Production factories (SES, Telegram Bot API) no longer branch on
  * runtime mode. The suite stubs them via tests/helpers/messaging-doubles.ts so
  * unit/integration tests never hit real delivery endpoints.
  */
-import twilio from "twilio";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkVerification, sendVerification } from "../../../src/lib/auth/sms-verification";
 import { createEmailSender } from "../../../src/lib/messaging/email/utils";
-import { createSmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import {
 	createTelegramBot,
 	createTelegramSender,
 } from "../../../src/lib/messaging/telegram/sender";
 import { clearMailpit, waitForMailpitMessageTo } from "../../helpers/mailpit";
-import { TEST_VERIFICATION_CODE } from "../../helpers/messaging-doubles";
 
 const STUB_TELEGRAM_TOKEN = "123456:AA-fake-token-for-sender-gate-tests-only";
-const STUB_TWILIO_ACCOUNT_SID = "ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-const STUB_TWILIO_AUTH_TOKEN = "stubaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-const STUB_TWILIO_FROM = "+15005550006";
 
-describe("messaging test doubles — no real SES/Twilio/Telegram/Verify in tests", () => {
+describe("messaging test doubles — no real SES/Telegram in tests", () => {
 	beforeEach(() => {
 		vi.unstubAllEnvs();
 	});
@@ -65,18 +58,6 @@ describe("messaging test doubles — no real SES/Twilio/Telegram/Verify in tests
 		});
 	});
 
-	describe("createSmsSender", () => {
-		it("uses the setup mock sender instead of calling Twilio", async () => {
-			const fakeClient = twilio(STUB_TWILIO_ACCOUNT_SID, STUB_TWILIO_AUTH_TOKEN);
-			const send = createSmsSender(fakeClient, STUB_TWILIO_FROM);
-			const result = await send({
-				to: "+15005550001",
-				body: "Stock alert: AAPL up 5.3% to $195.86",
-			});
-			expect(result).toMatchObject({ success: true, messageSid: "mock" });
-		});
-	});
-
 	describe("createTelegramSender", () => {
 		it("uses the setup mock sender instead of calling the Bot API", async () => {
 			const bot = createTelegramBot(STUB_TELEGRAM_TOKEN);
@@ -99,24 +80,6 @@ describe("messaging test doubles — no real SES/Twilio/Telegram/Verify in tests
 				error: "Simulated Telegram failure",
 				errorCode: "403",
 			});
-		});
-	});
-
-	describe("Twilio Verify API", () => {
-		it("sendVerification uses the setup mock without calling Twilio", async () => {
-			const result = await sendVerification("+15005550001");
-			expect(result).toEqual({ success: true });
-		});
-
-		it("checkVerification accepts the test OTP", async () => {
-			const result = await checkVerification("+15005550001", TEST_VERIFICATION_CODE);
-			expect(result).toEqual({ success: true });
-		});
-
-		it("checkVerification rejects any other code", async () => {
-			const result = await checkVerification("+15005550001", "123456");
-			expect(result.success).toBe(false);
-			expect(result.error).toBe("Invalid verification code");
 		});
 	});
 });

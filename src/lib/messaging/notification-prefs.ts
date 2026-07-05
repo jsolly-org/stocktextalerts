@@ -2,11 +2,11 @@
 Canonical notification-preference model.
 
 `notification_preferences` is the single source of truth for ALL channels
-(email, sms, telegram). One row per (user_id, notification_type, content, channel).
+(email, telegram). One row per (user_id, notification_type, content, channel).
 `content = ""` for facet-less notification types (the market/price types).
 
-This module replaces the wall of per-option `*_include_{email,sms}` columns that
-used to live on `public.users`. Channels are uniform peers — adding one is just
+This module replaces the wall of per-option `*_include_{email,telegram}` columns
+that used to live on `public.users`. Channels are uniform peers — adding one is just
 rows, not schema. The eligibility helpers below are channel-parametric (the old
 telegram-only helpers generalized): a channel is "wanted" for a type when its
 global enable is on AND at least one facet row is enabled for (type, channel).
@@ -157,9 +157,4 @@ export function anyFacetEnabled(
 	return prefs.some(
 		(p) => p.notification_type === notificationType && p.channel === channel && p.enabled,
 	);
-}
-
-/** True when at least one SMS facet is enabled across ANY notification type. */
-export function anySmsFacetEnabled(prefs: readonly PrefRow[]): boolean {
-	return prefs.some((p) => p.channel === "sms" && p.enabled);
 }

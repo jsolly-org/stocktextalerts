@@ -27,7 +27,6 @@ describe("A signed-in user updates their notification channels.", () => {
 			password: TEST_PASSWORD,
 			confirmed: true,
 			emailNotificationsEnabled: false,
-			smsNotificationsEnabled: false,
 		});
 		registerTestUserForCleanup(testUser.id);
 

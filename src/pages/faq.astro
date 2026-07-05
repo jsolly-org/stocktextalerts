@@ -10,22 +10,22 @@ const faqs = [
 	{
 		question: "What is StockTextAlerts?",
 		answer: REGISTRATION_ENABLED
-			? 'This free service sends updates on US stocks and ETFs you choose to follow. You receive a concise summary of price changes by email, SMS, or both. <a href="/auth/register" class="link-primary">Create a free account</a> to get started.'
-			: 'This free service sends updates on US stocks and ETFs you choose to follow. You receive a concise summary of price changes by email, SMS, or both. <a href="/auth/signin" class="link-primary">Sign in</a> to get started.'
+			? 'This free service sends updates on US stocks and ETFs you choose to follow. You receive a concise summary of price changes by email, Telegram, or both. <a href="/auth/register" class="link-primary">Create a free account</a> to get started.'
+			: 'This free service sends updates on US stocks and ETFs you choose to follow. You receive a concise summary of price changes by email, Telegram, or both. <a href="/auth/signin" class="link-primary">Sign in</a> to get started.'
 	},
 	{
 		question: "How do asset updates work?",
 		answer: REGISTRATION_ENABLED
-			? 'Once you <a href="/auth/register" class="link-primary">create an account</a> and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market asset price notifications, optional Price Move Alerts, plus an optional daily digest and asset events notifications. You can choose whether each notification type is delivered by email, SMS, or both.'
-			: 'Once you <a href="/auth/signin" class="link-primary">sign in</a> and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market asset price notifications, optional Price Move Alerts, plus an optional daily digest and asset events notifications. You can choose whether each notification type is delivered by email, SMS, or both.'
+			? 'Once you <a href="/auth/register" class="link-primary">create an account</a> and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market asset price notifications, optional Price Move Alerts, plus an optional daily digest and asset events notifications. You can choose whether each notification type is delivered by email, Telegram, or both.'
+			: 'Once you <a href="/auth/signin" class="link-primary">sign in</a> and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market asset price notifications, optional Price Move Alerts, plus an optional daily digest and asset events notifications. You can choose whether each notification type is delivered by email, Telegram, or both.'
 	},
 	{
 		question: "What are Price Move Alerts?",
 		answer: "Price Move Alerts notify you when a tracked stock moves past a threshold you set — as a percent or a dollar change in a single US trading day. Set a threshold per stock (they're off until you do). The move is measured from yesterday's close on the first alert, then re-triggered on each additional move of that size, and delivery is limited to protect against noise during busy sessions."
 	},
 	{
-		question: "Can I choose which notifications are sent via email vs SMS?",
-		answer: "Yes. Enable email and/or SMS, then choose which notification types are delivered to each channel (including Price Move Alerts and Asset Events). Some add-ons (like News and Rumors) are email-only. You can also manage channels by SMS command: reply STOP to pause SMS, START to resume SMS, STOP EMAIL to disable email notifications, STOP ALL to disable both, or HELP for options."
+		question: "Can I choose which notifications are sent via email vs Telegram?",
+		answer: "Yes. Enable email and/or Telegram, then choose which notification types are delivered to each channel (including Price Move Alerts and Asset Events). Some add-ons (like News and Rumors) are email-only. You can adjust channels for any notification type in your dashboard at any time."
 	},
 	{
 		question: "I didn\u2019t receive my verification email. What should I do?",
@@ -42,14 +42,14 @@ const faqs = [
 	{
 		question: "Is StockTextAlerts free?",
 		answer: REGISTRATION_ENABLED
-			? 'Yes. Creating an account, tracking assets, and receiving email updates are completely free. SMS delivery is also available at no extra cost. <a href="/auth/register" class="link-primary">Sign up for free</a>.'
-			: 'Yes. Creating an account, tracking assets, and receiving email updates are completely free. SMS delivery is also available at no extra cost.'
+			? 'Yes. Creating an account, tracking assets, and receiving email updates are completely free. Telegram delivery is also available at no extra cost. <a href="/auth/register" class="link-primary">Sign up for free</a>.'
+			: 'Yes. Creating an account, tracking assets, and receiving email updates are completely free. Telegram delivery is also available at no extra cost.'
 	},
 	{
-		question: "How do I get asset alerts by text message?",
+		question: "How do I get asset alerts on Telegram?",
 		answer: REGISTRATION_ENABLED
-			? 'After <a href="/auth/register" class="link-primary">signing up</a>, go to your dashboard and enable SMS as a notification channel. Add your phone number, verify it, and your updates will be sent as a text message in addition to (or instead of) email. You can reply STOP to pause SMS and START to turn SMS back on, or update notification settings in your dashboard.'
-			: 'After <a href="/auth/signin" class="link-primary">signing in</a>, go to your dashboard and enable SMS as a notification channel. Add your phone number, verify it, and your updates will be sent as a text message in addition to (or instead of) email. You can reply STOP to pause SMS and START to turn SMS back on, or update notification settings in your dashboard.'
+			? 'After <a href="/auth/register" class="link-primary">signing up</a>, go to your dashboard and enable Telegram as a notification channel. Link your Telegram account, and your updates will be sent to Telegram in addition to (or instead of) email. You can turn Telegram off at any time in your notification settings.'
+			: 'After <a href="/auth/signin" class="link-primary">signing in</a>, go to your dashboard and enable Telegram as a notification channel. Link your Telegram account, and your updates will be sent to Telegram in addition to (or instead of) email. You can turn Telegram off at any time in your notification settings.'
 	},
 	{
 		question: "When are updates sent?",
@@ -61,7 +61,7 @@ const faqs = [
 	},
 	{
 		question: "What are Asset Events?",
-		answer: "Asset Events is a daily notification that can include calendar events (earnings/dividends/splits), upcoming IPOs, insider trades, and analyst consensus. Each section has its own email/SMS toggle, so you can choose exactly what is delivered by channel. (Analyst consensus is typically sent up to once per month.)"
+		answer: "Asset Events is a daily notification that can include calendar events (earnings/dividends/splits), upcoming IPOs, insider trades, and analyst consensus. Each section has its own email/Telegram toggle, so you can choose exactly what is delivered by channel. (Analyst consensus is typically sent up to once per month.)"
 	},
 	{
 		question: "What information is included in the updates?",
@@ -69,13 +69,13 @@ const faqs = [
 	},
 	{
 		question: "Can I customize how the updates look?",
-		answer: "Yes. Updates always include the ticker, current price, and percent change. You can also toggle sparklines (a small weekly price trend) and use live previews so you know what your email and SMS updates will look like."
+		answer: "Yes. Updates always include the ticker, current price, and percent change. You can also toggle sparklines (a small weekly price trend) and use live previews so you know what your email and Telegram updates will look like."
 	},
 	{
 		question: "Do I need to install an app?",
 		answer: REGISTRATION_ENABLED
-			? 'No. StockTextAlerts works entirely through email and SMS. There is nothing to download or install. <a href="/auth/register" class="link-primary">Create an account</a>, manage your settings through our website, and receive your updates in your inbox or messaging app.'
-			: 'No. StockTextAlerts works entirely through email and SMS. There is nothing to download or install. <a href="/auth/signin" class="link-primary">Sign in</a>, manage your settings through our website, and receive your updates in your inbox or messaging app.'
+			? 'No. StockTextAlerts works entirely through email and Telegram. There is nothing to download or install. <a href="/auth/register" class="link-primary">Create an account</a>, manage your settings through our website, and receive your updates in your inbox or messaging app.'
+			: 'No. StockTextAlerts works entirely through email and Telegram. There is nothing to download or install. <a href="/auth/signin" class="link-primary">Sign in</a>, manage your settings through our website, and receive your updates in your inbox or messaging app.'
 	},
 	{
 		question: "How do I add or remove assets from my watchlist?",
@@ -115,7 +115,7 @@ const jsonLd = [
 
 <Layout
   title="Stock Alert FAQ | How Notifications Work"
-  description="FAQs about StockTextAlerts. Learn how stock and ETF price alerts work, what US assets you can track, and how to get free alerts by text."
+  description="FAQs about StockTextAlerts. Learn how stock and ETF price alerts work, what US assets you can track, and how to get free alerts by email or Telegram."
   jsonLd={jsonLd}
 >
   <div class="min-h-screen bg-surface">
@@ -124,7 +124,7 @@ const jsonLd = [
     </header>
     <main id="main-content" class="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
       <h1 class="text-4xl font-bold mb-4 text-balance">Stock & ETF Alert FAQ</h1>
-      <p class="text-lg text-body-secondary mb-10">Everything you need to know about tracking assets and choosing how you receive notifications (scheduled updates and Price Move Alerts by email, SMS, or both).</p>
+      <p class="text-lg text-body-secondary mb-10">Everything you need to know about tracking assets and choosing how you receive notifications (scheduled updates and Price Move Alerts by email, Telegram, or both).</p>
 
       <div class="space-y-8">
         {faqs.map((faq) => (

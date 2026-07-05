@@ -6,18 +6,15 @@ import type { UserRecord } from "../types";
 import { loadStoredFinnhubExtras } from "./enrichment-store";
 import {
 	formatAnalystSectionEmail,
-	formatAnalystSectionSms,
 	formatAnalystSectionTelegram,
 	formatAssetEventsSectionEmail,
-	formatAssetEventsSectionSms,
 	formatAssetEventsSectionTelegram,
 	formatInsiderSectionEmail,
-	formatInsiderSectionSms,
 	formatInsiderSectionTelegram,
 } from "./format";
 import type { AssetEventsContent, AssetEventsTelegramFacets } from "./types";
 
-type DeliveryChannel = "email" | "sms";
+type DeliveryChannel = "email";
 
 const emptyContent = (): AssetEventsContent => ({
 	eventsSection: null,
@@ -104,27 +101,6 @@ function buildEmailAssetEventsContent(options: FormatContentOptions): AssetEvent
 	};
 }
 
-function buildSmsAssetEventsContent(options: FormatContentOptions): AssetEventsContent {
-	const { user, eventsWithDaysUntil, finnhubData, includeInsider, includeAnalyst } = options;
-
-	const channelEvents = filterEventsForChannel(eventsWithDaysUntil, user, "sms");
-	const eventsSection =
-		channelEvents.length > 0 ? formatAssetEventsSectionSms(channelEvents) : null;
-
-	const insiderSection = includeInsider ? formatInsiderSectionSms(finnhubData.insider) : null;
-	const analystSection = includeAnalyst ? formatAnalystSectionSms(finnhubData.analyst) : null;
-
-	const hasAnyContent =
-		eventsSection !== null || insiderSection !== null || analystSection !== null;
-
-	return {
-		eventsSection,
-		insiderSection,
-		analystSection,
-		hasAnyContent,
-	};
-}
-
 /** Build asset-events content for one or more delivery channels with a single upstream load. */
 export async function buildAssetEventsContentForChannels(options: {
 	user: UserRecord;
@@ -137,7 +113,6 @@ export async function buildAssetEventsContentForChannels(options: {
 	telegramFacets?: AssetEventsTelegramFacets;
 }): Promise<{
 	email: AssetEventsContent | null;
-	sms: AssetEventsContent | null;
 	telegram: AssetEventsContent | null;
 	analystFetchAttempted: boolean;
 	shouldUpdateAnalystMonth: boolean;
@@ -145,14 +120,13 @@ export async function buildAssetEventsContentForChannels(options: {
 	const { user, supabase, logger, localDate, tickers, channels, telegramFacets } = options;
 	const noChannels = {
 		email: null,
-		sms: null,
 		telegram: null,
 		analystFetchAttempted: false,
 		shouldUpdateAnalystMonth: false,
 	};
 
 	// The Telegram facet selection independently requires content even when the
-	// user has email/SMS off (a Telegram-only asset-events user).
+	// user has email off (a Telegram-only asset-events user).
 	const telegramWantsCalendar = Boolean(telegramFacets?.calendar);
 	const telegramWantsIpos = Boolean(telegramFacets?.ipo);
 	const telegramWantsInsider = Boolean(telegramFacets?.insider);
@@ -282,7 +256,6 @@ export async function buildAssetEventsContentForChannels(options: {
 	const shouldUpdateAnalystMonth = analystFetchAttempted && finnhubData.analystFetchSucceeded;
 
 	let email: AssetEventsContent | null = null;
-	let sms: AssetEventsContent | null = null;
 
 	if (channels.includes("email")) {
 		email = buildEmailAssetEventsContent({
@@ -291,16 +264,6 @@ export async function buildAssetEventsContentForChannels(options: {
 			finnhubData,
 			includeInsider: channelWantsInsider(user, "email"),
 			includeAnalyst: channelWantsAnalyst(user, "email", currentMonth),
-		});
-	}
-
-	if (channels.includes("sms")) {
-		sms = buildSmsAssetEventsContent({
-			user,
-			eventsWithDaysUntil,
-			finnhubData,
-			includeInsider: channelWantsInsider(user, "sms"),
-			includeAnalyst: channelWantsAnalyst(user, "sms", currentMonth),
 		});
 	}
 
@@ -329,21 +292,19 @@ export async function buildAssetEventsContentForChannels(options: {
 
 	return {
 		email,
-		sms,
 		telegram,
 		analystFetchAttempted,
 		shouldUpdateAnalystMonth,
 	};
 }
 
-/** Build asset-events content for a single delivery channel. */
+/** Build asset-events email content for a single delivery. */
 export async function buildAssetEventsContent(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	localDate: string;
 	tickers: readonly string[];
-	channel: DeliveryChannel;
 }): Promise<AssetEventsContent> {
 	const built = await buildAssetEventsContentForChannels({
 		user: options.user,
@@ -351,8 +312,7 @@ export async function buildAssetEventsContent(options: {
 		logger: options.logger,
 		localDate: options.localDate,
 		tickers: options.tickers,
-		channels: [options.channel],
+		channels: ["email"],
 	});
-	const content = options.channel === "email" ? built.email : built.sms;
-	return content ?? emptyContent();
+	return built.email ?? emptyContent();
 }

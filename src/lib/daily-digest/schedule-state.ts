@@ -2,7 +2,6 @@ import { DateTime, type DateTime as DateTimeType } from "luxon";
 import { persistDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
-import { shouldSendSms } from "../messaging/sms/index";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { shouldAdvanceScheduledNotificationSchedule } from "../schedule/delivery-terminal";
 import { computeDeliveryRetryDelayMs } from "../schedule/retry-delays";
@@ -15,7 +14,6 @@ export async function shouldAdvanceDailyDigestSchedule(
 		supabase: SupabaseAdminClient;
 		user: UserRecord;
 		emailRequired: boolean;
-		smsRequired: boolean;
 		telegramRequired?: boolean;
 	} & ScheduledSlotKey,
 ): Promise<boolean> {
@@ -88,20 +86,18 @@ export async function recordDailyDigestProcessingFailure(
 		return;
 	}
 
-	const isChannel = (c: string): c is "email" | "sms" | "telegram" =>
-		c === "email" || c === "sms" || c === "telegram";
+	const isChannel = (c: string): c is "email" | "telegram" => c === "email" || c === "telegram";
 
 	// Prefer the channels that already have a slot row. When none exist (the failure
 	// happened before any channel row was seeded), derive the set from the user's
 	// actually-enabled channels — including Telegram — so a telegram-only user's slot
 	// can still reach terminal state instead of being mis-recorded as an email failure.
 	const existingChannels = (rows ?? []).map((r) => r.channel).filter(isChannel);
-	const enabledChannels: Array<"email" | "sms" | "telegram"> = [
+	const enabledChannels: Array<"email" | "telegram"> = [
 		...(user.email_notifications_enabled ? (["email"] as const) : []),
-		...(shouldSendSms(user) ? (["sms"] as const) : []),
 		...(isTelegramChannelUsable(user) ? (["telegram"] as const) : []),
 	];
-	const channels: Array<"email" | "sms" | "telegram"> =
+	const channels: Array<"email" | "telegram"> =
 		existingChannels.length > 0
 			? existingChannels
 			: enabledChannels.length > 0

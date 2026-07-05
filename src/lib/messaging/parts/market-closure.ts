@@ -46,15 +46,6 @@ function renderMarketClosedBannerPlain(
 	return `🔔 Market Closed\n${subline}`;
 }
 
-/** Build the plain-text market-closed banner for SMS. */
-export function buildMarketClosedBannerSms(
-	closureInfo?: MarketClosureInfo | null,
-	context: MarketClosedBannerContext = "prices",
-	asOf?: string | null,
-): string {
-	return renderMarketClosedBannerPlain(closureInfo, context, asOf);
-}
-
 /** Build the plain-text market-closed banner for the email text body. */
 export function buildMarketClosedBannerEmailText(
 	closureInfo?: MarketClosureInfo | null,

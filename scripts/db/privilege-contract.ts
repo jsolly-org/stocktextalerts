@@ -102,11 +102,6 @@ export const RPC_PRIVILEGES: RpcPrivilege[] = [
 	},
 	// --- Maintenance / purge RPCs (server cron only) ------------------------
 	{
-		signature: "purge_expired_short_urls()",
-		class: "server-only",
-		reason: "Schedule handler purges expired short URLs",
-	},
-	{
 		signature: "purge_expired_email_dispatch_keys()",
 		class: "server-only",
 		reason: "Schedule handler purges expired email-dispatch idempotency keys",
@@ -132,16 +127,6 @@ export const RPC_PRIVILEGES: RpcPrivilege[] = [
 		signature: "replace_user_assets(user_id uuid, symbols text[])",
 		class: "authenticated-client",
 		reason: "Dashboard updates the signed-in user's tracked assets; enforces auth.uid() internally",
-	},
-	{
-		signature: "reserve_sms_verification(p_user_id uuid, p_phone_country_code text, p_phone_number text, p_cooldown_ms integer)",
-		class: "authenticated-client",
-		reason: "Signed-in user reserves an SMS verification send; enforces auth.uid() internally",
-	},
-	{
-		signature: "rollback_sms_verification_reservation(p_user_id uuid, p_expected_verification_sent_at timestamp with time zone, p_restore_verification_sent_at timestamp with time zone)",
-		class: "authenticated-client",
-		reason: "Signed-in user rolls back a failed SMS verification reservation; enforces auth.uid() internally",
 	},
 ];
 

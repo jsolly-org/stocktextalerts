@@ -2,7 +2,7 @@
  * Integration test for the standalone asset-events Telegram dispatch wiring.
  *
  * Scenario: a Telegram-linked user who selected the asset_events "calendar" facet
- * for the Telegram channel (email/SMS off) runs through `processAssetEventsUser`
+ * for the Telegram channel (email off) runs through `processAssetEventsUser`
  * and receives a Telegram asset-events digest — a notification_log row with
  * delivery_method='telegram', the telegram scheduled_notifications row marked
  * sent, and stats.telegramSent incremented. Disabling the facet skips Telegram.
@@ -17,7 +17,7 @@ import { buildAssetEventsContentForChannels } from "../../../src/lib/asset-event
 import { processAssetEventsUser } from "../../../src/lib/asset-events/process";
 import { rootLogger } from "../../../src/lib/logging";
 import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
-import type { EmailSender, SmsSender, TelegramSender } from "../../../src/lib/messaging/types";
+import type { EmailSender, TelegramSender } from "../../../src/lib/messaging/types";
 import type { UserRecord } from "../../../src/lib/types";
 import { dashboardButtonUrl } from "../../helpers/messaging-doubles";
 import { adminClient } from "../../helpers/test-env";
@@ -36,7 +36,6 @@ async function seedTelegramAssetEventsUser(facetEnabled: boolean) {
 	const { id } = await createTestUser({
 		timezone: "America/New_York",
 		emailNotificationsEnabled: false,
-		smsNotificationsEnabled: false,
 		trackedAssets: ["NVDA"],
 		confirmed: true,
 	});
@@ -74,10 +73,9 @@ describe("Telegram standalone asset-events dispatch", () => {
 		const { id, telegramChatId, userRow, now } = await seedTelegramAssetEventsUser(true);
 
 		// Only the Telegram calendar facet is on → builder returns a telegram block
-		// carrying the earnings section; email/sms are null.
+		// carrying the earnings section; email is null.
 		vi.mocked(buildAssetEventsContentForChannels).mockResolvedValue({
 			email: null,
-			sms: null,
 			telegram: {
 				eventsSection: {
 					earnings: "NVDA: Earnings tomorrow",
@@ -94,7 +92,6 @@ describe("Telegram standalone asset-events dispatch", () => {
 		});
 
 		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
-		const smsSender = vi.fn<SmsSender>(async () => ({ success: true }));
 		const telegramSender = vi.fn<TelegramSender>(async () => ({
 			success: true,
 			messageSid: "tg-ae-1",
@@ -107,14 +104,12 @@ describe("Telegram standalone asset-events dispatch", () => {
 			currentTime: now,
 			marketClosureInfo: null,
 			sendEmail,
-			getSmsSender: () => ({ sender: smsSender }),
 			getTelegramSender: () => ({ sender: telegramSender }),
 		});
 
 		expect(stats.telegramSent).toBe(1);
 		expect(stats.telegramFailed).toBe(0);
 		expect(sendEmail).not.toHaveBeenCalled();
-		expect(smsSender).not.toHaveBeenCalled();
 		expect(telegramSender).toHaveBeenCalledTimes(1);
 
 		const sent = telegramSender.mock.calls[0]?.[0];
@@ -148,7 +143,6 @@ describe("Telegram standalone asset-events dispatch", () => {
 		// No facet on → builder is never reached for telegram; return empty.
 		vi.mocked(buildAssetEventsContentForChannels).mockResolvedValue({
 			email: null,
-			sms: null,
 			telegram: null,
 			analystFetchAttempted: false,
 			shouldUpdateAnalystMonth: false,
@@ -163,7 +157,6 @@ describe("Telegram standalone asset-events dispatch", () => {
 			currentTime: now,
 			marketClosureInfo: null,
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
-			getSmsSender: () => ({ sender: vi.fn<SmsSender>(async () => ({ success: true })) }),
 			getTelegramSender: () => ({ sender: telegramSender }),
 		});
 

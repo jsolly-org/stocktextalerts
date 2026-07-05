@@ -208,7 +208,6 @@ describe("buildAssetEventsContent", () => {
 			logger: logger as never,
 			localDate: "2026-02-10",
 			tickers: [],
-			channel: "email",
 		});
 
 		expect(result.hasAnyContent).toBe(true);
@@ -216,7 +215,7 @@ describe("buildAssetEventsContent", () => {
 		expect(result.eventsSection?.earnings).toBeNull();
 	});
 
-	it("loads insider from DB once when email and SMS insider are both enabled", async () => {
+	it("loads insider from DB for the email channel", async () => {
 		const supabase = createAssetEventsSupabase({
 			insiderTransactions: [
 				{
@@ -240,23 +239,20 @@ describe("buildAssetEventsContent", () => {
 
 		const result = await buildAssetEventsContentForChannels({
 			user: makeUser({
-				prefs: makePrefRows([
-					["daily_notification", "insider", "email", true],
-					["daily_notification", "insider", "sms", true],
-				]),
+				prefs: makePrefRows([["daily_notification", "insider", "email", true]]),
 			}),
 			supabase: supabase as never,
 			logger: logger as never,
 			localDate: "2026-02-10",
 			tickers: ["AAPL", "MSFT"],
-			channels: ["email", "sms"],
+			channels: ["email"],
 		});
 
 		expect(result.email?.insiderSection).toContain("AAPL");
-		expect(result.sms?.insiderSection).toContain("MSFT");
+		expect(result.email?.insiderSection).toContain("MSFT");
 	});
 
-	it("formats insider only on the channel that opted in", async () => {
+	it("formats insider on the email channel when opted in", async () => {
 		const supabase = createAssetEventsSupabase({
 			insiderTransactions: [
 				{
@@ -272,21 +268,16 @@ describe("buildAssetEventsContent", () => {
 
 		const result = await buildAssetEventsContentForChannels({
 			user: makeUser({
-				prefs: makePrefRows([
-					["daily_notification", "insider", "email", true],
-					["daily_notification", "insider", "sms", false],
-				]),
+				prefs: makePrefRows([["daily_notification", "insider", "email", true]]),
 			}),
 			supabase: supabase as never,
 			logger: logger as never,
 			localDate: "2026-02-10",
 			tickers: ["AAPL"],
-			channels: ["email", "sms"],
+			channels: ["email"],
 		});
 
 		expect(result.email?.insiderSection).toContain("AAPL");
-		expect(result.sms?.insiderSection).toBeNull();
-		expect(result.sms?.hasAnyContent).toBe(false);
 	});
 
 	it("sets shouldUpdateAnalystMonth when analyst fetch succeeded with no formatted section", async () => {
@@ -438,9 +429,8 @@ describe("buildAssetEventsContentForChannels Telegram facets", () => {
 		expect(result.telegram?.eventsSection?.earnings).toContain("AAPL");
 		// IPO facet off → no IPO section, even though an IPO row exists.
 		expect(result.telegram?.eventsSection?.ipos ?? null).toBeNull();
-		// email/sms untouched (no channels requested).
+		// email untouched (no channels requested).
 		expect(result.email).toBeNull();
-		expect(result.sms).toBeNull();
 	});
 
 	it("returns null Telegram content when no Telegram facet is enabled", async () => {

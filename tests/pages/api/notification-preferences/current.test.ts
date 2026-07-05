@@ -18,7 +18,6 @@ describe("A signed-in user loads their current notification settings.", () => {
 			confirmed: true,
 			timezone: "America/Chicago",
 			emailNotificationsEnabled: true,
-			smsNotificationsEnabled: false,
 			scheduledUpdateTimes: [555, 900],
 		});
 		registerTestUserForCleanup(testUser.id);
@@ -40,7 +39,6 @@ describe("A signed-in user loads their current notification settings.", () => {
 			message: string;
 			notificationPreferences: {
 				email_notifications_enabled: boolean;
-				sms_notifications_enabled: boolean;
 				timezone: string;
 				market_scheduled_asset_price_times: number[] | null;
 			};
@@ -48,7 +46,6 @@ describe("A signed-in user loads their current notification settings.", () => {
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("ok");
 		expect(payload.notificationPreferences.email_notifications_enabled).toBe(true);
-		expect(payload.notificationPreferences.sms_notifications_enabled).toBe(false);
 		expect(payload.notificationPreferences.timezone).toBe("America/Chicago");
 		expect(payload.notificationPreferences.market_scheduled_asset_price_times).toEqual([615, 960]);
 	});

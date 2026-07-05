@@ -84,11 +84,9 @@
 		"@vueuse/core": "^14.3.0",
 		"astro-icon": "^1.1.5",
 		"grammy": "^1.44.0",
-		"libphonenumber-js": "^1.13.7",
 		"luxon": "^3.7.2",
 		"nodemailer": "^9.0.3",
 		"pg-copy-streams": "^7.0.0",
-		"twilio": "^6.0.2",
 		"vue": "^3.5.39"
 	},
 	"devDependencies": {

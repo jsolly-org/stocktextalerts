@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
 import type { TablesInsert } from "../../src/lib/db/generated/database.types";
 import { buildDefaultPreferenceRows } from "../../src/lib/messaging/notification-prefs";
@@ -37,41 +37,16 @@ export async function setTestUserPrefs(
 	}
 }
 
-export function generateUniquePhoneNumber(): string {
-	const suffix = randomInt(1_000_000, 9_999_999);
-	return `555${String(suffix)}`;
-}
-
-export async function getTestUserPhone(userId: string): Promise<string> {
-	const { data: user, error } = await adminClient
-		.from("users")
-		.select("phone_country_code,phone_number")
-		.eq("id", userId)
-		.single();
-	if (error) throw new Error(`getTestUserPhone failed: ${error.message}`);
-	if (!user) throw new Error("expected user row");
-	if (!user.phone_country_code || !user.phone_number) {
-		throw new Error("expected user phone fields");
-	}
-	return `${user.phone_country_code}${user.phone_number}`;
-}
-
 export type CreateTestUserOptions = {
 	email?: string;
 	password?: string;
 	timezone?: string;
 	emailNotificationsEnabled?: boolean;
-	smsNotificationsEnabled?: boolean;
-	smsOptedOut?: boolean;
-	phoneCountryCode?: string | null;
-	phoneNumber?: string | null;
-	phoneVerified?: boolean;
 	scheduledUpdateTimes?: number[] | null;
 	trackedAssets?: string[];
 	confirmed?: boolean;
 	approved?: boolean;
 	marketScheduledAssetPriceIncludeEmail?: boolean;
-	marketScheduledAssetPriceIncludeSms?: boolean;
 };
 
 export type TestUser = { id: string; email: string };
@@ -148,26 +123,7 @@ export async function createTestUser(options: CreateTestUserOptions = {}): Promi
 	const email = options.email ?? createTestEmail("test");
 	const password = options.password || "TestPassword123!";
 	const timezone = options.timezone || "America/New_York";
-	const smsNotificationsEnabled = options.smsNotificationsEnabled ?? false;
 	const approved = options.approved ?? true;
-
-	const defaultPhoneCountryCode = "+1";
-	const defaultPhoneNumber = `500555${String(randomInt(0, 10000)).padStart(4, "0")}`;
-
-	const phoneCountryCode =
-		options.phoneCountryCode ?? (smsNotificationsEnabled ? defaultPhoneCountryCode : null);
-	const phoneNumber = options.phoneNumber ?? (smsNotificationsEnabled ? defaultPhoneNumber : null);
-	const phoneVerified = options.phoneVerified ?? false;
-	if (smsNotificationsEnabled && (!phoneCountryCode || !phoneNumber)) {
-		throw new Error(
-			"Invalid test user: smsNotificationsEnabled requires phoneCountryCode and phoneNumber",
-		);
-	}
-	if (smsNotificationsEnabled && options.smsOptedOut) {
-		throw new Error(
-			"Invalid test user: smsNotificationsEnabled and smsOptedOut cannot both be true (violates database constraint)",
-		);
-	}
 
 	// Create in Auth
 	const { data: authUser, error: authError } = await adminClient.auth.signUp({
@@ -233,13 +189,8 @@ export async function createTestUser(options: CreateTestUserOptions = {}): Promi
 			email,
 			approved_at: approved ? DateTime.utc().toISO() : null,
 			approved_by: approved ? "test" : null,
-			phone_country_code: phoneCountryCode,
-			phone_number: phoneNumber,
-			phone_verified: phoneVerified,
 			timezone,
 			email_notifications_enabled: options.emailNotificationsEnabled ?? false,
-			sms_notifications_enabled: smsNotificationsEnabled,
-			sms_opted_out: options.smsOptedOut ?? false,
 			market_scheduled_asset_price_times: finalMarketScheduledPriceTimes,
 			market_scheduled_asset_price_next_send_at: nextSendAtIso,
 		};
@@ -253,17 +204,14 @@ export async function createTestUser(options: CreateTestUserOptions = {}): Promi
 		}
 
 		// Per-option channel preferences live in notification_preferences. Seed the
-		// default rows (prices email+sms on; everything else off), then apply the
+		// default rows (prices email on; everything else off), then apply the
 		// scheduled-market overrides the test requested.
 		const defaultRows = buildDefaultPreferenceRows(userId);
 		const scheduledIncludeEmail =
 			options.marketScheduledAssetPriceIncludeEmail ?? options.emailNotificationsEnabled ?? false;
-		const scheduledIncludeSms =
-			options.marketScheduledAssetPriceIncludeSms ?? smsNotificationsEnabled;
 		for (const row of defaultRows) {
 			if (row.notification_type === "market_scheduled_asset_price" && row.content === "") {
 				if (row.channel === "email") row.enabled = scheduledIncludeEmail;
-				if (row.channel === "sms") row.enabled = scheduledIncludeSms;
 			}
 		}
 		const { error: prefsError } = await adminClient

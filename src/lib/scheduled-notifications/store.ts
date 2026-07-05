@@ -243,7 +243,7 @@ async function logRetriesExhausted(
 	}
 
 	if (data.attempt_count >= MAX_NOTIFICATION_RETRIES) {
-		// Terminal delivery failure for today (any cause: Twilio outage, DB
+		// Terminal delivery failure for today (any cause: provider outage, DB
 		// error, sustained rate limit). Next-day cron tick reattempts, but
 		// the user missed today's notification — alarm should see this.
 		options.logger.error(

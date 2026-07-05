@@ -45,9 +45,6 @@ test.describe("dashboard and assets", () => {
 			const emailSwitch = session.page.getByRole("switch", { name: "Email notifications" });
 			await expect(emailSwitch).toHaveAttribute("aria-checked", "true");
 
-			const smsSwitch = session.page.getByRole("switch", { name: "SMS notifications" });
-			await expect(smsSwitch).toHaveAttribute("aria-checked", "false");
-			await expect(session.page.locator("#phone")).not.toBeVisible();
 			await expect(session.page.getByText("No assets tracked yet")).toBeVisible();
 		} finally {
 			await session.cleanup();

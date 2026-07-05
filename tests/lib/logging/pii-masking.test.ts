@@ -85,7 +85,7 @@ describe("Sensitive user data is masked in logs.", () => {
 		rootLogger.info("Auth attempt", {
 			password: "secret123",
 			cronSecret: "bearer-token-value",
-			authToken: "twilio-token",
+			authToken: "session-token-value",
 			requestId: "req-1",
 		});
 
