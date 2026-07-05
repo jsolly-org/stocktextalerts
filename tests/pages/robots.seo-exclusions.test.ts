@@ -1,49 +1,52 @@
 import { describe, expect, it } from "vitest";
 import {
+	FULLY_BLOCKED_USER_AGENTS,
 	isDisallowedInRobots,
-	isExcludedFromSitemap,
 	ROBOTS_DISALLOW_PREFIXES,
-	SITEMAP_EXCLUDED_ROUTE_PREFIXES,
 } from "../../seo-routes";
 import { GET as getRobotsTxt } from "../../src/pages/robots.txt";
 import { createApiContext } from "../helpers/api-context";
 
-describe("SEO exclusion lists stay in sync.", () => {
-	it("robots.txt output contains Disallow lines for all robots disallow prefixes.", async () => {
-		const previousProductionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL;
-		process.env.VERCEL_PROJECT_PRODUCTION_URL = "https://www.stocktextalerts.com";
-		try {
-			const response = await getRobotsTxt(
-				createApiContext({ request: new Request("http://localhost/robots.txt") }),
-			);
-			const body = await response.text();
+async function getRobotsBody(): Promise<string> {
+	const response = await getRobotsTxt(
+		createApiContext({ request: new Request("http://localhost/robots.txt") }),
+	);
+	return response.text();
+}
 
-			const expectedDisallowLines = ROBOTS_DISALLOW_PREFIXES.map((prefix) => `Disallow: ${prefix}`);
-
-			for (const line of expectedDisallowLines) {
-				expect(body).toContain(line);
-			}
-		} finally {
-			if (previousProductionUrl === undefined) {
-				delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
-			} else {
-				process.env.VERCEL_PROJECT_PRODUCTION_URL = previousProductionUrl;
-			}
+describe("robots.txt reflects the private-app policy.", () => {
+	it("emits Disallow lines for every general-crawl disallow prefix.", async () => {
+		const body = await getRobotsBody();
+		for (const prefix of ROBOTS_DISALLOW_PREFIXES) {
+			expect(body).toContain(`Disallow: ${prefix}`);
 		}
 	});
 
-	it("robots.txt includes a sitemap-index.xml Sitemap line.", async () => {
-		const response = await getRobotsTxt(
-			createApiContext({ request: new Request("http://localhost/robots.txt") }),
-		);
-		const body = await response.text();
-
-		expect(body).toMatch(/^Sitemap: .+\/sitemap-index\.xml$/m);
+	it("lets general crawlers fetch pages (so Googlebot sees the noindex header), never blanket-blocking them.", async () => {
+		const body = await getRobotsBody();
+		expect(body).toContain("User-agent: *\nAllow: /");
+		// A bare `Disallow: /` in the wildcard group would hide the noindex directive
+		// from Googlebot and defeat the de-index intent — that belongs only in the
+		// per-scraper blocks below.
+		const wildcardBlock = body.split("\n\n")[0] ?? "";
+		expect(wildcardBlock.split("\n")).not.toContain("Disallow: /");
 	});
 
-	it("No duplicate entries in SITEMAP_EXCLUDED_ROUTE_PREFIXES.", () => {
-		const set = new Set(SITEMAP_EXCLUDED_ROUTE_PREFIXES);
-		expect(set.size).toBe(SITEMAP_EXCLUDED_ROUTE_PREFIXES.length);
+	it("guards against emptied policy arrays (both must stay non-empty).", () => {
+		expect(ROBOTS_DISALLOW_PREFIXES.length).toBeGreaterThan(0);
+		expect(FULLY_BLOCKED_USER_AGENTS.length).toBeGreaterThan(0);
+	});
+
+	it("denies the whole site to every fully-blocked user-agent.", async () => {
+		const body = await getRobotsBody();
+		for (const agent of FULLY_BLOCKED_USER_AGENTS) {
+			expect(body).toContain(`User-agent: ${agent}\nDisallow: /`);
+		}
+	});
+
+	it("does not advertise a sitemap (the private app has none).", async () => {
+		const body = await getRobotsBody();
+		expect(body).not.toMatch(/^Sitemap:/m);
 	});
 
 	it("No duplicate entries in ROBOTS_DISALLOW_PREFIXES.", () => {
@@ -51,21 +54,19 @@ describe("SEO exclusion lists stay in sync.", () => {
 		expect(set.size).toBe(ROBOTS_DISALLOW_PREFIXES.length);
 	});
 
-	it("All prefixes start with a forward slash.", () => {
-		const allPrefixes = [...SITEMAP_EXCLUDED_ROUTE_PREFIXES, ...ROBOTS_DISALLOW_PREFIXES];
-		for (const prefix of allPrefixes) {
+	it("No duplicate entries in FULLY_BLOCKED_USER_AGENTS.", () => {
+		const set = new Set(FULLY_BLOCKED_USER_AGENTS);
+		expect(set.size).toBe(FULLY_BLOCKED_USER_AGENTS.length);
+	});
+
+	it("All robots disallow prefixes start with a forward slash.", () => {
+		for (const prefix of ROBOTS_DISALLOW_PREFIXES) {
 			expect(prefix.startsWith("/")).toBe(true);
 		}
 	});
 });
 
-describe("Ahrefs audit private-route policy.", () => {
-	it("excludes /auth/pending-approval and /admin from sitemap output.", () => {
-		expect(isExcludedFromSitemap("/auth/pending-approval")).toBe(true);
-		expect(isExcludedFromSitemap("/admin")).toBe(true);
-		expect(isExcludedFromSitemap("/admin/users")).toBe(true);
-	});
-
+describe("Private-route robots policy.", () => {
 	it("disallows /admin, /api/, /dashboard, and /profile in robots.txt.", () => {
 		expect(isDisallowedInRobots("/admin/users")).toBe(true);
 		expect(isDisallowedInRobots("/api/auth/signin")).toBe(true);
@@ -76,20 +77,4 @@ describe("Ahrefs audit private-route policy.", () => {
 	it("does not disallow /auth/pending-approval in robots.txt.", () => {
 		expect(isDisallowedInRobots("/auth/pending-approval")).toBe(false);
 	});
-
-	it("keeps public marketing pages in the sitemap.", () => {
-		expect(isExcludedFromSitemap("/")).toBe(false);
-		expect(isExcludedFromSitemap("/about")).toBe(false);
-		expect(isExcludedFromSitemap("/legal/terms")).toBe(false);
-		expect(isExcludedFromSitemap("/legal/privacy")).toBe(false);
-	});
 });
-
-/**
- * Issue-by-issue Ahrefs remediation matrix (2026-06 audit):
- * - Canonical points to redirect / 3XX redirect in sitemap: fix via PRODUCTION_SITE_URL=www.
- * - Noindex page / Noindex follow / Redirected page has no incoming internal links: pending-approval sitemap exclusion.
- * - 302 redirect / admin redirect chain: /admin sitemap + robots exclusion; auth redirect unchanged.
- * - Meta description too short: pending-approval description lengthened.
- * - HTTP to HTTPS redirect / redirect chain on http:// origins: accepted platform behavior.
- */
