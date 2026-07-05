@@ -8,7 +8,7 @@ import { renderIntradaySparklineImg } from "../../messaging/email/intraday-spark
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
-import { NOT_FINANCIAL_ADVICE, SMS_OPT_OUT } from "../../messaging/parts/footer";
+import { SMS_OPT_OUT } from "../../messaging/parts/footer";
 import { escapeHtml, getSafeHrefUrl } from "../../messaging/parts/html-utils";
 import {
 	renderPriceAlertHeadline,
@@ -110,7 +110,6 @@ async function formatPriceAlertSms(
 
 	sections.push(`Manage your notifications: ${dashboardUrl}`);
 	sections.push(optOutSuffix);
-	sections.push(NOT_FINANCIAL_ADVICE);
 
 	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
 }
@@ -194,7 +193,6 @@ function formatPriceAlertEmail(
 
 	textSections.push(`Manage your notifications: ${urls.scheduleUrl}`);
 	textSections.push(`Unsubscribe from all emails: ${urls.unsubscribeUrl}`);
-	textSections.push(NOT_FINANCIAL_ADVICE);
 
 	const text = textSections.join("\n\n");
 
