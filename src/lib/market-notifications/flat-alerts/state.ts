@@ -1,5 +1,7 @@
 import type { SupabaseAdminClient } from "../../db/supabase";
+import type { PriceMoveThresholdUnit } from "../../db/types";
 import { rootLogger } from "../../logging";
+import type { PriceMoveThreshold } from "./types";
 
 /** Row from price_move_alert_state — the per-(user, symbol) flat-alert state. */
 interface FlatPriceAlertStateRow {
@@ -59,6 +61,49 @@ export async function fetchFlatPriceAlertState(
 }
 
 /**
+ * Batch-fetch per-(user, symbol) price-move thresholds for a set of users.
+ * Returns a map keyed by user id → that user's threshold rows. Users who have
+ * opted no assets into price-move alerts are simply absent from the map.
+ *
+ * Throws on DB error: an empty map is indistinguishable from "no thresholds
+ * configured", which would silently drop every alert. Better to abort the run
+ * and retry on the next cron tick.
+ */
+export async function fetchPriceMoveThresholds(
+	supabase: SupabaseAdminClient,
+	userIds: string[],
+): Promise<Map<string, PriceMoveThreshold[]>> {
+	const result = new Map<string, PriceMoveThreshold[]>();
+	if (userIds.length === 0) return result;
+
+	const { data, error } = await supabase
+		.from("price_move_alert_thresholds")
+		.select("user_id, symbol, threshold_value, threshold_unit")
+		.in("user_id", userIds);
+
+	if (error) {
+		rootLogger.error(
+			"Failed to fetch price-move alert thresholds",
+			{ userCount: userIds.length },
+			error,
+		);
+		throw new Error(`fetchPriceMoveThresholds failed: ${error.message}`);
+	}
+
+	for (const row of data ?? []) {
+		const list = result.get(row.user_id) ?? [];
+		list.push({
+			symbol: row.symbol,
+			value: Number(row.threshold_value),
+			unit: row.threshold_unit,
+		});
+		result.set(row.user_id, list);
+	}
+
+	return result;
+}
+
+/**
  * Atomically claim an alert slot. Returns `true` when the alert should be
  * delivered, `false` otherwise (sub-threshold, race lost, or validation fail).
  *
@@ -76,17 +121,19 @@ export async function reserveFlatPriceAlert(
 		symbol: string;
 		baselinePrice: number;
 		newPrice: number;
-		thresholdPercent: number;
+		thresholdValue: number;
+		thresholdUnit: PriceMoveThresholdUnit;
 	},
 ): Promise<boolean> {
-	const { userId, symbol, baselinePrice, newPrice, thresholdPercent } = options;
+	const { userId, symbol, baselinePrice, newPrice, thresholdValue, thresholdUnit } = options;
 
 	const { data: reserved, error } = await supabase.rpc("reserve_flat_price_alert", {
 		p_user_id: userId,
 		p_symbol: symbol,
 		p_baseline_price: baselinePrice,
 		p_new_price: newPrice,
-		p_threshold_percent: thresholdPercent,
+		p_threshold_value: thresholdValue,
+		p_threshold_unit: thresholdUnit,
 	});
 
 	if (error) {

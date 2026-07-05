@@ -195,53 +195,6 @@ export type Database = {
         }
         Relationships: []
       }
-      asset_snapshots: {
-        Row: {
-          captured_at: string
-          change_percent: number
-          day_high: number | null
-          day_low: number | null
-          day_open: number | null
-          id: string
-          prev_close: number | null
-          price: number
-          symbol: string
-          volume: number | null
-        }
-        Insert: {
-          captured_at?: string
-          change_percent: number
-          day_high?: number | null
-          day_low?: number | null
-          day_open?: number | null
-          id?: string
-          prev_close?: number | null
-          price: number
-          symbol: string
-          volume?: number | null
-        }
-        Update: {
-          captured_at?: string
-          change_percent?: number
-          day_high?: number | null
-          day_low?: number | null
-          day_open?: number | null
-          id?: string
-          prev_close?: number | null
-          price?: number
-          symbol?: string
-          volume?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "asset_snapshots_symbol_fkey"
-            columns: ["symbol"]
-            isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["symbol"]
-          },
-        ]
-      }
       assets: {
         Row: {
           composite_figi: string | null
@@ -250,7 +203,6 @@ export type Database = {
           icon_url: string | null
           name: string
           reference_updated_utc: string | null
-          sector: string | null
           symbol: string
           type: Database["public"]["Enums"]["asset_type"]
         }
@@ -261,7 +213,6 @@ export type Database = {
           icon_url?: string | null
           name: string
           reference_updated_utc?: string | null
-          sector?: string | null
           symbol: string
           type?: Database["public"]["Enums"]["asset_type"]
         }
@@ -272,30 +223,8 @@ export type Database = {
           icon_url?: string | null
           name?: string
           reference_updated_utc?: string | null
-          sector?: string | null
           symbol?: string
           type?: Database["public"]["Enums"]["asset_type"]
-        }
-        Relationships: []
-      }
-      daily_asset_stats: {
-        Row: {
-          atr_14: number | null
-          avg_volume_20d: number | null
-          computed_at: string
-          symbol: string
-        }
-        Insert: {
-          atr_14?: number | null
-          avg_volume_20d?: number | null
-          computed_at?: string
-          symbol: string
-        }
-        Update: {
-          atr_14?: number | null
-          avg_volume_20d?: number | null
-          computed_at?: string
-          symbol?: string
         }
         Relationships: []
       }
@@ -316,57 +245,6 @@ export type Database = {
           idempotency_key?: string
         }
         Relationships: []
-      }
-      market_asset_price_alert_cooldowns: {
-        Row: {
-          alerts_sent_count: number
-          delivery_status: Database["public"]["Enums"]["price_alert_delivery_status"]
-          last_alerted_at: string
-          max_abs_move_dollar: number
-          max_abs_move_percent: number
-          reserved_at: string | null
-          symbol: string
-          trading_day_key: string
-          user_id: string
-        }
-        Insert: {
-          alerts_sent_count?: number
-          delivery_status?: Database["public"]["Enums"]["price_alert_delivery_status"]
-          last_alerted_at?: string
-          max_abs_move_dollar?: number
-          max_abs_move_percent?: number
-          reserved_at?: string | null
-          symbol: string
-          trading_day_key?: string
-          user_id: string
-        }
-        Update: {
-          alerts_sent_count?: number
-          delivery_status?: Database["public"]["Enums"]["price_alert_delivery_status"]
-          last_alerted_at?: string
-          max_abs_move_dollar?: number
-          max_abs_move_percent?: number
-          reserved_at?: string | null
-          symbol?: string
-          trading_day_key?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "instant_alert_cooldowns_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "market_asset_price_alert_cooldowns_symbol_fkey"
-            columns: ["symbol"]
-            isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["symbol"]
-          },
-        ]
       }
       market_events: {
         Row: {
@@ -549,6 +427,45 @@ export type Database = {
           },
           {
             foreignKeyName: "price_move_alert_state_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      price_move_alert_thresholds: {
+        Row: {
+          created_at: string
+          symbol: string
+          threshold_unit: Database["public"]["Enums"]["price_move_threshold_unit"]
+          threshold_value: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          symbol: string
+          threshold_unit: Database["public"]["Enums"]["price_move_threshold_unit"]
+          threshold_value: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          symbol?: string
+          threshold_unit?: Database["public"]["Enums"]["price_move_threshold_unit"]
+          threshold_value?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_move_alert_thresholds_symbol_fkey"
+            columns: ["symbol"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["symbol"]
+          },
+          {
+            foreignKeyName: "price_move_alert_thresholds_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -814,8 +731,6 @@ export type Database = {
           grok_window_start: string | null
           id: string
           last_grok_rumors_at: string | null
-          market_asset_price_alert_move_size: Database["public"]["Enums"]["alert_move_size"]
-          market_asset_price_alerts_enabled: boolean
           market_scheduled_asset_price_enabled: boolean
           market_scheduled_asset_price_next_send_at: string | null
           market_scheduled_asset_price_times: number[] | null
@@ -848,8 +763,6 @@ export type Database = {
           grok_window_start?: string | null
           id?: string
           last_grok_rumors_at?: string | null
-          market_asset_price_alert_move_size?: Database["public"]["Enums"]["alert_move_size"]
-          market_asset_price_alerts_enabled?: boolean
           market_scheduled_asset_price_enabled?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
@@ -882,8 +795,6 @@ export type Database = {
           grok_window_start?: string | null
           id?: string
           last_grok_rumors_at?: string | null
-          market_asset_price_alert_move_size?: Database["public"]["Enums"]["alert_move_size"]
-          market_asset_price_alerts_enabled?: boolean
           market_scheduled_asset_price_enabled?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
@@ -936,19 +847,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      claim_market_asset_price_alert_slot: {
-        Args: {
-          p_abs_move_dollar?: number
-          p_abs_move_percent?: number
-          p_symbol: string
-          p_user_id: string
-        }
-        Returns: boolean
-      }
-      claim_market_asset_price_alert_trading_day: {
-        Args: { p_observed_at?: string; p_symbol: string; p_user_id: string }
-        Returns: boolean
-      }
       claim_scheduled_notification: {
         Args: {
           p_channel: Database["public"]["Enums"]["delivery_method"]
@@ -960,10 +858,6 @@ export type Database = {
         Returns: number
       }
       finalize_flat_price_alert: {
-        Args: { p_symbol: string; p_user_id: string }
-        Returns: boolean
-      }
-      finalize_market_asset_price_alert_slot: {
         Args: { p_symbol: string; p_user_id: string }
         Returns: boolean
       }
@@ -983,15 +877,7 @@ export type Database = {
         Args: { p_retention_hours?: number }
         Returns: number
       }
-      purge_old_asset_snapshots: {
-        Args: { p_retention_minutes?: number }
-        Returns: number
-      }
       release_flat_price_alert: {
-        Args: { p_symbol: string; p_user_id: string }
-        Returns: boolean
-      }
-      release_market_asset_price_alert_slot: {
         Args: { p_symbol: string; p_user_id: string }
         Returns: boolean
       }
@@ -1004,16 +890,8 @@ export type Database = {
           p_baseline_price: number
           p_new_price: number
           p_symbol: string
-          p_threshold_percent: number
-          p_user_id: string
-        }
-        Returns: boolean
-      }
-      reserve_market_asset_price_alert_slot: {
-        Args: {
-          p_abs_move_dollar?: number
-          p_abs_move_percent?: number
-          p_symbol: string
+          p_threshold_unit: string
+          p_threshold_value: number
           p_user_id: string
         }
         Returns: boolean
@@ -1039,11 +917,10 @@ export type Database = {
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
-      alert_move_size: "significant" | "extreme"
       asset_event_type: "earnings" | "dividend" | "split"
       asset_type: "stock" | "etf"
       delivery_method: "email" | "sms" | "telegram"
-      price_alert_delivery_status: "reserved" | "finalized"
+      price_move_threshold_unit: "percent" | "dollar"
       scheduled_notification_status: "sending" | "sent" | "failed"
       scheduled_notification_type: "market" | "daily" | "asset_events"
       staged_notification_type: "daily"
@@ -1174,11 +1051,10 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      alert_move_size: ["significant", "extreme"],
       asset_event_type: ["earnings", "dividend", "split"],
       asset_type: ["stock", "etf"],
       delivery_method: ["email", "sms", "telegram"],
-      price_alert_delivery_status: ["reserved", "finalized"],
+      price_move_threshold_unit: ["percent", "dollar"],
       scheduled_notification_status: ["sending", "sent", "failed"],
       scheduled_notification_type: ["market", "daily", "asset_events"],
       staged_notification_type: ["daily"],

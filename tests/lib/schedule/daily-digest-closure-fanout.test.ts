@@ -5,7 +5,7 @@ const fetchDailyNotificationUsersMock = vi.fn();
 const fetchUpcomingDailyDigestUsersMock = vi.fn();
 const getCurrentMarketSessionMock = vi.fn();
 const fetchMarketScheduledUsersMock = vi.fn();
-const processPriceAlertsMock = vi.fn();
+const processFlatPriceAlertsMock = vi.fn();
 const getUsMarketClosureInfoForInstantMock = vi.fn();
 const fetchAssetPricesWithSessionStateMock = vi.fn();
 const batchLoadUserAssetsMock = vi.fn();
@@ -92,8 +92,8 @@ vi.mock("../../../src/lib/staged-notifications/precompute", () => ({
 	}),
 }));
 
-vi.mock("../../../src/lib/market-notifications/anomaly-alerts/process", () => ({
-	processPriceAlerts: processPriceAlertsMock,
+vi.mock("../../../src/lib/market-notifications/flat-alerts/process", () => ({
+	processFlatPriceAlerts: processFlatPriceAlertsMock,
 }));
 
 vi.mock("../../../src/lib/messaging/email/utils", () => ({
@@ -102,10 +102,6 @@ vi.mock("../../../src/lib/messaging/email/utils", () => ({
 
 vi.mock("../../../src/lib/messaging/sms/sender-factory", () => ({
 	createSmsSenderFactory: () => () => ({ sender: "+15555550123" }),
-}));
-
-vi.mock("../../../src/lib/market-notifications/snapshot-store", () => ({
-	purgeOldAssetSnapshots: vi.fn().mockResolvedValue(0),
 }));
 
 vi.mock("../../../src/lib/db/user-assets", async () => {
@@ -124,7 +120,7 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 		fetchDailyNotificationUsersMock.mockReset();
 		fetchMarketScheduledUsersMock.mockReset();
 		getCurrentMarketSessionMock.mockReset();
-		processPriceAlertsMock.mockReset();
+		processFlatPriceAlertsMock.mockReset();
 		getUsMarketClosureInfoForInstantMock.mockReset();
 		fetchAssetPricesWithSessionStateMock.mockReset();
 		batchLoadUserAssetsMock.mockReset();
@@ -135,20 +131,20 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 			noSessionTrade: new Set(),
 		});
 
-		processPriceAlertsMock.mockResolvedValue({
-			totals: {
-				symbolsChecked: 0,
-				alertsTriggered: 0,
-				cooldownSkips: 0,
-				emailsSent: 0,
-				emailsFailed: 0,
-				smsSent: 0,
-				smsFailed: 0,
-				logFailures: 0,
-			},
-			quoteMap: new Map(),
-			isMarketOpen: false,
-			marketSession: "closed",
+		processFlatPriceAlertsMock.mockResolvedValue({
+			usersChecked: 0,
+			symbolsEvaluated: 0,
+			alertsTriggered: 0,
+			claimLost: 0,
+			firstOfDayAlerts: 0,
+			reTriggerAlerts: 0,
+			emailsSent: 0,
+			emailsFailed: 0,
+			smsSent: 0,
+			smsFailed: 0,
+			telegramSent: 0,
+			telegramFailed: 0,
+			logFailures: 0,
 		});
 	});
 

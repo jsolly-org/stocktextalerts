@@ -14,13 +14,6 @@ function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 	return {
 		symbol: "LDOS",
 		priceMove: { symbol: "LDOS", changePercent: -11.1, price: 173.0, period: "today" },
-		signal: {
-			benchmarkLabel: "broader market (SPY)",
-			benchmarkMovePercent: 0.85,
-			hasEarningsNearby: false,
-		},
-		grokContext: "down 11.10% from previous close, anomaly score 52/75",
-		grokResult: null,
 		intradayCloses: null,
 		intradayTimestamps: null,
 		intradayEndTimestamp: null,
@@ -46,7 +39,6 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 
 		expect(result.text).toContain("LDOS");
 		expect(result.text).toContain("down 11.1% today ($173.00)");
-		expect(result.text).toContain("The broader market (SPY) moved up 0.85% today.");
 
 		// Formatting travels out-of-band as entities (no MarkdownV2/HTML escaping).
 		expect(result.entities.length).toBeGreaterThan(0);
@@ -57,34 +49,6 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 		expect((result.photo as Buffer).length).toBeGreaterThan(0);
 		// PNG magic number: 0x89 'P' 'N' 'G'.
 		expect((result.photo as Buffer).subarray(0, 4)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
-	});
-
-	it("includes a 'Why it's moving' blockquote from Grok with inline-link markup stripped", async () => {
-		const result = await formatPriceAlertTelegram(
-			makeAlert({
-				grokResult: {
-					summary:
-						"Leidos fell after cutting guidance amid reduced federal spending.[[Reuters]](https://www.reuters.com/example)",
-					links: [
-						{
-							url: "https://www.reuters.com/example",
-							title: "Leidos cuts guidance",
-							source: "Reuters",
-							sourceType: "web",
-						},
-					],
-				},
-			}),
-			makeCandles(4),
-		);
-
-		expect(result.text).toContain("Why it's moving");
-		expect(result.text).toContain("Leidos fell after cutting guidance");
-		// The raw "[[Reuters]](url)" markup is collapsed to the plain label, no brackets/url.
-		expect(result.text).toContain("Reuters");
-		expect(result.text).not.toContain("[[Reuters]]");
-		expect(result.text).not.toContain("https://www.reuters.com/example");
-		expect(result.entities.some((e) => e.type === "blockquote")).toBe(true);
 	});
 
 	it("degrades to a text-only message (no photo, no throw) when there are too few candles", async () => {
@@ -133,10 +97,6 @@ describe("deliverTelegramPriceAlert attaches the 'Manage notifications' dashboar
 			sendTelegram,
 			supabase: makeInsertOnlySupabase(),
 			stats: makeStats(),
-			notificationType: "price_alert",
-			failureLogMessage: "fail",
-			failureErrorFallback: "fail",
-			failureLogContext: {},
 		});
 
 		expect(delivered).toBe(true);
@@ -155,10 +115,6 @@ describe("deliverTelegramPriceAlert attaches the 'Manage notifications' dashboar
 			sendTelegram,
 			supabase: makeInsertOnlySupabase(),
 			stats: makeStats(),
-			notificationType: "price_alert",
-			failureLogMessage: "fail",
-			failureErrorFallback: "fail",
-			failureLogContext: {},
 		});
 
 		const sent = sendTelegram.mock.calls[0]?.[0] as TelegramMessage;

@@ -188,10 +188,6 @@ export async function deliverFlatPriceAlert(options: {
 				sendTelegram,
 				supabase,
 				stats,
-				notificationType: "flat_price_alert",
-				failureLogMessage: "Failed to send flat price alert Telegram message",
-				failureErrorFallback: "Flat price alert Telegram send failed",
-				failureLogContext: { symbol, triggerPercent },
 			});
 			if (sent) {
 				delivered = true;

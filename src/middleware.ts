@@ -172,6 +172,9 @@ const applySecurityHeaders = (headers: Headers, requestId: string, request?: Req
 	headers.set("referrer-policy", "strict-origin-when-cross-origin");
 	headers.set("permissions-policy", "camera=(), microphone=(), geolocation=()");
 	headers.set("strict-transport-security", "max-age=63072000; includeSubDomains; preload");
+	// Private household app: keep every response out of search indexes site-wide.
+	// Covers HTML, API JSON, and assets alike — belt to the per-page noindex meta.
+	headers.set("x-robots-tag", "noindex, nofollow");
 };
 
 /**

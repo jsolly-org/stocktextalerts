@@ -2,7 +2,7 @@ import type { NotificationOptionFieldName } from "../constants";
 import { NOTIFICATION_PREFERENCE_CATALOG } from "../constants";
 import { applyDailyNotificationNextSendAtToUserUpdate } from "../daily-notification/schedule";
 import { omitUndefined } from "../db";
-import type { AlertMoveSize, User, UserUpdateInput } from "../db/types";
+import type { User, UserUpdateInput } from "../db/types";
 import type { Logger } from "../logging";
 import { userLocalToEtMinute } from "../time/conversion";
 import {
@@ -23,8 +23,6 @@ type ParsedNotificationPreferencesForm = {
 	sms_notifications_enabled?: boolean;
 	market_scheduled_asset_price_times?: string[];
 	daily_digest_time?: number;
-	market_asset_price_alerts_enabled?: boolean;
-	market_asset_price_alert_move_size?: AlertMoveSize;
 } & Partial<Record<NotificationOptionFieldName, boolean>>;
 
 /** Daily notification form fields that gate next-send-at scheduling (every
@@ -146,7 +144,6 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		"market_scheduled_asset_price_enabled",
 		"email_notifications_enabled",
 		"sms_notifications_enabled",
-		"market_asset_price_alerts_enabled",
 	] as const satisfies ReadonlyArray<keyof ParsedNotificationPreferencesForm>;
 
 	const boolUpdates: Record<string, boolean> = {};
@@ -163,12 +160,6 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		...boolUpdates,
 		...(formData.has("daily_digest_time")
 			? { daily_notification_time: parsedData.daily_digest_time ?? null }
-			: {}),
-		...(formData.has("market_asset_price_alert_move_size") &&
-		parsedData.market_asset_price_alert_move_size !== undefined
-			? {
-					market_asset_price_alert_move_size: parsedData.market_asset_price_alert_move_size,
-				}
 			: {}),
 	});
 

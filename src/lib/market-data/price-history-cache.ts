@@ -1,5 +1,4 @@
 import { DateTime } from "luxon";
-import { SECTOR_ETF_MAP } from "../assets/constants";
 import { US_MARKET_TIMEZONE } from "../constants";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
@@ -25,11 +24,12 @@ export function formatChartAsOfLabel(
 }
 
 const MINUTE_RETENTION_HOURS = 36;
-const DAILY_RETENTION_DAYS = 30;
+// Only the 7-trading-day watchlist sparkline reads daily closes now, so 14
+// calendar days (safely > 7 trading days across a holiday week) is plenty. The
+// wider 30-day window was for the removed anomaly ATR-14 / ADV-20 baseline.
+const DAILY_RETENTION_DAYS = 14;
 const INTRADAY_CACHE_MAX_AGE_MS = 15 * 60 * 1000;
 const REQUIRED_DAILY_CLOSES = 7;
-
-const MARKET_BENCHMARK_SYMBOL = "SPY";
 
 export type PriceHistoryRow = {
 	symbol: string;
@@ -43,22 +43,14 @@ type DailyCloseRow = {
 	close: number;
 };
 
-/** Benchmark + sector ETF symbols used for price-alert context charts. */
-export function getBenchmarkCacheSymbols(): string[] {
-	return [MARKET_BENCHMARK_SYMBOL, ...new Set(Object.values(SECTOR_ETF_MAP))];
-}
-
+/** Distinct tracked symbols to cache price history for. */
 export async function getPriceCacheSymbols(supabase: SupabaseAdminClient): Promise<string[]> {
 	const { data, error } = await supabase.from("user_assets").select("symbol");
 	if (error) {
 		rootLogger.error("Failed to load tracked symbols for price cache", {}, error);
-		return getBenchmarkCacheSymbols();
+		return [];
 	}
-	const symbols = new Set(getBenchmarkCacheSymbols());
-	for (const row of data ?? []) {
-		symbols.add(row.symbol);
-	}
-	return [...symbols];
+	return [...new Set((data ?? []).map((row) => row.symbol))];
 }
 
 export async function storePriceHistoryRows(

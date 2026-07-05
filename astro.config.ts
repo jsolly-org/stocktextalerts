@@ -1,5 +1,4 @@
 import { fileURLToPath } from "node:url";
-import sitemap from "@astrojs/sitemap";
 import vercel from "@astrojs/vercel";
 import { cacheVercel } from "@astrojs/vercel/cache";
 import vue from "@astrojs/vue";
@@ -8,7 +7,6 @@ import { defineConfig, envField, memoryCache } from "astro/config";
 import icon from "astro-icon";
 import { loadEnv, type Plugin } from "vite";
 import svgLoader from "vite-svg-loader";
-import { isExcludedFromSitemap } from "./seo-routes";
 
 const stubVendorMassivePath = fileURLToPath(
 	new URL("./tests/stubs/vendors/massive.ts", import.meta.url),
@@ -95,16 +93,6 @@ if (!vercelUrl) {
 	site = `https://${vercelUrl}`;
 }
 
-/**
- * Exclude auth flow, authenticated, and utility pages from the sitemap.
- *
- * These routes have no SEO value and are better left out of crawl budgets.
- */
-function sitemapFilter(page: string): boolean {
-	const pathname = new URL(page).pathname;
-	return !isExcludedFromSitemap(pathname);
-}
-
 // E2E / HTTP-test Astro servers use dummy API keys; swap vendor modules for no-op stubs.
 // Vitest unit tests keep real modules (VITEST=true) so fetch spies exercise retry logic.
 const useVendorStubs = mode === "test" && process.env.VITEST !== "true";
@@ -183,13 +171,7 @@ export default defineConfig({
 		},
 	},
 
-	integrations: [
-		sitemap({
-			filter: sitemapFilter,
-		}),
-		icon(),
-		vue(),
-	],
+	integrations: [icon(), vue()],
 
 	vite: {
 		server: {

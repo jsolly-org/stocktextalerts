@@ -76,7 +76,7 @@ export function executeRolesFor(entry: Pick<RpcPrivilege, "class">): RoleName[] 
 export const RPC_PRIVILEGES: RpcPrivilege[] = [
 	// --- Delivery-state RPCs (the incident surface) -------------------------
 	{
-		signature: "reserve_flat_price_alert(p_user_id uuid, p_symbol text, p_baseline_price numeric, p_new_price numeric, p_threshold_percent numeric)",
+		signature: "reserve_flat_price_alert(p_user_id uuid, p_symbol text, p_baseline_price numeric, p_new_price numeric, p_threshold_value numeric, p_threshold_unit text)",
 		class: "server-only",
 		reason: "Schedule Lambda claims a flat-price-alert delivery slot",
 	},
@@ -89,21 +89,6 @@ export const RPC_PRIVILEGES: RpcPrivilege[] = [
 		signature: "release_flat_price_alert(p_user_id uuid, p_symbol text)",
 		class: "server-only",
 		reason: "Schedule Lambda releases a flat-price-alert slot on send failure",
-	},
-	{
-		signature: "reserve_market_asset_price_alert_slot(p_user_id uuid, p_symbol text, p_abs_move_percent numeric, p_abs_move_dollar numeric)",
-		class: "server-only",
-		reason: "Schedule Lambda claims a market-asset price-alert delivery slot",
-	},
-	{
-		signature: "finalize_market_asset_price_alert_slot(p_user_id uuid, p_symbol text)",
-		class: "server-only",
-		reason: "Schedule Lambda finalizes a market-asset price-alert slot after send",
-	},
-	{
-		signature: "release_market_asset_price_alert_slot(p_user_id uuid, p_symbol text)",
-		class: "server-only",
-		reason: "Schedule Lambda releases a market-asset price-alert slot on send failure",
 	},
 	{
 		signature: "claim_scheduled_notification(p_user_id uuid, p_notification_type scheduled_notification_type, p_scheduled_date date, p_scheduled_minutes integer, p_channel delivery_method)",
@@ -135,11 +120,6 @@ export const RPC_PRIVILEGES: RpcPrivilege[] = [
 		signature: "purge_old_asset_daily_closes(p_retention_days integer)",
 		class: "server-only",
 		reason: "Daily-close cache maintenance (server)",
-	},
-	{
-		signature: "purge_old_asset_snapshots(p_retention_minutes integer)",
-		class: "server-only",
-		reason: "Asset snapshot maintenance (server)",
 	},
 	// --- Auth rate limiting (server admin client) ---------------------------
 	{
@@ -204,16 +184,6 @@ export const LEGACY_SERVER_ONLY: RpcPrivilege[] = [
 		signature: "claim_flat_price_alert(p_user_id uuid, p_symbol text, p_baseline_price numeric, p_new_price numeric, p_threshold_percent numeric)",
 		class: "server-only",
 		reason: "Legacy flat-price-alert claim, superseded by reserve/finalize; no client access",
-	},
-	{
-		signature: "claim_market_asset_price_alert_slot(p_user_id uuid, p_symbol text, p_abs_move_percent numeric, p_abs_move_dollar numeric)",
-		class: "server-only",
-		reason: "Legacy market-asset price-alert claim, superseded by reserve/finalize; no client access",
-	},
-	{
-		signature: "claim_market_asset_price_alert_trading_day(p_user_id uuid, p_symbol text, p_observed_at timestamp with time zone)",
-		class: "server-only",
-		reason: "Legacy market-asset trading-day claim, superseded by reserve/finalize; no client access",
 	},
 ];
 

@@ -9,7 +9,7 @@
  * Asset fixture seeding goes through a direct `pg` connection (postgres owner),
  * mirroring `tests/helpers/asset-db.ts`: production grants `service_role` only
  * SELECT/UPDATE/INSERT on `public.assets`, but seeding pre-existing rows with the
- * richer columns (sector/icon_url/reference_updated_utc/composite_figi/delisted_at)
+ * richer columns (icon_url/reference_updated_utc/composite_figi/delisted_at)
  * is an owner concern. Test symbols use a `Z`-prefix + per-file random suffix so
  * they never collide with real tickers or with parallel/future tests.
  */
@@ -53,7 +53,7 @@ import { expectConsoleError } from "../../setup";
  */
 const TEST_PREFIX = `Z${randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase()}`;
 
-type TickerDetail = { ok: boolean; iconUrl: string | null; sector: string | null };
+type TickerDetail = { ok: boolean; iconUrl: string | null };
 
 /** A pre-existing `assets` row to seed before a reconcile run. */
 type SeedAsset = {
@@ -61,7 +61,6 @@ type SeedAsset = {
 	name: string;
 	type: "stock" | "etf";
 	delisted_at?: string | null;
-	sector?: string | null;
 	icon_url?: string | null;
 	reference_updated_utc?: string | null;
 	composite_figi?: string | null;
@@ -91,17 +90,16 @@ async function seedAssets(records: SeedAsset[]): Promise<void> {
 		await client.query(
 			`
 				INSERT INTO public.assets
-					(symbol, name, type, delisted_at, sector, icon_url, reference_updated_utc, composite_figi)
-				SELECT symbol, name, type::public.asset_type, delisted_at, sector, icon_url, reference_updated_utc, composite_figi
+					(symbol, name, type, delisted_at, icon_url, reference_updated_utc, composite_figi)
+				SELECT symbol, name, type::public.asset_type, delisted_at, icon_url, reference_updated_utc, composite_figi
 				FROM jsonb_to_recordset($1::jsonb) AS r(
 					symbol text, name text, type text, delisted_at timestamptz,
-					sector text, icon_url text, reference_updated_utc timestamptz, composite_figi text
+					icon_url text, reference_updated_utc timestamptz, composite_figi text
 				)
 				ON CONFLICT (symbol) DO UPDATE SET
 					name = EXCLUDED.name,
 					type = EXCLUDED.type,
 					delisted_at = EXCLUDED.delisted_at,
-					sector = EXCLUDED.sector,
 					icon_url = EXCLUDED.icon_url,
 					reference_updated_utc = EXCLUDED.reference_updated_utc,
 					composite_figi = EXCLUDED.composite_figi
@@ -113,7 +111,6 @@ async function seedAssets(records: SeedAsset[]): Promise<void> {
 						name: r.name,
 						type: r.type,
 						delisted_at: r.delisted_at ?? null,
-						sector: r.sector ?? null,
 						icon_url: r.icon_url ?? null,
 						reference_updated_utc: r.reference_updated_utc ?? null,
 						composite_figi: r.composite_figi ?? null,
@@ -127,9 +124,7 @@ async function seedAssets(records: SeedAsset[]): Promise<void> {
 async function getAsset(symbol: string) {
 	const { data } = await adminClient
 		.from("assets")
-		.select(
-			"symbol, name, type, delisted_at, sector, icon_url, reference_updated_utc, composite_figi",
-		)
+		.select("symbol, name, type, delisted_at, icon_url, reference_updated_utc, composite_figi")
 		.eq("symbol", symbol)
 		.maybeSingle();
 	return data;
@@ -232,7 +227,6 @@ function makeFakeDetail(bySymbol?: Map<string, TickerDetail>): {
 			bySymbol?.get(symbol) ?? {
 				ok: true,
 				iconUrl: `https://cdn.example.com/${symbol}.png`,
-				sector: "Technology",
 			}
 		);
 	};
@@ -316,7 +310,6 @@ describe("runUniverseReconcile", () => {
 		expect(detail.calls).toContain(newSymbol);
 		expect(result.enriched).toBe(1);
 		expect(row?.icon_url).toBe(`https://cdn.example.com/${newSymbol}.png`);
-		expect(row?.sector).toBe("Technology");
 
 		// New symbol queued for price warmup.
 		expect(result.warmupEnqueued).toBe(1);
@@ -334,7 +327,6 @@ describe("runUniverseReconcile", () => {
 				symbol,
 				name: "Old Holdings Corp",
 				type: "stock",
-				sector: "Energy",
 				icon_url: `https://cdn.example.com/${symbol}.png`,
 				reference_updated_utc: "2026-06-01T00:00:00Z",
 			},
@@ -348,7 +340,7 @@ describe("runUniverseReconcile", () => {
 				name: "Rebranded Energy Partners LP",
 				type: "stock",
 				// Same reference timestamp → not an enrichment candidate via the advance
-				// gate, and sector+icon already present → not via the missing-data gate.
+				// gate, and icon already present → not via the missing-data gate.
 				lastUpdatedUtc: "2026-06-01T00:00:00Z",
 			}),
 		]);
@@ -381,7 +373,6 @@ describe("runUniverseReconcile", () => {
 				name: "Relisted Manufacturing Co",
 				type: "stock",
 				delisted_at: "2026-03-15T00:00:00Z",
-				sector: "Industrials",
 				icon_url: `https://cdn.example.com/${symbol}.png`,
 				reference_updated_utc: "2026-03-15T00:00:00Z",
 			},
@@ -496,7 +487,6 @@ describe("runUniverseReconcile", () => {
 				symbol,
 				name: "Stable Enriched Co",
 				type: "stock",
-				sector: "Healthcare",
 				icon_url: `https://cdn.example.com/${symbol}.png`,
 				reference_updated_utc: "2026-06-10T00:00:00Z",
 			},
@@ -512,7 +502,7 @@ describe("runUniverseReconcile", () => {
 				symbol,
 				name: "Stable Enriched Co",
 				type: "stock",
-				// Same as stored → no advance; sector+icon present → no missing-data gate.
+				// Same as stored → no advance; icon present → no missing-data gate.
 				lastUpdatedUtc: "2026-06-10T00:00:00Z",
 			}),
 		]);
@@ -529,11 +519,10 @@ describe("runUniverseReconcile", () => {
 		// so it was never detail-fetched and its enrichment is left untouched.
 		expect(detail.calls).not.toContain(symbol);
 		const row = await getAsset(symbol);
-		expect(row?.sector).toBe("Healthcare");
 		expect(row?.icon_url).toBe(`https://cdn.example.com/${symbol}.png`);
 	});
 
-	it("Enrichment gate: an advanced last_updated_utc on a stock triggers a detail call that updates sector + icon.", async () => {
+	it("Enrichment gate: an advanced last_updated_utc on a stock triggers a detail call that updates the icon.", async () => {
 		const symbol = `${TEST_PREFIX}ADV`;
 		createdSymbols.push(symbol);
 		await seedAssets([
@@ -541,19 +530,13 @@ describe("runUniverseReconcile", () => {
 				symbol,
 				name: "Advancing Reference Co",
 				type: "stock",
-				sector: "Energy",
 				icon_url: `https://cdn.example.com/old-${symbol}.png`,
 				reference_updated_utc: "2026-05-01T00:00:00Z",
 			},
 		]);
 
 		const detail = makeFakeDetail(
-			new Map([
-				[
-					symbol,
-					{ ok: true, iconUrl: `https://cdn.example.com/new-${symbol}.png`, sector: "Financials" },
-				],
-			]),
+			new Map([[symbol, { ok: true, iconUrl: `https://cdn.example.com/new-${symbol}.png` }]]),
 		);
 		// Target first + cap 1 → our advanced symbol takes the single enrichment slot.
 		const active = await activeSetTargetsFirst([
@@ -577,54 +560,9 @@ describe("runUniverseReconcile", () => {
 		expect(detail.calls).toContain(symbol);
 		expect(result.enriched).toBe(1);
 		const row = await getAsset(symbol);
-		expect(row?.sector).toBe("Financials");
 		expect(row?.icon_url).toBe(`https://cdn.example.com/new-${symbol}.png`);
 		// Reference timestamp advanced to the incoming value.
 		expect(row?.reference_updated_utc).toBe("2026-06-15T00:00:00+00:00");
-	});
-
-	it("Enrichment gate: an ETF is enriched for icon but never has a sector written (ETFs have no SIC code).", async () => {
-		const etfSymbol = `${TEST_PREFIX}ETF`;
-		createdSymbols.push(etfSymbol);
-		// New ETF (no prior row) → enrichment candidate.
-
-		// Even if the detail seam returns a sector, an ETF must not get it written.
-		const detail = makeFakeDetail(
-			new Map([
-				[
-					etfSymbol,
-					{
-						ok: true,
-						iconUrl: `https://cdn.example.com/${etfSymbol}.png`,
-						sector: "ShouldBeIgnored",
-					},
-				],
-			]),
-		);
-		const active = await activeSetTargetsFirst([
-			makeActiveTicker({
-				symbol: etfSymbol,
-				name: "Broad Market Index ETF",
-				type: "etf",
-				lastUpdatedUtc: "2026-06-19T00:00:00Z",
-			}),
-		]);
-		fetchActiveTickersMock.mockImplementation(fakeActiveTickers(active));
-		fetchTickerDetailMock.mockImplementation(detail.fn);
-		enqueueNewSymbolWarmupMock.mockImplementation(makeFakeWarmup().fn);
-		const result = await runUniverseReconcile({
-			supabase: adminClient,
-			logger: rootLogger,
-			enrichmentCap: 1,
-		});
-
-		expect(detail.calls).toContain(etfSymbol);
-		expect(result.enriched).toBe(1);
-		const row = await getAsset(etfSymbol);
-		expect(row?.type).toBe("etf");
-		expect(row?.icon_url).toBe(`https://cdn.example.com/${etfSymbol}.png`);
-		// The carve-out: no sector for ETFs, even though the provider returned one.
-		expect(row?.sector).toBeNull();
 	});
 
 	it("The per-run enrichment cap is respected: candidates beyond the cap are deferred, not detail-fetched.", async () => {
@@ -700,7 +638,7 @@ describe("runUniverseReconcile", () => {
 		expectConsoleError(/empty active set/);
 	});
 
-	it("An enrichment provider miss (ok:false) leaves the row's existing sector + icon intact and counts as a failure, not an overwrite.", async () => {
+	it("An enrichment provider miss (ok:false) leaves the row's existing icon intact and counts as a failure, not an overwrite.", async () => {
 		const symbol = `${TEST_PREFIX}MISS`;
 		createdSymbols.push(symbol);
 		await seedAssets([
@@ -708,7 +646,6 @@ describe("runUniverseReconcile", () => {
 				symbol,
 				name: "Provider Outage Co",
 				type: "stock",
-				sector: "Utilities",
 				icon_url: `https://cdn.example.com/${symbol}.png`,
 				reference_updated_utc: "2026-04-01T00:00:00Z",
 			},
@@ -716,7 +653,7 @@ describe("runUniverseReconcile", () => {
 
 		// Detail seam reports a miss (Massive 5xx / not-found). The guarantee under test:
 		// a miss must NOT null out the row's existing enrichment.
-		const detail = makeFakeDetail(new Map([[symbol, { ok: false, iconUrl: null, sector: null }]]));
+		const detail = makeFakeDetail(new Map([[symbol, { ok: false, iconUrl: null }]]));
 		const warmup = makeFakeWarmup();
 		// Advance the reference so the symbol qualifies as a candidate; target-first +
 		// cap 1 → exactly this one detail call happens, so the counters are exact.
@@ -742,7 +679,6 @@ describe("runUniverseReconcile", () => {
 		expect(result.enriched).toBe(0);
 		expect(result.enrichmentFailed).toBe(1);
 		const row = await getAsset(symbol);
-		expect(row?.sector).toBe("Utilities");
 		expect(row?.icon_url).toBe(`https://cdn.example.com/${symbol}.png`);
 	});
 
@@ -756,7 +692,7 @@ describe("runUniverseReconcile", () => {
 		const detailFn = async (symbol: string): Promise<TickerDetail> => {
 			calls.push(symbol);
 			if (symbol === throwSymbol) throw new Error("Massive detail timeout");
-			return { ok: true, iconUrl: `https://cdn.example.com/${symbol}.png`, sector: "Technology" };
+			return { ok: true, iconUrl: `https://cdn.example.com/${symbol}.png` };
 		};
 		// Both targets first, cap 2, concurrency 2 → exactly these two run in one batch.
 		const active = await activeSetTargetsFirst([
@@ -779,7 +715,6 @@ describe("runUniverseReconcile", () => {
 		expect(result.enriched).toBe(1);
 		const healthy = await getAsset(okSymbol);
 		expect(healthy?.icon_url).toBe(`https://cdn.example.com/${okSymbol}.png`);
-		expect(healthy?.sector).toBe("Technology");
 	});
 
 	it("A fetch that throws (incomplete/failed active-set fetch) aborts the reconcile before any mutation — no stored symbol is flagged delisted.", async () => {

@@ -1,6 +1,14 @@
-import type { AlertMoveSize, EmailSmsOptionFieldName, UserAsset } from "../../lib/db/types";
+import type {
+	EmailSmsOptionFieldName,
+	PriceMoveThresholdUnit,
+	UserAsset,
+} from "../../lib/db/types";
 
 export type InitialAsset = Pick<UserAsset, "symbol" | "name" | "type" | "icon_url">;
+
+/** Per-symbol price-move alert threshold map (symbol → configured value + unit).
+ *  A symbol absent from the map has no threshold (alerts off for that stock). */
+export type PriceMoveThresholdMap = Record<string, { value: number; unit: PriceMoveThresholdUnit }>;
 
 /**
  * A single selectable channel inside the multiselect. `disabled` keeps the option
@@ -29,6 +37,4 @@ export type NotificationPreferencesData = {
 	daily_notification_next_send_at: string | null;
 	market_scheduled_asset_price_next_send_at: string | null;
 	dismiss_timezone_mismatch_prompts: boolean;
-	market_asset_price_alerts_enabled: boolean;
-	market_asset_price_alert_move_size: AlertMoveSize;
 } & Record<EmailSmsOptionFieldName, boolean>;
