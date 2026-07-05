@@ -60,6 +60,20 @@ describe("Users can load pages without unexpected errors.", () => {
 		expect(response.status).toBe(200);
 	});
 
+	it("Every page carries the private-app noindex, nofollow robots meta.", async () => {
+		// The site-wide noindex meta (baked into HTML at build) is what keeps
+		// prerendered/static pages out of search indexes — they bypass middleware on
+		// Vercel, so the X-Robots-Tag header alone would miss them. Guard against a
+		// regression that drops it or reintroduces a conditional.
+		const container = await AstroContainer.create({ renderers });
+		const response = await container.renderToResponse(IndexPage, {
+			request: buildRequest("/"),
+		});
+
+		const html = await response.text();
+		expect(html).toContain('name="robots" content="noindex, nofollow"');
+	});
+
 	it("An approved signed-in user is redirected to the dashboard from the landing page.", async () => {
 		await withTestUser(
 			{
