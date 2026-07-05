@@ -2,7 +2,7 @@ import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import type { SupabaseAdminClient } from "../../db/supabase";
 import { createLogger } from "../../logging";
-import { fetchIntradayBars } from "../../market-data/bars";
+import { getIntradayBarsPreferCache } from "../../market-data/price-history-cache";
 import { fetchSparklines } from "../../market-data/sparklines";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
 import type { SparklineData } from "../../messaging/parts/sparkline";
@@ -275,14 +275,15 @@ export async function processFlatPriceAlerts(options: {
 		);
 	}
 
-	// Intraday bars — one call per unique symbol, memoized
+	// Intraday bars — prefer self-sourced candles from the minute capture, falling back to a
+	// live vendor fetch only when the cache is still thin. One call per unique symbol.
 	const intradayMap = new Map<string, IntradayBarsResult | null>();
 	for (const symbol of triggeredSymbols) {
 		try {
-			intradayMap.set(symbol, await fetchIntradayBars(symbol));
+			intradayMap.set(symbol, await getIntradayBarsPreferCache(supabase, symbol));
 		} catch (err) {
 			logger.info(
-				"Failed to fetch intraday bars; email will render without sparkline",
+				"Failed to resolve intraday bars; email will render without sparkline",
 				{ symbol },
 				err,
 			);
