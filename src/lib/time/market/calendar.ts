@@ -19,9 +19,9 @@ let calendarCache: {
 
 /**
  * Fetch upcoming US market calendar (NYSE/NASDAQ): full closures AND half-days.
- * Half-days are required for the `getCurrentMarketSession` override that forces
- * "closed" past the early-close on days when Massive's `/v1/marketstatus/now`
- * may flip to `afterHours: true` even though no extended trading session exists.
+ * Half-days feed `getCurrentMarketSession`, which forces "closed" past the early
+ * close (no extended trading session exists on a half-day), and the scheduled
+ * notification gating that must not deliver during the half-day dead zone.
  */
 async function fetchUsMarketCalendar(): Promise<Map<string, CalendarRecord>> {
 	const now = Date.now();
@@ -94,10 +94,10 @@ async function fetchUsMarketCalendar(): Promise<Map<string, CalendarRecord>> {
  * Return whether a UTC instant falls on a US market-closed period.
  *  - `weekend` — Sat/Sun.
  *  - `holiday` — full-day exchange closure.
- *  - `half-day-after-close` — past the early-close on a half-day. Exists so
- *    callers don't deliver scheduled notifications during the half-day "dead
- *    zone" between the early close and the regular close, where Massive's
- *    session detection is undocumented and may incorrectly flag `afterHours: true`.
+ *  - `half-day-after-close` — past the early-close on a half-day. Exists so the
+ *    local session computation returns "closed" (not "after") in the half-day
+ *    "dead zone" between the early close and the regular 4pm boundary, and so
+ *    callers don't deliver scheduled notifications during it.
  *  - `null` — ordinary trading instants (including mornings of half-days).
  */
 export async function getUsMarketClosureInfoForInstant(
