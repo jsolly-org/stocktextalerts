@@ -110,7 +110,7 @@ function appendCurrentPriceIfStale(
  *
  * Prepending prev close anchors the chart's first-to-last delta to the
  * prev-close-anchored change-% we headline in scheduled/digest/price-alert
- * notifications (derived from price vs prevDay.c in `parseSnapshotTicker`),
+ * notifications (derived from price vs `pc` in `parseFinnhubQuote`),
  * so the chart's shape and color always agree with the headline %.
  *
  * Symbols without a valid prev close (delisted / fetch miss) get a sparkline

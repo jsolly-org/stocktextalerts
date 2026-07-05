@@ -237,8 +237,9 @@ Market data
 ============= */
 
 /**
- * Sentinel when Massive returned the ticker entry but no live trade exists for
- * the current session. Distinct from `null` (ticker missing from response).
+ * Sentinel for a symbol that exists but has no live trade for the current active session
+ * (typical for illiquid pre/after-hours names). Distinct from `null` (fetch failed or the
+ * symbol is unknown).
  */
 export const NO_SESSION_TRADE = "no_session_trade" as const;
 export type NoSessionTrade = typeof NO_SESSION_TRADE;

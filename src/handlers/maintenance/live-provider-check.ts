@@ -83,11 +83,17 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 					throw new Error(`fetchPrevClose(SPY) returned ${prev}`);
 				}
 			}),
-			await runCheck(logger, "massive:asset-prices", async () => {
+			await runCheck(logger, "finnhub:asset-prices", async () => {
+				// Runs 16:00 UTC (regular session) so SPY/AAPL must have real live quotes.
+				// Asserts finite positive prices, not just map size — the fetcher pre-seeds
+				// every symbol to null, so `size === 2` passes even on a full vendor failure.
 				const session = await getCurrentMarketSession();
 				const prices = await fetchAssetPrices(["SPY", "AAPL"], session);
-				if (prices.size !== 2) {
-					throw new Error(`fetchAssetPrices returned ${prices.size}/2 symbols`);
+				for (const symbol of ["SPY", "AAPL"]) {
+					const quote = prices.get(symbol);
+					if (!quote || !Number.isFinite(quote.price) || quote.price <= 0) {
+						throw new Error(`fetchAssetPrices(${symbol}) returned ${JSON.stringify(quote)}`);
+					}
 				}
 			}),
 			await runCheck(logger, "massive:daily-closes", async () => {

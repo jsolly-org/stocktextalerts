@@ -1,64 +1,21 @@
 /**
- * Module-level rate limiter for outbound email (14 req/s default).
- * Shared across all `createEmailSender()` instances so concurrent callers
- * never exceed the global rate limit.
- *
- * Uses `node:timers/promises` so the delay works even when vitest's
- * `vi.useFakeTimers()` has replaced the global `setTimeout`.
- * Uses `performance.now()` instead of `Date.now()` because vitest's
- * fake timers replace `Date.now()` but not `performance.now()`.
+ * Email sender. Outbound sends pass through a shared 14 req/s limiter so concurrent
+ * `createEmailSender()` instances never exceed SES's rate ceiling.
  */
-import { setTimeout as realDelay } from "node:timers/promises";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import nodemailer, { type Transporter } from "nodemailer";
 import { readEnv, requireEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
+import { createSlidingWindowLimiter } from "../../rate-limit";
 import { withDeliveryRetry } from "../delivery-retry";
 import { escapeHtml } from "../parts/html-utils";
 import type { EmailSender } from "../types";
 
 const EMAIL_MAX_PER_SECOND = 14;
-const recentSendTimestamps: number[] = [];
-
-/** Serialize check/wait/push so concurrent waiters don't all proceed after the same delay and exceed the limit. */
-let mutexPromise = Promise.resolve<void>(undefined);
-async function acquireMutex(): Promise<() => void> {
-	const prev = mutexPromise;
-	let release!: () => void;
-	mutexPromise = new Promise<void>((r) => {
-		release = r;
-	});
-	await prev;
-	return release;
-}
-
-async function waitForRateLimit(): Promise<void> {
-	for (;;) {
-		const release = await acquireMutex();
-		let waitMs = 0;
-		let shouldWait = false;
-		try {
-			const now = performance.now();
-			while (recentSendTimestamps.length > 0) {
-				const oldest = recentSendTimestamps[0];
-				if (oldest === undefined || oldest > now - 1000) break;
-				recentSendTimestamps.shift();
-			}
-			if (recentSendTimestamps.length < EMAIL_MAX_PER_SECOND) {
-				recentSendTimestamps.push(performance.now());
-				return;
-			}
-			const earliest = recentSendTimestamps[0];
-			if (earliest !== undefined) {
-				waitMs = earliest + 1000 - now;
-				shouldWait = waitMs > 0;
-			}
-		} finally {
-			release();
-		}
-		if (shouldWait) await realDelay(waitMs);
-	}
-}
+const emailLimiter = createSlidingWindowLimiter({
+	maxPerWindow: EMAIL_MAX_PER_SECOND,
+	windowMs: 1_000,
+});
 
 /**
  * Create an email sender.
@@ -99,7 +56,7 @@ export function createEmailSender(): EmailSender {
 							},
 						},
 					});
-					await waitForRateLimit();
+					await emailLimiter.acquire();
 					// Per-attempt abort: a hung SES socket can otherwise park the Lambda.
 					const response = await sesClient.send(command, {
 						abortSignal: AbortSignal.timeout(30_000),

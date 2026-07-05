@@ -260,7 +260,7 @@ export async function processDailyDigestUser(options: {
 		});
 
 		// Classify tickers without prices into two buckets:
-		//  - noSessionTradeTickers: Massive recognized the symbol but no trade
+		//  - noSessionTradeTickers: the vendor recognized the symbol but no trade
 		//    exists for the active session yet (illiquid pre/after-hours name).
 		//    On closed sessions this set is always empty because
 		//    fetchAssetPricesWithSessionState either backfills the entry with a
