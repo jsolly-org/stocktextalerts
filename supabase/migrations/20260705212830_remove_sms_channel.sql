@@ -12,7 +12,9 @@
 -- RPC (recreated verbatim, only to rebind it to the new enum), are KEPT.
 
 set lock_timeout = '5s';
-set statement_timeout = '120s';
+-- Generous ceiling: the enum recreate rewrites four delivery_method columns under
+-- ACCESS EXCLUSIVE (text↔enum is not binary-coercible), incl. notification_log twice.
+set statement_timeout = '300s';
 
 -- 1. Drop the SMS preference rows FIRST — the notification_preferences →
 --    notification_options FK would block the catalog delete otherwise.
@@ -25,6 +27,13 @@ DELETE FROM public.notification_options WHERE channel = 'sms';
 -- 2b. Remove historical SMS delivery-log rows. These MUST go before the enum is
 --     recreated — a leftover 'sms' value can't be cast to the new type.
 DELETE FROM public.notification_log WHERE delivery_method = 'sms';
+
+-- 2c. Remove SMS rows from the scheduled-notification claim/dedup ledger. It keeps
+--     one row per scheduled send (status='sent' rows persist; there is no purge job),
+--     so prod holds a 'sms' row for every SMS ever scheduled. These MUST go before
+--     the enum recreate or `channel::delivery_method` aborts on 'sms'. `channel` is
+--     part of the PK, so the delete is safe. Invisible locally (seed has no sms rows).
+DELETE FROM public.scheduled_notifications WHERE channel = 'sms';
 
 -- 3. Drop the SMS-only RPCs (verification reservation + the short-url purger).
 DROP FUNCTION IF EXISTS public.reserve_sms_verification(uuid, text, text, integer);
