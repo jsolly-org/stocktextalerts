@@ -11,23 +11,14 @@ vi.mock("../../../src/lib/messaging/email/utils", () => ({
 	createEmailSender: () => vi.fn(),
 }));
 
-vi.mock("../../../src/lib/messaging/sms/sender-factory", () => ({
-	createSmsSenderFactory: () => () => ({ sender: "+15555550123" }),
-}));
-
 const mockSupabaseUser = {
 	id: "00000000-0000-0000-0000-000000000123",
 	email: "test@example.com",
-	phone_country_code: null,
-	phone_number: null,
-	phone_verified: false,
 	timezone: "America/New_York",
 	use_24_hour_time: false,
 	daily_notification_time: 540,
 	daily_notification_next_send_at: null,
 	email_notifications_enabled: true,
-	sms_notifications_enabled: false,
-	sms_opted_out: false,
 	asset_events_last_analyst_sent_month: null,
 	last_grok_rumors_at: null,
 	grok_window_start: null,
@@ -70,8 +61,6 @@ describe("Daily digest dispatch (direct function call)", () => {
 			logFailures: 0,
 			emailsSent: 1,
 			emailsFailed: 0,
-			smsSent: 0,
-			smsFailed: 0,
 		});
 
 		const stats = await dispatchDailyDigestUser({
@@ -86,8 +75,6 @@ describe("Daily digest dispatch (direct function call)", () => {
 			logFailures: 0,
 			emailsSent: 1,
 			emailsFailed: 0,
-			smsSent: 0,
-			smsFailed: 0,
 		});
 		expect(processDailyDigestUserMock).toHaveBeenCalledTimes(1);
 		expect(processDailyDigestUserMock).toHaveBeenCalledWith(
@@ -117,8 +104,6 @@ describe("Daily digest dispatch (direct function call)", () => {
 			logFailures: 0,
 			emailsSent: 0,
 			emailsFailed: 0,
-			smsSent: 0,
-			smsFailed: 0,
 			telegramSent: 0,
 			telegramFailed: 0,
 		});
@@ -144,8 +129,6 @@ describe("Daily digest dispatch (direct function call)", () => {
 			logFailures: 0,
 			emailsSent: 0,
 			emailsFailed: 0,
-			smsSent: 0,
-			smsFailed: 0,
 			telegramSent: 0,
 			telegramFailed: 0,
 		});
@@ -171,8 +154,6 @@ describe("Daily digest dispatch (direct function call)", () => {
 			logFailures: 0,
 			emailsSent: 0,
 			emailsFailed: 0,
-			smsSent: 0,
-			smsFailed: 0,
 			telegramSent: 0,
 			telegramFailed: 0,
 		});

@@ -1,40 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-	formatAssetEventsSectionEmail,
-	formatAssetEventsSectionSms,
-} from "../../../src/lib/asset-events/format";
+import { formatAssetEventsSectionEmail } from "../../../src/lib/asset-events/format";
 
 describe("formatAssetEventsSection", () => {
-	it("formats earnings for SMS as compact one-liners", () => {
-		const events = [
-			{
-				symbol: "AAPL",
-				event_type: "earnings" as const,
-				event_date: "2026-02-10",
-				data: {
-					time: "16:30",
-					epsEstimate: 2.35,
-					revenueEstimate: 124_500_000_000,
-				},
-				daysUntil: 2,
-			},
-			{
-				symbol: "MSFT",
-				event_type: "earnings" as const,
-				event_date: "2026-02-12",
-				data: { time: null, epsEstimate: null, revenueEstimate: null },
-				daysUntil: 4,
-			},
-		];
-
-		const result = formatAssetEventsSectionSms(events);
-
-		expect(result.earnings).toContain("AAPL: earnings in 2 days (02-10) (16:30)");
-		expect(result.earnings).toContain("MSFT: earnings in 4 days (02-12)");
-		expect(result.dividends).toBeNull();
-		expect(result.splits).toBeNull();
-	});
-
 	it("formats earnings for email with estimates", () => {
 		const events = [
 			{
@@ -55,28 +22,6 @@ describe("formatAssetEventsSection", () => {
 		expect(result.earnings).toContain("AAPL: earnings in 2 days (02-10) (16:30)");
 		expect(result.earnings).toContain("EPS est. $2.35");
 		expect(result.earnings).toContain("Rev est. $124.5B");
-	});
-
-	it("formats dividends for SMS", () => {
-		const events = [
-			{
-				symbol: "KO",
-				event_type: "dividend" as const,
-				event_date: "2026-02-14",
-				data: {
-					cashAmount: 0.5,
-					currency: "USD",
-					payDate: "2026-04-01",
-					frequency: 4,
-				},
-				daysUntil: 2,
-			},
-		];
-
-		const result = formatAssetEventsSectionSms(events);
-
-		expect(result.dividends).toContain("KO: ex-div in 2 days (02-14) $0.50");
-		expect(result.earnings).toBeNull();
 	});
 
 	it("formats dividends for email with pay date and frequency", () => {
@@ -113,10 +58,8 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const sms = formatAssetEventsSectionSms(events);
 		const email = formatAssetEventsSectionEmail(events);
 
-		expect(sms.splits).toContain("NVDA: split in 2 days (02-20) 10:1");
 		expect(email.splits).toContain("NVDA: split in 2 days (02-20) — 10:1 forward split");
 	});
 
@@ -131,10 +74,8 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const sms = formatAssetEventsSectionSms(events);
 		const email = formatAssetEventsSectionEmail(events);
 
-		expect(sms.splits).toContain("SIRI: split in 2 days (03-01) 10:1 reverse");
 		expect(email.splits).toContain("SIRI: split in 2 days (03-01) — 10:1 reverse split");
 	});
 
@@ -210,43 +151,9 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const sms = formatAssetEventsSectionSms(events);
 		const email = formatAssetEventsSectionEmail(events);
 
-		expect(sms.earnings).toContain("AAPL: earnings today");
 		expect(email.earnings).toContain("AAPL: earnings today");
-	});
-
-	it("shows 'tomorrow' when daysUntil is 1", () => {
-		const events = [
-			{
-				symbol: "MSFT",
-				event_type: "earnings" as const,
-				event_date: "2026-02-13",
-				data: { time: "16:00", epsEstimate: null, revenueEstimate: null },
-				daysUntil: 1,
-			},
-		];
-
-		const result = formatAssetEventsSectionSms(events);
-
-		expect(result.earnings).toContain("MSFT: earnings tomorrow");
-	});
-
-	it("shows 'in N days (MM-DD)' when daysUntil >= 2", () => {
-		const events = [
-			{
-				symbol: "GOOGL",
-				event_type: "earnings" as const,
-				event_date: "2026-02-15",
-				data: { time: null, epsEstimate: null, revenueEstimate: null },
-				daysUntil: 3,
-			},
-		];
-
-		const result = formatAssetEventsSectionSms(events);
-
-		expect(result.earnings).toContain("GOOGL: earnings in 3 days (02-15)");
 	});
 
 	it("handles dividend without pay date for email", () => {

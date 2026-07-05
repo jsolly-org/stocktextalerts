@@ -46,7 +46,7 @@ describe("withDeliveryRetry", () => {
 		);
 
 		const result = await withDeliveryRetry(send, {
-			channel: "sms",
+			channel: "telegram",
 			maxAttempts: 3,
 			sleep: noSleep,
 		});

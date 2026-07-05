@@ -78,7 +78,7 @@ content_path = "./supabase/templates/auth-confirmation.html"
 [auth.email.template.confirmation]
 content_path = "./supabase/templates/auth-confirmation.html"
 
-[auth.sms.template.confirm]
+[auth.mfa.template.confirm]
 content_path = "./irrelevant.txt"
 `;
 		const templates = readExpectedTemplates(withStray);

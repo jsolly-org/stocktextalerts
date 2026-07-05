@@ -6,7 +6,6 @@ import {
 	DELAY_THRESHOLD_MINUTES,
 	getDelayMinutes,
 	prependDelayBannerToEmail,
-	prependDelayBannerToSms,
 } from "../../../../src/lib/messaging/parts/delay";
 
 const BASE_TIME = DateTime.fromISO("2026-03-26T14:00:00Z", { zone: "utc" });
@@ -90,23 +89,6 @@ describe("buildDelayBannerHtml", () => {
 		expect(result).toContain("Delayed Notification");
 		expect(result).toContain("originally scheduled for");
 		expect(result).toContain("<div");
-	});
-});
-
-describe("prependDelayBannerToSms", () => {
-	it("inserts banner after the header line", () => {
-		const message = "StockTextAlerts — Your daily digest\n\nAPPL: $150.00\n\nReply STOP";
-		const result = prependDelayBannerToSms(message, "⏰ Delayed banner");
-		const lines = result.split("\n\n");
-		expect(lines[0]).toBe("StockTextAlerts — Your daily digest");
-		expect(lines[1]).toBe("⏰ Delayed banner");
-		expect(lines[2]).toBe("APPL: $150.00");
-	});
-
-	it("handles message without double newline", () => {
-		const message = "Single line message";
-		const result = prependDelayBannerToSms(message, "⏰ Delayed");
-		expect(result).toBe("⏰ Delayed\n\nSingle line message");
 	});
 });
 

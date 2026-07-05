@@ -70,33 +70,12 @@ vi.mock("../src/lib/messaging/email/utils", async (importOriginal) => {
 	};
 });
 
-vi.mock("../src/lib/messaging/sms/twilio-utils", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("../src/lib/messaging/sms/twilio-utils")>();
-	const { createTestSmsSender } = await import("./helpers/messaging-doubles");
-	return {
-		...actual,
-		createSmsSender: (_client: unknown, _defaultFromNumber: string) => createTestSmsSender(),
-	};
-});
-
 vi.mock("../src/lib/messaging/telegram/sender", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("../src/lib/messaging/telegram/sender")>();
 	const { createTestTelegramSender } = await import("./helpers/messaging-doubles");
 	return {
 		...actual,
 		createTelegramSender: (_bot: unknown) => createTestTelegramSender(),
-	};
-});
-
-vi.mock("../src/lib/auth/sms-verification", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("../src/lib/auth/sms-verification")>();
-	const { testCheckVerification, testSendVerification } = await import(
-		"./helpers/messaging-doubles"
-	);
-	return {
-		...actual,
-		sendVerification: testSendVerification,
-		checkVerification: testCheckVerification,
 	};
 });
 
@@ -126,7 +105,7 @@ vi.mock("../src/lib/market-data/sparklines", async (importOriginal) => {
 // the scheduled `live-provider-check` Lambda (src/handlers/maintenance/live-provider-check.ts),
 // not by the local test suite.
 //
-// Outbound email/SMS/Telegram/Verify and default market-data session/sparkline
+// Outbound email/Telegram and default market-data session/sparkline
 // stubs are wired via vi.mock above (tests/helpers/*-doubles.ts). Tests that
 // need the real factory can vi.importActual or override the mock per file.
 // Data-provider stubs set a dummy API key so requireEnv() doesn't throw.

@@ -1,6 +1,6 @@
 /**
  * Tests for resolveScheduledSender — the shared sender-resolution failure path
- * extracted from the six SMS/Telegram scheduled-delivery blocks. The failure
+ * extracted from the email/Telegram scheduled-delivery blocks. The failure
  * branch (factory throw → channel-failure stat, error log, failed row, null)
  * had no coverage while hand-rolled, so this pins the behavior the extraction
  * preserved: no notification_log row is written for a sender that never
@@ -19,8 +19,6 @@ function emptyTotals(): ScheduledNotificationTotals {
 	return {
 		emailsSent: 0,
 		emailsFailed: 0,
-		smsSent: 0,
-		smsFailed: 0,
 		telegramSent: 0,
 		telegramFailed: 0,
 		logFailures: 0,
@@ -65,10 +63,10 @@ describe("resolveScheduledSender", () => {
 		const resolved = await resolveScheduledSender({
 			...slot,
 			supabase,
-			channel: "sms",
+			channel: "email",
 			stats,
 			getSender: () => sender,
-			logMessage: "Failed to resolve SMS sender for daily digest",
+			logMessage: "Failed to resolve Email sender for daily digest",
 		});
 
 		expect(resolved).toBe(sender);
@@ -77,27 +75,27 @@ describe("resolveScheduledSender", () => {
 	});
 
 	it("bumps the channel failure stat, logs, and marks the row failed when the factory throws", async () => {
-		expectConsoleError("Failed to resolve SMS sender for daily digest");
+		expectConsoleError("Failed to resolve Email sender for daily digest");
 		const { supabase, updates } = supabaseDouble();
 		const stats = emptyTotals();
 
 		const resolved = await resolveScheduledSender({
 			...slot,
 			supabase,
-			channel: "sms",
+			channel: "email",
 			stats,
 			getSender: () => {
-				throw new Error("Twilio config missing");
+				throw new Error("SES config missing");
 			},
-			logMessage: "Failed to resolve SMS sender for daily digest",
+			logMessage: "Failed to resolve Email sender for daily digest",
 		});
 
 		expect(resolved).toBeNull();
-		expect(stats).toEqual({ ...emptyTotals(), smsFailed: 1 });
+		expect(stats).toEqual({ ...emptyTotals(), emailsFailed: 1 });
 		expect(updates).toHaveLength(1);
 		expect(updates[0]).toMatchObject({
 			status: "failed",
-			error: "Twilio config missing",
+			error: "SES config missing",
 		});
 	});
 

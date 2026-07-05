@@ -1,10 +1,10 @@
 /**
  * Integration-style flat price alert tests: real Supabase rows and
  * notification_log / price_move_alert_state assertions. Provider HTTP stays
- * stubbed; delivery uses test-mode email/SMS senders.
+ * stubbed; delivery uses a test-mode email sender.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { EmailSender, SmsSender } from "../../../../src/lib/messaging/types";
+import type { EmailSender } from "../../../../src/lib/messaging/types";
 import type { ExtendedAssetQuote } from "../../../../src/lib/types";
 import { adminClient } from "../../../helpers/test-env";
 import { createTestUser, setTestUserPrefs } from "../../../helpers/test-user";
@@ -61,11 +61,6 @@ vi.mock("../../../../src/lib/messaging/email/utils", async () => {
 	};
 });
 
-const mockSmsSender = vi.fn<SmsSender>(async () => ({ success: true }));
-vi.mock("../../../../src/lib/messaging/sms/sender-factory", () => ({
-	createSmsSenderFactory: () => () => ({ sender: mockSmsSender }),
-}));
-
 vi.mock("../../../../src/lib/messaging/logo-fetcher", () => ({
 	createLogoCache: vi.fn(() => ({})),
 	fetchLogoBase64: vi.fn(async () => null),
@@ -90,29 +85,18 @@ function makeQuote(overrides: Partial<ExtendedAssetQuote>): ExtendedAssetQuote {
 
 async function enableFlatAlerts(
 	userId: string,
-	channels: { email?: boolean; sms?: boolean } = {},
+	channels: { email?: boolean } = {},
 ): Promise<void> {
 	const wantEmail = channels.email ?? true;
-	const wantSms = channels.sms ?? false;
-	const updates: Record<string, unknown> = {
-		email_notifications_enabled: wantEmail,
-	};
-	if (wantSms) {
-		updates.sms_notifications_enabled = true;
-		updates.phone_verified = true;
-		updates.phone_country_code = "+1";
-		updates.phone_number = "5555550123";
-		updates.sms_opted_out = false;
-	}
-	const { error } = await adminClient.from("users").update(updates).eq("id", userId);
+	const { error } = await adminClient
+		.from("users")
+		.update({ email_notifications_enabled: wantEmail })
+		.eq("id", userId);
 	if (error) throw new Error(`Failed to enable flat alerts: ${error.message}`);
 
 	// Per-option price_move_alerts facets live in notification_preferences
-	// (both default off); enable exactly the channels this test requested.
-	await setTestUserPrefs(userId, [
-		["price_move_alerts", "", "email", wantEmail],
-		["price_move_alerts", "", "sms", wantSms],
-	]);
+	// (default off); enable the email channel this test requested.
+	await setTestUserPrefs(userId, [["price_move_alerts", "", "email", wantEmail]]);
 
 	// Opt every tracked asset into price-move alerts at the default 5% threshold —
 	// row presence is what enables the alert now (the pre-redesign behavior the
@@ -178,7 +162,6 @@ async function getStateRow(userId: string, symbol: string) {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockEmailSender.mockResolvedValue({ success: true });
-	mockSmsSender.mockResolvedValue({ success: true });
 });
 
 describe("processFlatPriceAlerts", () => {
@@ -291,7 +274,7 @@ describe("processFlatPriceAlerts", () => {
 	it("User with alerts disabled receives no email even on a 10% move", async () => {
 		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
 		registerTestUserForCleanup(testUser.id);
-		// Defaults: email/SMS off, no Telegram, and the price_move_alerts facet off —
+		// Defaults: email off, no Telegram, and the price_move_alerts facet off —
 		// this user has no usable channel, so they are never even a candidate.
 
 		const quoteMap = new Map([["AAPL", makeQuote({ price: 204.6 })]]);
@@ -517,7 +500,7 @@ describe("processFlatPriceAlerts", () => {
 	it("Reserve RPC permission error skips delivery instead of sending without idempotency", async () => {
 		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
 		registerTestUserForCleanup(testUser.id);
-		await enableFlatAlerts(testUser.id, { email: true, sms: true });
+		await enableFlatAlerts(testUser.id, { email: true });
 
 		const failingSupabase = new Proxy(adminClient, {
 			get(target, prop, receiver) {
@@ -553,159 +536,9 @@ describe("processFlatPriceAlerts", () => {
 		expect(totals.claimLost).toBe(1);
 		expect(totals.alertsTriggered).toBe(0);
 		expect(totals.emailsSent).toBe(0);
-		expect(totals.smsSent).toBe(0);
 		expect(mockEmailSender).not.toHaveBeenCalled();
-		expect(mockSmsSender).not.toHaveBeenCalled();
 		expect(await getNotificationLogCount(testUser.id)).toBe(0);
 		expect(await getStateRow(testUser.id, "AAPL")).toBeNull();
-	});
-
-	it("User with SMS-only opt-in receives SMS but no email on AAPL 5% gap", async () => {
-		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
-		registerTestUserForCleanup(testUser.id);
-		await enableFlatAlerts(testUser.id, { email: false, sms: true });
-
-		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
-
-		const totals = await processFlatPriceAlerts({
-			supabase: adminClient,
-			quoteMap,
-			isMarketOpen: true,
-		});
-
-		expect(totals.alertsTriggered).toBe(1);
-		expect(totals.emailsSent).toBe(0);
-		expect(totals.smsSent).toBe(1);
-		expect(mockEmailSender).not.toHaveBeenCalled();
-		expect(mockSmsSender).toHaveBeenCalledOnce();
-
-		const smsCall = mockSmsSender.mock.calls[0]![0] as { body: string };
-		expect(smsCall.body).toContain("AAPL");
-		expect(smsCall.body).toContain("Price Move 🚨");
-		expect(smsCall.body).toContain("Reply STOP");
-	});
-
-	it("Two consecutive runs with an unchanged 5% quote send exactly one SMS (idempotent)", async () => {
-		// Regression for the duplicate-SMS incident: in prod `finalize` could not
-		// run (missing service_role grant), so the baseline never advanced and
-		// every cron tick re-alerted. This test pins the incident's actual
-		// mechanism — after run 1 we assert `finalize` COMMITTED the new baseline
-		// (last_notification_price advanced to the quote, pending_delivery
-		// cleared). Only with that committed baseline is run 2 a 0% move that
-		// skips before reserving. If `finalize` regressed, run 1's state would
-		// keep the old baseline + pending_delivery=true and this would fail here,
-		// not silently pass. SMS-only because SMS spammed in production.
-		//
-		// Clock pinned to mid-trading-day ET so run 1's `last_notification_at`
-		// and run 2's "today in ET" check land on the same calendar day (matches
-		// the re-trigger test's guard against the ET-midnight flake window).
-		vi.useFakeTimers({ toFake: ["Date"] });
-		vi.setSystemTime(new Date("2026-05-09T18:00:00.000Z")); // 14:00 ET
-
-		try {
-			const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
-			registerTestUserForCleanup(testUser.id);
-			await enableFlatAlerts(testUser.id, { email: false, sms: true });
-
-			const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
-
-			const first = await processFlatPriceAlerts({
-				supabase: adminClient,
-				quoteMap,
-				isMarketOpen: true,
-			});
-			expect(first.alertsTriggered).toBe(1);
-			expect(first.smsSent).toBe(1);
-
-			// `finalize` must have committed: baseline advanced to the sent price
-			// and the pending flag cleared. This is the exact state the incident
-			// failed to reach, so it is what makes run 2 idempotent.
-			const committed = await getStateRow(testUser.id, "AAPL");
-			expect(Number(committed?.last_notification_price)).toBeCloseTo(195.86, 2);
-			expect(committed?.pending_delivery).toBe(false);
-
-			// Same quote — the move vs. the committed 195.86 baseline is 0%, below
-			// threshold, so this run skips before ever reserving a slot.
-			const second = await processFlatPriceAlerts({
-				supabase: adminClient,
-				quoteMap,
-				isMarketOpen: true,
-			});
-			expect(second.alertsTriggered).toBe(0);
-			expect(second.smsSent).toBe(0);
-
-			// Exactly one SMS send and one flat_price_alert log row across both runs.
-			expect(mockSmsSender).toHaveBeenCalledOnce();
-			expect(await getNotificationLogCount(testUser.id)).toBe(1);
-		} finally {
-			vi.useRealTimers();
-		}
-	});
-
-	it("User with both channels on receives both email and SMS on a 5% gap", async () => {
-		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
-		registerTestUserForCleanup(testUser.id);
-		await enableFlatAlerts(testUser.id, { email: true, sms: true });
-
-		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
-
-		const totals = await processFlatPriceAlerts({
-			supabase: adminClient,
-			quoteMap,
-			isMarketOpen: true,
-		});
-
-		expect(totals.alertsTriggered).toBe(1);
-		expect(totals.emailsSent).toBe(1);
-		expect(totals.smsSent).toBe(1);
-		expect(mockEmailSender).toHaveBeenCalledOnce();
-		expect(mockSmsSender).toHaveBeenCalledOnce();
-
-		// Two notification_log rows — one per channel
-		expect(await getNotificationLogCount(testUser.id)).toBe(2);
-	});
-
-	it("User opted into SMS but phone unverified: SMS skipped as ineligible", async () => {
-		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
-		registerTestUserForCleanup(testUser.id);
-		// Turn on SMS intent but leave phone unverified. The candidate set is gated on
-		// channel-level columns, so enable the email channel (with its price_move_alerts
-		// email facet off) to keep this user in the candidate query without sending email.
-		const { error } = await adminClient
-			.from("users")
-			.update({
-				email_notifications_enabled: true,
-				sms_notifications_enabled: true,
-				phone_verified: false,
-				phone_country_code: "+1",
-				phone_number: "5555550123",
-			})
-			.eq("id", testUser.id);
-		if (error) throw new Error(`setup failed: ${error.message}`);
-		// Per-option facets live in notification_preferences: email off, sms on.
-		await setTestUserPrefs(testUser.id, [
-			["price_move_alerts", "", "email", false],
-			["price_move_alerts", "", "sms", true],
-		]);
-		// Row presence is what opts AAPL into evaluation; enableFlatAlerts (which
-		// normally seeds it) is bypassed here to customize the channel columns, so
-		// seed the threshold explicitly — otherwise the alert never triggers.
-		await setThreshold(testUser.id, "AAPL", 5, "percent");
-
-		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
-
-		const totals = await processFlatPriceAlerts({
-			supabase: adminClient,
-			quoteMap,
-			isMarketOpen: true,
-		});
-
-		expect(totals.alertsTriggered).toBe(1);
-		expect(totals.smsSent).toBe(0);
-		// Ineligibility is a config skip, not a delivery failure — it stays uncounted.
-		expect(totals.smsFailed).toBe(0);
-		expect(mockSmsSender).not.toHaveBeenCalled();
-		expect(mockEmailSender).not.toHaveBeenCalled();
 	});
 
 	it("Dollar-unit threshold: a +$6.51 move (+3.5%) clears a $5 threshold — fires ONLY if the dollar unit is honored", async () => {

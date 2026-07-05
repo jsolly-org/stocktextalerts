@@ -36,7 +36,7 @@ describe("Telegram daily digest formatting", () => {
 		expect(msg.entities.some((e) => e.type === "blockquote")).toBe(true);
 	});
 
-	it("renders the delay banner under the header, matching email/SMS (was Telegram-omitted)", () => {
+	it("renders the delay banner under the header, matching email (was Telegram-omitted)", () => {
 		const msg = formatDailyDigestTelegram({
 			userAssets: [{ symbol: "AAPL", name: "Apple Inc." }],
 			assetPrices: new Map([["AAPL", { price: 228.5, changePercent: 2.5 }]]),

@@ -1,14 +1,10 @@
 import type {
 	EmailRequest,
 	EmailSender,
-	SmsSender,
 	TelegramMessage,
 	TelegramSender,
 } from "../../src/lib/messaging/types";
 import type { DeliveryResult } from "../../src/lib/types";
-
-/** OTP accepted by the test double for {@link testCheckVerification}. */
-export const TEST_VERIFICATION_CODE = "000000";
 
 /**
  * Extract the deep-link URL of the first inline-keyboard button on a Telegram
@@ -28,34 +24,6 @@ export function createTestEmailSender(): EmailSender {
 	});
 }
 
-/** Deterministic SMS sender; honors `SMS_TEST_*` env knobs per test. */
-export function createTestSmsSender(): SmsSender {
-	const behavior = process.env.SMS_TEST_BEHAVIOR ?? "success";
-	const testMessageSid = process.env.SMS_TEST_MESSAGE_SID ?? "mock";
-	const testError = process.env.SMS_TEST_ERROR ?? "Test SMS failure";
-	const testErrorCode = process.env.SMS_TEST_ERROR_CODE;
-
-	return async (request) => {
-		if (!request.to || !request.body) {
-			return {
-				success: false,
-				error: `Test mock: missing required field(s): ${[!request.to && "to", !request.body && "body"].filter(Boolean).join(", ")}`,
-			};
-		}
-		if (behavior === "fail") {
-			return {
-				success: false,
-				error: testError,
-				errorCode: testErrorCode,
-			};
-		}
-		return {
-			success: true,
-			messageSid: testMessageSid,
-		};
-	};
-}
-
 /** Deterministic Telegram sender; honors `TELEGRAM_TEST_*` env knobs per test. */
 export function createTestTelegramSender(): TelegramSender {
 	const behavior = process.env.TELEGRAM_TEST_BEHAVIOR ?? "success";
@@ -72,20 +40,4 @@ export function createTestTelegramSender(): TelegramSender {
 		}
 		return { success: true, messageSid: testMessageId };
 	};
-}
-
-export async function testSendVerification(
-	_fullPhone: string,
-): Promise<{ success: boolean; error?: string }> {
-	return { success: true };
-}
-
-export async function testCheckVerification(
-	_fullPhone: string,
-	code: string,
-): Promise<{ success: boolean; error?: string }> {
-	if (code === TEST_VERIFICATION_CODE) {
-		return { success: true };
-	}
-	return { success: false, error: "Invalid verification code" };
 }
