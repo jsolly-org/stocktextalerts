@@ -48,17 +48,17 @@ export type NotificationFamily = keyof typeof NOTIFICATION_FAMILY_FIELD_PREFIX;
 
 export const NOTIFICATION_OPTION_MATRIX = {
 	daily_notification: {
-		prices: { family: "digest", channels: { email: true, sms: true, telegram: false } },
-		top_movers: { family: "digest", channels: { email: false, sms: false, telegram: false } },
+		prices: { family: "digest", channels: { email: true, telegram: false } },
+		top_movers: { family: "digest", channels: { email: false, telegram: false } },
 		news: { family: "digest", channels: { email: false, telegram: false } },
 		rumors: { family: "digest", channels: { email: false, telegram: false } },
-		calendar: { family: "asset_events", channels: { email: false, sms: false, telegram: false } },
-		ipo: { family: "asset_events", channels: { email: false, sms: false, telegram: false } },
-		analyst: { family: "asset_events", channels: { email: false, sms: false, telegram: false } },
-		insider: { family: "asset_events", channels: { email: false, sms: false, telegram: false } },
+		calendar: { family: "asset_events", channels: { email: false, telegram: false } },
+		ipo: { family: "asset_events", channels: { email: false, telegram: false } },
+		analyst: { family: "asset_events", channels: { email: false, telegram: false } },
+		insider: { family: "asset_events", channels: { email: false, telegram: false } },
 	},
-	market_scheduled_asset_price: { "": { channels: { email: false, sms: false, telegram: false } } },
-	price_move_alerts: { "": { channels: { email: false, sms: false, telegram: false } } },
+	market_scheduled_asset_price: { "": { channels: { email: false, telegram: false } } },
+	price_move_alerts: { "": { channels: { email: false, telegram: false } } },
 } as const satisfies {
 	daily_notification: Record<
 		string,
