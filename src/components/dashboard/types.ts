@@ -1,8 +1,4 @@
-import type {
-	EmailSmsOptionFieldName,
-	PriceMoveThresholdUnit,
-	UserAsset,
-} from "../../lib/db/types";
+import type { EmailOptionFieldName, PriceMoveThresholdUnit, UserAsset } from "../../lib/db/types";
 
 export type InitialAsset = Pick<UserAsset, "symbol" | "name" | "type" | "icon_url">;
 
@@ -24,17 +20,14 @@ export interface ChannelOption {
 }
 
 /** The update/current API's notificationPreferences payload as the dashboard
- *  consumes it. Per-option email/sms fields derive from the option catalog. */
+ *  consumes it. Per-option email fields derive from the option catalog. */
 export type NotificationPreferencesData = {
 	market_scheduled_asset_price_enabled: boolean;
 	email_notifications_enabled: boolean;
-	sms_notifications_enabled: boolean;
-	sms_opted_out: boolean;
-	phone_verified: boolean;
 	timezone: string;
 	market_scheduled_asset_price_times: number[] | null;
 	daily_notification_time: number | null;
 	daily_notification_next_send_at: string | null;
 	market_scheduled_asset_price_next_send_at: string | null;
 	dismiss_timezone_mismatch_prompts: boolean;
-} & Record<EmailSmsOptionFieldName, boolean>;
+} & Record<EmailOptionFieldName, boolean>;

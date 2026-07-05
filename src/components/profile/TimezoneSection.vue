@@ -101,9 +101,6 @@ function buildSavedNotificationPreferences(
 	const marketScheduledAssetPriceTimes = sourceUser.market_scheduled_asset_price_times;
 	return {
 		email_notifications_enabled: sourceUser.email_notifications_enabled,
-		sms_notifications_enabled: sourceUser.sms_notifications_enabled,
-		sms_opted_out: sourceUser.sms_opted_out,
-		phone_verified: sourceUser.phone_verified,
 		timezone: sourceUser.timezone,
 		market_scheduled_asset_price_times: Array.isArray(marketScheduledAssetPriceTimes)
 			? [...marketScheduledAssetPriceTimes]
@@ -114,27 +111,7 @@ function buildSavedNotificationPreferences(
 		market_scheduled_asset_price_enabled: sourceUser.market_scheduled_asset_price_enabled,
 		daily_notification_time: sourceUser.daily_notification_time,
 		daily_notification_next_send_at: sourceUser.daily_notification_next_send_at,
-		daily_digest_include_prices_email: sourceUser.daily_digest_include_prices_email,
-		daily_digest_include_prices_sms: sourceUser.daily_digest_include_prices_sms,
-		daily_digest_include_top_movers_email:
-			sourceUser.daily_digest_include_top_movers_email,
-		daily_digest_include_top_movers_sms:
-			sourceUser.daily_digest_include_top_movers_sms,
-		daily_digest_include_news_email: sourceUser.daily_digest_include_news_email,
-		daily_digest_include_rumors_email: sourceUser.daily_digest_include_rumors_email,
-		market_scheduled_asset_price_include_email: sourceUser.market_scheduled_asset_price_include_email,
-		market_scheduled_asset_price_include_sms: sourceUser.market_scheduled_asset_price_include_sms,
-		asset_events_include_calendar_email: sourceUser.asset_events_include_calendar_email,
-		asset_events_include_calendar_sms: sourceUser.asset_events_include_calendar_sms,
-		asset_events_include_ipo_email: sourceUser.asset_events_include_ipo_email,
-		asset_events_include_ipo_sms: sourceUser.asset_events_include_ipo_sms,
-		asset_events_include_analyst_email: sourceUser.asset_events_include_analyst_email,
-		asset_events_include_analyst_sms: sourceUser.asset_events_include_analyst_sms,
-		asset_events_include_insider_email: sourceUser.asset_events_include_insider_email,
-		asset_events_include_insider_sms: sourceUser.asset_events_include_insider_sms,
 		asset_events_last_analyst_sent_month: sourceUser.asset_events_last_analyst_sent_month,
-		price_move_alerts_include_email: sourceUser.price_move_alerts_include_email,
-		price_move_alerts_include_sms: sourceUser.price_move_alerts_include_sms,
 	};
 }
 

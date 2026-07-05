@@ -26,16 +26,6 @@
 				>
 					notification channels</a>.
 			</li>
-			<li v-if="needsPhoneVerification">
-				Verify your phone number in
-				<a
-					:href="`#${phoneVerificationSectionId}`"
-					class="font-medium text-warning-text underline rounded-sm hover:text-warning-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-strong focus-visible:ring-offset-1 focus-visible:ring-offset-warning-bg"
-				>
-					SMS settings
-				</a>
-				to enable SMS deliveries.
-			</li>
 		</ul>
 	</div>
 </template>
@@ -50,16 +40,11 @@ interface Props {
 	needsTrackedAssets?: boolean;
 	trackedAssetsMessage?: string;
 	needsChannelSelection: boolean;
-	needsPhoneVerification: boolean;
-	phoneVerificationSectionId: string;
 }
 
 const props = defineProps<Props>();
 
 const needsSetup = computed(
-	() =>
-		Boolean(props.needsTrackedAssets) ||
-		props.needsChannelSelection ||
-		props.needsPhoneVerification,
+	() => Boolean(props.needsTrackedAssets) || props.needsChannelSelection,
 );
 </script>
