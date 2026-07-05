@@ -687,6 +687,10 @@ describe("processFlatPriceAlerts", () => {
 			["price_move_alerts", "", "email", false],
 			["price_move_alerts", "", "sms", true],
 		]);
+		// Row presence is what opts AAPL into evaluation; enableFlatAlerts (which
+		// normally seeds it) is bypassed here to customize the channel columns, so
+		// seed the threshold explicitly — otherwise the alert never triggers.
+		await setThreshold(testUser.id, "AAPL", 5, "percent");
 
 		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
 

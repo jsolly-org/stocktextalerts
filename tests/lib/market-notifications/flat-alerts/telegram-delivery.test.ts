@@ -143,7 +143,7 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 	});
 
 	it("counts a failed send, logs the failure, and records message_delivered=false", async () => {
-		expectConsoleError("Failed to send flat price alert Telegram message");
+		expectConsoleError("Failed to send price-move alert Telegram message");
 		const sendTelegram = vi.fn<TelegramSender>(async () => ({
 			success: false,
 			error: "Internal Server Error",
