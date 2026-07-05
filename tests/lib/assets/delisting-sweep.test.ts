@@ -19,7 +19,7 @@ vi.mock("../../../src/lib/assets/reference/delistings", async (importOriginal) =
 	};
 });
 
-import { runDelistingSweep } from "../../../src/lib/assets/delisting-sweep";
+import { runDelistingSweep, selectRollingWindow } from "../../../src/lib/assets/delisting-sweep";
 import type { TickerReferenceStatus } from "../../../src/lib/assets/reference/delistings";
 import { rootLogger } from "../../../src/lib/logging";
 import type { SmsSenderFactory } from "../../../src/lib/messaging/sms/sender-factory";
@@ -955,5 +955,31 @@ describe("runDelistingSweep", () => {
 			.select("symbol")
 			.eq("user_id", user.id);
 		expect(cleanedUp ?? []).toHaveLength(0);
+	});
+});
+
+describe("selectRollingWindow (nightly rotation for the free-tier call budget)", () => {
+	const symbols = ["AAPL", "AMZN", "GOOG", "META", "MSFT", "NVDA", "TSLA"];
+
+	it("returns everything when the list fits the window", () => {
+		expect(selectRollingWindow(symbols, 15, 42)).toEqual(symbols);
+	});
+
+	it("visits every symbol across consecutive nights, wrapping deterministically", () => {
+		const night0 = selectRollingWindow(symbols, 3, 0); // start 0
+		const night1 = selectRollingWindow(symbols, 3, 1); // start 3
+		const night2 = selectRollingWindow(symbols, 3, 2); // start 6, wraps
+
+		expect(night0).toEqual(["AAPL", "AMZN", "GOOG"]);
+		expect(night1).toEqual(["META", "MSFT", "NVDA"]);
+		expect(night2).toEqual(["TSLA", "AAPL", "AMZN"]);
+		// Union of a full rotation covers the whole list.
+		expect(new Set([...night0, ...night1, ...night2]).size).toBe(symbols.length);
+	});
+
+	it("always returns exactly windowSize items when the list is larger", () => {
+		for (let day = 0; day < 10; day++) {
+			expect(selectRollingWindow(symbols, 3, day)).toHaveLength(3);
+		}
 	});
 });

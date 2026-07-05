@@ -14,6 +14,15 @@ export const MASSIVE_BASE_URL = "https://api.massive.com";
  */
 export const FINNHUB_MAX_CALLS_PER_MINUTE = 55;
 
+/**
+ * Proactive per-process Massive call budget. The free tier allows exactly 5 requests per
+ * rolling minute (verified empirically against the downgraded key, 2026-07-05: 5×200 then
+ * hard 429s, window rolls after ~a minute). Per-process like the Finnhub budget;
+ * cross-process collisions (scheduler vs nightly maintenance) fall back to the
+ * 429/Retry-After retry handling in `marketDataFetch`.
+ */
+export const MASSIVE_MAX_CALLS_PER_MINUTE = 5;
+
 export const VENDOR_FETCH_MAX_RETRIES = 3;
 export const VENDOR_FETCH_RETRY_DELAY_MS = 2_000;
 /** Per-attempt abort; Finnhub earnings/insider can exceed 10s under load. */

@@ -69,6 +69,14 @@ Resources:
         # Chart rasterization is @resvg/resvg-wasm (pure WASM, no native .node binary),
         # so nothing is External here — esbuild bundles the JS glue and deploy-web.sh's
         # copy_chart_assets ships the .wasm + font files into the bundle.
+        #
+        # Massive free-tier budget (5 calls/min via the shared limiter): this per-minute
+        # tick's Massive usage is small by design — live quotes are Finnhub; remaining
+        # Massive calls are sparkline cache-misses, the odd intraday-bars chart fallback,
+        # and digest extras (movers 2 calls + company news, which the 8s per-user
+        # COMPANY_NEWS_USER_BUDGET_MS bounds to ~1 paced call). Worst case ≈ 3-5 calls
+        # ≈ 1 min of pacing inside the 300s timeout. News/movers degrade gracefully
+        # (optional + circuit breaker) when the budget squeezes them out.
     Properties:
       FunctionName: stocktextalerts-schedule
       Handler: schedule.handler
@@ -132,7 +140,12 @@ Resources:
       FunctionName: stocktextalerts-asset-maintenance
       Handler: asset-maintenance.handler
       CodeUri: src/handlers
-      Timeout: 300
+      # 900s: Massive's free tier allows 5 calls/min (~12s/call), so the nightly run's
+      # budget — corporate actions (~6) + universe crawl (~11 pages) + enrichment (cap 25)
+      # + delisting rolling window (15) ≈ 57 calls — needs ~11.5 min end to end.
+      # 900s is Lambda's hard max: the ~200s of headroom absorbs retries only, so any NEW
+      # Massive call added to this function must displace an existing per-job cap.
+      Timeout: 900
       MemorySize: 512
       LoggingConfig:
         LogGroup: !Ref AssetMaintenanceLogGroup

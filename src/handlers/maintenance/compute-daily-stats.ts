@@ -5,6 +5,7 @@
  * vendor-backfill on fetch/store failures.
  */
 import type { Context, ScheduledEvent } from "aws-lambda";
+import { selectRollingWindow } from "../../lib/assets/delisting-sweep";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";
 import { createLogger } from "../../lib/logging";
 import { runLambda } from "../../lib/logging/request-context";
@@ -15,11 +16,21 @@ import {
 } from "../../lib/market-data/price-history-cache";
 import { enqueueDailyCloseBackfill } from "../../lib/vendors/backfill/enqueue";
 
-/** Batch size for Massive API calls to stay under ~100 req/s. */
-const BATCH_SIZE = 50;
+/** Batch size for Massive API calls — pacing itself comes from the shared 5/min limiter
+ *  in `marketDataFetch`; small batches just keep per-batch logs/failures legible. */
+const BATCH_SIZE = 5;
 
 /** Delay between batches (ms). */
 const BATCH_DELAY_MS = 600;
+
+/**
+ * Max symbols per nightly run. Each symbol is one Massive call at the free tier's 5/min
+ * pace (~12s/call), so 40 ≈ 480s of the Lambda's 600s timeout, leaving retry headroom.
+ * The run rotates deterministically through the sorted symbol list night over night
+ * (`selectRollingWindow`), so an over-cap universe still gets full coverage across nights
+ * instead of the same tail symbols starving on every run.
+ */
+const DAILY_STATS_MAX_SYMBOLS_PER_RUN = 40;
 
 /** Calendar days to fetch — the 7-trading-day sparkline needs only ~7 closes;
  *  14 days safely covers that across a holiday week. */
@@ -52,12 +63,24 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			throw new Error("Failed to load user assets");
 		}
 
-		const symbols = [...new Set((allUserAssets ?? []).map((a) => a.symbol))];
-		if (symbols.length === 0) {
+		const allSymbols = [...new Set((allUserAssets ?? []).map((a) => a.symbol))].sort();
+		if (allSymbols.length === 0) {
 			logger.info("No symbols to compute daily stats for", {
 				action: "compute_daily_stats",
 			});
 			return;
+		}
+		const symbols = selectRollingWindow(
+			allSymbols,
+			DAILY_STATS_MAX_SYMBOLS_PER_RUN,
+			Math.floor(Date.now() / 86_400_000),
+		);
+		if (symbols.length < allSymbols.length) {
+			logger.info("Daily stats capped to nightly rolling window", {
+				action: "compute_daily_stats",
+				totalSymbols: allSymbols.length,
+				computedTonight: symbols.length,
+			});
 		}
 
 		// Date range: LOOKBACK_DAYS calendar days back to ensure ~20 trading days

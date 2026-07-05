@@ -56,10 +56,11 @@ async function fetchTickerReference(symbol: string): Promise<TickerReferenceStat
 	};
 }
 
-/** Concurrent reference lookup for multiple symbols with bounded parallelism. */
+/** Concurrent reference lookup for multiple symbols with bounded parallelism
+ *  (calls queue on the shared 5/min Massive limiter regardless). */
 export async function fetchTickerReferences(
 	symbols: string[],
-	concurrency = 5,
+	concurrency = 2,
 ): Promise<TickerReferenceStatus[]> {
 	if (symbols.length === 0) return [];
 	const results: TickerReferenceStatus[] = [];
