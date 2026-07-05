@@ -113,6 +113,45 @@ async function enableFlatAlerts(
 		["price_move_alerts", "", "email", wantEmail],
 		["price_move_alerts", "", "sms", wantSms],
 	]);
+
+	// Opt every tracked asset into price-move alerts at the default 5% threshold —
+	// row presence is what enables the alert now (the pre-redesign behavior the
+	// assertions below expect was a blanket 5% across the whole watchlist).
+	const { data: assets } = await adminClient
+		.from("user_assets")
+		.select("symbol")
+		.eq("user_id", userId);
+	if (assets && assets.length > 0) {
+		const { error: thresholdError } = await adminClient.from("price_move_alert_thresholds").upsert(
+			assets.map((a) => ({
+				user_id: userId,
+				symbol: a.symbol,
+				threshold_value: 5,
+				threshold_unit: "percent",
+			})),
+			{ onConflict: "user_id,symbol" },
+		);
+		if (thresholdError) {
+			throw new Error(`Failed to seed price-move thresholds: ${thresholdError.message}`);
+		}
+	}
+}
+
+/** Set a single per-stock threshold (value + unit) for a user, overriding the
+ *  default seeded by {@link enableFlatAlerts}. */
+async function setThreshold(
+	userId: string,
+	symbol: string,
+	value: number,
+	unit: "percent" | "dollar",
+): Promise<void> {
+	const { error } = await adminClient
+		.from("price_move_alert_thresholds")
+		.upsert(
+			{ user_id: userId, symbol, threshold_value: value, threshold_unit: unit },
+			{ onConflict: "user_id,symbol" },
+		);
+	if (error) throw new Error(`Failed to set threshold: ${error.message}`);
 }
 
 async function getNotificationLogCount(userId: string): Promise<number> {
@@ -542,7 +581,7 @@ describe("processFlatPriceAlerts", () => {
 
 		const smsCall = mockSmsSender.mock.calls[0]![0] as { body: string };
 		expect(smsCall.body).toContain("AAPL");
-		expect(smsCall.body).toContain("5% Price Move");
+		expect(smsCall.body).toContain("Price Move 🚨");
 		expect(smsCall.body).toContain("Reply STOP");
 	});
 
@@ -663,5 +702,73 @@ describe("processFlatPriceAlerts", () => {
 		expect(totals.smsFailed).toBe(0);
 		expect(mockSmsSender).not.toHaveBeenCalled();
 		expect(mockEmailSender).not.toHaveBeenCalled();
+	});
+
+	it("Dollar-unit threshold: a +$6.51 move (+3.5%) clears a $5 threshold — fires ONLY if the dollar unit is honored", async () => {
+		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+		registerTestUserForCleanup(testUser.id);
+		await enableFlatAlerts(testUser.id);
+		// Override the default 5% with a $5 absolute-dollar threshold.
+		await setThreshold(testUser.id, "AAPL", 5, "dollar");
+
+		// Discriminating fixture: $186 prev close → $192.51 = +$6.51 but only
+		// +3.50%. A regression that ignores the unit and reads the 5 as percent
+		// would NOT fire (3.50 < 5); the dollar semantics must (6.51 >= 5).
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 192.51 })]]);
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			isMarketOpen: true,
+		});
+
+		expect(totals.alertsTriggered).toBe(1);
+		expect(totals.emailsSent).toBe(1);
+	});
+
+	it("Dollar-unit threshold: a +$4.40 move (+8.8%) stays under an $8 threshold — skips ONLY if the dollar unit is honored", async () => {
+		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+		registerTestUserForCleanup(testUser.id);
+		await enableFlatAlerts(testUser.id);
+		await setThreshold(testUser.id, "AAPL", 8, "dollar");
+
+		// Discriminating fixture: $50 prev close → $54.40 = +$4.40 but +8.8%.
+		// A percent-read of the 8 WOULD fire (8.8 >= 8); the dollar semantics
+		// must not (4.40 < 8).
+		const quoteMap = new Map([
+			["AAPL", makeQuote({ price: 54.4, prevClose: 50, dayOpen: 50.5, dayHigh: 55, dayLow: 49.5 })],
+		]);
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			isMarketOpen: true,
+		});
+
+		expect(totals.alertsTriggered).toBe(0);
+		expect(mockEmailSender).not.toHaveBeenCalled();
+		expect(await getStateRow(testUser.id, "AAPL")).toBeNull();
+	});
+
+	it("A tracked asset with no threshold row is opted out and never evaluated", async () => {
+		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+		registerTestUserForCleanup(testUser.id);
+		await enableFlatAlerts(testUser.id);
+		// Clear the default threshold so AAPL is fully opted out.
+		await adminClient
+			.from("price_move_alert_thresholds")
+			.delete()
+			.eq("user_id", testUser.id)
+			.eq("symbol", "AAPL");
+
+		// A large +10% move, but with no threshold row nothing fires.
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 204.6 })]]);
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			isMarketOpen: true,
+		});
+
+		expect(totals.alertsTriggered).toBe(0);
+		expect(mockEmailSender).not.toHaveBeenCalled();
+		expect(await getNotificationLogCount(testUser.id)).toBe(0);
 	});
 });

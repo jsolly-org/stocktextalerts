@@ -193,7 +193,7 @@ test.describe("Telegram dashboard UI", () => {
 		await page.goto("/dashboard", { waitUntil: "networkidle" });
 		await page.locator("[data-hydrated]").first().waitFor({ state: "attached", timeout: 15_000 });
 
-		// --- Market Notifications: 5% Price Move Alerts (content='') -----------
+		// --- Market Notifications: Price Move Alerts (content='') --------------
 		// This facet-less market type keys its telegram pref by notification_type.
 		const marketForm = page.locator('form[aria-label="Market notifications"]');
 		await marketForm.scrollIntoViewIfNeeded();

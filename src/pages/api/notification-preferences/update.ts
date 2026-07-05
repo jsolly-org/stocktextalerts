@@ -297,8 +297,6 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 					market_scheduled_asset_price_next_send_at:
 						updatedUser.market_scheduled_asset_price_next_send_at,
 					dismiss_timezone_mismatch_prompts: updatedUser.dismiss_timezone_mismatch_prompts,
-					market_asset_price_alerts_enabled: updatedUser.market_asset_price_alerts_enabled,
-					market_asset_price_alert_move_size: updatedUser.market_asset_price_alert_move_size,
 					...buildChannelPreferenceSnapshot(updatedPrefs),
 				},
 			} satisfies ApiJsonBody,

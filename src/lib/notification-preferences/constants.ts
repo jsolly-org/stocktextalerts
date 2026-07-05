@@ -1,6 +1,5 @@
 import type { FacetCatalogEntry, NotificationOptionFieldName } from "../constants";
 import { NOTIFICATION_PREFERENCE_CATALOG } from "../constants";
-import { Constants } from "../db/generated/database.types";
 import type { EmailSmsOptionFieldName } from "../db/types";
 import type { FormSchema } from "../forms/schema";
 
@@ -19,11 +18,6 @@ export const NOTIFICATION_PREFERENCES_SCHEMA = {
 	timezone: { type: "timezone" },
 	market_scheduled_asset_price_times: { type: "json_string_array" },
 	daily_digest_time: { type: "time" },
-	market_asset_price_alerts_enabled: { type: "boolean" },
-	market_asset_price_alert_move_size: {
-		type: "enum",
-		values: Constants.public.Enums.alert_move_size,
-	},
 	...OPTION_BOOLEAN_FIELDS,
 } as const satisfies FormSchema;
 

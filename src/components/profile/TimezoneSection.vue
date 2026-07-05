@@ -133,10 +133,6 @@ function buildSavedNotificationPreferences(
 		asset_events_include_insider_email: sourceUser.asset_events_include_insider_email,
 		asset_events_include_insider_sms: sourceUser.asset_events_include_insider_sms,
 		asset_events_last_analyst_sent_month: sourceUser.asset_events_last_analyst_sent_month,
-		market_asset_price_alerts_enabled: sourceUser.market_asset_price_alerts_enabled,
-		market_asset_price_alerts_include_email: sourceUser.market_asset_price_alerts_include_email,
-		market_asset_price_alerts_include_sms: sourceUser.market_asset_price_alerts_include_sms,
-		market_asset_price_alert_move_size: sourceUser.market_asset_price_alert_move_size,
 		price_move_alerts_include_email: sourceUser.price_move_alerts_include_email,
 		price_move_alerts_include_sms: sourceUser.price_move_alerts_include_sms,
 	};

@@ -9,6 +9,7 @@ import { createUserService } from "../lib/auth/user-service";
 import { NOTIFICATION_PREFERENCE_CATALOG } from "../lib/constants";
 import { getUserAssets } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
+import type { PriceMoveThresholdMap } from "../components/dashboard/types";
 import { rootLogger } from "../lib/logging";
 import { requireEnv } from "../lib/db/env";
 import { formatPhoneFromE164 } from "../lib/messaging/format-phone";
@@ -48,6 +49,30 @@ if (!isUserApproved(dbUser)) {
 	return Astro.redirect("/auth/pending-approval");
 }
 const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: asset.name, type: asset.type, icon_url: asset.icon_url }));
+
+// Per-stock price-move alert thresholds (opt-in). Keyed by symbol so the market
+// panel can render each tracked asset's configured threshold. authenticated has
+// SELECT on the table, so the session client reads them directly. A read failure
+// renders empty (graceful during the deploy window before migrations apply) but
+// is logged so a permanent break is greppable rather than silent.
+const { data: thresholdRows, error: thresholdReadError } = await supabase
+	.from("price_move_alert_thresholds")
+	.select("symbol, threshold_value, threshold_unit")
+	.eq("user_id", authUser.id);
+if (thresholdReadError) {
+	rootLogger.warn(
+		"Failed to load price-move thresholds; rendering empty",
+		{ userId: authUser.id, page: "dashboard" },
+		thresholdReadError,
+	);
+}
+const priceMoveThresholds: PriceMoveThresholdMap = {};
+for (const row of thresholdRows ?? []) {
+	priceMoveThresholds[row.symbol] = {
+		value: Number(row.threshold_value),
+		unit: row.threshold_unit,
+	};
+}
 
 // ALL per-option channel prefs live in `notification_preferences` (single source of
 // truth), not on the users row, so they aren't carried by `getById`. Rebuild the
@@ -102,6 +127,7 @@ const smsPhoneNumber = formatPhoneFromE164(rawTwilioNumber);
 				dailyDigestTelegramPrefs={dailyDigestTelegramPrefs}
 				assetEventsTelegramPrefs={assetEventsTelegramPrefs}
 				marketTelegramPrefs={marketTelegramPrefs}
+				priceMoveThresholds={priceMoveThresholds}
 			/>
 		</main>
 	</div>

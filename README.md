@@ -1,13 +1,13 @@
 # 📈 StockTextAlerts.com
 
-A securities notification app that sends scheduled SMS and email updates (scheduled asset price notifications, daily digests, and asset events) and optional asset price alerts for tracked US stocks and ETFs. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via AWS SES and Twilio. 🔔
+A securities notification app that sends scheduled SMS and email updates (scheduled asset price notifications, daily digests, and asset events) and optional per-stock price-move alerts for tracked US stocks and ETFs. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via AWS SES and Twilio. 🔔
 
 ## Features
 
 - **Asset Tracking** - Search and track US stocks and ETFs (up to 10)
 - **Email Notifications** - Receive updates via email (AWS SES)
 - **SMS Notifications** - Optional SMS delivery (Twilio)
-- **Asset Price Alerts** - Optional smart alerts for tracked stocks (not ETFs) during US market hours, with configurable sensitivity (Significant/Extreme). Alerts are capped at one alert per symbol per US trading day
+- **Price Move Alerts** - Optional per-stock alerts during US market hours: set a threshold per tracked stock as a percent or dollar move in a single trading day. Capped at one alert per symbol per US trading day
 - **Phone Verification** - Secure phone verification via Twilio Verify
 - **Timezone Support** - Browser-detected timezones with user overrides
 - **Market Notifications** - Choose up to 8 delivery times for scheduled asset price updates (10:00 AM–3:59 PM ET on market-open days), and decide if they're delivered by email, SMS, or both
@@ -23,7 +23,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **Icons**: Local SVGs in `/src/icons` loaded via `astro-icon` in `.astro` files; Vue components import SVGs via `vite-svg-loader` using the `?component` suffix
 - **Database**: Supabase (PostgreSQL)
 - **Market Data**: Massive (prices/dividends/splits/IPOs) + Finnhub (symbols, earnings, market hours, analyst/insider extras)
-- **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons and asset price alert summaries
+- **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons
 - **Email**: AWS SES
 - **SMS**: Twilio Verify API + Messaging API
 - **Hosting**: Vercel (dashboard) + AWS Lambda (notification crons via SAM)
@@ -362,7 +362,7 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 
 **`ScheduleFunction`** (every minute) — main notification pipeline:
 
-1. Runs asset price alerts during US market hours (Massive snapshot quotes)
+1. Runs price-move alerts during US market hours (Massive snapshot quotes)
 2. Runs scheduled asset price notifications (batched via Massive snapshot quotes)
 3. Sends asset events notifications (earnings/dividends/splits/IPOs/analyst/insider) at the user’s daily delivery time
 4. Sends daily digest notifications (News/Rumors) at the user’s chosen daily time
@@ -370,7 +370,7 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 
 **`AssetMaintenanceFunction`** (daily at 00:00 UTC) — pre-populates the `asset_events` table with earnings, dividends, splits, and IPOs; runs Finnhub analyst/insider enrichment, the asset-universe reconcile, and the delisting sweep.
 
-**`ComputeDailyStatsFunction`** (weekdays at 22:00 UTC) — computes and upserts per-symbol daily stats used by asset price alerts (ADV-20 and ATR-14) for tracked assets.
+**`ComputeDailyStatsFunction`** (weekdays at 22:00 UTC) — caches per-symbol daily closes in `asset_daily_closes` (the source for the dashboard watchlist sparklines) for tracked assets.
 
 **Local testing:** `cd aws && npm run local:test-all` builds and invokes all three functions locally via `sam local invoke` (requires Podman or Docker — SAM CLI uses `DOCKER_HOST`). To test a single function: `npm run local:schedule`, `npm run local:asset-maintenance`, or `npm run local:daily-stats`. Run `npm run local:gen-env` first to generate `env.json` from `.env.local` with per-function env var scoping.
 

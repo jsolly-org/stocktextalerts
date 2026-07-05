@@ -53,14 +53,6 @@ export type GrokResponsesResponse = {
 const GROK_TIMEOUT_BY_ATTEMPT_MS = [30_000, 45_000, 60_000] as const;
 
 /**
- * Timeout for a single-shot Grok call (`fetchGrokResponseOnce`, no retry).
- * A no-retry call gets the full 60s budget — there's no later attempt to fall
- * back on, so it can't afford to give up early. Independent of the escalation
- * array above; not derived from it.
- */
-export const GROK_SINGLE_SHOT_TIMEOUT_MS = 60_000;
-
-/**
  * Call the xAI Responses API with retry logic.
  *
  * Returns the parsed JSON response on success, `null` on failure after retries.
@@ -163,58 +155,4 @@ export async function fetchGrokResponse(options: {
 	}
 
 	return null;
-}
-
-/** Single-attempt Grok Responses API call with a fixed timeout. */
-export async function fetchGrokResponseOnce(options: {
-	requestBody: GrokResponsesRequest;
-	logContext: Record<string, unknown>;
-	timeoutMs: number;
-}): Promise<GrokResponsesResponse | null> {
-	const apiKey = readEnv("XAI_API_KEY");
-	if (!apiKey) {
-		rootLogger.warn("XAI_API_KEY is not set; skipping Grok call", {
-			...options.logContext,
-			reason: "missing_api_key",
-		});
-		return null;
-	}
-
-	try {
-		const response = await fetch("https://api.x.ai/v1/responses", {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${apiKey}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify(options.requestBody),
-			signal: AbortSignal.timeout(options.timeoutMs),
-		});
-
-		if (!response.ok) {
-			const context = {
-				...options.logContext,
-				status: response.status,
-			};
-			if (response.status === 429) {
-				rootLogger.info("Grok request rate limited", context);
-			} else {
-				rootLogger.error("Grok request failed", context, new Error(`Grok HTTP ${response.status}`));
-			}
-			return null;
-		}
-
-		return (await response.json()) as GrokResponsesResponse;
-	} catch (error) {
-		const isTimeout = error instanceof Error && error.name === "TimeoutError";
-		rootLogger.error(
-			"Grok request errored",
-			{
-				...options.logContext,
-				reason: isTimeout ? "timeout" : "request_failed",
-			},
-			error,
-		);
-		return null;
-	}
 }

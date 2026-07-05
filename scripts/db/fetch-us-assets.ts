@@ -5,7 +5,7 @@
  * Two-pass approach:
  *   Pass 1 — List tickers: Paginate /v3/reference/tickers for each type.
  *   Pass 2 — Fetch details: For each ticker, call /v3/reference/tickers/{symbol}
- *            to get branding.icon_url and sic_code for sector mapping.
+ *            to get branding.icon_url.
  *
  * Type mapping:
  *   CS, ADRC, OS → "stock"
@@ -24,7 +24,6 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { marketDataFetch } from "../../src/lib/vendors/massive";
-import { sicCodeToSector } from "../../src/lib/assets/sector-mapping";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_FILE = path.join(__dirname, "..", "data", "us-assets.json");
@@ -59,7 +58,6 @@ interface OutputSymbol {
 	name: string;
 	type: "stock" | "etf";
 	icon_url: string | null;
-	sector: string | null;
 }
 
 interface OutputFile {
@@ -265,7 +263,7 @@ async function listAllTickers(): Promise<ListedTicker[]> {
  */
 async function fetchTickerDetails(
 	symbol: string,
-): Promise<{ ok: boolean; icon_url: string | null; sector: string | null }> {
+): Promise<{ ok: boolean; icon_url: string | null }> {
 	const data = await marketDataFetch(
 		`/v3/reference/tickers/${encodeURIComponent(symbol)}`,
 		{},
@@ -273,16 +271,15 @@ async function fetchTickerDetails(
 	);
 
 	if (typeof data !== "object" || data === null) {
-		return { ok: false, icon_url: null, sector: null };
+		return { ok: false, icon_url: null };
 	}
 
 	const results = (data as Record<string, unknown>).results;
 	if (typeof results !== "object" || results === null) {
-		return { ok: false, icon_url: null, sector: null };
+		return { ok: false, icon_url: null };
 	}
 
 	const rec = results as Record<string, unknown>;
-	const sicCode = rec.sic_code;
 	const branding = rec.branding;
 
 	let icon_url: string | null = null;
@@ -293,12 +290,7 @@ async function fetchTickerDetails(
 		}
 	}
 
-	let sector: string | null = null;
-	if (typeof sicCode === "string" || typeof sicCode === "number") {
-		sector = sicCodeToSector(String(sicCode));
-	}
-
-	return { ok: true, icon_url, sector };
+	return { ok: true, icon_url };
 }
 
 /**
@@ -306,8 +298,8 @@ async function fetchTickerDetails(
  */
 async function fetchAllDetails(
 	tickers: ListedTicker[],
-): Promise<{ results: Map<string, { icon_url: string | null; sector: string | null }>; failed: number }> {
-	const results = new Map<string, { icon_url: string | null; sector: string | null }>();
+): Promise<{ results: Map<string, { icon_url: string | null }>; failed: number }> {
+	const results = new Map<string, { icon_url: string | null }>();
 	let failed = 0;
 	let completed = 0;
 
@@ -320,10 +312,9 @@ async function fetchAllDetails(
 				if (!details.ok) failed++;
 				results.set(t.symbol, {
 					icon_url: details.icon_url,
-					sector: details.sector,
 				});
 			} catch {
-				results.set(t.symbol, { icon_url: null, sector: null });
+				results.set(t.symbol, { icon_url: null });
 				failed++;
 			}
 		});
@@ -344,7 +335,7 @@ async function main() {
 	const tickers = await listAllTickers();
 	console.info(`  Total unique tickers: ${tickers.length}`);
 
-	console.info("\nPass 2: Fetching ticker details (branding + sector)...");
+	console.info("\nPass 2: Fetching ticker details (branding)...");
 	const { results: detailsMap, failed } = await fetchAllDetails(tickers);
 	if (failed > 0) {
 		throw new Error(
@@ -357,13 +348,12 @@ async function main() {
 
 	// Build output
 	const symbols: OutputSymbol[] = tickers.map((t) => {
-		const details = detailsMap.get(t.symbol) ?? { icon_url: null, sector: null };
+		const details = detailsMap.get(t.symbol) ?? { icon_url: null };
 		return {
 			symbol: t.symbol,
 			name: t.name,
 			type: t.type,
 			icon_url: details.icon_url,
-			sector: details.sector,
 		};
 	});
 
