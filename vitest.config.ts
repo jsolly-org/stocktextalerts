@@ -24,13 +24,6 @@ export default getViteConfig(
 			sequence: {
 				concurrent: false,
 			},
-			// With fileParallelism disabled a single fork worker runs the entire
-			// ~167-file suite cumulatively and tips over V8's default ~2 GB old-space
-			// ceiling (CI OOM at ~2004 MB). Give the fork worker 4 GB — GitHub ubuntu
-			// runners have 7+ GB, so this is safe headroom, not a test weakening.
-			// (Vitest 4: pool defaults to "forks"; execArgv is passed to the worker
-			// node process.)
-			execArgv: ["--max-old-space-size=4096"],
 			// Setup runs schema checks and seed preload; allow time.
 			hookTimeout: 60000,
 			testTimeout: 30000,
