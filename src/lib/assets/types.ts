@@ -78,6 +78,7 @@ export interface DelistingSweepDeps {
 
 /** Summary counters returned by `runDelistingSweep`. */
 export interface DelistingSweepResult {
+	/** Symbols actually reference-checked this run (tonight's rolling window, not all tracked). */
 	symbolsChecked: number;
 	newlyDetectedDelistings: number;
 	reprocessedDelistings: number;
