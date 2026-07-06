@@ -23,9 +23,9 @@ import { createTelegramBot, readTelegramBotToken } from "../src/lib/messaging/te
  * `src/pages/api/messaging/telegram.ts`.
  */
 const BOT_COMMANDS: BotCommand[] = [
-	{ command: "dashboard", description: "Open your notification dashboard" },
-	{ command: "stop", description: "Pause Telegram alerts (keeps your account)" },
-	{ command: "unlink", description: "Disconnect this chat from your account" },
+	{ command: "dashboard", description: "Open your StockTextAlerts dashboard" },
+	{ command: "stop", description: "Pause stock alerts (keeps your account)" },
+	{ command: "unlink", description: "Disconnect this chat from StockTextAlerts" },
 	{ command: "help", description: "Show the list of commands" },
 ];
 

@@ -57,6 +57,12 @@ export function readTelegramBotToken(): string {
  * Construct a grammY Bot routed through undici (Node's global fetch), with the
  * auto-retry transformer installed for the send path.
  *
+ * **Fleet-canonical transport.** This function is the reference implementation
+ * for every fleet sender using the shared "Solly Notifications" bot;
+ * misc-notifications carries a documented copy (`src/messaging/telegram.ts`).
+ * If you change the undici wrapper or the auto-retry policy here, update that
+ * copy too — the repos deliberately share the bot but not a code dependency.
+ *
  * **Why undici, not grammY's default node-fetch.** grammY's bundled node-fetch stack
  * stalls connecting to `api.telegram.org` from AWS Lambda — the request hangs to the
  * 300s ceiling (the IPv4-agent pin did NOT fix it). undici — the same fetch the working
