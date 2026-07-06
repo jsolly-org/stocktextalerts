@@ -52,15 +52,21 @@ function parseCommand(text: string): { command: string; args: string } | null {
 	return { command, args };
 }
 
-/** Usage text for /help and any unrecognized command — neutral, points to the dashboard. */
+/**
+ * Usage text for /help and any unrecognized command — neutral, points to the
+ * dashboard. The bot is the fleet-shared "Solly Notifications" identity: this
+ * webhook and the commands below govern only the StockTextAlerts channel; the
+ * morning briefing (misc-notifications) sends via the same bot but is
+ * configured out-of-band, so /stop and /unlink deliberately don't touch it.
+ */
 const HELP_TEXT =
-	"StockTextAlerts sends your tracked stock & ETF updates here.\n\n" +
+	"This bot delivers Solly notifications — StockTextAlerts stock & ETF updates, plus the daily morning briefing.\n\n" +
 	"Commands:\n" +
-	"/dashboard — open your notification dashboard\n" +
-	"/stop — pause Telegram alerts (keeps your account)\n" +
-	"/unlink — disconnect this chat from your account\n" +
+	"/dashboard — open your StockTextAlerts dashboard\n" +
+	"/stop — pause stock alerts (the morning briefing is configured separately)\n" +
+	"/unlink — disconnect this chat from your StockTextAlerts account\n" +
 	"/help — show this message\n\n" +
-	"Choose which alerts you receive from your dashboard.";
+	"Choose which stock alerts you receive from your dashboard.";
 
 /**
  * POST /api/messaging/telegram — the bot webhook.
@@ -337,7 +343,7 @@ async function handleStop(
 	}
 
 	logger.info("Telegram alerts paused via /stop", { userId: data.id });
-	await reply(chatId, "Telegram alerts paused. Turn them back on anytime from your dashboard.");
+	await reply(chatId, "Stock alerts paused. Turn them back on anytime from your dashboard.");
 }
 
 /**
