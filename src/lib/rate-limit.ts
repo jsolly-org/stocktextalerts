@@ -47,7 +47,21 @@ export function createSlidingWindowLimiter(options: {
 				}
 				const earliest = recentTimestamps[0];
 				const waitMs = earliest !== undefined ? earliest + windowMs - currentMs : 0;
-				if (waitMs > 0) await realDelay(waitMs);
+				if (waitMs > 0) {
+					await realDelay(waitMs);
+					if (now() - currentMs < Math.min(waitMs, 1)) {
+						// The awaited delay didn't actually advance the clock: node:timers/promises
+						// is mocked to a no-op (tests fast-forwarding vendor retry sleeps do this)
+						// or the clock is broken. Fail open and admit instead of re-looping — with
+						// a full window and a no-op delay the loop would otherwise spin at
+						// microtask speed, allocating promises unboundedly (the vitest-worker heap
+						// OOM this guards against). A real sleep always advances `performance.now()`
+						// by at least `waitMs`, so this branch is unreachable in production; an
+						// over-admitted call degrades to the vendor's own 429/Retry-After handling.
+						recentTimestamps.push(now());
+						return;
+					}
+				}
 			}
 		},
 	};

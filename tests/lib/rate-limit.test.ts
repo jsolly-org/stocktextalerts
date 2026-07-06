@@ -54,4 +54,19 @@ describe("createSlidingWindowLimiter", () => {
 		// window (2000) — the window cap is never exceeded in any 1000ms span.
 		expect(admittedAt).toEqual([0, 0, 1_000, 1_000, 2_000]);
 	});
+
+	it("fails open instead of spinning when the delay is a no-op that never advances the clock", async () => {
+		// Regression: vendor tests mock node:timers/promises to an instant no-op to skip retry
+		// sleeps (e.g. movers.test.ts, company-news/fetch.test.ts). Before the fail-open guard,
+		// an exhausted window + a no-op delay re-looped at microtask speed and OOMed the vitest
+		// worker (4 GB in seconds). The limiter must detect the non-advancing clock and admit.
+		realDelayMock.mockImplementation(async () => {}); // resolves instantly, clock frozen
+		const limiter = makeLimiter(2, 60_000);
+
+		await limiter.acquire();
+		await limiter.acquire();
+		// Window is now full and can never roll (clock frozen) — must fail open, not spin.
+		await expect(limiter.acquire()).resolves.toBeUndefined();
+		expect(realDelayMock).toHaveBeenCalled();
+	});
 });
