@@ -70,8 +70,8 @@
 	},
 	"dependencies": {
 		"@astrojs/vercel": "^11.0.2",
-		"@aws-sdk/client-cloudwatch": "^3.1078.0",
-		"@aws-sdk/client-s3": "^3.1075.0",
+		"@aws-sdk/client-cloudwatch": "^3.1080.0",
+		"@aws-sdk/client-s3": "^3.1080.0",
 		"@aws-sdk/client-sesv2": "^3.1079.0",
 		"@aws-sdk/client-sqs": "^3.1078.0",
 		"@aws-sdk/client-ssm": "^3.1078.0",
@@ -106,7 +106,7 @@
 		"astro": "^7.0.4",
 		"chrome-launcher": "^1.2.1",
 		"github-actionlint": "^1.7.12",
-		"knip": "^6.23.0",
+		"knip": "^6.24.0",
 		"lighthouse": "^13.0.3",
 		"lint-staged": "^17.0.8",
 		"markdownlint-cli2": "^0.23.0",
@@ -116,10 +116,10 @@
 		"tailwindcss": "^4.3.2",
 		"tsx": "^4.22.4",
 		"typescript": "^6.0.2",
-		"vercel": "^54.18.6",
+		"vercel": "^54.20.1",
 		"vite": "^8.1.2",
 		"vite-svg-loader": "^5.1.1",
-		"vitest": "^4.1.9"
+		"vitest": "^4.1.10"
 	},
 	"overrides": {
 		"devalue": "^5.8.1",
