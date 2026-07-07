@@ -147,8 +147,6 @@ export interface CompanyNewsItem {
 	datetime: number;
 	url: string;
 	source: string;
-	/** Ticker symbols associated with this article (from API). */
-	tickers: string[];
 }
 
 /* =============

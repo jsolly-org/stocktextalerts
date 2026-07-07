@@ -1,9 +1,13 @@
 /**
  * Daily asset-data maintenance (EventBridge: midnight UTC). Ingests earnings
  * calendar events for this week and next, Finnhub analyst/insider enrichment,
- * reconciles the tradable-universe with Massive, and runs the delisting sweep
- * (notifying affected users). Enqueues vendor-backfill retries on partial ingest
- * failures.
+ * reconciles the tradable-universe with Finnhub (Sundays only), runs the delisting
+ * sweep (notifying affected users), and drips the icon backfill. Enqueues
+ * vendor-backfill retries on partial ingest failures.
+ *
+ * Steps that spend vendor budget check the Lambda's remaining time first and skip
+ * WITH AN ERROR LOG when it can't fit — rate-limiter waits are silent, so without
+ * the guard a budget overrun presents as an opaque timeout with a clean log tail.
  */
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { DateTime } from "luxon";
@@ -11,12 +15,40 @@ import { fetchAndStoreFinnhubEnrichment } from "../../lib/asset-events/enrichmen
 import { fetchAndStoreAssetEvents } from "../../lib/asset-events/fetch";
 import type { AssetEventProvider } from "../../lib/asset-events/types";
 import { runDelistingSweep } from "../../lib/assets/delisting-sweep";
+import { runIconBackfill } from "../../lib/assets/icon-backfill";
 import { runUniverseReconcile } from "../../lib/assets/universe-reconcile";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";
-import { createLogger } from "../../lib/logging";
+import { createLogger, type Logger } from "../../lib/logging";
 import { runLambda } from "../../lib/logging/request-context";
 import { createEmailSender } from "../../lib/messaging/email/utils";
 import { enqueueAssetEventsIngestRetry } from "../../lib/vendors/backfill/enqueue";
+import {
+	ICON_BACKFILL_MIN_REMAINING_MS,
+	RECONCILE_MIN_REMAINING_MS,
+	RECONCILE_UTC_WEEKDAY,
+	SWEEP_MIN_REMAINING_MS,
+} from "./constants";
+
+/**
+ * True when the step fits the remaining Lambda time; on false, logs at ERROR (this
+ * must page — a skipped sweep or reconcile is real missed work, and the next
+ * invocation is a full day away).
+ */
+function stepFitsRemainingTime(
+	context: Context,
+	logger: Logger,
+	step: string,
+	requiredMs: number,
+): boolean {
+	const remainingMs = context.getRemainingTimeInMillis();
+	if (remainingMs >= requiredMs) return true;
+	logger.error(
+		`Skipping ${step} — insufficient remaining Lambda time`,
+		{ action: "daily_asset_maintenance_cron", step, remainingMs, requiredMs },
+		new Error(`Step ${step} skipped: ${remainingMs}ms remaining < ${requiredMs}ms required`),
+	);
+	return false;
+}
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
 	return runLambda(context, async () => {
@@ -147,36 +179,61 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			}
 		}
 
-		// Independent try/catch so a reconcile failure never invalidates the
-		// calendar-events job or the delisting sweep — reconcile runs again
-		// tomorrow. Ordered BEFORE the sweep so the sweep operates on a freshly
-		// reconciled universe; the sweep remains the authoritative path for
-		// tracked-symbol delisting.
-		try {
-			const reconcileResult = await runUniverseReconcile({ supabase, logger });
-			logger.info("Universe reconcile complete", {
+		// Weekly (Sunday) universe reconcile. Independent try/catch so a reconcile
+		// failure never invalidates the calendar-events job or the delisting sweep.
+		// Ordered BEFORE the sweep so the sweep operates on a freshly reconciled
+		// universe on reconcile day; the sweep remains the authoritative path for
+		// tracked-symbol delisting and runs nightly regardless of this cadence.
+		if (DateTime.utc().weekday !== RECONCILE_UTC_WEEKDAY) {
+			logger.info("Universe reconcile skipped — runs weekly", {
 				action: "daily_universe_reconcile",
-				...reconcileResult,
+				reconcileWeekday: RECONCILE_UTC_WEEKDAY,
 			});
-		} catch (error) {
-			logger.error("Universe reconcile failed", { action: "daily_universe_reconcile" }, error);
+		} else if (
+			stepFitsRemainingTime(context, logger, "universe_reconcile", RECONCILE_MIN_REMAINING_MS)
+		) {
+			try {
+				const reconcileResult = await runUniverseReconcile({ supabase, logger });
+				logger.info("Universe reconcile complete", {
+					action: "daily_universe_reconcile",
+					...reconcileResult,
+				});
+			} catch (error) {
+				logger.error("Universe reconcile failed", { action: "daily_universe_reconcile" }, error);
+			}
 		}
 
 		// Independent try/catch so sweep failures never invalidate the calendar-
 		// events job's success — the sweep runs again tomorrow.
-		try {
-			const sendEmail = createEmailSender();
-			const sweepResult = await runDelistingSweep({
-				supabase,
-				logger,
-				sendEmail,
-			});
-			logger.info("Delisting sweep complete", {
-				action: "daily_delisting_sweep",
-				...sweepResult,
-			});
-		} catch (error) {
-			logger.error("Delisting sweep failed", { action: "daily_delisting_sweep" }, error);
+		if (stepFitsRemainingTime(context, logger, "delisting_sweep", SWEEP_MIN_REMAINING_MS)) {
+			try {
+				const sendEmail = createEmailSender();
+				const sweepResult = await runDelistingSweep({
+					supabase,
+					logger,
+					sendEmail,
+				});
+				logger.info("Delisting sweep complete", {
+					action: "daily_delisting_sweep",
+					...sweepResult,
+				});
+			} catch (error) {
+				logger.error("Delisting sweep failed", { action: "daily_delisting_sweep" }, error);
+			}
+		}
+
+		// Icon backfill drip runs LAST: it is the least important step (cosmetic
+		// logos), so it can never starve the sweep of vendor budget or Lambda time.
+		if (stepFitsRemainingTime(context, logger, "icon_backfill", ICON_BACKFILL_MIN_REMAINING_MS)) {
+			try {
+				const iconResult = await runIconBackfill({ supabase, logger });
+				logger.info("Icon backfill complete", {
+					action: "daily_icon_backfill",
+					...iconResult,
+				});
+			} catch (error) {
+				logger.error("Icon backfill failed", { action: "daily_icon_backfill" }, error);
+			}
 		}
 	});
 }

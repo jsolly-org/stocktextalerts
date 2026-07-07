@@ -1,6 +1,10 @@
 import type { APIRoute } from "astro";
+import {
+	ALLOWED_LOGO_MIME_TYPES,
+	MAX_LOGO_BYTES,
+} from "../../../../lib/assets/reference/constants";
+import { resolveLogoUpstreamUrl } from "../../../../lib/assets/reference/ticker-detail";
 import { createUserService } from "../../../../lib/auth/user-service";
-import { requireEnv } from "../../../../lib/db/env";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { createLogger } from "../../../../lib/logging";
 import { isValidAssetSymbol } from "../../../../lib/validation";
@@ -9,11 +13,12 @@ import { isValidAssetSymbol } from "../../../../lib/validation";
  * GET /api/assets/logo/:symbol
  *
  * Authenticated logo proxy for dashboard `AssetBadge` images. Looks up
- * `assets.icon_url` (a Massive branding URL stored without the API key),
- * appends `MASSIVE_API_KEY` server-side, and streams the upstream bytes back
- * to the browser so the key never reaches the client. Host is restricted to
- * `api.massive.com` to block SSRF via poisoned icon_url values. CDN caching
- * via Astro 7 `context.cache.set()` (Vercel `cacheVercel()` in production).
+ * `assets.icon_url` and streams the upstream bytes back to the browser.
+ * `resolveLogoUpstreamUrl` restricts the host to the allowed logo CDNs (SSRF
+ * guard on the DB-sourced URL) and appends `MASSIVE_API_KEY` server-side for
+ * Massive-era URLs so the key never reaches the client; Finnhub CDN URLs are
+ * public. CDN caching via Astro 7 `context.cache.set()` (Vercel `cacheVercel()`
+ * in production).
  */
 export const GET: APIRoute = async ({ url, params, request, cookies, locals, cache }) => {
 	const logger = createLogger({
@@ -59,24 +64,9 @@ export const GET: APIRoute = async ({ url, params, request, cookies, locals, cac
 		return new Response("Not found", { status: 404 });
 	}
 
-	const apiKey = requireEnv("MASSIVE_API_KEY");
-
-	let upstreamUrl: string;
-	try {
-		const parsed = new URL(iconUrl);
-		// icon_url is DB-sourced; allowlist prevents fetching arbitrary hosts.
-		const allowedHosts = new Set(["api.massive.com"]);
-		if (parsed.protocol !== "https:" || !allowedHosts.has(parsed.hostname)) {
-			logger.info("Rejected icon_url host for logo proxy", {
-				symbol,
-				host: parsed.hostname,
-			});
-			return new Response("Not found", { status: 404 });
-		}
-		parsed.searchParams.set("apiKey", apiKey);
-		upstreamUrl = parsed.toString();
-	} catch (error) {
-		logger.info("Invalid icon_url for logo proxy", { symbol }, error);
+	const upstreamUrl = resolveLogoUpstreamUrl(iconUrl);
+	if (upstreamUrl === null) {
+		logger.info("Rejected icon_url for logo proxy", { symbol });
 		return new Response("Not found", { status: 404 });
 	}
 
@@ -93,8 +83,21 @@ export const GET: APIRoute = async ({ url, params, request, cookies, locals, cac
 			return new Response("Not found", { status: 404 });
 		}
 
-		const contentType = upstream.headers.get("Content-Type") ?? "image/png";
+		// This response is navigable on the app origin and CDN-cached for a week, so
+		// only raster image types pass — an SVG or mislabeled HTML body would execute
+		// with the viewer's session and get pinned in the shared cache.
+		const rawContentType = upstream.headers.get("Content-Type") ?? "image/png";
+		const contentType = rawContentType.split(";")[0]?.trim().toLowerCase() || "image/png";
+		if (!ALLOWED_LOGO_MIME_TYPES.has(contentType)) {
+			logger.info("Rejected upstream icon content type", { symbol, contentType });
+			return new Response("Not found", { status: 404 });
+		}
+
 		const body = await upstream.arrayBuffer();
+		if (body.byteLength > MAX_LOGO_BYTES) {
+			logger.info("Rejected oversized upstream icon", { symbol, byteLength: body.byteLength });
+			return new Response("Not found", { status: 404 });
+		}
 
 		// Logos change rarely; cache 7d with 1d SWR for CDN efficiency.
 		if (cache.enabled) {
@@ -109,6 +112,7 @@ export const GET: APIRoute = async ({ url, params, request, cookies, locals, cac
 			status: 200,
 			headers: {
 				"Content-Type": contentType,
+				"X-Content-Type-Options": "nosniff",
 			},
 		});
 	} catch (err) {

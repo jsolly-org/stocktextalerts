@@ -1,6 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchCompanyNews } from "../../../src/lib/company-news/fetch";
-import { recordOptionalVendorFailure } from "../../../src/lib/vendors/optional-vendors";
+import {
+	isOptionalVendorUnavailable,
+	recordOptionalVendorFailure,
+} from "../../../src/lib/vendors/optional-vendors";
 import { resetOptionalVendorCircuits } from "../../helpers/reset-optional-vendor-circuits";
 
 // Mock retry delays so error/retry tests don't wait real seconds
@@ -8,7 +11,19 @@ vi.mock("node:timers/promises", () => ({
 	setTimeout: vi.fn().mockResolvedValue(undefined),
 }));
 
+/** Build a Finnhub /company-news JSON array response (Finnhub returns a bare array). */
+function finnhubResponse(items: unknown[]): Response {
+	return new Response(JSON.stringify(items), {
+		status: 200,
+		headers: { "Content-Type": "application/json" },
+	});
+}
+
 describe("fetchCompanyNews", () => {
+	beforeEach(() => {
+		vi.stubEnv("FINNHUB_API_KEY", "test-finnhub-key");
+	});
+
 	afterEach(() => {
 		resetOptionalVendorCircuits();
 		vi.restoreAllMocks();
@@ -16,7 +31,6 @@ describe("fetchCompanyNews", () => {
 	});
 
 	it("returns empty array without calling fetch when circuit is open", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
 		const fetchSpy = vi.spyOn(globalThis, "fetch");
 		recordOptionalVendorFailure("company-news");
 		recordOptionalVendorFailure("company-news");
@@ -27,105 +41,88 @@ describe("fetchCompanyNews", () => {
 		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 
-	it("maps Massive fields to CompanyNewsItem shape", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(
-				JSON.stringify({
-					results: [
-						{
-							title: "Apple launches new MacBook",
-							description: "A summary of the launch event.",
-							published_utc: "2026-02-14T10:30:00Z",
-							article_url: "https://example.com/apple-macbook",
-							publisher: { name: "TechCrunch" },
-						},
-					],
-				}),
-				{ status: 200, headers: { "Content-Type": "application/json" } },
-			),
+	it("requests the Finnhub company-news endpoint and maps fields to CompanyNewsItem", async () => {
+		const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			finnhubResponse([
+				{
+					headline: "Apple launches new MacBook",
+					summary: "A summary of the launch event.",
+					datetime: 1771064400,
+					url: "https://example.com/apple-macbook",
+					source: "TechCrunch",
+					category: "company",
+					id: 7412160,
+					image: "https://example.com/apple-macbook.jpg",
+					related: "AAPL",
+				},
+			]),
 		);
 
 		const items = await fetchCompanyNews("AAPL", "2026-02-07", "2026-02-14");
 
+		const fetchedUrl = String(fetchSpy.mock.calls[0]?.[0]);
+		expect(fetchedUrl).toBe(
+			"https://finnhub.io/api/v1/company-news?symbol=AAPL&from=2026-02-07&to=2026-02-14&token=test-finnhub-key",
+		);
 		expect(items).toHaveLength(1);
 		expect(items[0]).toEqual({
 			headline: "Apple launches new MacBook",
 			summary: "A summary of the launch event.",
-			datetime: Math.floor(Date.parse("2026-02-14T10:30:00Z") / 1000),
+			datetime: 1771064400,
 			url: "https://example.com/apple-macbook",
 			source: "TechCrunch",
-			tickers: [],
 		});
 	});
 
-	it("converts ISO 8601 published_utc to unix seconds", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+	it("floors a fractional datetime to whole unix seconds", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(
-				JSON.stringify({
-					results: [
-						{
-							title: "Test headline",
-							published_utc: "2025-06-15T14:00:00Z",
-							article_url: "",
-							publisher: { name: "" },
-						},
-					],
-				}),
-				{ status: 200, headers: { "Content-Type": "application/json" } },
-			),
+			finnhubResponse([
+				{
+					headline: "Microsoft expands AI offerings",
+					datetime: 1750000000.75,
+				},
+			]),
 		);
 
 		const items = await fetchCompanyNews("MSFT", "2025-06-08", "2025-06-15");
 
-		expect(items[0]?.datetime).toBe(Math.floor(Date.parse("2025-06-15T14:00:00Z") / 1000));
+		expect(items[0]?.datetime).toBe(1750000000);
 	});
 
-	it("returns empty array when response has no results", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(JSON.stringify({ results: [] }), {
-				status: 200,
-				headers: { "Content-Type": "application/json" },
-			}),
-		);
+	it("returns empty array when Finnhub returns no articles", async () => {
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(finnhubResponse([]));
 
 		const items = await fetchCompanyNews("GOOG", "2026-02-01", "2026-02-14");
 
 		expect(items).toEqual([]);
+		expect(isOptionalVendorUnavailable("company-news")).toBe(false);
 	});
 
-	it("returns empty array on malformed response", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(JSON.stringify({ status: "ERROR" }), {
+	it("records a vendor failure when the payload is not an array", async () => {
+		vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+			return new Response(JSON.stringify({ error: "unexpected shape" }), {
 				status: 200,
 				headers: { "Content-Type": "application/json" },
-			}),
-		);
+			});
+		});
 
-		const items = await fetchCompanyNews("TSLA", "2026-02-01", "2026-02-14");
+		await expect(fetchCompanyNews("TSLA", "2026-02-01", "2026-02-14")).resolves.toEqual([]);
+		expect(isOptionalVendorUnavailable("company-news")).toBe(false);
 
-		expect(items).toEqual([]);
+		await expect(fetchCompanyNews("TSLA", "2026-02-01", "2026-02-14")).resolves.toEqual([]);
+		expect(isOptionalVendorUnavailable("company-news")).toBe(true);
 	});
 
-	it("filters out items missing required fields", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+	it("filters out items missing a headline or a datetime", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(
-				JSON.stringify({
-					results: [
-						{ title: "Good headline", published_utc: "2026-02-14T10:00:00Z" },
-						{
-							description: "No title field",
-							published_utc: "2026-02-14T09:00:00Z",
-						},
-						{ title: "No date field" },
-					],
-				}),
-				{ status: 200, headers: { "Content-Type": "application/json" } },
-			),
+			finnhubResponse([
+				{ headline: "Good headline", datetime: 1771059600 },
+				{ summary: "No headline field", datetime: 1771056000 },
+				{ headline: "", datetime: 1771052400 },
+				{ headline: "No datetime field" },
+				{ headline: "String datetime", datetime: "2026-02-14T10:00:00Z" },
+				"not-a-record",
+			]),
 		);
 
 		const items = await fetchCompanyNews("NVDA", "2026-02-07", "2026-02-14");
@@ -134,20 +131,14 @@ describe("fetchCompanyNews", () => {
 		expect(items[0]?.headline).toBe("Good headline");
 	});
 
-	it("defaults optional fields when publisher/description/url are missing", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+	it("defaults summary/url/source to empty strings when missing", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(
-				JSON.stringify({
-					results: [
-						{
-							title: "Bare minimum",
-							published_utc: "2026-02-14T12:00:00Z",
-						},
-					],
-				}),
-				{ status: 200, headers: { "Content-Type": "application/json" } },
-			),
+			finnhubResponse([
+				{
+					headline: "Bare minimum",
+					datetime: 1771070400,
+				},
+			]),
 		);
 
 		const items = await fetchCompanyNews("META", "2026-02-07", "2026-02-14");
@@ -155,22 +146,33 @@ describe("fetchCompanyNews", () => {
 		expect(items[0]).toEqual({
 			headline: "Bare minimum",
 			summary: "",
-			datetime: Math.floor(Date.parse("2026-02-14T12:00:00Z") / 1000),
+			datetime: 1771070400,
 			url: "",
 			source: "",
-			tickers: [],
 		});
 	});
 
+	it("returns at most 10 articles", async () => {
+		const articles = Array.from({ length: 14 }, (_, i) => ({
+			headline: `Article ${i + 1}`,
+			datetime: 1771064400 - i * 3600,
+		}));
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(finnhubResponse(articles));
+
+		const items = await fetchCompanyNews("AMZN", "2026-02-07", "2026-02-14");
+
+		expect(items).toHaveLength(10);
+		expect(items[0]?.headline).toBe("Article 1");
+		expect(items[9]?.headline).toBe("Article 10");
+	});
+
 	it("returns empty array on network error", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
 		vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Network failure"));
 
 		await expect(fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14")).resolves.toEqual([]);
 	});
 
 	it("returns empty array on non-200 response", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
 		vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
 			return new Response(JSON.stringify({ error: "Rate limited" }), {
 				status: 429,
@@ -179,59 +181,5 @@ describe("fetchCompanyNews", () => {
 		});
 
 		await expect(fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14")).resolves.toEqual([]);
-	});
-
-	it("filters out generic roundup articles with too many tickers", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(
-				JSON.stringify({
-					results: [
-						{
-							title: "AVGO beats earnings expectations",
-							published_utc: "2026-02-14T10:00:00Z",
-							tickers: ["AVGO"],
-						},
-						{
-							title: "5 Smart Stocks to Buy Right Now",
-							published_utc: "2026-02-14T09:00:00Z",
-							tickers: ["AVGO", "AAPL", "MSFT", "GOOG", "AMZN", "NVDA"],
-						},
-						{
-							title: "Chip sector update",
-							published_utc: "2026-02-14T08:00:00Z",
-							tickers: ["AVGO", "NVDA", "AMD"],
-						},
-					],
-				}),
-				{ status: 200, headers: { "Content-Type": "application/json" } },
-			),
-		);
-
-		const items = await fetchCompanyNews("AVGO", "2026-02-07", "2026-02-14");
-
-		expect(items).toHaveLength(2);
-		expect(items[0]?.headline).toBe("AVGO beats earnings expectations");
-		expect(items[1]?.headline).toBe("Chip sector update");
-	});
-
-	it("filters out items with invalid published_utc", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(
-				JSON.stringify({
-					results: [
-						{ title: "Good headline", published_utc: "2026-02-14T10:00:00Z" },
-						{ title: "Bad date", published_utc: "not-a-date" },
-					],
-				}),
-				{ status: 200, headers: { "Content-Type": "application/json" } },
-			),
-		);
-
-		const items = await fetchCompanyNews("NVDA", "2026-02-07", "2026-02-14");
-
-		expect(items).toHaveLength(1);
-		expect(items[0]?.headline).toBe("Good headline");
 	});
 });

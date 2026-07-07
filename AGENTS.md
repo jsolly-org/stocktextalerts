@@ -42,7 +42,7 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 
 **StockTextAlerts** — securities notification platform sending scheduled email/Telegram updates for tracked US stocks and ETFs.
 
-**Stack:** Astro 7 (SSR, Vite 8) on Vercel, Vue 3, Tailwind CSS 4, Supabase (PostgreSQL + Auth), AWS SES (email), Telegram (Bot API), Massive (prices + asset reference), Finnhub (earnings calendar + analyst/insider extras), xAI/Grok (optional AI summaries).
+**Stack:** Astro 7 (SSR, Vite 8) on Vercel, Vue 3, Tailwind CSS 4, Supabase (PostgreSQL + Auth), AWS SES (email), Telegram (Bot API), Massive (bars/closes, corporate actions, delisting confirms), Finnhub (quotes, universe listing, logos, news, earnings calendar + analyst/insider extras), xAI/Grok (optional AI summaries).
 
 ### Key Directories
 
@@ -140,7 +140,9 @@ Provider keys live in the Lambda runtime (and `MASSIVE_API_KEY` also in Vercel, 
 
 ## External APIs
 
-Vendor clients live in `src/lib/vendors/` — Massive (prices, asset reference, dividends/splits/IPOs) and Finnhub (symbols, earnings calendar, market hours, analyst/insider extras). xAI/Grok powers optional AI summaries.
+Vendor clients live in `src/lib/vendors/` — Massive (daily bars/prev-close, dividends/splits/IPOs, per-symbol delisting confirms, top movers, market holidays) and Finnhub (live quotes, active-universe listing `/stock/symbol`, company logos `/stock/profile2`, company news, earnings calendar, analyst/insider extras). xAI/Grok powers optional AI summaries.
+
+**Both market-data vendors are on free tiers with proactive per-process rate limiters** (`src/lib/rate-limit.ts`): Massive at 5 calls/min (`marketDataFetch`), Finnhub at 55/min (`finnhubFetch`). Limiter waits are silent — any job adding vendor calls must budget against its Lambda timeout (the asset-maintenance handler guards each step via `context.getRemainingTimeInMillis()` and skips with an error log when a step can't fit; `marketDataFetch` warns when a single limiter wait exceeds 60s). The nightly icon backfill drips Finnhub logo probes capped per run and stamps `assets.icon_checked_at` on every definitive answer so logo-less symbols are probed exactly once; the full universe reconcile runs weekly (Sundays UTC), while the confirm-based delisting sweep covers tracked symbols nightly.
 
 **Telegram bot:** the **fleet-shared "Solly Notifications"** identity (username `@StockTextAlertsBot` — display name rebranded 2026-07-06; the @username is unchangeable via BotFather and treated as legacy cosmetics), owned by the user's **personal** Telegram account (deliberate at current scale; bot ownership is non-transferable — formalize a dedicated owner account **before ~50–100 linked users**, while re-linking is still cheap). **Shared-bot contract:** misc-notifications sends its morning briefing via the *same bot token*; this repo owns the bot's only webhook, so `/start` pairing, the command menu, and all inbound handling live here — `/stop`/`/unlink` gate *stock alerts only* (Supabase prefs), never the morning briefing (configured out-of-band in misc-notifications). Token rotation touches **three places**: `/stocktextalerts/telegram-bot-token` (SSM), `/misc-notifications/telegram-bot-token` (SSM), and the Vercel `TELEGRAM_BOT_TOKEN` env. The transport core (`src/lib/messaging/telegram/sender.ts` `createTelegramBot`) is the fleet-canonical reference; misc-notifications carries a documented copy. For Telegram-channel work, a first-class experience outranks dependency-minimalism (user decision 2026-06-19) — deps that materially improve UX are fine, overriding the general fewer-dependencies default. Candlestick charts render on Lambda via `@resvg/resvg-wasm` (pure WASM — the `.wasm` + Roboto TTFs ship into every bundle via `aws/chart-assets.sh` on both deploy paths, verified post-deploy by the live-provider-check `chart:render-png` step; see `docs/plans/2026-07-03-beautiful-telegram-notifications.md`).
 

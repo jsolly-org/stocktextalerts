@@ -8,6 +8,7 @@ import {
 	VENDOR_FETCH_MAX_RETRIES as DEFAULT_MAX_RETRIES,
 	VENDOR_FETCH_REQUEST_TIMEOUT_MS as DEFAULT_REQUEST_TIMEOUT_MS,
 	MASSIVE_BASE_URL,
+	MASSIVE_LIMITER_WAIT_WARN_MS,
 	MASSIVE_MAX_CALLS_PER_MINUTE,
 	VENDOR_FETCH_RETRY_DELAY_MS as RETRY_DELAY_MS,
 } from "./constants";
@@ -88,7 +89,20 @@ export async function marketDataFetch(
 		const isLastAttempt = attempt === maxRetries;
 
 		// Each HTTP attempt (including retries) consumes API budget, so gate here.
+		// The acquire wait is otherwise SILENT — time it and warn past the threshold,
+		// or a caller burning the whole Lambda budget in limiter waits presents as an
+		// opaque timeout with a clean log tail (the 2026-07-07 incident shape).
+		const acquireStart = performance.now();
 		await massiveLimiter.acquire();
+		const acquireWaitMs = Math.round(performance.now() - acquireStart);
+		if (acquireWaitMs >= MASSIVE_LIMITER_WAIT_WARN_MS) {
+			rootLogger.warn(`Massive ${label} rate-limiter wait exceeded threshold`, {
+				endpoint,
+				attempt,
+				acquireWaitMs,
+				...logContext,
+			});
+		}
 
 		try {
 			const response = await fetch(url, {
