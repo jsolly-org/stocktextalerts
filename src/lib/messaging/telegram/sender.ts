@@ -58,7 +58,7 @@ export function readTelegramBotToken(): string {
  * auto-retry transformer installed for the send path.
  *
  * **Fleet-canonical transport.** This function is the reference implementation
- * for every fleet sender using the shared "Solly Notifications" bot;
+ * for every fleet sender using the shared "SollyClaw" bot (@SollyClawBot);
  * misc-notifications carries a documented copy (`src/messaging/telegram.ts`).
  * If you change the undici wrapper or the auto-retry policy here, update that
  * copy too — the repos deliberately share the bot but not a code dependency.

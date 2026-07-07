@@ -54,7 +54,7 @@ function parseCommand(text: string): { command: string; args: string } | null {
 
 /**
  * Usage text for /help and any unrecognized command — neutral, points to the
- * dashboard. The bot is the fleet-shared "Solly Notifications" identity: this
+ * dashboard. The bot is the fleet-shared "SollyClaw" identity (@SollyClawBot): this
  * webhook and the commands below govern only the StockTextAlerts channel; the
  * morning briefing (misc-notifications) sends via the same bot but is
  * configured out-of-band, so /stop and /unlink deliberately don't touch it.
