@@ -15,7 +15,7 @@ import { createTelegramBot } from "../../../../src/lib/messaging/telegram/sender
 
 const FAKE_TOKEN = "123:fake-token-for-health-tests-only";
 
-const ME = { id: 777, is_bot: true, username: "StockTextAlertsBot" } as UserFromGetMe;
+const ME = { id: 777, is_bot: true, username: "SollyClawBot" } as UserFromGetMe;
 
 function asApiResponse(response: ApiResponse<unknown>): ReturnType<Transformer> {
 	return Promise.resolve(response) as ReturnType<Transformer>;
@@ -54,7 +54,7 @@ describe("checkTelegramLive drives the real getMe/getWebhookInfo path (transform
 		expect(report).toEqual({
 			ok: true,
 			botId: 777,
-			username: "StockTextAlertsBot",
+			username: "SollyClawBot",
 			webhookUrl: "https://stocktextalerts.com/api/messaging/telegram",
 			pendingUpdateCount: 3,
 			lastError: null,
@@ -94,7 +94,7 @@ describe("checkTelegramLive drives the real getMe/getWebhookInfo path (transform
 		expect(report).toEqual({
 			ok: true,
 			botId: 777,
-			username: "StockTextAlertsBot",
+			username: "SollyClawBot",
 			webhookUrl: "https://stocktextalerts.com/api/messaging/telegram",
 			pendingUpdateCount: 1,
 			lastError: null,

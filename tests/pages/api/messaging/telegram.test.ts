@@ -363,7 +363,7 @@ describe("The Telegram bot honors /stop, /unlink, and /help on a linked chat.", 
 		const response = await postCommand(
 			buildCommandUpdate({
 				updateId: uniqueId(),
-				text: "/stop@StockTextAlertsBot",
+				text: "/stop@SollyClawBot",
 				chatId,
 				fromId,
 			}),

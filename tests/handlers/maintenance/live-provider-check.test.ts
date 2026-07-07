@@ -88,7 +88,7 @@ function stubHealthyProviders(): void {
 	vi.mocked(checkTelegramLive).mockResolvedValue({
 		ok: true,
 		botId: 12345,
-		username: "StockTextAlertsBot",
+		username: "SollyClawBot",
 		webhookUrl: "",
 		pendingUpdateCount: 0,
 		lastError: null,
