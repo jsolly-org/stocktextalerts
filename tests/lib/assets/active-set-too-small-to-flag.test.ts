@@ -14,7 +14,7 @@ describe("activeSetTooSmallToFlag (universe-reconcile truncation floor)", () => 
 	it("treats a single-page-sized active set as a suspected truncation (skips delist-flagging)", () => {
 		expect(activeSetTooSmallToFlag(0)).toBe(true);
 		expect(activeSetTooSmallToFlag(1)).toBe(true);
-		expect(activeSetTooSmallToFlag(1000)).toBe(true); // one Massive list page
+		expect(activeSetTooSmallToFlag(1000)).toBe(true); // one truncated provider page
 		expect(activeSetTooSmallToFlag(4999)).toBe(true); // just under the floor
 	});
 

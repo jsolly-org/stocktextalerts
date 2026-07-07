@@ -23,6 +23,15 @@ export const FINNHUB_MAX_CALLS_PER_MINUTE = 55;
  */
 export const MASSIVE_MAX_CALLS_PER_MINUTE = 5;
 
+/**
+ * Warn when a single Massive limiter `acquire()` wait exceeds this. Normal 5/min
+ * pacing waits ~12s (a few queued callers stack to ~30-40s); a wait past this
+ * threshold means real contention — a job overrunning its call budget or
+ * cross-process collision on the shared key — and must leave a log trail before
+ * it turns into a silent Lambda timeout.
+ */
+export const MASSIVE_LIMITER_WAIT_WARN_MS = 60_000;
+
 export const VENDOR_FETCH_MAX_RETRIES = 3;
 export const VENDOR_FETCH_RETRY_DELAY_MS = 2_000;
 /** Per-attempt abort; Finnhub earnings/insider can exceed 10s under load. */

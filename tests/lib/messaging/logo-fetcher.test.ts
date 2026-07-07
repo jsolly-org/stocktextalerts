@@ -52,12 +52,81 @@ describe("When the app fetches or renders asset logos for email", () => {
 			expect(result).toBeNull();
 		});
 
-		it("a subscriber is protected from non-Massive hosts (no logo fetched).", async () => {
+		it("a subscriber receives a Finnhub CDN logo fetched without an apiKey param.", async () => {
+			const pngBytes = new Uint8Array([137, 80, 78, 71]);
+			const mockResponse = new Response(pngBytes, {
+				status: 200,
+				headers: { "content-type": "image/png" },
+			});
+			const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockResponse);
+
+			const cache = createLogoCache();
+			const result = await fetchLogoBase64(
+				"AAPL",
+				"https://static.finnhub.io/logo/87cb30d8-80df-11ea-8951-00000000092a.png",
+				cache,
+			);
+
+			expect(result).toBe(`data:image/png;base64,${Buffer.from(pngBytes).toString("base64")}`);
+			const fetchedUrl = String(fetchSpy.mock.calls[0]![0]);
+			expect(fetchedUrl).toBe(
+				"https://static.finnhub.io/logo/87cb30d8-80df-11ea-8951-00000000092a.png",
+			);
+			expect(fetchedUrl).not.toContain("apiKey");
+		});
+
+		it("a subscriber receives a static2.finnhub.io logo with the URL passed through unchanged.", async () => {
+			const pngBytes = new Uint8Array([137, 80, 78, 71]);
+			const mockResponse = new Response(pngBytes, {
+				status: 200,
+				headers: { "content-type": "image/png" },
+			});
+			const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockResponse);
+
+			const cache = createLogoCache();
+			const result = await fetchLogoBase64(
+				"MSFT",
+				"https://static2.finnhub.io/file/publicdatany/finnhubimage/stock_logo/MSFT.png",
+				cache,
+			);
+
+			expect(result).toBe(`data:image/png;base64,${Buffer.from(pngBytes).toString("base64")}`);
+			expect(String(fetchSpy.mock.calls[0]![0])).toBe(
+				"https://static2.finnhub.io/file/publicdatany/finnhubimage/stock_logo/MSFT.png",
+			);
+		});
+
+		it("a subscriber is protected from disallowed hosts (no logo fetched).", async () => {
+			const fetchSpy = vi.spyOn(globalThis, "fetch");
+
 			const cache = createLogoCache();
 			const result = await fetchLogoBase64("AAPL", "https://evil.example.com/icon.png", cache);
 
 			expect(result).toBeNull();
 			expect(cache.get("AAPL")).toBeNull();
+			expect(fetchSpy).not.toHaveBeenCalled();
+		});
+
+		it("a subscriber is protected from non-https URLs on an allowed host (no logo fetched).", async () => {
+			const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+			const cache = createLogoCache();
+			const result = await fetchLogoBase64("AAPL", "http://static.finnhub.io/logo/AAPL.png", cache);
+
+			expect(result).toBeNull();
+			expect(cache.get("AAPL")).toBeNull();
+			expect(fetchSpy).not.toHaveBeenCalled();
+		});
+
+		it("a subscriber sees no logo for an unparseable stored URL (no fetch, no thrown error).", async () => {
+			const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+			const cache = createLogoCache();
+			const result = await fetchLogoBase64("AAPL", "not a url at all", cache);
+
+			expect(result).toBeNull();
+			expect(cache.get("AAPL")).toBeNull();
+			expect(fetchSpy).not.toHaveBeenCalled();
 		});
 
 		it("a subscriber sees no logo when the external fetch fails.", async () => {

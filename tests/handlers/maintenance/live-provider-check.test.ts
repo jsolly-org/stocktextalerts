@@ -17,6 +17,12 @@ vi.mock("../../../src/lib/market-data/prices", () => ({
 vi.mock("../../../src/lib/market-data/session", () => ({
 	getCurrentMarketSession: vi.fn(),
 }));
+vi.mock("../../../src/lib/assets/reference/universe", () => ({
+	fetchActiveTickers: vi.fn(),
+}));
+vi.mock("../../../src/lib/assets/reference/ticker-detail", () => ({
+	fetchTickerDetail: vi.fn(),
+}));
 // The telegram:get-me check hits the real Bot API (getMe/getWebhookInfo); stub the
 // read-only health check + bot construction so the suite never makes a live call.
 vi.mock("../../../src/lib/messaging/telegram/health", () => ({
@@ -37,6 +43,10 @@ vi.mock("../../../src/lib/messaging/telegram/render-png", async (importOriginal)
 
 import { handler } from "../../../src/handlers/maintenance/live-provider-check";
 import { fetchEarnings } from "../../../src/lib/asset-events/earnings";
+import { MIN_PLAUSIBLE_ACTIVE_UNIVERSE } from "../../../src/lib/assets/constants";
+import { fetchTickerDetail } from "../../../src/lib/assets/reference/ticker-detail";
+import { fetchActiveTickers } from "../../../src/lib/assets/reference/universe";
+import type { ActiveUniverse } from "../../../src/lib/assets/types";
 import { fetchDailyCloses, fetchPrevClose } from "../../../src/lib/market-data/bars";
 import { fetchAssetPrices } from "../../../src/lib/market-data/prices";
 import { getCurrentMarketSession } from "../../../src/lib/market-data/session";
@@ -45,6 +55,16 @@ import { renderChartPng } from "../../../src/lib/messaging/telegram/render-png";
 
 const event = { id: "evt-1", time: "2026-06-13T16:00:00Z" } as ScheduledEvent;
 const context = { awsRequestId: "test-request-id" } as Context;
+
+/** A plausible full US listing — sized exactly at the floor so the >= assertion passes. */
+function buildPlausibleUniverse(size = MIN_PLAUSIBLE_ACTIVE_UNIVERSE): ActiveUniverse {
+	const tickers = Array.from({ length: size }, (_, i) => ({
+		symbol: `TICK${i}`,
+		name: `LISTED COMPANY ${i} INC`,
+		type: "stock" as const,
+	}));
+	return { tickers, allActiveSymbols: new Set(tickers.map((t) => t.symbol)) };
+}
 
 function stubHealthyProviders(): void {
 	vi.mocked(fetchPrevClose).mockResolvedValue(512.34);
@@ -60,6 +80,11 @@ function stubHealthyProviders(): void {
 		failed: false,
 		data: [],
 	} as Awaited<ReturnType<typeof fetchEarnings>>);
+	vi.mocked(fetchActiveTickers).mockResolvedValue(buildPlausibleUniverse());
+	vi.mocked(fetchTickerDetail).mockResolvedValue({
+		ok: true,
+		iconUrl: "https://static2.finnhub.io/file/publicdatany/finnhubimage/stock_logo/AAPL.png",
+	});
 	vi.mocked(checkTelegramLive).mockResolvedValue({
 		ok: true,
 		botId: 12345,
@@ -97,6 +122,24 @@ describe("live-provider-check Lambda", () => {
 		);
 		expectConsoleError(/Live provider checks failed/);
 		await expect(handler(event, context)).rejects.toThrow(/finnhub:asset-prices/);
+	});
+
+	it("A truncated Finnhub stock-symbols listing (below the plausibility floor) fails the check", async () => {
+		// A transport failure or truncated page yields far fewer than the ~11k real
+		// listings — the floor assertion must catch it before Sunday's reconcile does.
+		vi.mocked(fetchActiveTickers).mockResolvedValue(
+			buildPlausibleUniverse(MIN_PLAUSIBLE_ACTIVE_UNIVERSE - 1),
+		);
+		expectConsoleError(/Live provider checks failed/);
+		await expect(handler(event, context)).rejects.toThrow(/finnhub:stock-symbols/);
+	});
+
+	it("A Finnhub company-profile entitlement break (no AAPL logo) fails the check", async () => {
+		// AAPL definitively has a logo, so ok-with-null means the entitlement or
+		// response shape broke — not "no logo for this symbol".
+		vi.mocked(fetchTickerDetail).mockResolvedValue({ ok: true, iconUrl: null });
+		expectConsoleError(/Live provider checks failed/);
+		await expect(handler(event, context)).rejects.toThrow(/finnhub:company-profile/);
 	});
 
 	it("A Finnhub earnings-feed outage fails the check and pages", async () => {

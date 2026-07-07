@@ -104,6 +104,14 @@ jobs:
       - name: Deploy migrations and Lambdas
         run: bash aws/deploy-web.sh --deploy-ci
 
+      # Fails red when the deployed Lambda config (Timeout/MemorySize) drifts from
+      # aws/template.yaml — i.e. a committed infra change whose manual `deploy:infra`
+      # hasn't run yet. Code deploys ride this workflow; infra does not, so this is
+      # the only automated signal for the "code half deployed, infra half pending"
+      # gap (the 2026-07-07 asset-maintenance timeout incident).
+      - name: Infra drift check
+        run: npm run check:infra-drift
+
       - name: Live provider check
         run: |
           set -euo pipefail

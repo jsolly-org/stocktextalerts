@@ -15,12 +15,9 @@
  * picked up new code via the manual SAM deploy. The "keep this list in sync"
  * comment above the list is not self-enforcing; this check enforces it.
  *
- * Parsing is intentionally line/regex based, not a YAML parse: the SAM template
- * is full of CloudFormation intrinsic tags (!Ref/!Sub/!GetAtt) that a plain YAML
- * loader chokes on, and we only need two regular facts per function (its logical
- * ID and its literal FunctionName). A non-literal FunctionName (e.g. `!Ref` on a
- * non-function resource's EventInvokeConfig) is excluded by the `stocktextalerts-`
- * literal filter combined with the `AWS::Serverless::Function` Type gate.
+ * Template parsing lives in scripts/sam-template.ts (shared with
+ * check-infra-drift.ts): intentionally line/regex based, not a YAML parse — see
+ * that file's header. This guard consumes the {logicalId, functionName} subset.
  *
  * Fails CLOSED in three ways, so the guard can't silently approve a stale deploy:
  *   1. Either file parses to zero entries → error (a green "found nothing" is
@@ -44,6 +41,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { rootLogger } from "../src/lib/logging";
+import { parseSamTemplate } from "./sam-template";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..");
@@ -51,64 +49,6 @@ const TEMPLATE_PATH = path.join(projectRoot, "aws", "template.yaml");
 const DEPLOY_SCRIPT_PATH = path.join(projectRoot, "aws", "deploy-web.sh");
 
 const ACTION = "check_deploy_functions";
-
-/** A Serverless function as parsed from the template. `functionName` is null when
- * the resource declares no literal `FunctionName: stocktextalerts-*` — the guard
- * treats that as an error (see header), not a function to skip. */
-type TemplateFunction = { logicalId: string; functionName: string | null };
-
-/**
- * Walk the template line-by-line, tracking the current top-level resource block
- * (logical ID at 2-space indent). A block is a Serverless function iff it
- * declares `Type: AWS::Serverless::Function` — detected INDEPENDENTLY of its
- * name, so a function with a non-literal/absent FunctionName is still captured
- * (with `functionName: null`) and surfaced as an error rather than silently
- * dropped. The `FunctionName` capture requires a literal `stocktextalerts-*`
- * value, so the `!Ref` FunctionName on an EventInvokeConfig (not a function
- * block anyway) never matches.
- */
-function parseTemplateFunctions(text: string): TemplateFunction[] {
-	const out: TemplateFunction[] = [];
-	const RESOURCE_HEADER_RE = /^ {2}([A-Za-z][A-Za-z0-9]*):\s*(?:#.*)?$/;
-	const TYPE_RE = /^ {4}Type:\s*(\S+)\s*$/;
-	const FUNCTION_NAME_RE = /^\s+FunctionName:\s*(stocktextalerts-[a-z0-9-]+)\s*$/;
-
-	let logicalId: string | null = null;
-	let isFunction = false;
-	let functionName: string | null = null;
-
-	const flush = (): void => {
-		// Capture EVERY Serverless::Function, even one without a literal
-		// FunctionName — main() fails loud on those rather than letting them slip.
-		if (logicalId && isFunction) {
-			out.push({ logicalId, functionName });
-		}
-	};
-
-	for (const line of text.split("\n")) {
-		const header = RESOURCE_HEADER_RE.exec(line);
-		if (header) {
-			// A new top-level resource block starts — close out the previous one.
-			flush();
-			logicalId = header[1] ?? null;
-			isFunction = false;
-			functionName = null;
-			continue;
-		}
-		if (!logicalId) continue;
-		const typeMatch = TYPE_RE.exec(line);
-		if (typeMatch && typeMatch[1] === "AWS::Serverless::Function") {
-			isFunction = true;
-			continue;
-		}
-		const nameMatch = FUNCTION_NAME_RE.exec(line);
-		if (nameMatch?.[1] && functionName === null) {
-			functionName = nameMatch[1];
-		}
-	}
-	flush();
-	return out;
-}
 
 /**
  * Extract the `deploy_code <LogicalId> <physical-name>` call lines from the
@@ -145,7 +85,7 @@ function main(): void {
 		}
 	}
 
-	const templateFunctions = parseTemplateFunctions(fs.readFileSync(TEMPLATE_PATH, "utf-8"));
+	const templateFunctions = parseSamTemplate(fs.readFileSync(TEMPLATE_PATH, "utf-8")).functions;
 	const deployFns = parseDeployList(fs.readFileSync(DEPLOY_SCRIPT_PATH, "utf-8"));
 
 	// Fail closed: a parse that found nothing must not vacuously pass.

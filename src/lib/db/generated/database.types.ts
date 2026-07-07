@@ -197,32 +197,29 @@ export type Database = {
       }
       assets: {
         Row: {
-          composite_figi: string | null
           delisted_at: string | null
           icon_base64: string | null
+          icon_checked_at: string | null
           icon_url: string | null
           name: string
-          reference_updated_utc: string | null
           symbol: string
           type: Database["public"]["Enums"]["asset_type"]
         }
         Insert: {
-          composite_figi?: string | null
           delisted_at?: string | null
           icon_base64?: string | null
+          icon_checked_at?: string | null
           icon_url?: string | null
           name: string
-          reference_updated_utc?: string | null
           symbol: string
           type?: Database["public"]["Enums"]["asset_type"]
         }
         Update: {
-          composite_figi?: string | null
           delisted_at?: string | null
           icon_base64?: string | null
+          icon_checked_at?: string | null
           icon_url?: string | null
           name?: string
-          reference_updated_utc?: string | null
           symbol?: string
           type?: Database["public"]["Enums"]["asset_type"]
         }

@@ -4,67 +4,94 @@ import type { EmailSender } from "../messaging/types";
 
 // --- Universe reconcile ---
 
-/** One active-universe row from Massive's list endpoint. */
+/** One normalized stock/etf row from the active-universe listing. */
 export interface ActiveTicker {
 	symbol: string;
 	name: string;
 	type: "stock" | "etf";
-	lastUpdatedUtc: string;
-	compositeFigi: string | null;
 }
 
-/** Detail-fetch result returned by the Massive enrichment seam. */
-export type TickerDetail = { ok: boolean; iconUrl: string | null };
+/** The fetched active US listing: the typed subset we store, plus every active symbol. */
+export interface ActiveUniverse {
+	tickers: ActiveTicker[];
+	/** Every active symbol regardless of security type — delist-absence checks key on this. */
+	allActiveSymbols: ReadonlySet<string>;
+}
 
-/** A stored `assets` row, the subset reconcile reads for classification + enrichment gating. */
+/**
+ * Detail-fetch result returned by the logo enrichment seam. The union is
+ * load-bearing: `ok: true` is a DEFINITIVE answer (stamps `icon_checked_at`,
+ * permanently), `ok: false` is transient (row stays unchecked and retries) — a
+ * non-definitive result cannot carry an icon by construction.
+ */
+export type TickerDetail = { ok: true; iconUrl: string | null } | { ok: false };
+
+/** A stored `assets` row, the subset reconcile reads for classification. */
 export interface StoredAsset {
 	symbol: string;
-	name: string;
 	delisted_at: string | null;
-	icon_url: string | null;
-	reference_updated_utc: string | null;
 }
 
 /** Dependencies for `runUniverseReconcile`. */
 export interface UniverseReconcileDeps {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	/** Per-run enrichment cap. Defaults to 500. */
-	enrichmentCap?: number;
-	/** Bounded detail-fetch concurrency. Defaults to 20. */
-	enrichmentConcurrency?: number;
+	/** Max new-listing warmup backfills enqueued per run. Defaults to `MAX_WARMUP_ENQUEUES_PER_RUN`. */
+	warmupCap?: number;
 }
 
 /** Summary counters returned by `runUniverseReconcile`. */
 export interface UniverseReconcileResult {
-	/** Size of the de-duplicated active set fetched from Massive. */
+	/** Size of the de-duplicated stock/etf active set. */
 	activeTickersFetched: number;
-	/** Active symbols that did not previously exist in `assets`. */
+	/** Size of the full active symbol superset (all security types). */
+	allActiveSymbols: number;
+	/** Active symbols that did not previously exist in `assets`, inserted this run. */
 	newListingsInserted: number;
-	/** Existing rows whose `name` changed in the active set. */
-	namesUpdated: number;
-	/** Upsert chunks that failed to write (partial coverage — surfaced in the summary). */
-	upsertChunksFailed: number;
+	/** Insert chunks that failed to write (partial coverage — surfaced in the summary). */
+	insertChunksFailed: number;
 	/** Previously-flagged rows set back to `delisted_at = null` (reappeared). */
 	delistedCleared: number;
-	/** Untracked stored symbols absent from the active set, newly flagged delisted. */
+	/** Untracked stored symbols absent from the active superset, newly flagged delisted. */
 	untrackedDelistedFlagged: number;
 	/** True when step 3 skipped flagging because the active set was implausibly small. */
 	delistFlagSkippedShrunkActive: boolean;
-	/** Candidates for enrichment (new ∪ stale-reference ∪ missing-enrichment), pre-cap. */
-	enrichmentCandidates: number;
-	/** Detail calls that succeeded and wrote the icon. */
-	enriched: number;
-	/** Detail calls that returned `ok:false` or threw. */
-	enrichmentFailed: number;
-	/** Candidates beyond the cap, deferred to a subsequent run. */
-	enrichmentSkippedCap: number;
 	/** New symbols successfully enqueued for warmup. */
 	warmupEnqueued: number;
 	/** New symbols whose warmup enqueue returned false. */
 	warmupEnqueueFailed: number;
+	/** New symbols beyond the warmup cap, never enqueued (logged, not retried). */
+	warmupSkippedCap: number;
 	/** True when step 1 returned an empty set — the run aborted before any mutation. */
 	providerFetchFailed: boolean;
+}
+
+// --- Icon backfill ---
+
+/** Dependencies for `runIconBackfill`. */
+export interface IconBackfillDeps {
+	supabase: SupabaseAdminClient;
+	logger: Logger;
+	/** Per-run check cap. Defaults to `ICON_BACKFILL_NIGHTLY_CAP`. */
+	cap?: number;
+	/** Bounded detail-fetch concurrency. Defaults to `ICON_BACKFILL_CONCURRENCY`. */
+	concurrency?: number;
+	/** Detail-fetch seam, injectable for tests. Defaults to `fetchTickerDetail`. */
+	getTickerDetail?: (symbol: string) => Promise<TickerDetail>;
+}
+
+/** Summary counters returned by `runIconBackfill`. */
+export interface IconBackfillResult {
+	/** Unchecked candidates remaining in the table before this run. */
+	candidatesRemaining: number;
+	/** Symbols definitively checked this run (icon or confirmed none). */
+	checked: number;
+	/** Checked symbols that yielded an icon URL. */
+	iconsFound: number;
+	/** Detail fetches that failed transport — left unchecked for a later run. */
+	fetchFailed: number;
+	/** DB writes that failed — left unchecked for a later run. */
+	writeFailed: number;
 }
 
 // --- Delisting sweep ---

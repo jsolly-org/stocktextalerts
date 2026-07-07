@@ -15,6 +15,8 @@ type AssetFixture = {
 	name: string;
 	type: string;
 	delisted_at?: string;
+	icon_url?: string | null;
+	icon_checked_at?: string | null;
 };
 
 async function withPgClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
@@ -36,19 +38,38 @@ export async function upsertAssets(records: AssetFixture[]): Promise<void> {
 	await withPgClient(async (client) => {
 		await client.query(
 			`
-				INSERT INTO public.assets (symbol, name, type, delisted_at)
-				SELECT symbol, name, type::public.asset_type, delisted_at
+				INSERT INTO public.assets (symbol, name, type, delisted_at, icon_url, icon_checked_at)
+				SELECT symbol, name, type::public.asset_type, delisted_at, icon_url, icon_checked_at
 				FROM jsonb_to_recordset($1::jsonb)
-					AS r(symbol text, name text, type text, delisted_at timestamptz)
+					AS r(symbol text, name text, type text, delisted_at timestamptz,
+					     icon_url text, icon_checked_at timestamptz)
 				ON CONFLICT (symbol) DO UPDATE
 					SET name = EXCLUDED.name,
 					    type = EXCLUDED.type,
-					    -- Preserve an existing delisted_at when the caller omits it
+					    -- Preserve existing values when the caller omits a column
 					    -- (parity with the old PostgREST upsert, which only wrote
-					    -- payload columns); re-seeding a symbol must not un-delist it.
-					    delisted_at = COALESCE(EXCLUDED.delisted_at, public.assets.delisted_at)
+					    -- payload columns); re-seeding a symbol must not un-delist it
+					    -- or wipe its icon state.
+					    delisted_at = COALESCE(EXCLUDED.delisted_at, public.assets.delisted_at),
+					    icon_url = COALESCE(EXCLUDED.icon_url, public.assets.icon_url),
+					    icon_checked_at = COALESCE(EXCLUDED.icon_checked_at, public.assets.icon_checked_at)
 			`,
 			[JSON.stringify(records)],
+		);
+	});
+}
+
+/**
+ * Stamp `icon_checked_at` on every currently-unchecked `assets` row, so only
+ * fixtures a test seeds afterwards (with a NULL `icon_checked_at`) qualify as
+ * icon-backfill candidates. Without this, the ~10k-row seed universe (all
+ * unchecked, sorting before Z-prefixed fixtures) fills PostgREST's max_rows-
+ * clamped probe window and fixture symbols are never selected.
+ */
+export async function markAllAssetIconsChecked(): Promise<void> {
+	await withPgClient(async (client) => {
+		await client.query(
+			`UPDATE public.assets SET icon_checked_at = now() WHERE icon_checked_at IS NULL`,
 		);
 	});
 }

@@ -1,16 +1,26 @@
 // --- Universe reconcile tuning ---
 
 /**
- * Default per-run enrichment cap — candidates beyond this defer to subsequent runs.
- *
- * Sized for Massive's free-tier budget (5 calls/min, `MASSIVE_MAX_CALLS_PER_MINUTE`): 25
- * detail calls ≈ 5 minutes of the nightly AssetMaintenance run. The backlog drains over
- * nights; enrichment is idempotent and nothing user-facing blocks on it.
+ * Max new-listing warmup backfills enqueued per reconcile run. Warmups fan out into
+ * Massive bars calls via the vendor-backfill queue (5/min free-tier budget), so an
+ * unusually large new-listing delta — e.g. the first run after a universe-source
+ * switch — must not translate into an unbounded SQS backfill storm. Skipped symbols
+ * are logged and simply never warm; nothing user-facing blocks on warmup.
  */
-export const DEFAULT_ENRICHMENT_CAP = 25;
+export const MAX_WARMUP_ENQUEUES_PER_RUN = 25;
 
-/** Default bounded concurrency for the per-symbol detail fetch (calls queue on the 5/min limiter anyway). */
-export const DEFAULT_ENRICHMENT_CONCURRENCY = 2;
+// --- Icon backfill tuning ---
+
+/**
+ * Max never-checked symbols the nightly icon backfill probes per run. Each probe is one
+ * Finnhub `/stock/profile2` call on the 55/min budget (~4 minutes at 200), sized to
+ * leave the asset-maintenance Lambda ample headroom. The ~11k-symbol backlog drains in
+ * ~2 months of nightly runs; icons are cosmetic and nothing user-facing blocks on them.
+ */
+export const ICON_BACKFILL_NIGHTLY_CAP = 200;
+
+/** Bounded concurrency for icon detail fetches (calls queue on the 55/min limiter anyway). */
+export const ICON_BACKFILL_CONCURRENCY = 4;
 
 /** Upsert/flag chunk size — keeps `.in()` filter URLs under practical length limits. */
 export const CHUNK_SIZE = 500;

@@ -305,6 +305,21 @@ function extractLogMessage(raw: unknown): string {
 	}
 }
 
+/** Parse the JSON log lines captured by a console spy down to their `message` fields. */
+export function loggedMessages(spy: { mock: { calls: unknown[][] } }): string[] {
+	return spy.mock.calls.map((call) => extractLogMessage(call[0]));
+}
+
+/** The captured `console.warn` messages (structured-log `message` fields). */
+export function warnMessages(): string[] {
+	return loggedMessages(warnSpy);
+}
+
+/** The captured `console.error` messages (structured-log `message` fields). */
+export function errorMessages(): string[] {
+	return loggedMessages(errorSpy);
+}
+
 function matchesPattern(message: string, pattern: ConsolePattern): boolean {
 	if (typeof pattern === "string") return message === pattern;
 	return pattern.test(message);

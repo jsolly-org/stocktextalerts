@@ -2,6 +2,13 @@
  * Fetch all US assets (stocks, ETFs) via Massive API and write
  * to scripts/data/us-assets.json.
  *
+ * DELIBERATE DIVERGENCE from prod: since 2026-07 the production universe
+ * reconcile sources Finnhub /stock/symbol (src/lib/assets/reference/universe.ts),
+ * while this LOCAL-SEED-ONLY generator still paginates Massive (proper-case
+ * names, richer branding for fixtures). It runs manually and rarely — at the
+ * free tier's 5/min this regeneration takes hours; don't run it casually, and
+ * don't treat its output shape as what prod reconcile produces.
+ *
  * Two-pass approach:
  *   Pass 1 — List tickers: Paginate /v3/reference/tickers for each type.
  *   Pass 2 — Fetch details: For each ticker, call /v3/reference/tickers/{symbol}

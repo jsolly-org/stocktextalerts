@@ -7,6 +7,9 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { HttpError } from "grammy";
 import { fetchEarnings } from "../../lib/asset-events/earnings";
+import { MIN_PLAUSIBLE_ACTIVE_UNIVERSE } from "../../lib/assets/constants";
+import { fetchTickerDetail } from "../../lib/assets/reference/ticker-detail";
+import { fetchActiveTickers } from "../../lib/assets/reference/universe";
 import { createLogger, type Logger } from "../../lib/logging";
 import { runLambda } from "../../lib/logging/request-context";
 import { fetchDailyCloses, fetchPrevClose } from "../../lib/market-data/bars";
@@ -106,6 +109,25 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				const result = await fetchEarnings(isoDaysFromNow(0), isoDaysFromNow(14));
 				if (result.failed) {
 					throw new Error("fetchEarnings reported failed=true");
+				}
+			}),
+			await runCheck(logger, "finnhub:stock-symbols", async () => {
+				// The weekly universe reconcile's only source. Verifying the free-tier
+				// entitlement here (daily + post-deploy) means a broken listing feed fails
+				// a deploy red instead of surfacing silently at Sunday midnight.
+				const { tickers } = await fetchActiveTickers();
+				if (tickers.length < MIN_PLAUSIBLE_ACTIVE_UNIVERSE) {
+					throw new Error(
+						`fetchActiveTickers returned ${tickers.length} listed tickers (floor ${MIN_PLAUSIBLE_ACTIVE_UNIVERSE})`,
+					);
+				}
+			}),
+			await runCheck(logger, "finnhub:company-profile", async () => {
+				// The icon backfill's source. AAPL definitively has a logo, so ok-with-null
+				// means the entitlement or response shape broke, not "no logo".
+				const detail = await fetchTickerDetail("AAPL");
+				if (!detail.ok || detail.iconUrl === null) {
+					throw new Error(`fetchTickerDetail(AAPL) returned ${JSON.stringify(detail)}`);
 				}
 			}),
 			await runCheck(logger, "chart:render-png", async () => {

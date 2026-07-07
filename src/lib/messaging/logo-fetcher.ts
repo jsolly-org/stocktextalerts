@@ -1,4 +1,5 @@
-import { requireEnv } from "../db/env";
+import { ALLOWED_LOGO_MIME_TYPES, MAX_LOGO_BYTES } from "../assets/reference/constants";
+import { resolveLogoUpstreamUrl } from "../assets/reference/ticker-detail";
 import type { AppSupabaseClient } from "../db/supabase";
 import { type Logger, rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
@@ -16,31 +17,23 @@ const inFlight = new Map<string, Promise<string | null>>();
 
 const FETCH_TIMEOUT_MS = 5000;
 const PREFETCH_CONCURRENCY = 5;
-const MAX_LOGO_BYTES = 100 * 1024; // 100KB upper bound for inline email logos
-const ALLOWED_IMAGE_MIME_TYPES = new Set([
-	"image/png",
-	"image/jpeg",
-	"image/jpg",
-	"image/gif",
-	"image/webp",
-	"image/svg+xml",
-]);
+// SVG is safe HERE (embedded as a data: URI in email, never a navigable
+// same-origin response) — the dashboard proxy deliberately excludes it.
+const ALLOWED_IMAGE_MIME_TYPES = new Set([...ALLOWED_LOGO_MIME_TYPES, "image/svg+xml"]);
 
 /**
- * Fetch a single asset logo from the Massive API and return a base64 data URI.
- * Returns null on failure. Does NOT check DB or in-memory cache — callers
- * should use {@link fetchLogoBase64} which handles both caches.
+ * Fetch a single asset logo from its upstream CDN and return a base64 data URI.
+ * Returns null on failure or when the stored URL fails the allowed-host check
+ * (see {@link resolveLogoUpstreamUrl}). Does NOT check DB or in-memory cache —
+ * callers should use {@link fetchLogoBase64} which handles both caches.
  */
 async function fetchLogoFromApi(iconUrl: string): Promise<string | null> {
-	const parsed = new URL(iconUrl);
-	if (parsed.hostname !== "api.massive.com" || parsed.protocol !== "https:") {
+	const upstreamUrl = resolveLogoUpstreamUrl(iconUrl);
+	if (upstreamUrl === null) {
 		return null;
 	}
 
-	const apiKey = requireEnv("MASSIVE_API_KEY");
-	parsed.searchParams.set("apiKey", apiKey);
-
-	const response = await fetch(parsed.toString(), {
+	const response = await fetch(upstreamUrl, {
 		signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
 	});
 
