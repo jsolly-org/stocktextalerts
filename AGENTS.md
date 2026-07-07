@@ -6,7 +6,7 @@ Ship profile: `aws-sam`
 
 `/ship`'s direct push to `main` is **break-glass only** here: as repo admin (`enforce_admins` off) it *bypasses* the required `ci` check, landing code before CI runs (git prints a "Bypassed rule violations" warning). Reach for it only in an emergency that can't wait for the PR pipeline — the normal path is a PR so CI gates the merge.
 
-**Post-push (step 12):** Production deploy is **GitHub-managed** — after push to `main`, CI then `.github/workflows/deploy.yml` runs migrations, Lambda updates, and the live-provider check. Babysit those workflows; local `npm run deploy:code` is break-glass only. Vercel deploys the web tier via Git integration — verify production if web paths changed. Run `npm run deploy:infra` manually (human MFA) when `aws/template.yaml` or `aws/deploy.sh` changes — never auto-run from `/ship`.
+**Post-push (step 12):** Production deploy is **GitHub-managed** — the `push` to `main` triggers `.github/workflows/deploy.yml` directly (CI does not re-run on `main`), which runs migrations, Lambda updates, and the live-provider check. Babysit those workflows; local `npm run deploy:code` is break-glass only. Vercel deploys the web tier via Git integration — verify production if web paths changed. Run `npm run deploy:infra` manually (human MFA) when `aws/template.yaml` or `aws/deploy.sh` changes — never auto-run from `/ship`.
 
 Local gate before push: pre-push hook steps in `.git-hooks/pre-push` (biome, yaml/actionlint, `check:ts`, knip, squawk SQL lint, deploy-fn coverage, static migration grants, and a fail-fast Lambda bundle build via `aws/deploy-web.sh --build`; unit tests run in GitHub CI, not the hook).
 
@@ -95,7 +95,7 @@ See `tests/README.md` for the production-credential gating model and Mailpit dev
 
 ## Supabase Migrations
 
-- **Local files are source of truth.** Create with `supabase migration new <name>`, write SQL, commit, merge. The GitHub production deploy workflow (`.github/workflows/deploy.yml` → `aws/deploy-web.sh --deploy-ci`) runs `supabase db push` after `main` CI passes.
+- **Local files are source of truth.** Create with `supabase migration new <name>`, write SQL, commit, merge. The GitHub production deploy workflow (`.github/workflows/deploy.yml` → `aws/deploy-web.sh --deploy-ci`) runs `supabase db push` on push to `main` (i.e. after merge).
 - **Apply migrations to production only via the GitHub deploy workflow's `supabase db push`**. Local-only paths: `supabase migration new <name>` then commit. (No MCP against prod, no manual `db push`, no dashboard DDL.)
 - After creating/modifying a migration: `npm run db:gen-types`.
 - **Regenerate `src/lib/db/generated/database.types.ts` via `npm run db:gen-types`** — it's overwritten on every run.
@@ -132,7 +132,7 @@ Local-stack internals (`db:bootstrap`, seed hardening, Podman/container-engine w
 
 ## AWS / SAM Deploy
 
-Lambda **code** ships via the GitHub production deploy workflow (`.github/workflows/deploy.yml` → `aws/deploy-web.sh --deploy-ci`) after the landed `main` commit passes CI. The local `npm run deploy:code` path remains break-glass only. A **full SAM deploy** is still required when changing `aws/template.yaml` or `aws/deploy.sh` (infra/config): run `npm run deploy:infra` manually with admin creds. Copy `aws/samconfig.toml.example` → gitignored `aws/samconfig.toml`; use `AWS_PROFILE` locally. Never commit personal/admin AWS profile names in tracked files (the shared fleet convention `fleet-deploy` is the documented exception).
+Lambda **code** ships via the GitHub production deploy workflow (`.github/workflows/deploy.yml` → `aws/deploy-web.sh --deploy-ci`), triggered by the `push` to `main` when the merge lands. The local `npm run deploy:code` path remains break-glass only. A **full SAM deploy** is still required when changing `aws/template.yaml` or `aws/deploy.sh` (infra/config): run `npm run deploy:infra` manually with admin creds. Copy `aws/samconfig.toml.example` → gitignored `aws/samconfig.toml`; use `AWS_PROFILE` locally. Never commit personal/admin AWS profile names in tracked files (the shared fleet convention `fleet-deploy` is the documented exception).
 
 ### Post-deploy live verification (no local live-test tier)
 
@@ -148,7 +148,7 @@ Vendor clients live in `src/lib/vendors/` — Massive (daily bars/prev-close, di
 
 ## CI (GitHub Actions + local pre-push gate)
 
-GitHub Actions runs the full test battery on PRs, merge queue entries if the feature becomes available, and `main` pushes (`.github/workflows/ci.yml`); auto-merge is enabled by `.github/workflows/auto-merge.yml` once required checks pass. Native GitHub Merge Queue is currently unavailable for this private GitHub Team repository (GitHub rejects the rule through API and the UI does not expose it). The production deploy workflow (`.github/workflows/deploy.yml`) runs after `main` CI succeeds. Vercel's GitHub integration owns the production web deploy; Actions owns Supabase migrations, Lambda code updates, and live-provider verification. See `docs/github-ci.md` for branch protection, environment secrets, and deploy setup.
+GitHub Actions runs the full test battery on PRs (and merge-queue entries if the feature becomes available) (`.github/workflows/ci.yml`); auto-merge is enabled by `.github/workflows/auto-merge.yml` once required checks pass. Native GitHub Merge Queue is currently unavailable for this private GitHub Team repository (GitHub rejects the rule through API and the UI does not expose it). CI no longer re-runs on `main` pushes — the PR's strict required `ci` check already validated the landed tree, so the redundant post-merge run was dropped to save Actions minutes. The production deploy workflow (`.github/workflows/deploy.yml`) is triggered directly by the `push` to `main`, with a stale-commit guard that skips deploys `main` has already moved past. Vercel's GitHub integration owns the production web deploy; Actions owns Supabase migrations, Lambda code updates, and live-provider verification. See `docs/github-ci.md` for branch protection, environment secrets, and deploy setup.
 
 Because Vercel Git deployments start independently on `main` pushes, schema-affecting web changes must remain backward-compatible with the currently deployed database until the GitHub deploy workflow has applied migrations. Use the local break-glass `npm run deploy:code` path only when an explicitly ordered DB/Lambda/web release is required.
 
