@@ -42,9 +42,15 @@ function buildRequest(path: string, cookies?: Map<string, string>) {
 
 describe("Users can load pages without unexpected errors.", () => {
 	let renderers: Awaited<ReturnType<typeof loadRenderers>>;
+	// One shared container for the whole file. Creating a fresh AstroContainer per
+	// test retained ~22 render pipelines and drove this file's heap toward the 2 GB
+	// worker limit, causing intermittent CI OOMs (vitest "Worker exited unexpectedly").
+	// renderToResponse is stateless per call, so a single reused container is correct.
+	let container: Awaited<ReturnType<typeof AstroContainer.create>>;
 
 	beforeAll(async () => {
 		renderers = await loadRenderers([getVueRenderer()]);
+		container = await AstroContainer.create({ renderers });
 	});
 
 	afterEach(() => {
@@ -52,7 +58,6 @@ describe("Users can load pages without unexpected errors.", () => {
 	});
 
 	it("A visitor can view the landing page.", async () => {
-		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(IndexPage, {
 			request: buildRequest("/"),
 		});
@@ -65,7 +70,6 @@ describe("Users can load pages without unexpected errors.", () => {
 		// prerendered/static pages out of search indexes — they bypass middleware on
 		// Vercel, so the X-Robots-Tag header alone would miss them. Guard against a
 		// regression that drops it or reintroduces a conditional.
-		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(IndexPage, {
 			request: buildRequest("/"),
 		});
@@ -83,7 +87,6 @@ describe("Users can load pages without unexpected errors.", () => {
 				approved: true,
 			},
 			async (_user, cookies) => {
-				const container = await AstroContainer.create({ renderers });
 				const response = await container.renderToResponse(IndexPage, {
 					request: buildRequest("/", cookies),
 				});
@@ -103,7 +106,6 @@ describe("Users can load pages without unexpected errors.", () => {
 				approved: false,
 			},
 			async (_user, cookies) => {
-				const container = await AstroContainer.create({ renderers });
 				const response = await container.renderToResponse(IndexPage, {
 					request: buildRequest("/", cookies),
 				});
@@ -115,7 +117,6 @@ describe("Users can load pages without unexpected errors.", () => {
 	});
 
 	it("A logged-out visitor can view the sign-in page.", async () => {
-		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(SignInPage, {
 			request: buildRequest("/auth/signin"),
 		});
@@ -124,7 +125,6 @@ describe("Users can load pages without unexpected errors.", () => {
 	});
 
 	it("A logged-out visitor is redirected to sign-in when opening the dashboard, with a return path.", async () => {
-		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(DashboardPage, {
 			request: buildRequest("/dashboard"),
 		});
@@ -142,7 +142,6 @@ describe("Users can load pages without unexpected errors.", () => {
 				approved: false,
 			},
 			async (_user, cookies) => {
-				const container = await AstroContainer.create({ renderers });
 				const response = await container.renderToResponse(DashboardPage, {
 					request: buildRequest("/dashboard", cookies),
 				});
@@ -162,7 +161,6 @@ describe("Users can load pages without unexpected errors.", () => {
 				approved: false,
 			},
 			async (_user, cookies) => {
-				const container = await AstroContainer.create({ renderers });
 				const response = await container.renderToResponse(ProfilePage, {
 					request: buildRequest("/profile", cookies),
 				});
@@ -203,7 +201,6 @@ describe("Users can load pages without unexpected errors.", () => {
 				confirmed: true,
 			},
 			async (_user, cookies) => {
-				const container = await AstroContainer.create({ renderers });
 				const response = await container.renderToResponse(SignInPage, {
 					request: buildRequest("/auth/signin", cookies),
 				});
@@ -222,7 +219,6 @@ describe("Users can load pages without unexpected errors.", () => {
 				confirmed: true,
 			},
 			async (_user, cookies) => {
-				const container = await AstroContainer.create({ renderers });
 				const response = await container.renderToResponse(SignInPage, {
 					request: buildRequest("/auth/signin?redirect=/dashboard", cookies),
 				});
@@ -248,7 +244,6 @@ describe("Users can load pages without unexpected errors.", () => {
 	];
 
 	it.each(authPages)("A visitor can access auth page $path.", async ({ component, path }) => {
-		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(component, {
 			request: buildRequest(path),
 		});
@@ -257,7 +252,6 @@ describe("Users can load pages without unexpected errors.", () => {
 	});
 
 	it("Password entry pages render a single password field without confirm.", async () => {
-		const container = await AstroContainer.create({ renderers });
 		const registerResponse = await container.renderToResponse(AuthRegisterPage, {
 			request: buildRequest("/auth/register"),
 		});
@@ -276,7 +270,6 @@ describe("Users can load pages without unexpected errors.", () => {
 	});
 
 	it("The pending approval page explains the account status.", async () => {
-		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(AuthPendingApprovalPage, {
 			request: buildRequest("/auth/pending-approval"),
 		});
@@ -287,7 +280,6 @@ describe("Users can load pages without unexpected errors.", () => {
 	});
 
 	it("A GET with token_hash renders a confirm button instead of immediately verifying.", async () => {
-		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(AuthVerifiedPage, {
 			request: buildRequest("/auth/verified?token_hash=abc123&type=email"),
 		});
@@ -301,7 +293,6 @@ describe("Users can load pages without unexpected errors.", () => {
 	});
 
 	it.each(staticPages)("A visitor can access static page $path.", async ({ component, path }) => {
-		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(component, {
 			request: buildRequest(path),
 		});
@@ -317,7 +308,6 @@ describe("Users can load pages without unexpected errors.", () => {
 				confirmed: true,
 			},
 			async (_user, cookies) => {
-				const container = await AstroContainer.create({ renderers });
 				const response = await container.renderToResponse(AuthVerifiedPage, {
 					request: buildRequest("/auth/verified", cookies),
 				});
@@ -335,8 +325,6 @@ describe("Users can load pages without unexpected errors.", () => {
 				confirmed: true,
 			},
 			async (_user, cookies) => {
-				const container = await AstroContainer.create({ renderers });
-
 				const dashboardResponse = await container.renderToResponse(DashboardPage, {
 					request: buildRequest("/dashboard", cookies),
 				});
@@ -353,8 +341,6 @@ describe("Users can load pages without unexpected errors.", () => {
 				confirmed: true,
 			},
 			async (_user, cookies) => {
-				const container = await AstroContainer.create({ renderers });
-
 				const profileResponse = await container.renderToResponse(ProfilePage, {
 					request: buildRequest("/profile", cookies),
 				});
@@ -372,7 +358,6 @@ describe("Users can load pages without unexpected errors.", () => {
 				approved: true,
 			},
 			async (_user, cookies) => {
-				const container = await AstroContainer.create({ renderers });
 				const response = await container.renderToResponse(ProfilePage, {
 					request: buildRequest("/profile", cookies),
 				});
@@ -398,7 +383,6 @@ describe("Users can load pages without unexpected errors.", () => {
 	});
 
 	it("A logged-out visitor is redirected to sign-in when opening the admin users page.", async () => {
-		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(AdminUsersPage, {
 			request: buildRequest("/admin/users"),
 		});
@@ -417,7 +401,6 @@ describe("Users can load pages without unexpected errors.", () => {
 				approved: true,
 			},
 			async (_user, cookies) => {
-				const container = await AstroContainer.create({ renderers });
 				const response = await container.renderToResponse(AdminUsersPage, {
 					request: buildRequest("/admin/users", cookies),
 				});
@@ -444,7 +427,6 @@ describe("Users can load pages without unexpected errors.", () => {
 					approved: false,
 				});
 				try {
-					const container = await AstroContainer.create({ renderers });
 					const response = await container.renderToResponse(AdminUsersPage, {
 						request: buildRequest("/admin/users", cookies),
 					});
