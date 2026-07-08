@@ -13,6 +13,14 @@ on:
     types: [checks_requested]
   workflow_dispatch:
 
+# The repo's default workflow token is RESTRICTED (contents: read only) — without this
+# explicit grant the gate step's PR/check-run lookups 403 and silently fail-open, turning
+# the run-gating below into a dead feature that always runs the full battery.
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+
 # PRs / merge queue: one active run per PR or merge entry (supersede cancels).
 # Other events: one group per commit SHA.
 concurrency:
@@ -43,22 +51,108 @@ jobs:
     timeout-minutes: 45
 
     steps:
+      # Run-gating: decide how much of the battery this event actually needs.
+      # Two independent skips, both FAIL-OPEN (any error or ambiguity -> run everything):
+      #
+      # 1. Tree-identity skip (push to main): a squash merge whose base did not advance
+      #    while the PR was open produces a main commit whose TREE is byte-identical to
+      #    the PR head tree that the required `ci` check already validated. Re-running
+      #    the battery on an identical tree proves nothing — skip everything. When the
+      #    trees differ (another PR merged first — the only case the post-merge backstop
+      #    exists for), run the full battery. Direct pushes have no merged PR -> full run.
+      #
+      # 2. Docs-only fast path (pull_request): a diff touching only documentation
+      #    (docs/**, any *.md) cannot affect the runtime, DB, or builds — run the static
+      #    checks (lint/types/knip/sql) and skip the Supabase/test/build steps. The
+      #    allowlist is deliberately conservative: package.json, workflows, config, or
+      #    anything ambiguous runs the full battery. The required check stays `ci`.
+      #
+      # No checkout needed: both decisions use only the event payload + REST API.
+      - name: Gate — decide run depth
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          static=true
+          heavy=true
+          reason="default: full battery"
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            merged_tree=$(gh api "repos/${{ github.repository }}/git/commits/${{ github.sha }}" --jq .tree.sha 2>/dev/null) || merged_tree=""
+            pr_head=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
+              --paginate --jq '[.[] | select(.merge_commit_sha == "${{ github.sha }}")][0].head.sha // empty' 2>/dev/null) || pr_head=""
+            if [ -n "$merged_tree" ] && [ -n "$pr_head" ]; then
+              pr_tree=$(gh api "repos/${{ github.repository }}/git/commits/${pr_head}" --jq .tree.sha 2>/dev/null) || pr_tree=""
+              if [ -n "$pr_tree" ] && [ "$merged_tree" = "$pr_tree" ]; then
+                # Trees identical — but only skip if the required ci check actually SUCCEEDED
+                # on the PR head. Admin/break-glass merges can land a PR whose ci never ran
+                # (enforce_admins is off); assuming validation would skip the backstop for a
+                # tree no CI ever touched. Verify, don't assume — fail-open to a full run.
+                ci_green=$(gh api "repos/${{ github.repository }}/commits/${pr_head}/check-runs?check_name=ci" \
+                  --jq '[.check_runs[] | select(.conclusion == "success")] | length' 2>/dev/null) || ci_green=0
+                if [ "${ci_green:-0}" -gt 0 ]; then
+                  static=false
+                  heavy=false
+                  reason="tree-identity skip: merge tree ${merged_tree:0:12} == PR head tree, and a successful ci check-run exists on the PR head (base did not advance)"
+                else
+                  reason="full battery: trees identical but no successful ci check-run found on the PR head (break-glass/admin merge?)"
+                fi
+              else
+                reason="full battery: merge tree differs from PR head tree (base advanced under the PR) or tree lookup failed"
+              fi
+            else
+              reason="full battery: no merged PR associated with this push (direct push?) or API lookup failed"
+            fi
+
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            files=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+              --paginate --jq '.[].filename' 2>/dev/null) || files=""
+            if [ -n "$files" ]; then
+              docs_only=true
+              while IFS= read -r f; do
+                case "$f" in
+                  docs/*|*.md) ;;
+                  *) docs_only=false; break ;;
+                esac
+              done <<< "$files"
+              if [ "$docs_only" = "true" ]; then
+                heavy=false
+                reason="docs-only fast path: every changed file matches docs/** or *.md — static checks only"
+              else
+                reason="full battery: diff touches non-docs paths"
+              fi
+            else
+              reason="full battery: PR file listing unavailable (fail-open)"
+            fi
+          fi
+
+          echo "static=$static" >> "$GITHUB_OUTPUT"
+          echo "heavy=$heavy" >> "$GITHUB_OUTPUT"
+          echo "gate: static=$static heavy=$heavy — $reason"
+          echo "**ci gate:** static=\`$static\` heavy=\`$heavy\` — $reason" >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/checkout@v7
+        if: steps.gate.outputs.static == 'true'
 
       - uses: actions/setup-node@v6
+        if: steps.gate.outputs.static == 'true'
         with:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
+        if: steps.gate.outputs.static == 'true'
         run: npm ci
 
       - uses: astral-sh/setup-uv@v8.2.0
+        if: steps.gate.outputs.static == 'true'
         with:
           enable-cache: false
 
       - uses: aws-actions/setup-sam@v3
+        if: steps.gate.outputs.heavy == 'true'
         with:
           use-installer: true
 
@@ -69,33 +163,43 @@ jobs:
       # CLI, no `version: latest` drift between the binary that starts the stack and reads it.
 
       - name: Run Biome
+        if: steps.gate.outputs.static == 'true'
         run: npx --no-install biome ci . --error-on-warnings
 
       - name: Lint YAML
+        if: steps.gate.outputs.static == 'true'
         run: npm run check:yaml
 
       - name: Lint GitHub Actions workflows
+        if: steps.gate.outputs.static == 'true'
         run: npm run check:actions
 
       - name: Deep type check
+        if: steps.gate.outputs.static == 'true'
         run: npm run check:ts
 
       - name: Knip (unused code)
+        if: steps.gate.outputs.static == 'true'
         run: npm run check:knip
 
       - name: Squawk migrations
+        if: steps.gate.outputs.static == 'true'
         run: npm run check:sql
 
       - name: Deploy function coverage
+        if: steps.gate.outputs.static == 'true'
         run: npm run check:deploy-functions
 
       - name: Check migration grants (static)
+        if: steps.gate.outputs.static == 'true'
         run: npm run check:migration-grants
 
       - name: Build Lambda bundle
+        if: steps.gate.outputs.heavy == 'true'
         run: bash aws/deploy-web.sh --build
 
       - name: Prepare .env.local
+        if: steps.gate.outputs.heavy == 'true'
         run: |
           cp env.example .env.local
           {
@@ -110,6 +214,7 @@ jobs:
           } >> .env.local
 
       - name: Start Supabase
+        if: steps.gate.outputs.heavy == 'true'
         run: |
           set -Eeuo pipefail   # explicit: the `cmd | tee` failure check below must not rely on the runner's default shell flags
           # Retry ONLY on a transient container-registry throttle: the Supabase stack pulls
@@ -131,6 +236,7 @@ jobs:
           exit 1
 
       - name: Load Supabase env
+        if: steps.gate.outputs.heavy == 'true'
         run: |
           ./node_modules/.bin/supabase status -o json > /tmp/sb-status.json
           DB_VARS=$(jq -r '
@@ -180,6 +286,7 @@ jobs:
           echo "DEFAULT_PASSWORD=${DEFAULT_PASSWORD}" >> "$GITHUB_ENV"
 
       - name: Reset database
+        if: steps.gate.outputs.heavy == 'true'
         run: |
           set -Eeuo pipefail   # explicit: the `cmd | tee` failure check below must not rely on the runner's default shell flags
           # Same registry-throttle retry as Start Supabase: db:reset regenerates types via a
@@ -201,6 +308,7 @@ jobs:
           exit 1
 
       - name: Verify generated types are checked in
+        if: steps.gate.outputs.heavy == 'true'
         run: |
           if ! git diff --ignore-space-at-eol --exit-code --quiet src/lib/db/generated/database.types.ts; then
             echo "Detected uncommitted changes to database.types.ts after db:reset."
@@ -209,6 +317,7 @@ jobs:
           fi
 
       - id: playwright-cache
+        if: steps.gate.outputs.heavy == 'true'
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
@@ -217,6 +326,7 @@ jobs:
             playwright-${{ runner.os }}-
 
       - name: Install Playwright
+        if: steps.gate.outputs.heavy == 'true'
         run: |
           if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
             npx playwright install-deps chromium
@@ -225,25 +335,31 @@ jobs:
           fi
 
       - name: DB doctor
+        if: steps.gate.outputs.heavy == 'true'
         run: npm run db:doctor
 
       - name: Check DB privileges
+        if: steps.gate.outputs.heavy == 'true'
         run: npm run check:db-privileges
 
       - name: Check notification-option catalog
+        if: steps.gate.outputs.heavy == 'true'
         run: npm run check:option-catalog
 
       - name: Unit tests
+        if: steps.gate.outputs.heavy == 'true'
         run: npm test
 
       - name: E2E tests
+        if: steps.gate.outputs.heavy == 'true'
         run: npm run test:e2e
 
       - name: Build application
+        if: steps.gate.outputs.heavy == 'true'
         run: npm run build
 
       - name: Upload Playwright traces
-        if: failure()
+        if: failure() && steps.gate.outputs.heavy == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: playwright-traces
