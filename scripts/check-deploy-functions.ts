@@ -33,7 +33,7 @@
  * Exit codes: 0 — list matches the template. 1 — drift, an unverifiable
  * function, or a parse that found nothing.
  *
- * Usage: npm run check:deploy-functions   (also runs in the pre-push gate)
+ * Usage: npm run check:deploy-functions   (also runs in the pre-commit gate)
  */
 
 import fs from "node:fs";

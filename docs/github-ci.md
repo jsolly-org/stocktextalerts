@@ -2,7 +2,7 @@
 
 <!-- ci-smoke: run.test.ts env cleanup fix 2026-06-28 -->
 
-StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub auto-merge, and production code deploys. The local pre-push hook runs the cheap checks only; unit tests, E2E, and deploy run in GitHub.
+StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub auto-merge, and production code deploys. The local pre-commit hook runs the cheap checks only; unit tests, E2E, and deploy run in GitHub.
 
 ## Workflows
 
@@ -12,17 +12,17 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 | **Auto Merge** | [`.github/workflows/auto-merge.yml`](../.github/workflows/auto-merge.yml) | PR open/sync/ready/labeled | Enables squash auto-merge **only** when the PR has label `ship-auto-merge` (added by `/ship`) |
 | **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | Push to `main` (on merge), manual | Production Supabase migrations, Lambda code updates, live-provider check |
 
-**Integration:** the canonical path is **branch → PR → CI-gated auto-merge** — push a branch, open a PR via `/ship` (which adds `ship-auto-merge` and arms auto-merge), and GitHub merges once the required `ci` check is green. Unlabeled third-party PRs do not auto-merge. Merging is **optimistic** (branch-up-to-date/strict is off); CI (full unit/E2E/build, which the pre-push hook skips) then re-runs post-merge on `main` as the real green-together gate (see "Concurrent merges" below). `/ship`'s direct push to `main` is **break-glass only** — it bypasses the `ci` check via admin (see AGENTS.md). After a change lands on `main`, the deploy workflow applies production migrations plus Lambda code updates and Vercel's Git integration deploys the web tier. `npm run deploy:code` remains a local break-glass path, not the default release path.
+**Integration:** the canonical path is **branch → PR → CI-gated auto-merge** — push a branch, open a PR via `/ship` (which adds `ship-auto-merge` and arms auto-merge), and GitHub merges once the required `ci` check is green. Unlabeled third-party PRs do not auto-merge. Merging is **optimistic** (branch-up-to-date/strict is off); CI (full unit/E2E/build, which the pre-commit hook skips) then re-runs post-merge on `main` as the real green-together gate (see "Concurrent merges" below). `/ship`'s direct push to `main` is **break-glass only** — it bypasses the `ci` check via admin (see AGENTS.md). After a change lands on `main`, the deploy workflow applies production migrations plus Lambda code updates and Vercel's Git integration deploys the web tier. `npm run deploy:code` remains a local break-glass path, not the default release path.
 
-## Local pre-push gate
+## Local pre-commit gate
 
-[`.git-hooks/pre-push`](../.git-hooks/pre-push) still runs on push to `main` (via the shared fleet gate library):
+[`.git-hooks/pre-commit`](../.git-hooks/pre-commit) runs at commit time (via the shared fleet gate library):
 
-- gitleaks, markdown lint on changed files, clean tree, Node pin
+- staged gitleaks, staged markdown lint, Node pin (merge/rebase + empty-commit skips)
 - Lambda bundle build
 - Biome, YAML, actionlint, Astro check, Knip, Squawk, deploy-function coverage, migration grants (static)
 
-**Not in pre-push (GitHub CI only):** `db:doctor`, `check:db-privileges`, `npm test`, `npm run test:e2e`, Astro build. These need local Supabase/Docker on the runner — no Podman/Postgres required locally before push. Local `npm test` / `test:e2e` are also **opt-in** in this repo (`ALLOW_LOCAL_DB_TESTS=1` or `npm run test:local`) so agents do not hit the shared stack by default — see `tests/README.md`. Fleet agent conventions live in `~/code/dotagents`.
+**Not in pre-commit (GitHub CI only):** `db:doctor`, `check:db-privileges`, `npm test`, `npm run test:e2e`, Astro build. These need local Supabase/Docker on the runner — no Podman/Postgres required locally before commit. Bypass = `git commit -n` only; CI is the backstop. Local `npm test` / `test:e2e` are also **opt-in** in this repo (`ALLOW_LOCAL_DB_TESTS=1` or `npm run test:local`) so agents do not hit the shared stack by default — see `tests/README.md`. Fleet agent conventions live in `~/code/dotagents`.
 
 **Pre-release (local opt-in, not CI):** `ALLOW_LOCAL_DB_TESTS=1 npm run test:e2e:preview` — production-build E2E on port 4323. Run before Astro/Vite config changes or when debugging Rolldown/CSS chunk issues.
 

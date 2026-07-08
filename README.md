@@ -217,11 +217,11 @@ ALLOW_LOCAL_DB_TESTS=1 npm run test:e2e
 
 For local debugging, run `npm run db:reset` before tests to ensure your Supabase DB matches the current migrations and seed data.
 
-### CI (GitHub Actions + local pre-push gate)
+### CI (GitHub Actions + local pre-commit gate)
 
 **GitHub Actions** runs the full test battery on every PR, merge queue entry if the feature becomes available, and `main` push: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (Biome, YAML, actionlint, types, Knip, SQL/squawk, migration grants, Lambda bundle build, local Supabase, unit + E2E, build). [`.github/workflows/auto-merge.yml`](.github/workflows/auto-merge.yml) enables squash auto-merge only on PRs labeled `ship-auto-merge` (orchestrated via `/ship`). [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) deploys production after `main` CI passes.
 
-The **local pre-push hook** (`.git-hooks/pre-push`) runs lint, types, and static checks only — no local Supabase, no unit/E2E, no deploy credentials. See [docs/github-ci.md](docs/github-ci.md) for the full command split, branch protection, production environment secrets, and deploy setup.
+The **local pre-commit hook** (`.git-hooks/pre-commit`) runs lint, types, and static checks only — no local Supabase, no unit/E2E, no deploy credentials. See [docs/github-ci.md](docs/github-ci.md) for the full command split, branch protection, production environment secrets, and deploy setup.
 
 Deploy is **GitHub-managed** after merge: Vercel's GitHub integration deploys the web tier from `main`, and after `main` CI passes the production deploy workflow runs `aws/deploy-web.sh --deploy-ci`, applies Supabase migrations, updates Lambda code, and invokes the live-provider check. `npm run deploy:code` remains a local break-glass path.
 

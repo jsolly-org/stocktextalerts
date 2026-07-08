@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Pre-push GATE for stocktextalerts (gate-only — this hook does NOT deploy).
+# Pre-commit GATE for stocktextalerts (gate-only — this hook does NOT deploy).
 #
 # Thin shim over the shared fleet gate library (dotagents/gate/gate-lib.sh): the
-# ~100 lines of shared boilerplate — push-ref parsing, the gitleaks secrets scan,
-# markdown-lint-on-change, the doc-only fast path, the working-tree guards, and
-# run_step (silent on green, full output on red) — live in the lib. This file
-# declares stocktextalerts' local pre-push gate (lint/types/static checks — no tests,
-# no local Supabase). Unit + E2E and live DB privilege checks run in GitHub CI
-# (.github/workflows/ci.yml).
+# ~100 lines of shared boilerplate — the staged gitleaks secrets scan, staged
+# markdown-lint-on-change, the doc-only fast path, the merge/rebase + empty-commit
+# skips, and run_step (silent on green, full output on red) — live in the lib. This
+# file declares stocktextalerts' local pre-commit gate (lint/types/static checks —
+# no tests, no local Supabase). Unit + E2E and live DB privilege checks run in
+# GitHub CI (.github/workflows/ci.yml). The gate fires at commit time; GitHub
+# Actions CI re-runs the battery on the push as the backstop.
 #
 # Production deploy is owned by GitHub Actions after `main` CI passes. The local
 # `npm run deploy:code` path remains break-glass only; infra/template changes stay
@@ -21,12 +22,11 @@ source "${DOTAGENTS_GATE_LIB:-$HOME/code/dotagents/gate/gate-lib.sh}" || {
   exit 1
 }
 
-gate_begin "stocktextalerts"           # parse push; gitleaks; md-lint; doc-only fast path; banner; ERR trap
-gate_require_clean_tree                # refuse dirty tree / pushed-SHA≠HEAD / non-fast-forward (the gate validates the tree)
+gate_begin_commit "stocktextalerts"    # staged gitleaks; staged md-lint; doc-only fast path; merge/rebase + empty-commit skips; banner; ERR trap
 gate_require_node                      # enforce the pinned Node (.nvmrc), not whatever's on PATH
 
 # Cheap preflights — fail in seconds, not after the 15-minute battery.
-run_step "dep grounding"                     gate_check_dep_grounding .git-hooks/pre-push scripts/*.sh aws/*.sh
+run_step "dep grounding"                     gate_check_dep_grounding .git-hooks/pre-commit scripts/*.sh aws/*.sh
 # Build the Lambda bundle (esbuild via sam) as a fail-fast preflight. `npm run build` is astro/web
 # only — nothing here ever built the handler bundle until the deploy's Phase 1, so an esbuild break
 # (the 2026-06-21 resvg .node incident) surfaced only mid-deploy. Catch it in seconds, before the
@@ -46,9 +46,10 @@ run_step "migration grants (static)" npm run check:migration-grants
 # --- Landing only: this hook GATES; it does NOT deploy. ---
 # GitHub Actions runs PR/merge-queue/main CI and then deploys the landed `main`
 # commit from .github/workflows/deploy.yml.
-echo "✓ pre-push gate passed — push will land; DB tests + unit/E2E run in GitHub CI on the PR."
+echo "✓ pre-commit gate passed."
+echo "  Push will land; DB tests + unit/E2E run in GitHub CI on the PR."
 echo "  After merge: GitHub Actions deploys automatically after main CI passes."
-if gate_diff_matches '^aws/(template\.yaml|deploy\.sh)$'; then
+if gate_staged_matches '^aws/(template\.yaml|deploy\.sh)$'; then
   echo "⚠ aws/template.yaml or aws/deploy.sh changed — a full SAM infra deploy is needed:"
   echo "  npm run deploy:infra   (full SAM, admin creds)"
 fi
