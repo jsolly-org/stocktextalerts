@@ -8,7 +8,7 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 
 | Workflow | File | When | Purpose |
 | --- | --- | --- | --- |
-| **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PRs, push to `main` (post-merge gate), merge queue, manual | Lint, workflow lint, types, Knip, SQL, migration grants, Lambda bundle build, local Supabase bootstrap, unit tests, E2E (dev server), Astro build |
+| **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PRs, push to `main` (post-merge gate), merge queue, manual | Lint, workflow lint, types, Knip, SQL, migration grants, Lambda bundle build, local Supabase bootstrap, unit tests, E2E (dev server), Astro build — run depth decided per-event by the gate step (see "Run gating") |
 | **Auto Merge** | [`.github/workflows/auto-merge.yml`](../.github/workflows/auto-merge.yml) | PR open/sync/ready/labeled | Enables squash auto-merge **only** when the PR has label `ship-auto-merge` (added by `/ship`) |
 | **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | Push to `main` (on merge), manual | Production Supabase migrations, Lambda code updates, live-provider check |
 
@@ -62,9 +62,18 @@ This trades strict's **pre-merge** guarantee (a broken combination can't land) f
 - **Kodiak** (free GitHub App): auto-updates branches and merges when green — the closest no-Enterprise equivalent of a merge queue if you ever want the pre-merge guarantee back without strict's manual *Update branch* clicks.
 - Team growth → evaluate **Mergify/Graphite** (batching, priorities) or **GitHub Enterprise Cloud** for the native `merge_group` queue this CI is already wired for. Batching only pays off at high merge volume.
 
+## Run gating
+
+The first step of the `ci` job (`Gate — decide run depth` in `ci.yml`) decides how much of the battery each event actually needs. Two independent skips, both **fail-open** — any API error or ambiguity runs the full battery:
+
+- **Tree-identity skip (push to `main`).** A squash merge whose base did not advance while the PR was open produces a `main` commit whose **tree** is byte-identical to the PR head tree the required `ci` check already validated — re-running the battery proves nothing, so the whole job passes in seconds. When the trees differ (another PR merged first — the only case the post-merge backstop exists for) the full battery runs. Direct (break-glass) pushes have no associated merged PR and always run everything. Net effect: the post-merge `main` run costs a full battery **only when merges actually race**.
+- **Docs-only fast path (PRs).** A diff where every changed file matches `docs/**` or `*.md` runs the static checks (Biome, YAML/actionlint, types, Knip, SQL, deploy-fn coverage, migration grants) and skips the Supabase/test/build steps — the required `ci` check passes in ~2 min instead of ~13. The allowlist is deliberately conservative: `package.json`, workflows, config, or anything ambiguous runs the full battery. The check context stays `ci`, so branch protection needs no change.
+
+The gate needs no checkout — both decisions use only the event payload and the REST API — and writes its decision (`static`/`heavy` + reason) to the step summary of every run.
+
 ## CI environment
 
-- **Runner:** `ubuntu-latest` with Docker (`DOCKER_HOST=unix:///var/run/docker.sock`)
+- **Runner:** `blacksmith-4vcpu-ubuntu-2404` (Blacksmith) with Docker (`DOCKER_HOST=unix:///var/run/docker.sock`)
 - **Supabase:** `npm run db:start` → load keys from `supabase status` → `npm run db:reset`
 - **Playwright:** Chromium only; traces uploaded on failure from `.playwright-mcp/cli/`
 - **CI secrets:** No production credentials in the test job; vendor APIs are stubbed
