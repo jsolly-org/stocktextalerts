@@ -8,9 +8,9 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 
 | Workflow | File | When | Purpose |
 | --- | --- | --- | --- |
-| **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PRs, merge queue, `main` pushes, manual | Lint, workflow lint, types, Knip, SQL, migration grants, Lambda bundle build, local Supabase bootstrap, unit tests, E2E (dev server), Astro build |
+| **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PRs, merge queue, manual | Lint, workflow lint, types, Knip, SQL, migration grants, Lambda bundle build, local Supabase bootstrap, unit tests, E2E (dev server), Astro build |
 | **Auto Merge** | [`.github/workflows/auto-merge.yml`](../.github/workflows/auto-merge.yml) | PR open/sync/ready/labeled | Enables squash auto-merge **only** when the PR has label `ship-auto-merge` (added by `/ship`) |
-| **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | Successful CI on `main`, manual | Production Supabase migrations, Lambda code updates, live-provider check |
+| **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | Push to `main` (on merge), manual | Production Supabase migrations, Lambda code updates, live-provider check |
 
 **Integration:** the canonical path is **branch → PR → CI-gated auto-merge** — push a branch, open a PR via `/ship` (which adds `ship-auto-merge` and arms auto-merge), and GitHub merges once the required strict `ci` check is green. Unlabeled third-party PRs do not auto-merge. This keeps CI (full unit/E2E/build, which the pre-push hook skips) a real gate on `main` (see "Concurrent merges" below). `/ship`'s direct push to `main` is **break-glass only** — it bypasses the `ci` check via admin (see AGENTS.md). After a change lands on `main`, the deploy workflow applies production migrations plus Lambda code updates and Vercel's Git integration deploys the web tier. `npm run deploy:code` remains a local break-glass path, not the default release path.
 
@@ -85,11 +85,9 @@ Because Vercel Git deployments start independently on `main` pushes, schema-affe
 
 ## Deploy after merge
 
-The deploy workflow is triggered when `CI` completes on `main`. Failed CI runs still enqueue a Deploy workflow run, but the `production` job is skipped. Successful CI on a **stale** commit (superseded by newer pushes) is blocked by a main-tip check in the deploy workflow.
+The deploy workflow is triggered directly by a `push` to `main` (i.e. on merge). CI no longer re-runs on `main` — the PR's strict required `ci` check already validated the to-be-landed tree, so the post-merge re-run was redundant and was dropped to save Actions minutes. A deploy for a **stale** commit (one `main` has already moved past via a newer push) is blocked by a main-tip check in the deploy workflow (`git ls-remote` tip vs the pushed `github.sha`); its `deploy-production` concurrency group (`cancel-in-progress: false`) serializes queued deploys.
 
-Main CI uses a single concurrency group with cancel-in-progress so rapid pushes on `main` cancel older in-flight runs instead of letting a slow green run deploy after newer failures.
-
-When CI succeeds for the current `main` tip:
+When a merge lands on the current `main` tip:
 
 1. Vercel's GitHub integration deploys the web tier from the landed `main` commit.
 2. `aws/deploy-web.sh --deploy-ci` builds Lambda code, applies Supabase migrations, and updates existing Lambda code.
