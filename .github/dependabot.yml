@@ -9,10 +9,25 @@ updates:
       # matches in file order, so the aws-sdk group collapses the @aws-sdk/* clients
       # (s3, cloudwatch, sesv2, sqs, ...) into ONE PR instead of ~4 separate ones,
       # each of which used to burn its own CI run and knock every other PR stale.
+      #
+      # Every group is scoped to minor+patch: a MAJOR bump is excluded from grouping
+      # so Dependabot opens it as its OWN PR. A grouped major poisons the whole batch —
+      # a typescript 6->7 major once got bundled into dev-dependencies and blocked every
+      # minor in it (install ERESOLVE: @astrojs/check peer-caps at TS <=6). Individual
+      # major PRs can be researched/held/upgraded on their own without stalling the minors.
       aws-sdk:
         patterns:
           - "@aws-sdk/*"
+        update-types:
+          - "minor"
+          - "patch"
       dev-dependencies:
         dependency-type: development
+        update-types:
+          - "minor"
+          - "patch"
       production-dependencies:
         dependency-type: production
+        update-types:
+          - "minor"
+          - "patch"
