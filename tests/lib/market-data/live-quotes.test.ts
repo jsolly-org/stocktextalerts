@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { rootLogger } from "../../../src/lib/logging";
 import { fetchLiveQuotes } from "../../../src/lib/market-data/quotes";
 import { NO_SESSION_TRADE } from "../../../src/lib/types";
 
@@ -112,7 +113,8 @@ describe("fetchLiveQuotes — Finnhub /quote mapping and session semantics", () 
 		});
 	});
 
-	it("isolates a per-symbol fetch failure — the failed symbol is null, the rest resolve", async () => {
+	it("isolates a per-symbol fetch failure — the failed symbol is null, the rest resolve, no aggregate page", async () => {
+		const errorSpy = vi.spyOn(rootLogger, "error").mockImplementation(() => {});
 		vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
 			if (String(input).includes("symbol=FAIL")) {
 				return new Response("upstream error", { status: 500 });
@@ -124,5 +126,62 @@ describe("fetchLiveQuotes — Finnhub /quote mapping and session semantics", () 
 		expect(quotes.get("FAIL")).toBeNull();
 		expect(quotes.get("MSFT")).toMatchObject({ price: 200 });
 		expect(quotes.get("NVDA")).toMatchObject({ price: 200 });
+		// A partial outage must NOT fire the aggregate page — that's the whole point of the
+		// `failures.length === symbols.length` guard (routine per-symbol flakiness stays warn-level).
+		expect(errorSpy).not.toHaveBeenCalled();
+	});
+
+	it("an all-symbols outage logs a status-keyed breakdown (503 → api_error:503), proving upstream failure", async () => {
+		const errorSpy = vi.spyOn(rootLogger, "error").mockImplementation(() => {});
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			new Response("upstream error", { status: 503 }),
+		);
+
+		await fetchLiveQuotes(["TSLA", "AMD", "GOOG"], "regular");
+
+		expect(errorSpy).toHaveBeenCalledWith(
+			"Finnhub /quote failed for every symbol — live quotes unavailable",
+			expect.objectContaining({
+				action: "fetch_live_quotes",
+				symbolCount: 3,
+				failureBreakdown: { "api_error:503": 3 },
+			}),
+		);
+	});
+
+	it("an all-symbols rate-limit logs { rate_limited } — the free-tier throttle case, distinct from an outage", async () => {
+		const errorSpy = vi.spyOn(rootLogger, "error").mockImplementation(() => {});
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 429 }));
+
+		await fetchLiveQuotes(["NFLX", "INTC"], "regular");
+
+		expect(errorSpy).toHaveBeenCalledWith(
+			"Finnhub /quote failed for every symbol — live quotes unavailable",
+			expect.objectContaining({
+				action: "fetch_live_quotes",
+				symbolCount: 2,
+				failureBreakdown: { rate_limited: 2 },
+			}),
+		);
+	});
+
+	it("a mixed all-symbols outage folds each reason into its own key (a 429 and 503s coexist)", async () => {
+		const errorSpy = vi.spyOn(rootLogger, "error").mockImplementation(() => {});
+		vi.spyOn(globalThis, "fetch").mockImplementation(async (input) =>
+			String(input).includes("symbol=TSLA")
+				? new Response("", { status: 429 })
+				: new Response("upstream error", { status: 503 }),
+		);
+
+		await fetchLiveQuotes(["TSLA", "AMD", "GOOG"], "regular");
+
+		expect(errorSpy).toHaveBeenCalledWith(
+			"Finnhub /quote failed for every symbol — live quotes unavailable",
+			expect.objectContaining({
+				action: "fetch_live_quotes",
+				symbolCount: 3,
+				failureBreakdown: { rate_limited: 1, "api_error:503": 2 },
+			}),
+		);
 	});
 });

@@ -3,7 +3,7 @@ import { US_MARKET_TIMEZONE } from "../constants";
 import { rootLogger } from "../logging";
 import type { ExtendedAssetQuote, MarketSession, NoSessionTrade } from "../types";
 import { isRecord, NO_SESSION_TRADE } from "../types";
-import { finnhubFetch } from "../vendors/finnhub";
+import { type FinnhubFailure, finnhubFetch } from "../vendors/finnhub";
 
 const QUOTE_FETCH_CONCURRENCY = 5;
 
@@ -109,18 +109,23 @@ export async function fetchLiveQuotes(
 	for (const symbol of symbols) result.set(symbol, null);
 
 	const queue = [...symbols];
-	// Count fetch failures (finnhubFetch returned null = network/outage), distinct from a
-	// successful fetch that parses to null (unknown symbol → `c: 0`). Single-threaded workers
-	// increment between awaits, so no race.
-	let fetchFailures = 0;
+	// Terminal failure per failed symbol (reason + HTTP status). finnhubFetch fires
+	// `onTerminalFailure` exactly when it returns null — a per-symbol fetch/outage, distinct from a
+	// successful fetch that parses to null for an unknown symbol (`c: 0`) — so `failures.length` IS
+	// the fetch-failure count, and it also carries the WHY (rate-limit 429, expected on the free
+	// tier, vs a real upstream outage 5xx/timeout) for the all-symbols log below. Single-threaded
+	// workers push between awaits, so no race.
+	const failures: FinnhubFailure[] = [];
 	async function worker(): Promise<void> {
 		for (;;) {
 			const symbol = queue.shift();
 			if (symbol === undefined) break;
 			// Optional: a single symbol exhausting retries logs at warn, not error — routine on
 			// Finnhub's free tier and not worth paging the ErrorLogAlarm every minute.
-			const payload = await finnhubFetch("/quote", { symbol }, "quote", { optional: true });
-			if (payload === null) fetchFailures++;
+			const payload = await finnhubFetch("/quote", { symbol }, "quote", {
+				optional: true,
+				onTerminalFailure: (failure) => failures.push(failure),
+			});
 			result.set(symbol, parseFinnhubQuote(payload, session));
 		}
 	}
@@ -135,12 +140,29 @@ export async function fetchLiveQuotes(
 	// merely unknown symbols) — page once. This is the "alerting is blind this tick" signal:
 	// per-symbol failures are now warn-level, and the scheduler's own blind-tick page fires only
 	// when the capture throws, which a null-returning outage does not.
-	if (fetchFailures === symbols.length) {
+	if (failures.length === symbols.length) {
 		rootLogger.error("Finnhub /quote failed for every symbol — live quotes unavailable", {
 			action: "fetch_live_quotes",
 			symbolCount: symbols.length,
+			// e.g. { rate_limited: 12 } (free-tier throttle) vs { "api_error:503": 12 } (upstream
+			// outage) — the breakdown is what makes rate-limit vs outage provable from CloudWatch.
+			failureBreakdown: summarizeFailures(failures),
 		});
 	}
 
 	return result;
+}
+
+/**
+ * Count terminal failures by reason, folding the HTTP status into the key for `api_error`
+ * (`api_error:503`) so an all-symbols outage's cause is legible at a glance. `rate_limited` is
+ * always 429 and `timeout`/`request_failed` carry no status, so those stay bare-reason keys.
+ */
+function summarizeFailures(failures: FinnhubFailure[]): Record<string, number> {
+	const breakdown: Record<string, number> = {};
+	for (const failure of failures) {
+		const key = failure.reason === "api_error" ? `api_error:${failure.status}` : failure.reason;
+		breakdown[key] = (breakdown[key] ?? 0) + 1;
+	}
+	return breakdown;
 }

@@ -23,6 +23,13 @@ const finnhubLimiter = createSlidingWindowLimiter({
 export type FinnhubFetchPolicy = {
 	/** When true, terminal failures log as optional degradation (warn), not vendor_retry_exhausted. */
 	optional?: boolean;
+	/**
+	 * Invoked once with the terminal failure (reason + HTTP status) right before `finnhubFetch`
+	 * returns `null`, so a caller aggregating many calls (e.g. every symbol in a scheduler tick)
+	 * can record per-call status and later prove rate-limit vs outage from one log line. Not
+	 * called on success.
+	 */
+	onTerminalFailure?: (failure: FinnhubFailure) => void;
 };
 
 /** Read the Finnhub API key from env. Throws if not set. */
@@ -61,7 +68,7 @@ function computeRetryDelayMs(attempt: number, retryAfterMs: number | null): numb
 	return base + jitter;
 }
 
-type FinnhubFailure =
+export type FinnhubFailure =
 	| { reason: "rate_limited"; status: 429 }
 	| { reason: "api_error"; status: number; bodyPreview?: string }
 	| { reason: "timeout"; error: Error }
@@ -152,6 +159,10 @@ export async function finnhubFetch(
 	}
 
 	if (lastFailure) {
+		// Hand the terminal failure to the caller before we log-and-return-null, so an aggregating
+		// caller can record per-call reason/status (rate-limit vs outage) even though the return
+		// value is a bare `null`.
+		policy?.onTerminalFailure?.(lastFailure);
 		const context: Record<string, unknown> = {
 			endpoint,
 			paramKeys: Object.keys(params),
