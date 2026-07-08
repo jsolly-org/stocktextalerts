@@ -3,4 +3,16 @@ updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: daily
+      interval: weekly
+    groups:
+      # First match wins: Dependabot assigns each dependency to the first group it
+      # matches in file order, so the aws-sdk group collapses the @aws-sdk/* clients
+      # (s3, cloudwatch, sesv2, sqs, ...) into ONE PR instead of ~4 separate ones,
+      # each of which used to burn its own CI run and knock every other PR stale.
+      aws-sdk:
+        patterns:
+          - "@aws-sdk/*"
+      dev-dependencies:
+        dependency-type: development
+      production-dependencies:
+        dependency-type: production
