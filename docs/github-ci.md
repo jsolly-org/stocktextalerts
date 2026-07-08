@@ -8,11 +8,11 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 
 | Workflow | File | When | Purpose |
 | --- | --- | --- | --- |
-| **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PRs, merge queue, `main` pushes, manual | Lint, workflow lint, types, Knip, SQL, migration grants, Lambda bundle build, local Supabase bootstrap, unit tests, E2E (dev server), Astro build |
+| **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PRs, push to `main` (post-merge gate), merge queue, manual | Lint, workflow lint, types, Knip, SQL, migration grants, Lambda bundle build, local Supabase bootstrap, unit tests, E2E (dev server), Astro build |
 | **Auto Merge** | [`.github/workflows/auto-merge.yml`](../.github/workflows/auto-merge.yml) | PR open/sync/ready/labeled | Enables squash auto-merge **only** when the PR has label `ship-auto-merge` (added by `/ship`) |
-| **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | Successful CI on `main`, manual | Production Supabase migrations, Lambda code updates, live-provider check |
+| **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | Push to `main` (on merge), manual | Production Supabase migrations, Lambda code updates, live-provider check |
 
-**Integration:** the canonical path is **branch → PR → CI-gated auto-merge** — push a branch, open a PR via `/ship` (which adds `ship-auto-merge` and arms auto-merge), and GitHub merges once the required strict `ci` check is green. Unlabeled third-party PRs do not auto-merge. This keeps CI (full unit/E2E/build, which the pre-push hook skips) a real gate on `main` (see "Concurrent merges" below). `/ship`'s direct push to `main` is **break-glass only** — it bypasses the `ci` check via admin (see AGENTS.md). After a change lands on `main`, the deploy workflow applies production migrations plus Lambda code updates and Vercel's Git integration deploys the web tier. `npm run deploy:code` remains a local break-glass path, not the default release path.
+**Integration:** the canonical path is **branch → PR → CI-gated auto-merge** — push a branch, open a PR via `/ship` (which adds `ship-auto-merge` and arms auto-merge), and GitHub merges once the required `ci` check is green. Unlabeled third-party PRs do not auto-merge. Merging is **optimistic** (branch-up-to-date/strict is off); CI (full unit/E2E/build, which the pre-push hook skips) then re-runs post-merge on `main` as the real green-together gate (see "Concurrent merges" below). `/ship`'s direct push to `main` is **break-glass only** — it bypasses the `ci` check via admin (see AGENTS.md). After a change lands on `main`, the deploy workflow applies production migrations plus Lambda code updates and Vercel's Git integration deploys the web tier. `npm run deploy:code` remains a local break-glass path, not the default release path.
 
 ## Local pre-push gate
 
@@ -30,11 +30,11 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 
 After the first CI workflow run (so the check name appears):
 
-1. **Settings → General → Pull Requests** — enable **Allow auto-merge** and **Always suggest updating pull request branches** (makes the one-click "Update branch" prominent when a concurrent PR goes out-of-date).
+1. **Settings → General → Pull Requests** — enable **Allow auto-merge**. (No need for "Always suggest updating pull request branches": with strict off, PRs don't have to be up to date to merge, so there's no per-PR *Update branch* click.)
 2. **Settings → Labels** — ensure label **`ship-auto-merge`** exists (color optional). Restrict who can add it to maintainers if you want belt-and-suspenders beyond the workflow gate.
 3. Protect `main` (branch protection rule or ruleset) so CI gates every merge:
    - **Require a pull request before merging** (0 approvals is fine solo) — makes branch+PR the path, so `ci` actually gates `main`
-   - Require status check **`CI / ci`** to pass, **strict** (branches up to date before merging)
+   - Require status check **`CI / ci`** to pass, **non-strict** (`required_status_checks.strict: false` — do *not* require branches up to date). Optimistic merge: the post-merge `main` CI run is the green-together gate instead (see "Concurrent merges"). Strict on a repo whose CI battery *also* runs post-merge would double-charge minutes; strict is dropped precisely because the post-merge run now carries the guarantee.
    - Block force-push and deletion
    - `enforce_admins` stays **off** so the owner keeps a break-glass `/ship` direct push (it bypasses these rules — emergency use only)
    - Enable merge queue when the repository plan/UI supports the `merge_queue` rule
@@ -45,22 +45,21 @@ The CI workflow listens for `merge_group` events so merge queue can validate the
 
 ## Concurrent merges
 
-Branch+PR is the canonical path, so concurrent PRs are the normal case — here's why two in flight can't break `main`.
+Branch+PR is the canonical path, so concurrent PRs are the normal case — here's how a broken `main` is caught.
 
 The risk with two PRs in flight is a **semantic (logical) conflict**: each passes CI against an older `main`, but `main` breaks when both land (e.g. PR A renames a function, PR B adds a call to the old name — no textual conflict, both green, broken `main`). A merge queue is the canonical fix, but it's Enterprise-only here (above).
 
-**Strict required checks are the native substitute, and they're already on.** Branch protection requires the `CI / ci` check with **strict mode** (`required_status_checks.strict: true` — "require branches up to date before merging"). GitHub processes merges sequentially and re-checks strictness at merge time, so:
+**The post-merge `main` CI run is the substitute.** Branch-up-to-date (`strict`) is **off** — requiring it forced every open PR to rebase-and-re-run the full ~13-min battery each time another PR merged (O(k²) churn under concurrency, and on a private repo every re-run costs Actions minutes). Instead, `ci.yml` runs on `push: [main]`, so the moment a merge lands the full battery runs against the actual combined tree:
 
-1. PR #1 (up to date, green) auto-merges.
-2. PR #2 is now **out-of-date**; GitHub refuses to merge it. Its auto-merge waits.
-3. Click **Update branch** on PR #2 → it rebases onto the new `main` → `ci` re-runs against the combined tree → auto-merge completes only if still green.
+1. PR #1 and PR #2 each auto-merge as soon as their **own** `ci` is green — no *Update branch* click, no cross-PR re-run.
+2. On each merge, `ci` runs on the new `main` commit. If the combination broke, that run goes **red**.
+3. A red `main` is fixed forward (a follow-up commit/PR); the deploy workflow's own guards (refuse-stale, refuse-infra) limit blast radius meanwhile.
 
-So a second concurrent PR **cannot silently land an untested combined SHA**. The cost is one manual *Update branch* click per stalled PR (GitHub's `--auto` merge does not auto-update branches); the **Always suggest updating pull request branches** setting (above) makes it one click. This catches only conflicts the test suite exercises — strict mode buys merge-queue-grade *safety* at low concurrency, not merge-queue *throughput*.
+This trades strict's **pre-merge** guarantee (a broken combination can't land) for a **post-merge** one (it lands, then is caught and fixed forward within one CI cycle) — the standard trunk-based optimistic-merge posture, matching this repo's fire-and-forward model. Cost is O(k) (one `main` run per merge) instead of strict's O(k²) rebase churn, so it scales as concurrency grows. Note: post-merge CI is a **canary**, not a deploy gate — `deploy.yml` fires in parallel on the same push, so a broken `main` can still deploy (the same posture Vercel's push-triggered web deploy already has); gate deploy on the `main` CI run only if that becomes a real problem.
 
 **Upgrade path** when concurrent PRs become routine:
 
-- Automate the *Update branch* step with a `push: main` workflow running `gh pr update-branch` on open auto-merge PRs — but it **must** use a PAT or GitHub App token, not the default `GITHUB_TOKEN`, or the branch update won't trigger a fresh `ci` run (loop-prevention) and you'd auto-merge an unvalidated SHA.
-- Or adopt **Kodiak** (free GitHub App): auto-updates branches and merges when green — the closest no-Enterprise equivalent of a merge queue.
+- **Kodiak** (free GitHub App): auto-updates branches and merges when green — the closest no-Enterprise equivalent of a merge queue if you ever want the pre-merge guarantee back without strict's manual *Update branch* clicks.
 - Team growth → evaluate **Mergify/Graphite** (batching, priorities) or **GitHub Enterprise Cloud** for the native `merge_group` queue this CI is already wired for. Batching only pays off at high merge volume.
 
 ## CI environment
@@ -85,11 +84,9 @@ Because Vercel Git deployments start independently on `main` pushes, schema-affe
 
 ## Deploy after merge
 
-The deploy workflow is triggered when `CI` completes on `main`. Failed CI runs still enqueue a Deploy workflow run, but the `production` job is skipped. Successful CI on a **stale** commit (superseded by newer pushes) is blocked by a main-tip check in the deploy workflow.
+The deploy workflow is triggered directly by a `push` to `main` (i.e. on merge), **in parallel with** the post-merge `main` CI run — deploy is not gated on it (CI is the green-together canary; the deploy's own guards protect the release). A deploy for a **stale** commit (one `main` has already moved past via a newer push) is blocked by a main-tip check in the deploy workflow (`git ls-remote` tip vs the pushed `github.sha`); its `deploy-production` concurrency group (`cancel-in-progress: false`) serializes queued deploys.
 
-Main CI uses a single concurrency group with cancel-in-progress so rapid pushes on `main` cancel older in-flight runs instead of letting a slow green run deploy after newer failures.
-
-When CI succeeds for the current `main` tip:
+When a merge lands on the current `main` tip:
 
 1. Vercel's GitHub integration deploys the web tier from the landed `main` commit.
 2. `aws/deploy-web.sh --deploy-ci` builds Lambda code, applies Supabase migrations, and updates existing Lambda code.
