@@ -80,7 +80,7 @@
 		"@grammyjs/auto-retry": "^2.0.2",
 		"@grammyjs/parse-mode": "^2.3.0",
 		"@resvg/resvg-wasm": "^2.6.2",
-		"@supabase/supabase-js": "^2.110.0",
+		"@supabase/supabase-js": "^2.110.1",
 		"@vuepic/vue-datepicker": "^14.0.0",
 		"@vueuse/core": "^14.3.0",
 		"astro-icon": "^1.1.5",
