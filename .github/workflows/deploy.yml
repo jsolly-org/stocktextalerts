@@ -1,9 +1,7 @@
 name: Deploy
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+  push:
     branches: [main]
   workflow_dispatch:
 
@@ -21,12 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: Production
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_branch == 'main'
-      )
     env:
       CI: true
       AWS_REGION: ${{ vars.AWS_REGION }}
@@ -36,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.sha }}
           # Depth 2 so "Refuse infra-only deploys" can diff HEAD against its parent.
           # At the default depth 1 the parent object is absent and `git diff-tree HEAD`
           # prints NOTHING — the gate passed vacuously for every commit (caught 2026-07-03
@@ -44,18 +36,18 @@ jobs:
           fetch-depth: 2
 
       - name: Refuse stale deploy
-        if: github.event_name == 'workflow_run'
+        if: github.event_name == 'push'
         run: |
           set -euo pipefail
           # Read main's tip via ls-remote — NOT `git fetch origin main --depth=1`.
-          # When tip == ci_sha (HEAD is main's tip), a --depth=1 fetch re-shallows the
+          # When tip == deploy_sha (HEAD is main's tip), a --depth=1 fetch re-shallows the
           # checkout to depth 1, dropping HEAD's parent — which the next step's
-          # `git diff-tree HEAD` needs. That truncation made the infra-refuse gate see
-          # an empty file list and fail closed on every deploy since 2026-07-04.
+          # `git diff-tree HEAD` needs. Concurrency is cancel-in-progress:false, so several
+          # main pushes can queue; this drops any deploy whose commit main has moved past.
           tip="$(git ls-remote origin refs/heads/main | cut -f1)"
-          ci_sha="${{ github.event.workflow_run.head_sha }}"
-          if [ "$tip" != "$ci_sha" ]; then
-            echo "CI passed for $ci_sha but main is now at $tip; refusing deploy."
+          deploy_sha="${{ github.sha }}"
+          if [ "$tip" != "$deploy_sha" ]; then
+            echo "Deploy triggered for $deploy_sha but main is now at $tip; refusing stale deploy."
             exit 1
           fi
 
