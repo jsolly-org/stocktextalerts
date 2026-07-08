@@ -47,7 +47,11 @@ env:
 jobs:
   ci:
     name: ci
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    # ARM: ~37% cheaper per minute than the x64 tier ($0.0025 vs $0.004). The test
+    # battery is arch-neutral (multi-arch Supabase images, arm64 Chromium, esbuild/
+    # sharp ship arm64 builds; the Lambda bundle here is a build CHECK — the artifact
+    # that ships is built by deploy.yml, which deliberately stays on x64).
+    runs-on: blacksmith-4vcpu-ubuntu-2404-arm
     timeout-minutes: 45
 
     steps:
@@ -321,9 +325,12 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          # runner.arch is in the key because runner.os alone is "Linux" on BOTH
+          # x64 and ARM — without it an ARM job would restore x64 Chromium binaries
+          # from a stale cache and fail at browser launch.
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
           restore-keys: |
-            playwright-${{ runner.os }}-
+            playwright-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install Playwright
         if: steps.gate.outputs.heavy == 'true'

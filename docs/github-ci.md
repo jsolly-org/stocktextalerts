@@ -73,7 +73,7 @@ The gate needs no checkout — both decisions use only the event payload and the
 
 ## CI environment
 
-- **Runner:** `blacksmith-4vcpu-ubuntu-2404` (Blacksmith) with Docker (`DOCKER_HOST=unix:///var/run/docker.sock`)
+- **Runner:** `blacksmith-4vcpu-ubuntu-2404-arm` (Blacksmith ARM — ~37% cheaper per minute than x64; the battery is arch-neutral) with Docker (`DOCKER_HOST=unix:///var/run/docker.sock`). `deploy.yml` deliberately stays on x64 `blacksmith-4vcpu-ubuntu-2404` — it builds the Lambda artifact that ships to production; don't change artifact arch as a side effect of runner economics.
 - **Supabase:** `npm run db:start` → load keys from `supabase status` → `npm run db:reset`
 - **Playwright:** Chromium only; traces uploaded on failure from `.playwright-mcp/cli/`
 - **CI secrets:** No production credentials in the test job; vendor APIs are stubbed

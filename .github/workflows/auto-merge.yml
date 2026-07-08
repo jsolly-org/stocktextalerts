@@ -16,7 +16,8 @@ permissions:
 
 jobs:
   auto-merge:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    # ARM: cheapest tier; this job is a single bare `gh` call — arch-irrelevant.
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
     # Gate at the job level so events on PRs without the ship-auto-merge label skip
     # with ZERO billed runner minutes, instead of spinning a runner just to `gh pr view`
     # the labels and exit. The label lives in the webhook payload, so no API round-trip.
