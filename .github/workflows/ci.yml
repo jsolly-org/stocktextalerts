@@ -46,14 +46,18 @@ env:
   TRANSIENT_REGEX: 'toomanyrequests|rate exceeded|\b429\b|TLS handshake timeout|i/o timeout|connection reset by peer'
 
 jobs:
-  ci:
-    name: ci
+  gate:
+    name: gate
     # ARM: ~37% cheaper per minute than the x64 tier ($0.0025 vs $0.004). The test
     # battery is arch-neutral (multi-arch Supabase images, arm64 Chromium, esbuild/
-    # sharp ship arm64 builds; the Lambda bundle here is a build CHECK — the artifact
-    # that ships is built by deploy.yml, which deliberately stays on x64).
+    # sharp ship arm64 builds; deploy.yml deliberately stays on x64 for artifacts
+    # that ship to production).
     runs-on: blacksmith-4vcpu-ubuntu-2404-arm
-    timeout-minutes: 45
+    timeout-minutes: 5
+    outputs:
+      static: ${{ steps.decide.outputs.static }}
+      heavy: ${{ steps.decide.outputs.heavy }}
+      reason: ${{ steps.decide.outputs.reason }}
 
     steps:
       # Run-gating: decide how much of the battery this event actually needs.
@@ -68,13 +72,13 @@ jobs:
       #
       # 2. Docs-only fast path (pull_request): a diff touching only documentation
       #    (docs/**, any *.md) cannot affect the runtime, DB, or builds — run the static
-      #    checks (lint/types/knip/sql) and skip the Supabase/test/build steps. The
-      #    allowlist is deliberately conservative: package.json, workflows, config, or
-      #    anything ambiguous runs the full battery. The required check stays `ci`.
+      #    checks and skip the Supabase/test/build steps. The allowlist is deliberately
+      #    conservative: package.json, workflows, config, or anything ambiguous runs the
+      #    full battery. The required check remains the final `ci` job.
       #
       # No checkout needed: both decisions use only the event payload + REST API.
       - name: Gate — decide run depth
-        id: gate
+        id: decide
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -132,23 +136,94 @@ jobs:
             fi
           fi
 
-          echo "static=$static" >> "$GITHUB_OUTPUT"
-          echo "heavy=$heavy" >> "$GITHUB_OUTPUT"
+          {
+            echo "static=$static"
+            echo "heavy=$heavy"
+            printf 'reason=%s\n' "$reason"
+          } >> "$GITHUB_OUTPUT"
           echo "gate: static=$static heavy=$heavy — $reason"
           echo "**ci gate:** static=\`$static\` heavy=\`$heavy\` — $reason" >> "$GITHUB_STEP_SUMMARY"
 
+  static:
+    name: static checks
+    needs: gate
+    if: needs.gate.outputs.static == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404-arm
+    timeout-minutes: 20
+
+    steps:
       - uses: actions/checkout@v7
-        if: steps.gate.outputs.static == 'true'
 
       - uses: actions/setup-node@v6
-        if: steps.gate.outputs.static == 'true'
         with:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        if: steps.gate.outputs.static == 'true'
+        run: npm ci
+
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: false
+
+      - uses: aws-actions/setup-sam@v3
+        if: needs.gate.outputs.heavy == 'true'
+        with:
+          use-installer: true
+
+      - name: Run Biome
+        run: npx --no-install biome ci . --error-on-warnings
+
+      - name: Lint YAML
+        run: npm run check:yaml
+
+      - name: Lint GitHub Actions workflows
+        run: npm run check:actions
+
+      - name: Deep type check
+        run: npm run check:ts
+
+      - name: Knip (unused code)
+        run: npm run check:knip
+
+      - name: Squawk migrations
+        run: npm run check:sql
+
+      - name: Deploy function coverage
+        run: npm run check:deploy-functions
+
+      - name: Check migration grants (static)
+        run: npm run check:migration-grants
+
+      # Build the Lambda bundle only for code-affecting runs. Docs-only PRs keep
+      # the conservative static checks above but skip SAM/esbuild setup entirely.
+      - name: Build Lambda bundle
+        if: needs.gate.outputs.heavy == 'true'
+        run: bash aws/deploy-web.sh --build
+
+  unit-tests:
+    name: unit tests (${{ matrix.shard }}/${{ matrix.total }})
+    needs: gate
+    if: needs.gate.outputs.heavy == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404-arm
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+        total: [4]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
         run: npm ci
 
       # Stubs for the test battery. Supabase keys are filled in by the background
@@ -156,7 +231,6 @@ jobs:
       # gitleaks' generic-api-key rule doesn't false-positive on a known CI placeholder
       # (same value as before; not a real secret).
       - name: Prepare .env.local
-        if: steps.gate.outputs.heavy == 'true'
         run: |
           cp env.example .env.local
           {
@@ -170,11 +244,11 @@ jobs:
             echo "EMAIL_SMTP_PORT=1025"
           } >> .env.local
 
-      # One background unit: start → write env → reset. Image pulls + migrate/seed
-      # overlap static checks / sam build / Playwright install. Local DX keeps
-      # db:start and db:reset separate; this script is CI-only.
+      # One background unit per shard: start → write env → reset. Each matrix job
+      # runs on an isolated runner/Supabase stack, so sharding preserves the
+      # existing serial-in-one-database test behavior inside each shard while
+      # reducing wall-clock by running shards in parallel.
       - name: Bootstrap Supabase (background)
-        if: steps.gate.outputs.heavy == 'true'
         run: |
           set -Eeuo pipefail
           (
@@ -186,86 +260,7 @@ jobs:
           echo $! > /tmp/ci-bootstrap.pid
           echo "ci-bootstrap launched in background (pid $(cat /tmp/ci-bootstrap.pid))"
 
-      # Sticky disk (~3s mount) beats actions/cache download for browser binaries.
-      # No lockfile hash in the key: `playwright install` is idempotent and updates
-      # in place when @playwright/test bumps, so Dependabot PRs don't cold-start a
-      # new empty disk. Arch is required — runner.os is "Linux" on both x64 and ARM.
-      - name: Mount Playwright browsers (sticky disk)
-        if: steps.gate.outputs.heavy == 'true'
-        uses: useblacksmith/stickydisk@v1
-        with:
-          key: playwright-shell-${{ runner.os }}-${{ runner.arch }}
-          path: ~/.cache/ms-playwright
-
-      # Background so a cold download + apt install-deps overlaps static checks /
-      # sam build / background db:start. Warm sticky-disk runs finish in seconds
-      # (browser install is a no-op verify; apt still runs once per runner via
-      # /tmp marker — apt packages are not on the sticky disk).
-      - name: Install Playwright (background)
-        if: steps.gate.outputs.heavy == 'true'
-        run: |
-          set -Eeuo pipefail
-          # Exit status goes to /tmp/playwright-install.rc — later steps can't
-          # `wait` this pid (each run: is a new shell).
-          nohup bash scripts/db/ci-playwright-install.sh \
-            > /tmp/playwright-install.log 2>&1 &
-          echo $! > /tmp/playwright-install.pid
-          echo "Playwright install launched in background (pid $(cat /tmp/playwright-install.pid))"
-
-      - uses: astral-sh/setup-uv@v8.2.0
-        if: steps.gate.outputs.static == 'true'
-        with:
-          enable-cache: false
-
-      - uses: aws-actions/setup-sam@v3
-        if: steps.gate.outputs.heavy == 'true'
-        with:
-          use-installer: true
-
-      # No supabase/setup-cli here on purpose: the Supabase CLI is the lock-pinned
-      # `supabase` devDependency (node_modules/.bin/supabase). `npm ci` above installs it,
-      # and every DB step below routes through it (db:start/db:reset via scripts/db, and the
-      # bare `supabase status` call is invoked as ./node_modules/.bin/supabase). One pinned
-      # CLI, no `version: latest` drift between the binary that starts the stack and reads it.
-
-      - name: Run Biome
-        if: steps.gate.outputs.static == 'true'
-        run: npx --no-install biome ci . --error-on-warnings
-
-      - name: Lint YAML
-        if: steps.gate.outputs.static == 'true'
-        run: npm run check:yaml
-
-      - name: Lint GitHub Actions workflows
-        if: steps.gate.outputs.static == 'true'
-        run: npm run check:actions
-
-      - name: Deep type check
-        if: steps.gate.outputs.static == 'true'
-        run: npm run check:ts
-
-      - name: Knip (unused code)
-        if: steps.gate.outputs.static == 'true'
-        run: npm run check:knip
-
-      - name: Squawk migrations
-        if: steps.gate.outputs.static == 'true'
-        run: npm run check:sql
-
-      - name: Deploy function coverage
-        if: steps.gate.outputs.static == 'true'
-        run: npm run check:deploy-functions
-
-      - name: Check migration grants (static)
-        if: steps.gate.outputs.static == 'true'
-        run: npm run check:migration-grants
-
-      - name: Build Lambda bundle
-        if: steps.gate.outputs.heavy == 'true'
-        run: bash aws/deploy-web.sh --build
-
       - name: Wait for Supabase bootstrap
-        if: steps.gate.outputs.heavy == 'true'
         run: |
           set -Eeuo pipefail
           pid="$(cat /tmp/ci-bootstrap.pid)"
@@ -301,7 +296,7 @@ jobs:
           echo "Loaded Supabase env into GITHUB_ENV"
 
       - name: Verify generated types are checked in
-        if: steps.gate.outputs.heavy == 'true'
+        if: matrix.shard == 1
         run: |
           if ! git diff --ignore-space-at-eol --exit-code --quiet src/lib/db/generated/database.types.ts; then
             echo "Detected uncommitted changes to database.types.ts after db:reset."
@@ -309,8 +304,128 @@ jobs:
             exit 1
           fi
 
+      # npm pretest still runs db:doctor for this shard, so the separate historical
+      # DB doctor step is intentionally not duplicated here.
+      - name: Unit tests
+        run: npm test -- --shard=${{ matrix.shard }}/${{ matrix.total }}
+
+  e2e-tests:
+    name: e2e tests (${{ matrix.shard }}/${{ matrix.total }})
+    needs: gate
+    if: needs.gate.outputs.heavy == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404-arm
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+        total: [2]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Stubs for the test battery. Supabase keys are filled in by the background
+      # bootstrap after `supabase status`. The unsubscribe stub is concatenated so
+      # gitleaks' generic-api-key rule doesn't false-positive on a known CI placeholder
+      # (same value as before; not a real secret).
+      - name: Prepare .env.local
+        run: |
+          cp env.example .env.local
+          {
+            echo "DEFAULT_PASSWORD=${DEFAULT_PASSWORD}"
+            echo "UNSUBSCRIBE_TOKEN_SECRET=ci-unsub""scribe-secret-min-12-chars"
+            echo "VERCEL_URL=http://localhost:4322"
+            echo "EMAIL_FROM=ci@example.com"
+            echo "MASSIVE_API_KEY=ci-massive-api-key"
+            echo "FINNHUB_API_KEY=ci-finnhub-api-key"
+            echo "EMAIL_SMTP_HOST=localhost"
+            echo "EMAIL_SMTP_PORT=1025"
+          } >> .env.local
+
+      # One background unit per shard: start → write env → reset. Each matrix job
+      # owns its runner-local Supabase stack and Mailpit instance, so the same
+      # port numbers are safe across shards.
+      - name: Bootstrap Supabase (background)
+        run: |
+          set -Eeuo pipefail
+          (
+            bash scripts/db/ci-bootstrap.sh
+            # ci-bootstrap.sh already writes /tmp/ci-bootstrap.rc; this is a belt
+            # in case the script is killed before write_rc runs.
+            echo $? > /tmp/ci-bootstrap.outer.rc
+          ) > /tmp/ci-bootstrap.log 2>&1 &
+          echo $! > /tmp/ci-bootstrap.pid
+          echo "ci-bootstrap launched in background (pid $(cat /tmp/ci-bootstrap.pid))"
+
+      # Sticky disk (~3s mount) beats actions/cache download for browser binaries.
+      # No lockfile hash in the key: `playwright install` is idempotent and updates
+      # in place when @playwright/test bumps, so Dependabot PRs don't cold-start a
+      # new empty disk. Arch is required — runner.os is "Linux" on both x64 and ARM.
+      - name: Mount Playwright browsers (sticky disk)
+        uses: useblacksmith/stickydisk@v1
+        with:
+          key: playwright-shell-${{ runner.os }}-${{ runner.arch }}
+          path: ~/.cache/ms-playwright
+
+      # Background so a cold download + apt install-deps overlaps background
+      # db:start/reset. Warm sticky-disk runs finish in seconds (browser install is
+      # a no-op verify; apt still runs once per runner via /tmp marker — apt
+      # packages are not on the sticky disk).
+      - name: Install Playwright (background)
+        run: |
+          set -Eeuo pipefail
+          # Exit status goes to /tmp/playwright-install.rc — later steps can't
+          # `wait` this pid (each run: is a new shell).
+          nohup bash scripts/db/ci-playwright-install.sh \
+            > /tmp/playwright-install.log 2>&1 &
+          echo $! > /tmp/playwright-install.pid
+          echo "Playwright install launched in background (pid $(cat /tmp/playwright-install.pid))"
+
+      - name: Wait for Supabase bootstrap
+        run: |
+          set -Eeuo pipefail
+          pid="$(cat /tmp/ci-bootstrap.pid)"
+          echo "Waiting for background ci-bootstrap (pid $pid)…"
+          # Each `run:` step is a new shell — poll with kill -0 (wait only works
+          # for children of THIS shell).
+          while kill -0 "$pid" 2>/dev/null; do
+            sleep 2
+          done
+          bg_rc=1
+          if [ -f /tmp/ci-bootstrap.rc ]; then
+            bg_rc="$(cat /tmp/ci-bootstrap.rc)"
+          elif [ -f /tmp/ci-bootstrap.outer.rc ]; then
+            bg_rc="$(cat /tmp/ci-bootstrap.outer.rc)"
+          fi
+          if [ -f /tmp/ci-bootstrap.log ]; then
+            echo "——— /tmp/ci-bootstrap.log (tail) ———"
+            tail -n 80 /tmp/ci-bootstrap.log || true
+            echo "——— end log ———"
+          fi
+          if [ "$bg_rc" != "0" ]; then
+            echo "::error::Background ci-bootstrap failed (rc=$bg_rc); retrying in foreground"
+            bash scripts/db/ci-bootstrap.sh
+          else
+            echo "Background ci-bootstrap succeeded"
+          fi
+          # Promote env file written by the bootstrap into GITHUB_ENV for later steps.
+          if [ ! -f /tmp/ci-bootstrap.env ]; then
+            echo "::error::/tmp/ci-bootstrap.env missing after bootstrap" >&2
+            exit 1
+          fi
+          cat /tmp/ci-bootstrap.env >> "$GITHUB_ENV"
+          echo "Loaded Supabase env into GITHUB_ENV"
+
       - name: Wait for Playwright
-        if: steps.gate.outputs.heavy == 'true'
         run: |
           set -Eeuo pipefail
           pid="$(cat /tmp/playwright-install.pid)"
@@ -339,26 +454,136 @@ jobs:
           echo "::warning::Background Playwright install failed (rc=$bg_rc); retrying in foreground"
           bash scripts/db/ci-playwright-install.sh
 
-      - name: DB doctor
-        if: steps.gate.outputs.heavy == 'true'
-        run: npm run db:doctor
-
-      - name: Unit tests
-        if: steps.gate.outputs.heavy == 'true'
-        run: npm test
-
+      # npm pretest:e2e still runs db:doctor for this shard, so the separate
+      # historical DB doctor step is intentionally not duplicated here.
       - name: E2E tests
-        if: steps.gate.outputs.heavy == 'true'
-        run: npm run test:e2e
-
-      - name: Build application
-        if: steps.gate.outputs.heavy == 'true'
-        run: npm run build
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/${{ matrix.total }}
 
       - name: Upload Playwright traces
-        if: failure() && steps.gate.outputs.heavy == 'true'
+        if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-traces
+          name: playwright-traces-${{ matrix.shard }}-of-${{ matrix.total }}
           path: .playwright-mcp/cli/
           if-no-files-found: ignore
+
+  app-build:
+    name: app build
+    needs: gate
+    if: needs.gate.outputs.heavy == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404-arm
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Build needs validated env values but should not need a live Supabase stack.
+      # Keep these CI-only stubs deterministic and side-effect-free.
+      - name: Prepare .env.local
+        run: |
+          cp env.example .env.local
+          {
+            echo "DEFAULT_PASSWORD=${DEFAULT_PASSWORD}"
+            echo "UNSUBSCRIBE_TOKEN_SECRET=ci-unsub""scribe-secret-min-12-chars"
+            echo "VERCEL_URL=http://localhost:4322"
+            echo "EMAIL_FROM=ci@example.com"
+            echo "MASSIVE_API_KEY=ci-massive-api-key"
+            echo "FINNHUB_API_KEY=ci-finnhub-api-key"
+            echo "EMAIL_SMTP_HOST=localhost"
+            echo "EMAIL_SMTP_PORT=1025"
+          } >> .env.local
+
+      - name: Build application
+        run: npm run build
+
+  # Branch protection requires `CI / ci`. Keep this final aggregator named `ci`
+  # while fan-out jobs do the expensive work. It passes only when the jobs that
+  # the gate decided to run succeeded; any unexpected skip/fail/cancel fails closed.
+  ci:
+    name: ci
+    needs: [gate, static, unit-tests, e2e-tests, app-build]
+    if: always()
+    runs-on: blacksmith-4vcpu-ubuntu-2404-arm
+    timeout-minutes: 5
+
+    steps:
+      - name: Verify CI fan-out results
+        env:
+          GATE_RESULT: ${{ needs.gate.result }}
+          STATIC_GATE: ${{ needs.gate.outputs.static }}
+          HEAVY_GATE: ${{ needs.gate.outputs.heavy }}
+          GATE_REASON: ${{ needs.gate.outputs.reason }}
+          STATIC_RESULT: ${{ needs.static.result }}
+          UNIT_RESULT: ${{ needs.unit-tests.result }}
+          E2E_RESULT: ${{ needs.e2e-tests.result }}
+          BUILD_RESULT: ${{ needs.app-build.result }}
+        run: |
+          set -Eeuo pipefail
+
+          echo "gate result: ${GATE_RESULT}"
+          echo "gate decision: static=${STATIC_GATE:-<empty>} heavy=${HEAVY_GATE:-<empty>}"
+          echo "gate reason: ${GATE_REASON:-<empty>}"
+          echo "static result: ${STATIC_RESULT}"
+          echo "unit result: ${UNIT_RESULT}"
+          echo "e2e result: ${E2E_RESULT}"
+          echo "build result: ${BUILD_RESULT}"
+
+          {
+            echo "## CI fan-out summary"
+            echo
+            echo "- gate: \`${GATE_RESULT}\`"
+            echo "- decision: static=\`${STATIC_GATE:-<empty>}\`, heavy=\`${HEAVY_GATE:-<empty>}\`"
+            echo "- reason: ${GATE_REASON:-<empty>}"
+            echo "- static: \`${STATIC_RESULT}\`"
+            echo "- unit shards: \`${UNIT_RESULT}\`"
+            echo "- e2e shards: \`${E2E_RESULT}\`"
+            echo "- app build: \`${BUILD_RESULT}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          fail=0
+          require_result() {
+            local label="$1"
+            local actual="$2"
+            local expected="$3"
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::${label} result was '${actual}', expected '${expected}'"
+              fail=1
+            fi
+          }
+
+          require_result "gate" "$GATE_RESULT" "success"
+
+          if [ "${STATIC_GATE}" = "false" ] && [ "${HEAVY_GATE}" = "false" ]; then
+            require_result "static checks" "$STATIC_RESULT" "skipped"
+            require_result "unit tests" "$UNIT_RESULT" "skipped"
+            require_result "e2e tests" "$E2E_RESULT" "skipped"
+            require_result "app build" "$BUILD_RESULT" "skipped"
+          elif [ "${STATIC_GATE}" = "true" ] && [ "${HEAVY_GATE}" = "false" ]; then
+            require_result "static checks" "$STATIC_RESULT" "success"
+            require_result "unit tests" "$UNIT_RESULT" "skipped"
+            require_result "e2e tests" "$E2E_RESULT" "skipped"
+            require_result "app build" "$BUILD_RESULT" "skipped"
+          elif [ "${STATIC_GATE}" = "true" ] && [ "${HEAVY_GATE}" = "true" ]; then
+            require_result "static checks" "$STATIC_RESULT" "success"
+            require_result "unit tests" "$UNIT_RESULT" "success"
+            require_result "e2e tests" "$E2E_RESULT" "success"
+            require_result "app build" "$BUILD_RESULT" "success"
+          else
+            echo "::error::Unexpected gate outputs: static='${STATIC_GATE}' heavy='${HEAVY_GATE}'"
+            fail=1
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            exit 1
+          fi
+
+          echo "CI fan-out results accepted."
