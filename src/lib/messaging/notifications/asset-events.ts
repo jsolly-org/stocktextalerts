@@ -167,7 +167,6 @@ export function formatAssetEventsTelegram(opts: {
 	if (opts.analystSection) {
 		msg = fmt`${msg}\n\n${FormattedString.bold("📊 Analyst Consensus (published monthly on the 1st)")}\n${opts.analystSection}`;
 	}
-
 	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
 	return msg;
 }

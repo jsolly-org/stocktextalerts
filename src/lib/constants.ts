@@ -52,6 +52,7 @@ export const NOTIFICATION_OPTION_MATRIX = {
 		top_movers: { family: "digest", channels: { email: false, telegram: false } },
 		news: { family: "digest", channels: { email: false, telegram: false } },
 		rumors: { family: "digest", channels: { email: false, telegram: false } },
+		prediction_markets: { family: "digest", channels: { email: false, telegram: false } },
 		calendar: { family: "asset_events", channels: { email: false, telegram: false } },
 		ipo: { family: "asset_events", channels: { email: false, telegram: false } },
 		analyst: { family: "asset_events", channels: { email: false, telegram: false } },

@@ -1,6 +1,7 @@
 import type { InlineKeyboardMarkup, MessageEntity } from "grammy/types";
 import type { Database } from "../db/generated/database.types";
 import type { TopMover } from "../market-data/types";
+import type { PredictionMarketReading } from "../prediction-markets/types";
 import type { MarketClosureInfo } from "../time/types";
 import type { DeliveryResult } from "../types";
 import type { SparklineData } from "./parts/sparkline";
@@ -44,6 +45,8 @@ export type TelegramSender = (message: TelegramMessage) => Promise<DeliveryResul
 export type NotificationExtras = {
 	news?: string | null;
 	rumors?: string | null;
+	/** Structured prediction-market readings; channel formatters render text/HTML. */
+	predictionMarkets?: PredictionMarketReading[] | null;
 	analyst?: string | null;
 	insider?: string | null;
 	topMovers?: TopMoversData | null;
