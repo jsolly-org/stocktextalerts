@@ -27,8 +27,8 @@
 		"test:e2e:local": "ALLOW_LOCAL_DB_TESTS=1 npm run test:e2e",
 		"test:e2e:preview": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-playwright.ts --config playwright.preview.config.ts",
 		"test:all": "npm run test && npm run test:e2e",
-		"check:ts": "astro check --minimumSeverity warning --minimumFailingSeverity warning",
-		"check:biome": "biome check --write --no-errors-on-unmatched",
+		"check:ts": "node ./node_modules/.bin/tsx scripts/check-ts.ts",
+		"check:biome": "biome check --write --no-errors-on-unmatched --error-on-warnings",
 		"check:knip": "knip",
 		"check:lib-boundaries": "node ./node_modules/.bin/tsx scripts/check-lib-boundaries.ts",
 		"check:md": "markdownlint-cli2 \"**/*.md\"",
@@ -60,7 +60,7 @@
 	},
 	"lint-staged": {
 		"**/*.{ts,tsx,json,css,astro,html,vue}": [
-			"biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
+			"biome check --write --no-errors-on-unmatched --files-ignore-unknown=true --error-on-warnings"
 		],
 		"**/*.md": [
 			"markdownlint-cli2 --fix"

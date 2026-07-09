@@ -199,7 +199,7 @@ export default defineConfig({
 		],
 		// Pre-bundle Vue and dashboard deps so SSR/client resolve them without issues.
 		optimizeDeps: {
-			include: ["vue", "@vueuse/core", "libphonenumber-js"],
+			include: ["vue", "@vueuse/core"],
 		},
 	},
 });
