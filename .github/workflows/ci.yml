@@ -159,11 +159,13 @@ jobs:
         if: steps.gate.outputs.heavy == 'true'
         run: |
           set -Eeuo pipefail
-          # Write exit status to a file — later steps can't `wait` this pid (new shell).
-          nohup bash -c '
+          # Exit status goes to /tmp/db-start.rc — later steps can't `wait` this
+          # pid (each run: is a new shell). Subshell (not bash -c) so $? expands
+          # in the child and shellcheck stays quiet.
+          (
             bash scripts/db/ci-db-retry.sh db:start /tmp/db-start.log
             echo $? > /tmp/db-start.rc
-          ' > /tmp/db-start.nohup.out 2>&1 &
+          ) > /tmp/db-start.nohup.out 2>&1 &
           echo $! > /tmp/db-start.pid
           echo "db:start launched in background (pid $(cat /tmp/db-start.pid))"
 
@@ -185,27 +187,10 @@ jobs:
         if: steps.gate.outputs.heavy == 'true'
         run: |
           set -Eeuo pipefail
-          nohup bash -c '
-            set +e
-            set -uo pipefail
-            npx playwright install --only-shell
-            rc=$?
-            if [ "$rc" -eq 0 ]; then
-              DEPS_MARKER="${HOME}/.cache/ms-playwright/.ci-deps-installed"
-              if [[ ! -f "$DEPS_MARKER" ]]; then
-                echo "No OS-deps marker on sticky disk — running playwright install-deps once"
-                npx playwright install-deps
-                rc=$?
-                if [ "$rc" -eq 0 ]; then
-                  touch "$DEPS_MARKER"
-                fi
-              else
-                echo "OS-deps marker present — skipping install-deps"
-              fi
-            fi
-            echo "$rc" > /tmp/playwright-install.rc
-            exit "$rc"
-          ' > /tmp/playwright-install.log 2>&1 &
+          # Exit status goes to /tmp/playwright-install.rc — later steps can't
+          # `wait` this pid (each run: is a new shell).
+          nohup bash scripts/db/ci-playwright-install.sh \
+            > /tmp/playwright-install.log 2>&1 &
           echo $! > /tmp/playwright-install.pid
           echo "Playwright install launched in background (pid $(cat /tmp/playwright-install.pid))"
 
@@ -413,13 +398,7 @@ jobs:
             exit 0
           fi
           echo "::warning::Background Playwright install failed (rc=$bg_rc); retrying in foreground"
-          npx playwright install --only-shell
-          DEPS_MARKER="${HOME}/.cache/ms-playwright/.ci-deps-installed"
-          if [[ ! -f "$DEPS_MARKER" ]]; then
-            npx playwright install-deps
-            touch "$DEPS_MARKER"
-          fi
-          echo 0 > /tmp/playwright-install.rc
+          bash scripts/db/ci-playwright-install.sh
 
       - name: DB doctor
         if: steps.gate.outputs.heavy == 'true'
