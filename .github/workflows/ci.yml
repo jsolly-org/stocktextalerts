@@ -197,9 +197,10 @@ jobs:
           key: playwright-shell-${{ runner.os }}-${{ runner.arch }}
           path: ~/.cache/ms-playwright
 
-      # Background so a cold download + one-time apt install-deps overlaps static
-      # checks / sam build / background db:start. Warm sticky-disk runs finish in
-      # seconds (install is a no-op verify; apt skipped via marker on the disk).
+      # Background so a cold download + apt install-deps overlaps static checks /
+      # sam build / background db:start. Warm sticky-disk runs finish in seconds
+      # (browser install is a no-op verify; apt still runs once per runner via
+      # /tmp marker — apt packages are not on the sticky disk).
       - name: Install Playwright (background)
         if: steps.gate.outputs.heavy == 'true'
         run: |
