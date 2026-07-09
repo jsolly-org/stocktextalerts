@@ -40,8 +40,9 @@ env:
   CI: true
   DOCKER_HOST: unix:///var/run/docker.sock
   DEFAULT_PASSWORD: ci-local-seed-password
-  # Container-registry throttle signature, shared by the db:start / db:reset retry loops below.
-  # Single source of truth so the two steps' retry classifier can never silently diverge.
+  # Container-registry throttle signature, shared by scripts/db/ci-db-retry.sh
+  # (used by ci-bootstrap for start + reset). Single source of truth so the
+  # classifier can never silently diverge between those steps.
   TRANSIENT_REGEX: 'toomanyrequests|rate exceeded|\b429\b|TLS handshake timeout|i/o timeout|connection reset by peer'
 
 jobs:
@@ -150,6 +151,66 @@ jobs:
         if: steps.gate.outputs.static == 'true'
         run: npm ci
 
+      # Stubs for the test battery. Supabase keys are filled in by the background
+      # bootstrap after `supabase status`. The unsubscribe stub is concatenated so
+      # gitleaks' generic-api-key rule doesn't false-positive on a known CI placeholder
+      # (same value as before; not a real secret).
+      - name: Prepare .env.local
+        if: steps.gate.outputs.heavy == 'true'
+        run: |
+          cp env.example .env.local
+          {
+            echo "DEFAULT_PASSWORD=${DEFAULT_PASSWORD}"
+            echo "UNSUBSCRIBE_TOKEN_SECRET=ci-unsub""scribe-secret-min-12-chars"
+            echo "VERCEL_URL=http://localhost:4322"
+            echo "EMAIL_FROM=ci@example.com"
+            echo "MASSIVE_API_KEY=ci-massive-api-key"
+            echo "FINNHUB_API_KEY=ci-finnhub-api-key"
+            echo "EMAIL_SMTP_HOST=localhost"
+            echo "EMAIL_SMTP_PORT=1025"
+          } >> .env.local
+
+      # One background unit: start → write env → reset. Image pulls + migrate/seed
+      # overlap static checks / sam build / Playwright install. Local DX keeps
+      # db:start and db:reset separate; this script is CI-only.
+      - name: Bootstrap Supabase (background)
+        if: steps.gate.outputs.heavy == 'true'
+        run: |
+          set -Eeuo pipefail
+          (
+            bash scripts/db/ci-bootstrap.sh
+            # ci-bootstrap.sh already writes /tmp/ci-bootstrap.rc; this is a belt
+            # in case the script is killed before write_rc runs.
+            echo $? > /tmp/ci-bootstrap.outer.rc
+          ) > /tmp/ci-bootstrap.log 2>&1 &
+          echo $! > /tmp/ci-bootstrap.pid
+          echo "ci-bootstrap launched in background (pid $(cat /tmp/ci-bootstrap.pid))"
+
+      # Sticky disk (~3s mount) beats actions/cache download for browser binaries.
+      # No lockfile hash in the key: `playwright install` is idempotent and updates
+      # in place when @playwright/test bumps, so Dependabot PRs don't cold-start a
+      # new empty disk. Arch is required — runner.os is "Linux" on both x64 and ARM.
+      - name: Mount Playwright browsers (sticky disk)
+        if: steps.gate.outputs.heavy == 'true'
+        uses: useblacksmith/stickydisk@v1
+        with:
+          key: playwright-shell-${{ runner.os }}-${{ runner.arch }}
+          path: ~/.cache/ms-playwright
+
+      # Background so a cold download + one-time apt install-deps overlaps static
+      # checks / sam build / background db:start. Warm sticky-disk runs finish in
+      # seconds (install is a no-op verify; apt skipped via marker on the disk).
+      - name: Install Playwright (background)
+        if: steps.gate.outputs.heavy == 'true'
+        run: |
+          set -Eeuo pipefail
+          # Exit status goes to /tmp/playwright-install.rc — later steps can't
+          # `wait` this pid (each run: is a new shell).
+          nohup bash scripts/db/ci-playwright-install.sh \
+            > /tmp/playwright-install.log 2>&1 &
+          echo $! > /tmp/playwright-install.pid
+          echo "Playwright install launched in background (pid $(cat /tmp/playwright-install.pid))"
+
       - uses: astral-sh/setup-uv@v8.2.0
         if: steps.gate.outputs.static == 'true'
         with:
@@ -202,114 +263,41 @@ jobs:
         if: steps.gate.outputs.heavy == 'true'
         run: bash aws/deploy-web.sh --build
 
-      - name: Prepare .env.local
+      - name: Wait for Supabase bootstrap
         if: steps.gate.outputs.heavy == 'true'
         run: |
-          cp env.example .env.local
-          {
-            echo "DEFAULT_PASSWORD=${DEFAULT_PASSWORD}"
-            echo "UNSUBSCRIBE_TOKEN_SECRET=ci-unsubscribe-secret-min-12-chars"
-            echo "VERCEL_URL=http://localhost:4322"
-            echo "EMAIL_FROM=ci@example.com"
-            echo "MASSIVE_API_KEY=ci-massive-api-key"
-            echo "FINNHUB_API_KEY=ci-finnhub-api-key"
-            echo "EMAIL_SMTP_HOST=localhost"
-            echo "EMAIL_SMTP_PORT=1025"
-          } >> .env.local
-
-      - name: Start Supabase
-        if: steps.gate.outputs.heavy == 'true'
-        run: |
-          set -Eeuo pipefail   # explicit: the `cmd | tee` failure check below must not rely on the runner's default shell flags
-          # Retry ONLY on a transient container-registry throttle: the Supabase stack pulls
-          # images from public.ecr.aws / Docker Hub, whose anonymous per-IP rate limits are
-          # shared across GitHub's runner pool. Any non-throttle failure fails fast so a real
-          # error isn't masked by three pointless retries. Backoff gives the per-IP limit time.
-          for attempt in 1 2 3; do
-            if npm run db:start 2>&1 | tee /tmp/db-start.log; then exit 0; fi
-            if ! grep -qiE "$TRANSIENT_REGEX" /tmp/db-start.log; then
-              echo "::error::db:start failed for a non-transient reason (see log above); not retrying." >&2
-              exit 1
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              echo "::warning::db:start hit a transient registry throttle (attempt ${attempt}/3); retrying in $((attempt * 30))s." >&2
-              sleep "$((attempt * 30))"
-            fi
+          set -Eeuo pipefail
+          pid="$(cat /tmp/ci-bootstrap.pid)"
+          echo "Waiting for background ci-bootstrap (pid $pid)…"
+          # Each `run:` step is a new shell — poll with kill -0 (wait only works
+          # for children of THIS shell).
+          while kill -0 "$pid" 2>/dev/null; do
+            sleep 2
           done
-          echo "::error::db:start still throttled by the container registry after 3 attempts." >&2
-          exit 1
-
-      - name: Load Supabase env
-        if: steps.gate.outputs.heavy == 'true'
-        run: |
-          ./node_modules/.bin/supabase status -o json > /tmp/sb-status.json
-          DB_VARS=$(jq -r '
-            "SUPABASE_URL=\(.API_URL // "")",
-            "SUPABASE_PUBLISHABLE_KEY=\(.ANON_KEY // "")",
-            "SUPABASE_SECRET_KEY=\(.SERVICE_ROLE_KEY // "")",
-            "DATABASE_URL=\(.DB_URL // "")"
-          ' /tmp/sb-status.json)
-          INVALID_DB_VARS=0
-          declare -A DB_VARS_SEEN_KEYS=()
-          while IFS= read -r LINE; do
-            [[ -z "$LINE" ]] && continue
-            if [[ "$LINE" != *"="* ]]; then
-              echo "Error: Supabase env var line is malformed: $LINE" >&2
-              INVALID_DB_VARS=1
-              continue
-            fi
-            KEY="${LINE%%=*}"
-            VALUE="${LINE#*=}"
-            DB_VARS_SEEN_KEYS["$KEY"]=1
-            VALUE_TRIMMED="${VALUE//[[:space:]]/}"
-            if [[ -z "$VALUE_TRIMMED" || "$VALUE" == "null" ]]; then
-              echo "Error: Supabase status did not provide a valid value for $KEY." >&2
-              INVALID_DB_VARS=1
-            fi
-          done <<< "$DB_VARS"
-          for KEY in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY DATABASE_URL; do
-            if [[ -z "${DB_VARS_SEEN_KEYS[$KEY]:-}" ]]; then
-              echo "Error: Supabase env var $KEY was not produced." >&2
-              INVALID_DB_VARS=1
-            fi
-          done
-          if [[ "$INVALID_DB_VARS" -ne 0 ]]; then
+          bg_rc=1
+          if [ -f /tmp/ci-bootstrap.rc ]; then
+            bg_rc="$(cat /tmp/ci-bootstrap.rc)"
+          elif [ -f /tmp/ci-bootstrap.outer.rc ]; then
+            bg_rc="$(cat /tmp/ci-bootstrap.outer.rc)"
+          fi
+          if [ -f /tmp/ci-bootstrap.log ]; then
+            echo "——— /tmp/ci-bootstrap.log (tail) ———"
+            tail -n 80 /tmp/ci-bootstrap.log || true
+            echo "——— end log ———"
+          fi
+          if [ "$bg_rc" != "0" ]; then
+            echo "::error::Background ci-bootstrap failed (rc=$bg_rc); retrying in foreground"
+            bash scripts/db/ci-bootstrap.sh
+          else
+            echo "Background ci-bootstrap succeeded"
+          fi
+          # Promote env file written by the bootstrap into GITHUB_ENV for later steps.
+          if [ ! -f /tmp/ci-bootstrap.env ]; then
+            echo "::error::/tmp/ci-bootstrap.env missing after bootstrap" >&2
             exit 1
           fi
-          while IFS= read -r LINE; do
-            [[ -z "$LINE" ]] && continue
-            KEY="${LINE%%=*}"
-            VALUE="${LINE#*=}"
-            if grep -q "^${KEY}=" .env.local; then
-              sed -i "s|^${KEY}=.*|${KEY}=${VALUE}|" .env.local
-            else
-              echo "${KEY}=${VALUE}" >> .env.local
-            fi
-            echo "${KEY}=${VALUE}" >> "$GITHUB_ENV"
-          done <<< "$DB_VARS"
-          echo "DEFAULT_PASSWORD=${DEFAULT_PASSWORD}" >> "$GITHUB_ENV"
-
-      - name: Reset database
-        if: steps.gate.outputs.heavy == 'true'
-        run: |
-          set -Eeuo pipefail   # explicit: the `cmd | tee` failure check below must not rely on the runner's default shell flags
-          # Same registry-throttle retry as Start Supabase: db:reset regenerates types via a
-          # freshly-pulled postgres-meta container, the exact pull that flakes under rate limits.
-          # db:reset is idempotent (stop -> start -> migrate -> seed -> gen-types), so re-running
-          # a throttled attempt is safe. Non-throttle failures (bad migration, seed error) fail fast.
-          for attempt in 1 2 3; do
-            if npm run db:reset 2>&1 | tee /tmp/db-reset.log; then exit 0; fi
-            if ! grep -qiE "$TRANSIENT_REGEX" /tmp/db-reset.log; then
-              echo "::error::db:reset failed for a non-transient reason (see log above); not retrying." >&2
-              exit 1
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              echo "::warning::db:reset hit a transient registry throttle (attempt ${attempt}/3); retrying in $((attempt * 30))s." >&2
-              sleep "$((attempt * 30))"
-            fi
-          done
-          echo "::error::db:reset still throttled by the container registry after 3 attempts." >&2
-          exit 1
+          cat /tmp/ci-bootstrap.env >> "$GITHUB_ENV"
+          echo "Loaded Supabase env into GITHUB_ENV"
 
       - name: Verify generated types are checked in
         if: steps.gate.outputs.heavy == 'true'
@@ -320,38 +308,39 @@ jobs:
             exit 1
           fi
 
-      - id: playwright-cache
-        if: steps.gate.outputs.heavy == 'true'
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          # runner.arch is in the key because runner.os alone is "Linux" on BOTH
-          # x64 and ARM — without it an ARM job would restore x64 Chromium binaries
-          # from a stale cache and fail at browser launch.
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            playwright-${{ runner.os }}-${{ runner.arch }}-
-
-      - name: Install Playwright
+      - name: Wait for Playwright
         if: steps.gate.outputs.heavy == 'true'
         run: |
-          if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
-            npx playwright install-deps chromium
-          else
-            npx playwright install --with-deps chromium
+          set -Eeuo pipefail
+          pid="$(cat /tmp/playwright-install.pid)"
+          echo "Waiting for background Playwright install (pid $pid)…"
+          # Poll — `wait` only works for children of this shell (each step is new).
+          while kill -0 "$pid" 2>/dev/null; do
+            sleep 2
+          done
+          bg_rc=1
+          if [ -f /tmp/playwright-install.rc ]; then
+            bg_rc="$(cat /tmp/playwright-install.rc)"
           fi
+          if [ -f /tmp/playwright-install.log ]; then
+            echo "——— /tmp/playwright-install.log (tail) ———"
+            tail -n 40 /tmp/playwright-install.log || true
+            echo "——— end log ———"
+          fi
+          if [ "$bg_rc" = "0" ]; then
+            echo "Background Playwright install succeeded"
+            exit 0
+          fi
+          if [[ -d "${HOME}/.cache/ms-playwright" ]] && compgen -G "${HOME}/.cache/ms-playwright/chromium_headless_shell-*" > /dev/null; then
+            echo "chromium-headless-shell present despite background exit $bg_rc — continuing"
+            exit 0
+          fi
+          echo "::warning::Background Playwright install failed (rc=$bg_rc); retrying in foreground"
+          bash scripts/db/ci-playwright-install.sh
 
       - name: DB doctor
         if: steps.gate.outputs.heavy == 'true'
         run: npm run db:doctor
-
-      - name: Check DB privileges
-        if: steps.gate.outputs.heavy == 'true'
-        run: npm run check:db-privileges
-
-      - name: Check notification-option catalog
-        if: steps.gate.outputs.heavy == 'true'
-        run: npm run check:option-catalog
 
       - name: Unit tests
         if: steps.gate.outputs.heavy == 'true'

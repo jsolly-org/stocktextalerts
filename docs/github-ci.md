@@ -20,7 +20,7 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 
 - staged gitleaks, staged markdown lint, Node pin (merge/rebase + empty-commit skips)
 - Lambda bundle build
-- Biome, YAML, actionlint, Astro check, Knip, Squawk, deploy-function coverage, migration grants (static)
+- Biome, YAML, actionlint (**shellcheck** + **github-actionlint** are lockfile-pinned npm deps; `npm run check:actions` points actionlint at `node_modules/.bin/shellcheck` so SC* rules can't silently skip), Astro check, Knip, Squawk, deploy-function coverage, migration grants (static)
 
 **Not in pre-commit (GitHub CI only):** `db:doctor`, `check:db-privileges`, `npm test`, `npm run test:e2e`, Astro build. These need local Supabase/Docker on the runner — no Podman/Postgres required locally before commit. Bypass = `git commit -n` only; CI is the backstop. Local `npm test` / `test:e2e` are also **opt-in** in this repo (`ALLOW_LOCAL_DB_TESTS=1` or `npm run test:local`) so agents do not hit the shared stack by default — see `tests/README.md`. Fleet agent conventions live in `~/code/dotagents`.
 
@@ -74,8 +74,9 @@ The gate needs no checkout — both decisions use only the event payload and the
 ## CI environment
 
 - **Runner:** `blacksmith-4vcpu-ubuntu-2404-arm` (Blacksmith ARM — ~37% cheaper per minute than x64; the battery is arch-neutral) with Docker (`DOCKER_HOST=unix:///var/run/docker.sock`). `deploy.yml` deliberately stays on x64 `blacksmith-4vcpu-ubuntu-2404` — it builds the Lambda artifact that ships to production; don't change artifact arch as a side effect of runner economics.
-- **Supabase:** `npm run db:start` → load keys from `supabase status` → `npm run db:reset`
-- **Playwright:** Chromium only; traces uploaded on failure from `.playwright-mcp/cli/`
+- **Supabase:** one background [`scripts/db/ci-bootstrap.sh`](../scripts/db/ci-bootstrap.sh) (start → write env → reset, with [`ci-db-retry.sh`](../scripts/db/ci-db-retry.sh) on transient registry throttle) so image pulls + migrate/seed overlap static checks / `sam build` / Playwright install; a wait step joins and loads `/tmp/ci-bootstrap.env` into `GITHUB_ENV`. `db:reset` also runs `check:db-privileges` + `check:option-catalog` (not standalone CI steps). Local DX still uses separate `db:start` / `db:reset`.
+- **Playwright:** Chromium **headless shell** only (`npx playwright install --only-shell`). Browser binaries live on a Blacksmith **sticky disk** (`useblacksmith/stickydisk` → `~/.cache/ms-playwright`, keyed by OS+arch) so warm runs mount in ~3s instead of re-downloading. `install-deps` (apt) runs once per sticky disk (marker file), not every job. Install is launched in the background right after the mount so a cold fill overlaps static checks / bootstrap; a wait step joins before E2E. Traces uploaded on failure from `.playwright-mcp/cli/`.
+- **Caching:** `setup-node` npm cache stays on the upstream action — Blacksmith transparently redirects it to its colocated cache (the `useblacksmith/cache` / `setup-node` forks are archived). Playwright browsers use sticky disks instead of `actions/cache` (large binary artifact).
 - **CI secrets:** No production credentials in the test job; vendor APIs are stubbed
 
 ## Production deploy environment
