@@ -383,6 +383,30 @@ export type Database = {
           },
         ]
       }
+      prediction_market_odds: {
+        Row: {
+          captured_at: string
+          id: string
+          market_key: string
+          probability_percent: number
+          venue: string
+        }
+        Insert: {
+          captured_at?: string
+          id?: string
+          market_key: string
+          probability_percent: number
+          venue: string
+        }
+        Update: {
+          captured_at?: string
+          id?: string
+          market_key?: string
+          probability_percent?: number
+          venue?: string
+        }
+        Relationships: []
+      }
       price_move_alert_state: {
         Row: {
           first_of_day_reservation: boolean
@@ -829,6 +853,10 @@ export type Database = {
       }
       purge_old_asset_price_history: {
         Args: { p_retention_hours?: number }
+        Returns: number
+      }
+      purge_old_prediction_market_odds: {
+        Args: { p_retention_days?: number }
         Returns: number
       }
       release_flat_price_alert: {

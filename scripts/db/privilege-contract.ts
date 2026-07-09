@@ -116,6 +116,11 @@ export const RPC_PRIVILEGES: RpcPrivilege[] = [
 		class: "server-only",
 		reason: "Daily-close cache maintenance (server)",
 	},
+	{
+		signature: "purge_old_prediction_market_odds(p_retention_days integer)",
+		class: "server-only",
+		reason: "Prediction-market odds cache maintenance (server)",
+	},
 	// --- Auth rate limiting (server admin client) ---------------------------
 	{
 		signature: "check_rate_limit(p_user_id uuid, p_endpoint text, p_max_requests integer, p_window_minutes integer)",

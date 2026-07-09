@@ -51,6 +51,7 @@ import { fetchMarketScheduledUsers } from "../market-notifications/scheduled/que
 import type { LogoCache } from "../messaging/logo-fetcher";
 import type { NotificationSenders } from "../messaging/senders";
 import { createNotificationSenders } from "../messaging/senders";
+import { purgeOldPredictionMarketOdds } from "../prediction-markets/store";
 import { USER_PROCESS_BATCH_SIZE } from "../scheduled-notifications/constants";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import { deliverStagedNotifications } from "../staged-notifications/deliver";
@@ -457,6 +458,22 @@ export async function runScheduledNotifications(options: {
 		logger.warn(
 			"Failed to purge old price history cache (non-fatal)",
 			{ action: "purge_price_history_cache" },
+			error,
+		);
+	}
+
+	try {
+		const purgedOdds = await purgeOldPredictionMarketOdds(supabase, logger);
+		if (purgedOdds > 0) {
+			logger.info("Purged old prediction-market odds rows", {
+				action: "purge_prediction_market_odds",
+				purged: purgedOdds,
+			});
+		}
+	} catch (error) {
+		logger.warn(
+			"Failed to purge old prediction-market odds (non-fatal)",
+			{ action: "purge_prediction_market_odds" },
 			error,
 		);
 	}

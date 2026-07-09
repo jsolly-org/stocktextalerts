@@ -2,10 +2,15 @@ import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import type { buildAssetEventsContent } from "../../asset-events/content";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import type { TopMover } from "../../market-data/types";
+import {
+	formatPredictionMarketsEmailHtml,
+	formatPredictionMarketsTelegram,
+	formatPredictionMarketsText,
+} from "../../prediction-markets/format";
 import type { MarketClosureInfo } from "../../time/types";
 import type { AssetPriceMap, UserAssetRow } from "../../types";
 import { formatAssetsHtmlList } from "../email/asset-price-list";
-import { renderEmailSection } from "../email/html-section";
+import { renderEmailHtmlSection, renderEmailSection } from "../email/html-section";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
 import {
 	formatAssetTextLine,
@@ -197,6 +202,13 @@ export function formatDailyDigestEmail(options: {
 
 	const news = ensureBlankLineBetweenTickerSnippets((options.extras.news ?? "").trim());
 	const rumors = ensureBlankLineBetweenTickerSnippets((options.extras.rumors ?? "").trim());
+	const predictionMarketsReadings = options.extras.predictionMarkets ?? null;
+	const predictionMarketsText = predictionMarketsReadings
+		? formatPredictionMarketsText(predictionMarketsReadings)
+		: null;
+	const predictionMarketsHtml = predictionMarketsReadings
+		? formatPredictionMarketsEmailHtml(predictionMarketsReadings)
+		: null;
 
 	const ae = options.assetEvents;
 	const earnings = (ae?.eventsSection?.earnings ?? "").trim();
@@ -248,6 +260,7 @@ export function formatDailyDigestEmail(options: {
 		prices ? `💰 Your Assets\n${prices}` : "",
 		news ? `\n🗞️ News\n${news}` : "",
 		rumors ? `\n🤫 Rumors\n${rumors}` : "",
+		predictionMarketsText ? `\n🎯 Prediction Markets\n${predictionMarketsText}` : "",
 		earnings ? `\n📈 Earnings\n${earnings}` : "",
 		dividends ? `\n💰 Dividends\n${dividends}` : "",
 		splits ? `\n✂️ Splits\n${splits}` : "",
@@ -284,6 +297,11 @@ export function formatDailyDigestEmail(options: {
 		}
 		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showMassiveLogo: true })}
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
+		${
+			predictionMarketsHtml
+				? renderEmailHtmlSection("🎯", "Prediction Markets", predictionMarketsHtml)
+				: ""
+		}
 		${renderEmailSection("📈", "Earnings", earnings, {
 			showFinnhubLogo: true,
 		})}
@@ -361,6 +379,12 @@ export function formatDailyDigestTelegram(opts: {
 	}
 	if (opts.extras.rumors) {
 		msg = fmt`${msg}\n\n${FormattedString.bold("💬 Rumors")}\n${FormattedString.blockquote(opts.extras.rumors)}`;
+	}
+	const predictionMarketsTelegram = opts.extras.predictionMarkets
+		? formatPredictionMarketsTelegram(opts.extras.predictionMarkets)
+		: null;
+	if (predictionMarketsTelegram) {
+		msg = fmt`${msg}\n\n${FormattedString.bold("🎯 Prediction Markets")}\n${predictionMarketsTelegram}`;
 	}
 
 	const ae = opts.assetEvents;

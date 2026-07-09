@@ -21,6 +21,7 @@ import type { SparklineMap } from "../messaging/parts/sparkline";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { EmailSender, NotificationExtras } from "../messaging/types";
+import { buildPredictionMarketsReadings } from "../prediction-markets/content";
 import { MAX_NOTIFICATION_RETRIES } from "../scheduled-notifications/constants";
 import { getMaxDailyDigestSlotAttempts } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
@@ -136,6 +137,11 @@ export async function processDailyDigestUser(options: {
 		const wantsTopMoversEmail =
 			isDailyNotificationFacetEnabled(user.prefs, "email", "top_movers") && emailEnabled;
 		const wantsTopMovers = wantsTopMoversEmail || wantsTopMoversTelegram;
+		const wantsPredictionMarketsEmail =
+			emailEnabled && isDailyNotificationFacetEnabled(user.prefs, "email", "prediction_markets");
+		const wantsPredictionMarketsTelegram =
+			telegramEnabled && telegramFacets.has("prediction_markets");
+		const wantsPredictionMarkets = wantsPredictionMarketsEmail || wantsPredictionMarketsTelegram;
 
 		if (!emailEnabled && !telegramEnabled) {
 			stats.skipped++;
@@ -338,6 +344,9 @@ export async function processDailyDigestUser(options: {
 		Fetch market-wide top movers (email/Telegram when opted in)
 		============= */
 		const topMoversSection = wantsTopMovers ? await buildTopMoversData() : null;
+		const predictionMarketsReadings = wantsPredictionMarkets
+			? await buildPredictionMarketsReadings({ supabase, logger })
+			: null;
 
 		const mergedCitations = [
 			...new Set([...(newsResult?.citations ?? []), ...(rumorsResult?.citations ?? [])]),
@@ -403,6 +412,7 @@ export async function processDailyDigestUser(options: {
 			? {
 					news: newsResult?.content ?? null,
 					rumors: rumorsResult?.content ?? null,
+					predictionMarkets: wantsPredictionMarketsEmail ? predictionMarketsReadings : null,
 					analyst: null,
 					insider: null,
 					topMovers: wantsTopMoversEmail ? topMoversSection : null,
@@ -410,14 +420,15 @@ export async function processDailyDigestUser(options: {
 				}
 			: null;
 
-		// Telegram extras: v1 carries prices (+ top movers when that facet is on
-		// for Telegram). Grok news/rumors are intentionally omitted on Telegram —
+		// Telegram extras: prices + top movers + prediction markets when those
+		// facets are on. Grok news/rumors are intentionally omitted on Telegram —
 		// see the dispatch wiring note. Reuses the rich (email-style) topMovers
 		// section already fetched above.
 		const telegramExtras: NotificationExtras | null = telegramEnabled
 			? {
 					news: null,
 					rumors: null,
+					predictionMarkets: wantsPredictionMarketsTelegram ? predictionMarketsReadings : null,
 					analyst: null,
 					insider: null,
 					topMovers: wantsTopMoversTelegram ? topMoversSection : null,
@@ -432,12 +443,14 @@ export async function processDailyDigestUser(options: {
 			(includePricesEmail && userAssets.length > 0 && emailEnabled) ||
 			emailExtras?.news ||
 			emailExtras?.rumors ||
+			emailExtras?.predictionMarkets ||
 			emailExtras?.topMovers ||
 			emailAssetEvents?.hasAnyContent
 		);
 		const hasTelegramContent = !!(
 			(includePricesTelegram && userAssets.length > 0) ||
 			telegramExtras?.topMovers ||
+			telegramExtras?.predictionMarkets ||
 			telegramAssetEvents?.hasAnyContent
 		);
 

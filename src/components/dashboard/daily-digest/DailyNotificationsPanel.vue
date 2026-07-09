@@ -205,6 +205,44 @@
 				</div>
 				</div>
 
+				<div class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+					<input
+						type="hidden"
+						name="daily_digest_include_prediction_markets_email"
+						:value="includePredictionMarketsEmail ? 'on' : 'off'"
+					/>
+					<input
+						type="hidden"
+						name="daily_digest_include_prediction_markets_telegram"
+						:value="includePredictionMarketsTelegram ? 'on' : 'off'"
+					/>
+					<div class="min-w-0">
+						<div class="flex items-center gap-2">
+							<span
+								id="daily_digest_include_prediction_markets_label"
+								class="text-base font-semibold text-heading"
+							>
+								🎯 Prediction Markets
+							</span>
+						</div>
+						<p
+							id="daily_digest_include_prediction_markets_description"
+							class="text-sm text-body-secondary mt-0.5"
+						>
+							Daily odds from Kalshi and Polymarket on curated macro markets that move the
+							broader tape (Fed, recession, tariffs, and more), with day-over-day moves.
+						</p>
+					</div>
+					<div class="shrink-0">
+						<ChannelMultiSelect
+							id-prefix="daily_digest_include_prediction_markets"
+							labelledby="daily_digest_include_prediction_markets_label"
+							:options="predictionMarketsChannelOptions"
+							@toggle="handlePredictionMarketsToggle"
+						/>
+					</div>
+				</div>
+
 				<DailyAssetEventsFieldset
 					:email-enabled="emailEnabled"
 					:has-tracked-assets="hasTrackedAssets"
@@ -257,10 +295,11 @@ interface Props {
 	hasTrackedAssets: boolean;
 	/**
 	 * The user's current daily-digest Telegram selections, keyed by content facet
-	 * ("prices" | "top_movers" | "news" | "rumors"). Loaded server-side from
-	 * `notification_preferences` (channel='telegram'); absent facets default to off.
-	 * The autosave update endpoint persists Telegram to that table but does NOT echo
-	 * it back in its snapshot, so these refs are the panel's own source of truth.
+	 * ("prices" | "top_movers" | "news" | "rumors" | "prediction_markets"). Loaded
+	 * server-side from `notification_preferences` (channel='telegram'); absent
+	 * facets default to off. The autosave update endpoint persists Telegram to that
+	 * table but does NOT echo it back in its snapshot, so these refs are the
+	 * panel's own source of truth.
 	 */
 	telegramPrefs: Record<string, boolean>;
 	/** Asset-event Telegram facets (calendar, ipo, analyst, insider). */
@@ -330,6 +369,9 @@ const includeTopMoversEmail = ref(
 );
 const includeNewsEmail = ref(user.value.daily_digest_include_news_email);
 const includeRumorsEmail = ref(user.value.daily_digest_include_rumors_email);
+const includePredictionMarketsEmail = ref(
+	user.value.daily_digest_include_prediction_markets_email,
+);
 
 /* =============
 Telegram per-option state. These prefs live in `notification_preferences`
@@ -342,6 +384,9 @@ const includePricesTelegram = ref(props.telegramPrefs.prices === true);
 const includeTopMoversTelegram = ref(props.telegramPrefs.top_movers === true);
 const includeNewsTelegram = ref(props.telegramPrefs.news === true);
 const includeRumorsTelegram = ref(props.telegramPrefs.rumors === true);
+const includePredictionMarketsTelegram = ref(
+	props.telegramPrefs.prediction_markets === true,
+);
 
 /** Telegram is selectable only once the account is linked (chat id present). */
 const telegramConnected = computed(() => user.value.telegram_chat_id != null);
@@ -359,7 +404,9 @@ const dailyEnabled = computed(() =>
 	includeNewsEmail.value ||
 	includeNewsTelegram.value ||
 	includeRumorsEmail.value ||
-	includeRumorsTelegram.value,
+	includeRumorsTelegram.value ||
+	includePredictionMarketsEmail.value ||
+	includePredictionMarketsTelegram.value,
 );
 
 /* =============
@@ -391,6 +438,17 @@ const rumorsChannelOptions = computed<ChannelOption[]>(() => [
 	emailOption(includeRumorsEmail.value),
 	telegramOption(includeRumorsTelegram.value),
 ]);
+// Macro strip doesn't need a watchlist — only a delivery channel.
+const predictionMarketsChannelOptions = computed<ChannelOption[]>(() => [
+	{
+		value: "email",
+		label: "Email",
+		selected: includePredictionMarketsEmail.value === true,
+		disabled: needsChannelSelection.value || !emailEnabled.value,
+		disabledTitle: emailDisabledTitle.value,
+	},
+	telegramOption(includePredictionMarketsTelegram.value),
+]);
 
 function handlePricesToggle(channel: string, selected: boolean) {
 	if (channel === "email") includePricesEmail.value = selected;
@@ -407,6 +465,10 @@ function handleNewsToggle(channel: string, selected: boolean) {
 function handleRumorsToggle(channel: string, selected: boolean) {
 	if (channel === "email") includeRumorsEmail.value = selected;
 	else if (channel === "telegram") includeRumorsTelegram.value = selected;
+}
+function handlePredictionMarketsToggle(channel: string, selected: boolean) {
+	if (channel === "email") includePredictionMarketsEmail.value = selected;
+	else if (channel === "telegram") includePredictionMarketsTelegram.value = selected;
 }
 
 const hasAnyAssetEventsOptionEnabled = computed(
@@ -511,6 +573,8 @@ watch(
 		includeNewsTelegram,
 		includeRumorsEmail,
 		includeRumorsTelegram,
+		includePredictionMarketsEmail,
+		includePredictionMarketsTelegram,
 	],
 	() => {
 		notifyChange();
@@ -541,6 +605,12 @@ watch(
 		includeRumorsEmail.value = value;
 	},
 );
+watch(
+	() => user.value.daily_digest_include_prediction_markets_email,
+	(value) => {
+		includePredictionMarketsEmail.value = value;
+	},
+);
 
 /* =============
 Keep dashboard user state aligned with autosave responses
@@ -554,6 +624,8 @@ watch(savedData, (newData) => {
 			newData.daily_digest_include_top_movers_email,
 		daily_digest_include_news_email: newData.daily_digest_include_news_email,
 		daily_digest_include_rumors_email: newData.daily_digest_include_rumors_email,
+		daily_digest_include_prediction_markets_email:
+			newData.daily_digest_include_prediction_markets_email,
 		...(newData.asset_events_include_calendar_email !== undefined && {
 			asset_events_include_calendar_email: newData.asset_events_include_calendar_email,
 		}),

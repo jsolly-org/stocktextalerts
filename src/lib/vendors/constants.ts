@@ -6,6 +6,27 @@ export const FINNHUB_BASE_URL = "https://finnhub.io/api/v1";
 /** Base URL for Massive REST API calls. */
 export const MASSIVE_BASE_URL = "https://api.massive.com";
 
+/** Base URL for Polymarket Gamma (public market discovery / odds). */
+export const POLYMARKET_GAMMA_BASE_URL = "https://gamma-api.polymarket.com";
+
+/** Base URL for Kalshi public Trade API (market data, no auth). */
+export const KALSHI_TRADE_API_BASE_URL = "https://external-api.kalshi.com/trade-api/v2";
+
+/**
+ * Proactive per-process Polymarket call budget. Gamma limits are per-10s and
+ * generous (hundreds); 60/min keeps us polite and matches the Finnhub shape.
+ */
+export const POLYMARKET_MAX_CALLS_PER_MINUTE = 60;
+
+/**
+ * Proactive per-process Kalshi call budget. Public REST is unauthenticated;
+ * 60/min is plenty for a curated digest strip.
+ */
+export const KALSHI_MAX_CALLS_PER_MINUTE = 60;
+
+/** User-Agent for public prediction-market APIs (some CDNs 403 bare clients). */
+export const PREDICTION_MARKET_USER_AGENT = "StockTextAlerts/1.0 (+https://stocktextalerts.com)";
+
 /**
  * Proactive per-process Finnhub call budget. Free tier allows 60/min per key; 55 leaves
  * headroom for clock skew. Per-process, so the scheduler Lambda, the Astro web runtime, and
