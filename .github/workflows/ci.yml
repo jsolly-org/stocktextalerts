@@ -187,6 +187,12 @@ jobs:
       - name: Knip (unused code)
         run: npm run check:knip
 
+      - name: Markdown lint
+        run: npm run check:md
+
+      - name: Lib boundaries
+        run: npm run check:lib-boundaries
+
       - name: Squawk migrations
         run: npm run check:sql
 

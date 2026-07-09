@@ -79,18 +79,27 @@ function stopDedicatedServer(): void {
 }
 
 function startDedicatedServer(): ChildProcess {
+	// Astro ≥7.0.6 skips vite-plugin-astro-server when process.env.VITEST is set
+	// (so Vitest browser-mode / getViteConfig don't double-boot a server). The
+	// dedicated `astro dev` child must NOT inherit that — otherwise / probes
+	// 404 forever and HTTP integration tests time out.
+	const env: NodeJS.ProcessEnv = {
+		...process.env,
+		MODE: "test",
+		SITE_URL: HTTP_TEST_BASE,
+		EMAIL_SMTP_HOST: process.env.EMAIL_SMTP_HOST ?? "localhost",
+		EMAIL_SMTP_PORT: process.env.EMAIL_SMTP_PORT ?? "1025",
+	};
+	delete env.VITEST;
+	delete env.VITEST_WORKER_ID;
+	delete env.VITEST_POOL_ID;
+
 	const child = spawn(
 		"npm",
 		["run", "dev", "--", "--port", String(HTTP_TEST_PORT), "--host", HTTP_TEST_HOST],
 		{
 			cwd: process.cwd(),
-			env: {
-				...process.env,
-				MODE: "test",
-				SITE_URL: HTTP_TEST_BASE,
-				EMAIL_SMTP_HOST: process.env.EMAIL_SMTP_HOST ?? "localhost",
-				EMAIL_SMTP_PORT: process.env.EMAIL_SMTP_PORT ?? "1025",
-			},
+			env,
 			// Avoid pipe backpressure killing the dev server in CI.
 			stdio: "ignore",
 			detached: process.platform !== "win32",

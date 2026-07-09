@@ -199,7 +199,19 @@ export default defineConfig({
 		],
 		// Pre-bundle Vue and dashboard deps so SSR/client resolve them without issues.
 		optimizeDeps: {
-			include: ["vue", "@vueuse/core", "libphonenumber-js"],
+			include: ["vue", "@vueuse/core"],
+		},
+		build: {
+			// @vueuse/core ships misplaced `/* #__PURE__ */` comments that Rolldown
+			// flags as INVALID_ANNOTATION (vueuse#5387 / #5446). Suppress at the
+			// bundler so `npm run build`'s fail-closed WARN gate stays zero-exception.
+			// Remove when @vueuse/core ships a fix past 14.3.0.
+			rolldownOptions: {
+				onLog(level, log, defaultHandler) {
+					if (log.code === "INVALID_ANNOTATION") return;
+					defaultHandler(level, log);
+				},
+			},
 		},
 	},
 });

@@ -20,10 +20,9 @@
 		"vercel"
 	],
 	"ignoreBinaries": [
-		"github-actionlint",
 		"mise",
 		"printf",
-		"shellcheck",
 		"uvx"
-	]
+	],
+	"treatConfigHintsAsErrors": true
 }

@@ -8,7 +8,7 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 
 | Workflow | File | When | Purpose |
 | --- | --- | --- | --- |
-| **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PRs, push to `main` (post-merge gate), merge queue, manual | Lint, workflow lint, types, Knip, SQL, migration grants, Lambda bundle build, local Supabase bootstrap, sharded unit tests, sharded E2E (dev server), Astro build — run depth decided per-event by the gate job (see "Run gating") |
+| **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PRs, push to `main` (post-merge gate), merge queue, manual | Lint, workflow lint, types, Knip, markdown lint, lib boundaries, SQL, migration grants, Lambda bundle build, local Supabase bootstrap, sharded unit tests, sharded E2E (dev server), Astro build — run depth decided per-event by the gate job (see "Run gating") |
 | **Auto Merge** | [`.github/workflows/auto-merge.yml`](../.github/workflows/auto-merge.yml) | PR open/sync/ready/labeled | Enables squash auto-merge **only** when the PR has label `ship-auto-merge` (added by `/ship`) |
 | **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | Push to `main` (on merge), manual | Production Supabase migrations, Lambda code updates, live-provider check |
 
@@ -20,7 +20,7 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 
 - staged gitleaks, staged markdown lint, Node pin (merge/rebase + empty-commit skips)
 - Lambda bundle build
-- Biome, YAML, actionlint (**shellcheck** + **github-actionlint** are lockfile-pinned npm deps; `npm run check:actions` points actionlint at `node_modules/.bin/shellcheck` so SC* rules can't silently skip), Astro check, Knip, Squawk, deploy-function coverage, migration grants (static)
+- Biome, YAML, actionlint (**shellcheck** + **github-actionlint** are lockfile-pinned npm deps; `npm run check:actions` points actionlint at `node_modules/.bin/shellcheck` so SC* rules can't silently skip), Astro check, Knip, markdown lint (`check:md`), lib boundaries (`check:lib-boundaries`), Squawk, deploy-function coverage, migration grants (static)
 
 **Not in pre-commit (GitHub CI only):** `db:doctor`, `check:db-privileges`, `npm test`, `npm run test:e2e`, Astro build. These need local Supabase/Docker on the runner — no Podman/Postgres required locally before commit. Bypass = `git commit -n` only; CI is the backstop. Local `npm test` / `test:e2e` are also **opt-in** in this repo (`ALLOW_LOCAL_DB_TESTS=1` or `npm run test:local`) so agents do not hit the shared stack by default — see `tests/README.md`. Fleet agent conventions live in `~/code/dotagents`.
 
@@ -67,7 +67,7 @@ This trades strict's **pre-merge** guarantee (a broken combination can't land) f
 The first job (`gate` in `ci.yml`) decides how much of the battery each event actually needs. Two independent skips, both **fail-open** — any API error or ambiguity runs the full battery:
 
 - **Tree-identity skip (push to `main`).** A squash merge whose base did not advance while the PR was open produces a `main` commit whose **tree** is byte-identical to the PR head tree the required `ci` check already validated — re-running the battery proves nothing, so the whole job passes in seconds. When the trees differ (another PR merged first — the only case the post-merge backstop exists for) the full battery runs. Direct (break-glass) pushes have no associated merged PR and always run everything. Net effect: the post-merge `main` run costs a full battery **only when merges actually race**.
-- **Docs-only fast path (PRs).** A diff where every changed file matches `docs/**` or `*.md` runs the static checks (Biome, YAML/actionlint, types, Knip, SQL, deploy-fn coverage, migration grants) and skips the Supabase/test/build steps — the required `ci` check passes in ~2 min instead of ~13. The allowlist is deliberately conservative: `package.json`, workflows, config, or anything ambiguous runs the full battery. The check context stays `ci`, so branch protection needs no change.
+- **Docs-only fast path (PRs).** A diff where every changed file matches `docs/**` or `*.md` runs the static checks (Biome, YAML/actionlint, types, Knip, markdown lint, lib boundaries, SQL, deploy-fn coverage, migration grants) and skips the Supabase/test/build steps — the required `ci` check passes in ~2 min instead of ~13. The allowlist is deliberately conservative: `package.json`, workflows, config, or anything ambiguous runs the full battery. The check context stays `ci`, so branch protection needs no change.
 
 The gate needs no checkout — both decisions use only the event payload and the REST API — and writes its decision (`static`/`heavy` + reason) to the step summary of every run. Branch protection still requires the stable **`CI / ci`** context: the expensive work happens in fan-out jobs, and a final tiny job named `ci` aggregates their results and fails closed on any unexpected skip/fail/cancel.
 
