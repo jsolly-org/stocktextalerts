@@ -8,7 +8,7 @@ Ship profile: `aws-sam`
 
 **Post-push (step 12):** Production deploy is **GitHub-managed** — the `push` to `main` triggers `.github/workflows/deploy.yml` directly (which runs migrations, Lambda updates, and the live-provider check) **in parallel with** the post-merge `main` CI run. Deploy is *not* gated on that CI run — the `main` battery is a green-together canary (a red `main` means fix forward), while the deploy's own refuse-stale + refuse-infra guards protect the release. Babysit both workflows; local `npm run deploy:code` is break-glass only. Vercel deploys the web tier via Git integration — verify production if web paths changed. Run `npm run deploy:infra` manually (human MFA) when `aws/template.yaml` or `aws/deploy.sh` changes — never auto-run from `/ship`.
 
-Local gate before commit: pre-commit hook steps in `.git-hooks/pre-commit` (biome, yaml/actionlint, `check:ts`, knip, squawk SQL lint, deploy-fn coverage, static migration grants, and a fail-fast Lambda bundle build via `aws/deploy-web.sh --build`; unit tests run in GitHub CI, not the hook). Bypass = `git commit -n` only; CI is the backstop.
+Local gate before commit: pre-commit hook steps in `.git-hooks/pre-commit` (biome, yaml/actionlint, `check:ts`, knip, markdown lint, lib boundaries, squawk SQL lint, deploy-fn coverage, static migration grants, and a fail-fast Lambda bundle build via `aws/deploy-web.sh --build`; unit tests run in GitHub CI, not the hook). Bypass = `git commit -n` only; CI is the backstop.
 
 ## Commands
 

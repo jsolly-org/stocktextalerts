@@ -248,6 +248,14 @@ jobs:
         if: steps.gate.outputs.static == 'true'
         run: npm run check:knip
 
+      - name: Markdown lint
+        if: steps.gate.outputs.static == 'true'
+        run: npm run check:md
+
+      - name: Lib boundaries
+        if: steps.gate.outputs.static == 'true'
+        run: npm run check:lib-boundaries
+
       - name: Squawk migrations
         if: steps.gate.outputs.static == 'true'
         run: npm run check:sql
