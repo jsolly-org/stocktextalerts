@@ -112,6 +112,7 @@
 		"lint-staged": "^17.0.8",
 		"markdownlint-cli2": "^0.23.0",
 		"pg": "^8.22.0",
+		"shellcheck": "^4.1.0",
 		"squawk-cli": "^2.59.0",
 		"supabase": "2.109.0",
 		"tailwindcss": "^4.3.2",

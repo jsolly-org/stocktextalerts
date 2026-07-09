@@ -41,8 +41,8 @@ env:
   DOCKER_HOST: unix:///var/run/docker.sock
   DEFAULT_PASSWORD: ci-local-seed-password
   # Container-registry throttle signature, shared by scripts/db/ci-db-retry.sh
-  # (background db:start + db:reset). Single source of truth so the classifier
-  # can never silently diverge between those steps.
+  # (used by ci-bootstrap for start + reset). Single source of truth so the
+  # classifier can never silently diverge between those steps.
   TRANSIENT_REGEX: 'toomanyrequests|rate exceeded|\b429\b|TLS handshake timeout|i/o timeout|connection reset by peer'
 
 jobs:
@@ -151,23 +151,40 @@ jobs:
         if: steps.gate.outputs.static == 'true'
         run: npm ci
 
-      # Kick off Supabase image pulls in the background so they overlap static checks,
-      # sam build, and Playwright install (~30–45s wall saved). The wait step below
-      # joins the background job and retries on transient registry throttle via the
-      # shared scripts/db/ci-db-retry.sh classifier.
-      - name: Start Supabase (background)
+      # Stubs for the test battery. Supabase keys are filled in by the background
+      # bootstrap after `supabase status`. The unsubscribe stub is concatenated so
+      # gitleaks' generic-api-key rule doesn't false-positive on a known CI placeholder
+      # (same value as before; not a real secret).
+      - name: Prepare .env.local
+        if: steps.gate.outputs.heavy == 'true'
+        run: |
+          cp env.example .env.local
+          {
+            echo "DEFAULT_PASSWORD=${DEFAULT_PASSWORD}"
+            echo "UNSUBSCRIBE_TOKEN_SECRET=ci-unsub""scribe-secret-min-12-chars"
+            echo "VERCEL_URL=http://localhost:4322"
+            echo "EMAIL_FROM=ci@example.com"
+            echo "MASSIVE_API_KEY=ci-massive-api-key"
+            echo "FINNHUB_API_KEY=ci-finnhub-api-key"
+            echo "EMAIL_SMTP_HOST=localhost"
+            echo "EMAIL_SMTP_PORT=1025"
+          } >> .env.local
+
+      # One background unit: start → write env → reset. Image pulls + migrate/seed
+      # overlap static checks / sam build / Playwright install. Local DX keeps
+      # db:start and db:reset separate; this script is CI-only.
+      - name: Bootstrap Supabase (background)
         if: steps.gate.outputs.heavy == 'true'
         run: |
           set -Eeuo pipefail
-          # Exit status goes to /tmp/db-start.rc — later steps can't `wait` this
-          # pid (each run: is a new shell). Subshell (not bash -c) so $? expands
-          # in the child and shellcheck stays quiet.
           (
-            bash scripts/db/ci-db-retry.sh db:start /tmp/db-start.log
-            echo $? > /tmp/db-start.rc
-          ) > /tmp/db-start.nohup.out 2>&1 &
-          echo $! > /tmp/db-start.pid
-          echo "db:start launched in background (pid $(cat /tmp/db-start.pid))"
+            bash scripts/db/ci-bootstrap.sh
+            # ci-bootstrap.sh already writes /tmp/ci-bootstrap.rc; this is a belt
+            # in case the script is killed before write_rc runs.
+            echo $? > /tmp/ci-bootstrap.outer.rc
+          ) > /tmp/ci-bootstrap.log 2>&1 &
+          echo $! > /tmp/ci-bootstrap.pid
+          echo "ci-bootstrap launched in background (pid $(cat /tmp/ci-bootstrap.pid))"
 
       # Sticky disk (~3s mount) beats actions/cache download for browser binaries.
       # No lockfile hash in the key: `playwright install` is idempotent and updates
@@ -246,120 +263,41 @@ jobs:
         if: steps.gate.outputs.heavy == 'true'
         run: bash aws/deploy-web.sh --build
 
-      - name: Prepare .env.local
-        if: steps.gate.outputs.heavy == 'true'
-        run: |
-          cp env.example .env.local
-          {
-            echo "DEFAULT_PASSWORD=${DEFAULT_PASSWORD}"
-            echo "UNSUBSCRIBE_TOKEN_SECRET=ci-unsubscribe-secret-min-12-chars"
-            echo "VERCEL_URL=http://localhost:4322"
-            echo "EMAIL_FROM=ci@example.com"
-            echo "MASSIVE_API_KEY=ci-massive-api-key"
-            echo "FINNHUB_API_KEY=ci-finnhub-api-key"
-            echo "EMAIL_SMTP_HOST=localhost"
-            echo "EMAIL_SMTP_PORT=1025"
-          } >> .env.local
-
-      - name: Wait for Supabase
+      - name: Wait for Supabase bootstrap
         if: steps.gate.outputs.heavy == 'true'
         run: |
           set -Eeuo pipefail
-          pid="$(cat /tmp/db-start.pid)"
-          echo "Waiting for background db:start (pid $pid)…"
-          # Each `run:` step is a new shell — `wait $pid` only works for children of
-          # THIS shell, so poll with kill -0 instead of wait.
+          pid="$(cat /tmp/ci-bootstrap.pid)"
+          echo "Waiting for background ci-bootstrap (pid $pid)…"
+          # Each `run:` step is a new shell — poll with kill -0 (wait only works
+          # for children of THIS shell).
           while kill -0 "$pid" 2>/dev/null; do
             sleep 2
           done
-          # Reap exit status via a status file the background launcher writes, or
-          # fall back to supabase status / foreground retry.
           bg_rc=1
-          if [ -f /tmp/db-start.rc ]; then
-            bg_rc="$(cat /tmp/db-start.rc)"
+          if [ -f /tmp/ci-bootstrap.rc ]; then
+            bg_rc="$(cat /tmp/ci-bootstrap.rc)"
+          elif [ -f /tmp/ci-bootstrap.outer.rc ]; then
+            bg_rc="$(cat /tmp/ci-bootstrap.outer.rc)"
           fi
-          if [ "$bg_rc" = "0" ]; then
-            echo "Background db:start succeeded"
-            exit 0
-          fi
-          if [ -f /tmp/db-start.log ]; then
-            echo "——— /tmp/db-start.log ———"
-            cat /tmp/db-start.log || true
+          if [ -f /tmp/ci-bootstrap.log ]; then
+            echo "——— /tmp/ci-bootstrap.log (tail) ———"
+            tail -n 80 /tmp/ci-bootstrap.log || true
             echo "——— end log ———"
           fi
-          if [ -f /tmp/db-start.nohup.out ]; then
-            echo "——— /tmp/db-start.nohup.out ———"
-            cat /tmp/db-start.nohup.out || true
-            echo "——— end nohup ———"
+          if [ "$bg_rc" != "0" ]; then
+            echo "::error::Background ci-bootstrap failed (rc=$bg_rc); retrying in foreground"
+            bash scripts/db/ci-bootstrap.sh
+          else
+            echo "Background ci-bootstrap succeeded"
           fi
-          if ./node_modules/.bin/supabase status >/dev/null 2>&1; then
-            echo "Supabase is up despite background exit $bg_rc — continuing"
-            exit 0
-          fi
-          echo "::warning::Background db:start failed (rc=$bg_rc); retrying in foreground via ci-db-retry.sh"
-          bash scripts/db/ci-db-retry.sh db:start /tmp/db-start-fg.log
-
-      - name: Load Supabase env
-        if: steps.gate.outputs.heavy == 'true'
-        run: |
-          ./node_modules/.bin/supabase status -o json > /tmp/sb-status.json
-          DB_VARS=$(jq -r '
-            "SUPABASE_URL=\(.API_URL // "")",
-            "SUPABASE_PUBLISHABLE_KEY=\(.ANON_KEY // "")",
-            "SUPABASE_SECRET_KEY=\(.SERVICE_ROLE_KEY // "")",
-            "DATABASE_URL=\(.DB_URL // "")"
-          ' /tmp/sb-status.json)
-          INVALID_DB_VARS=0
-          declare -A DB_VARS_SEEN_KEYS=()
-          while IFS= read -r LINE; do
-            [[ -z "$LINE" ]] && continue
-            if [[ "$LINE" != *"="* ]]; then
-              echo "Error: Supabase env var line is malformed: $LINE" >&2
-              INVALID_DB_VARS=1
-              continue
-            fi
-            KEY="${LINE%%=*}"
-            VALUE="${LINE#*=}"
-            DB_VARS_SEEN_KEYS["$KEY"]=1
-            VALUE_TRIMMED="${VALUE//[[:space:]]/}"
-            if [[ -z "$VALUE_TRIMMED" || "$VALUE" == "null" ]]; then
-              echo "Error: Supabase status did not provide a valid value for $KEY." >&2
-              INVALID_DB_VARS=1
-            fi
-          done <<< "$DB_VARS"
-          for KEY in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY DATABASE_URL; do
-            if [[ -z "${DB_VARS_SEEN_KEYS[$KEY]:-}" ]]; then
-              echo "Error: Supabase env var $KEY was not produced." >&2
-              INVALID_DB_VARS=1
-            fi
-          done
-          if [[ "$INVALID_DB_VARS" -ne 0 ]]; then
+          # Promote env file written by the bootstrap into GITHUB_ENV for later steps.
+          if [ ! -f /tmp/ci-bootstrap.env ]; then
+            echo "::error::/tmp/ci-bootstrap.env missing after bootstrap" >&2
             exit 1
           fi
-          while IFS= read -r LINE; do
-            [[ -z "$LINE" ]] && continue
-            KEY="${LINE%%=*}"
-            VALUE="${LINE#*=}"
-            if grep -q "^${KEY}=" .env.local; then
-              sed -i "s|^${KEY}=.*|${KEY}=${VALUE}|" .env.local
-            else
-              echo "${KEY}=${VALUE}" >> .env.local
-            fi
-            echo "${KEY}=${VALUE}" >> "$GITHUB_ENV"
-          done <<< "$DB_VARS"
-          echo "DEFAULT_PASSWORD=${DEFAULT_PASSWORD}" >> "$GITHUB_ENV"
-
-      - name: Reset database
-        if: steps.gate.outputs.heavy == 'true'
-        run: |
-          set -Eeuo pipefail
-          # Same registry-throttle retry as Start Supabase (shared script). db:reset
-          # regenerates types via a freshly-pulled postgres-meta container — the exact
-          # pull that flakes under rate limits. Idempotent, so re-running a throttled
-          # attempt is safe. Non-throttle failures (bad migration, seed error) fail fast.
-          # Also runs check:db-privileges + check:option-catalog (see scripts/db/reset.ts)
-          # — do not re-add those as standalone CI steps.
-          bash scripts/db/ci-db-retry.sh db:reset /tmp/db-reset.log
+          cat /tmp/ci-bootstrap.env >> "$GITHUB_ENV"
+          echo "Loaded Supabase env into GITHUB_ENV"
 
       - name: Verify generated types are checked in
         if: steps.gate.outputs.heavy == 'true'

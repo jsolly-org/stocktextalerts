@@ -1,39 +1,32 @@
 #!/usr/bin/env bash
-# Ground shellcheck, then run actionlint on workflow YAML.
+# Lint GitHub Actions workflows with actionlint + shellcheck.
 #
-# github-actionlint only applies shellcheck rules when `shellcheck` is on PATH.
-# Without this guard, a machine missing shellcheck silently skips SC* findings
-# that CI still enforces (the gap that let SC2016 land on #581).
+# Both tools are lockfile-pinned npm deps (node_modules/.bin). CI and local
+# gates share the same binaries — no mise/brew/PATH dependence, no sourcing
+# ~/code/dotagents (gate-lib is for local hooks only; scripts CI runs must be
+# repo-self-contained).
 #
-# Prefer the shared fleet primitive gate_require_shellcheck
-# (~/code/dotagents/gate/gate-lib.sh, rules/tool-versions.md) so the guard can't
-# drift from the fleet template. That checkout only exists on developer machines,
-# so fall back to a self-contained presence floor everywhere it is absent
-# (GitHub CI, contributors without dotagents) instead of hard-failing.
+# The `shellcheck` npm package lazily downloads the official koalaman binary
+# on first invoke; warm it here so actionlint's -shellcheck path is a real
+# executable before the lint runs.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-# Resolve the repo-pinned shellcheck from .mise.toml (non-interactive hooks
-# don't load the shell profile's mise activation). Guarded so a machine without
-# mise still works if shellcheck is already on PATH (brew / CI image).
-command -v mise >/dev/null 2>&1 && eval "$(mise activate bash --shims)"
+ACTIONLINT="$ROOT/node_modules/.bin/github-actionlint"
+SHELLCHECK="$ROOT/node_modules/.bin/shellcheck"
 
-gate_lib="${DOTAGENTS_GATE_LIB:-$HOME/code/dotagents/gate/gate-lib.sh}"
-if [ -f "$gate_lib" ]; then
-	# shellcheck source=/dev/null
-	source "$gate_lib"
-	gate_require_shellcheck
-else
-	# Self-contained presence floor: fail loud, do not let actionlint degrade
-	# to "no shellcheck" and silently skip SC* rules.
-	command -v shellcheck >/dev/null 2>&1 || {
-		echo "✗ shellcheck not found on PATH." >&2
-		echo "  Pin is in .mise.toml; run: mise install (or: brew install shellcheck)." >&2
-		echo "  Required so actionlint applies SC* rules." >&2
-		exit 1
-	}
+if [[ ! -x "$ACTIONLINT" ]]; then
+	echo "✗ github-actionlint not found at $ACTIONLINT — run npm ci" >&2
+	exit 1
+fi
+if [[ ! -x "$SHELLCHECK" ]]; then
+	echo "✗ shellcheck not found at $SHELLCHECK — run npm ci" >&2
+	exit 1
 fi
 
-exec ./node_modules/.bin/github-actionlint .github/workflows/*.yml
+# Warm the lazy-downloaded binary (prints version; fails loud on network/arch miss).
+"$SHELLCHECK" --version >/dev/null
+
+exec "$ACTIONLINT" -shellcheck "$SHELLCHECK" .github/workflows/*.yml

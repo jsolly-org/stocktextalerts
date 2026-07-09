@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Retry an npm script ONLY on transient container-registry throttle.
-# Shared by the CI background db:start launcher and the db:reset step so the
-# classifier can never silently diverge (see .github/workflows/ci.yml).
+# Shared by scripts/db/ci-bootstrap.sh (db:start + db:reset) so the classifier
+# can never silently diverge (see .github/workflows/ci.yml).
 #
 # Usage: bash scripts/db/ci-db-retry.sh <npm-script> <log-file>
 # Requires TRANSIENT_REGEX in the environment.
