@@ -159,10 +159,55 @@ jobs:
         if: steps.gate.outputs.heavy == 'true'
         run: |
           set -Eeuo pipefail
-          nohup bash scripts/db/ci-db-retry.sh db:start /tmp/db-start.log \
-            > /tmp/db-start.nohup.out 2>&1 &
+          # Write exit status to a file — later steps can't `wait` this pid (new shell).
+          nohup bash -c '
+            bash scripts/db/ci-db-retry.sh db:start /tmp/db-start.log
+            echo $? > /tmp/db-start.rc
+          ' > /tmp/db-start.nohup.out 2>&1 &
           echo $! > /tmp/db-start.pid
           echo "db:start launched in background (pid $(cat /tmp/db-start.pid))"
+
+      # Sticky disk (~3s mount) beats actions/cache download for browser binaries.
+      # No lockfile hash in the key: `playwright install` is idempotent and updates
+      # in place when @playwright/test bumps, so Dependabot PRs don't cold-start a
+      # new empty disk. Arch is required — runner.os is "Linux" on both x64 and ARM.
+      - name: Mount Playwright browsers (sticky disk)
+        if: steps.gate.outputs.heavy == 'true'
+        uses: useblacksmith/stickydisk@v1
+        with:
+          key: playwright-shell-${{ runner.os }}-${{ runner.arch }}
+          path: ~/.cache/ms-playwright
+
+      # Background so a cold download + one-time apt install-deps overlaps static
+      # checks / sam build / background db:start. Warm sticky-disk runs finish in
+      # seconds (install is a no-op verify; apt skipped via marker on the disk).
+      - name: Install Playwright (background)
+        if: steps.gate.outputs.heavy == 'true'
+        run: |
+          set -Eeuo pipefail
+          nohup bash -c '
+            set +e
+            set -uo pipefail
+            npx playwright install --only-shell
+            rc=$?
+            if [ "$rc" -eq 0 ]; then
+              DEPS_MARKER="${HOME}/.cache/ms-playwright/.ci-deps-installed"
+              if [[ ! -f "$DEPS_MARKER" ]]; then
+                echo "No OS-deps marker on sticky disk — running playwright install-deps once"
+                npx playwright install-deps
+                rc=$?
+                if [ "$rc" -eq 0 ]; then
+                  touch "$DEPS_MARKER"
+                fi
+              else
+                echo "OS-deps marker present — skipping install-deps"
+              fi
+            fi
+            echo "$rc" > /tmp/playwright-install.rc
+            exit "$rc"
+          ' > /tmp/playwright-install.log 2>&1 &
+          echo $! > /tmp/playwright-install.pid
+          echo "Playwright install launched in background (pid $(cat /tmp/playwright-install.pid))"
 
       - uses: astral-sh/setup-uv@v8.2.0
         if: steps.gate.outputs.static == 'true'
@@ -216,34 +261,6 @@ jobs:
         if: steps.gate.outputs.heavy == 'true'
         run: bash aws/deploy-web.sh --build
 
-      # Playwright install overlaps the background db:start image pulls. Cache is
-      # already accelerated by Blacksmith's transparent colocated cache backend
-      # (no useblacksmith/cache fork — those are archived).
-      - id: playwright-cache
-        if: steps.gate.outputs.heavy == 'true'
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          # runner.arch is in the key because runner.os alone is "Linux" on BOTH
-          # x64 and ARM — without it an ARM job would restore x64 Chromium binaries
-          # from a stale cache and fail at browser launch.
-          # Suffix -shell: CI installs chromium-headless-shell only (--only-shell).
-          key: playwright-shell-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            playwright-shell-${{ runner.os }}-${{ runner.arch }}-
-
-      - name: Install Playwright
-        if: steps.gate.outputs.heavy == 'true'
-        run: |
-          # Headless shell only — E2E never sets channel/headed, so the full Chromium
-          # download is wasted. On cache hit skip install-deps: Blacksmith Ubuntu 24.04
-          # ARM already carries the shared libs; a missing-lib launch failure is loud.
-          if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
-            echo "Playwright cache hit — skipping install-deps (headless-shell binaries present)"
-          else
-            npx playwright install --with-deps --only-shell
-          fi
-
       - name: Prepare .env.local
         if: steps.gate.outputs.heavy == 'true'
         run: |
@@ -265,19 +282,21 @@ jobs:
           set -Eeuo pipefail
           pid="$(cat /tmp/db-start.pid)"
           echo "Waiting for background db:start (pid $pid)…"
-          # wait returns the child's exit status; if the pid is already gone,
-          # fall back to the log + a status probe so a race doesn't false-pass.
-          if kill -0 "$pid" 2>/dev/null; then
-            if wait "$pid"; then
-              echo "Background db:start succeeded"
-              exit 0
-            fi
-            bg_rc=$?
-          else
-            bg_rc=1
-            echo "Background db:start pid $pid already exited; inspecting log"
+          # Each `run:` step is a new shell — `wait $pid` only works for children of
+          # THIS shell, so poll with kill -0 instead of wait.
+          while kill -0 "$pid" 2>/dev/null; do
+            sleep 2
+          done
+          # Reap exit status via a status file the background launcher writes, or
+          # fall back to supabase status / foreground retry.
+          bg_rc=1
+          if [ -f /tmp/db-start.rc ]; then
+            bg_rc="$(cat /tmp/db-start.rc)"
           fi
-          # Surface the background log so a failure is diagnosable in the step output.
+          if [ "$bg_rc" = "0" ]; then
+            echo "Background db:start succeeded"
+            exit 0
+          fi
           if [ -f /tmp/db-start.log ]; then
             echo "——— /tmp/db-start.log ———"
             cat /tmp/db-start.log || true
@@ -288,8 +307,6 @@ jobs:
             cat /tmp/db-start.nohup.out || true
             echo "——— end nohup ———"
           fi
-          # If the stack is already up (background finished successfully but wait
-          # raced), accept it. Otherwise re-run via the shared retry script.
           if ./node_modules/.bin/supabase status >/dev/null 2>&1; then
             echo "Supabase is up despite background exit $bg_rc — continuing"
             exit 0
@@ -367,6 +384,42 @@ jobs:
             git diff src/lib/db/generated/database.types.ts
             exit 1
           fi
+
+      - name: Wait for Playwright
+        if: steps.gate.outputs.heavy == 'true'
+        run: |
+          set -Eeuo pipefail
+          pid="$(cat /tmp/playwright-install.pid)"
+          echo "Waiting for background Playwright install (pid $pid)…"
+          # Poll — `wait` only works for children of this shell (each step is new).
+          while kill -0 "$pid" 2>/dev/null; do
+            sleep 2
+          done
+          bg_rc=1
+          if [ -f /tmp/playwright-install.rc ]; then
+            bg_rc="$(cat /tmp/playwright-install.rc)"
+          fi
+          if [ -f /tmp/playwright-install.log ]; then
+            echo "——— /tmp/playwright-install.log (tail) ———"
+            tail -n 40 /tmp/playwright-install.log || true
+            echo "——— end log ———"
+          fi
+          if [ "$bg_rc" = "0" ]; then
+            echo "Background Playwright install succeeded"
+            exit 0
+          fi
+          if [[ -d "${HOME}/.cache/ms-playwright" ]] && compgen -G "${HOME}/.cache/ms-playwright/chromium_headless_shell-*" > /dev/null; then
+            echo "chromium-headless-shell present despite background exit $bg_rc — continuing"
+            exit 0
+          fi
+          echo "::warning::Background Playwright install failed (rc=$bg_rc); retrying in foreground"
+          npx playwright install --only-shell
+          DEPS_MARKER="${HOME}/.cache/ms-playwright/.ci-deps-installed"
+          if [[ ! -f "$DEPS_MARKER" ]]; then
+            npx playwright install-deps
+            touch "$DEPS_MARKER"
+          fi
+          echo 0 > /tmp/playwright-install.rc
 
       - name: DB doctor
         if: steps.gate.outputs.heavy == 'true'
