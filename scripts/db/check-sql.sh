@@ -41,4 +41,5 @@ if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
   args+=(--reporter=gcc)
 fi
 
-exec "$SQUAWK" "${args[@]}" "${files[@]}"
+# macOS /bin/bash 3.2 + set -u treats an empty "${arr[@]}" as unbound.
+exec "$SQUAWK" ${args[@]+"${args[@]}"} "${files[@]}"

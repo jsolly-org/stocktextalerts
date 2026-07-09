@@ -50,7 +50,7 @@ function note(message: string): void {
 }
 
 /** Resolve the Podman binary. The `/opt/podman/bin` install location isn't on the default PATH
- * (especially in the non-interactive npm/pre-push environment), so prefer it before a bare lookup. */
+ * (especially in the non-interactive npm/pre-commit environment), so prefer it before a bare lookup. */
 export function resolvePodmanBinary(): string {
 	const candidate = "/opt/podman/bin/podman";
 	return fs.existsSync(candidate) ? candidate : "podman";

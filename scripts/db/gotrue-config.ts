@@ -26,7 +26,7 @@
  * is "already running"). So:
  *   - db:reset auto-reconciles: detect drift here (one bounded probe), and only when drifted pay the
  *     ~35s stop+start (reset.ts) — the common in-sync reset stays cheap.
- *   - db:doctor (the pre-push gate's preflight) uses this as a read-only tripwire: fail loud with
+ *   - db:doctor (the pre-commit gate's preflight) uses this as a read-only tripwire: fail loud with
  *     the fix command instead of surfacing as four cryptic Playwright failures.
  *
  * The kong static-file route is all-or-nothing (every /email/*.html is mounted together by the same

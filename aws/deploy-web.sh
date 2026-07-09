@@ -24,7 +24,7 @@
 # Modes:
 #   (no arg)     full production deploy (Phases 1–4).
 #   --build      Phase 1 only — build the Lambda bundle. No AWS/DB/Vercel creds needed. The
-#                pre-push gate's fail-fast build check, also exposed as `npm run build:lambdas`.
+#                pre-commit gate's fail-fast build check, also exposed as `npm run build:lambdas`.
 #   --preflight  validate deploy credentials only (AWS + prod DB + Vercel), then exit.
 #   --deploy-ci  production migration + Lambda deploy from GitHub Actions. Uses OIDC-provided AWS
 #                credentials and env-provided DATABASE_URL_PROD/PRODUCTION_SITE_URL. Vercel web
@@ -43,7 +43,7 @@ MODE="${1:-}"
 CI_DEPLOY=false
 [ "$MODE" = "--deploy-ci" ] && CI_DEPLOY=true
 
-# Shared fleet gate helpers (dotagents/gate/gate-lib.sh) — sourced the same way .git-hooks/pre-push
+# Shared fleet gate helpers (dotagents/gate/gate-lib.sh) — sourced the same way .git-hooks/pre-commit
 # does, purely for gate_npm_ci below (sourcing has no side effects). gate_npm_ci resolves the repo
 # root from $PWD, which is REPO_ROOT after the cd above. CI runners have no dotagents checkout;
 # --build/--deploy-ci there skip gate-lib (npm ci already ran in the workflow).
@@ -58,7 +58,7 @@ else
   exit 1
 fi
 
-# Ground aws/sam to the repo-pinned versions (.mise.toml) — the pre-push hook runs
+# Ground aws/sam to the repo-pinned versions (.mise.toml) — the pre-commit hook runs
 # non-interactively, so the shell profile's mise activation isn't loaded. Guarded so a machine
 # without mise degrades to the global aws/sam on $PATH (rules/tool-versions.md). The presence
 # guards below then verify the pinned tool resolved.
@@ -99,7 +99,7 @@ deploy_vercel_production() {
 # Build the Lambda bundle (esbuild via `sam build`, into aws/.aws-sam/build). Offline and
 # side-effect-free. Stamps the real release-id, builds, then ALWAYS restores the committed stub —
 # even when the build fails — so a broken build never leaves src/lib/logging/release-id.ts modified
-# (that would trip gate_require_clean_tree on the next push; this repo has stub-dirtying history,
+# (that would trip a dirty-tree gate on the next commit; this repo has stub-dirtying history,
 # commits ee70c6b/b6c74e5). The build's exit code still propagates so a failure aborts the caller.
 build_lambdas() {
   # Reproducible bundle: reinstall the committed lockfile before `sam build` bundles the Lambda from
@@ -130,7 +130,7 @@ build_lambdas() {
 source "$(dirname "$0")/chart-assets.sh"
 
 # --- Mode: --build (Phase 1 only — no creds) -------------------------------------------------
-# Offline bundle build. The pre-push gate runs this as a fast preflight so an esbuild break (the
+# Offline bundle build. The pre-commit gate runs this as a fast preflight so an esbuild break (the
 # resvg .node class) fails the push in seconds — before the test battery and, crucially, before the
 # deploy's one-way Supabase migration. Also `npm run build:lambdas` for a credential-free local check.
 if [ "$MODE" = "--build" ]; then
@@ -180,7 +180,7 @@ command -v aws >/dev/null 2>&1 || { echo "✗ aws CLI not found — brew install
 command -v supabase >/dev/null 2>&1 || { echo "✗ supabase CLI missing — run npm ci" >&2; exit 1; }
 
 # --- Mode: --preflight (validate creds only) -------------------------------------------------
-# Validate BOTH deploy credentials only (the pre-push gate calls this before the battery so a
+# Validate BOTH deploy credentials only (the pre-commit gate calls this before the battery so a
 # credential problem fails in seconds, not after 15 minutes). Each check exercises the SAME path the
 # deploy later uses, so it catches what the `:?` presence checks above cannot:
 #   - AWS: `sts get-caller-identity` over the exported AWS_PROFILE (no explicit --profile) → catches
@@ -226,7 +226,7 @@ trap 'echo "✗ deploy failed during: $phase — completed phases remain LIVE (n
 
 # --- Phase 1: build the Lambda bundle FIRST (offline, reversible) ---
 # Ahead of the one-way Supabase migration so a build failure leaves prod untouched (see header).
-# Always rebuild here even though the pre-push gate's --build preflight already built once — the
+# Always rebuild here even though the pre-commit gate's --build preflight already built once — the
 # deploy must not depend on a throwaway preflight artifact surviving the battery + a `db push`.
 phase="lambda bundle build"
 build_lambdas
