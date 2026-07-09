@@ -12,7 +12,7 @@ vi.mock("../../../src/lib/asset-events/earnings", () => ({
 	fetchEarnings: vi.fn(),
 }));
 vi.mock("../../../src/lib/market-data/prices", () => ({
-	fetchAssetPrices: vi.fn(),
+	fetchAssetPricesWithSessionState: vi.fn(),
 }));
 vi.mock("../../../src/lib/market-data/session", () => ({
 	getCurrentMarketSession: vi.fn(),
@@ -48,7 +48,7 @@ import { fetchTickerDetail } from "../../../src/lib/assets/reference/ticker-deta
 import { fetchActiveTickers } from "../../../src/lib/assets/reference/universe";
 import type { ActiveUniverse } from "../../../src/lib/assets/types";
 import { fetchDailyCloses, fetchPrevClose } from "../../../src/lib/market-data/bars";
-import { fetchAssetPrices } from "../../../src/lib/market-data/prices";
+import { fetchAssetPricesWithSessionState } from "../../../src/lib/market-data/prices";
 import { getCurrentMarketSession } from "../../../src/lib/market-data/session";
 import { checkTelegramLive } from "../../../src/lib/messaging/telegram/health";
 import { renderChartPng } from "../../../src/lib/messaging/telegram/render-png";
@@ -69,12 +69,13 @@ function buildPlausibleUniverse(size = MIN_PLAUSIBLE_ACTIVE_UNIVERSE): ActiveUni
 function stubHealthyProviders(): void {
 	vi.mocked(fetchPrevClose).mockResolvedValue(512.34);
 	vi.mocked(getCurrentMarketSession).mockResolvedValue("regular");
-	vi.mocked(fetchAssetPrices).mockResolvedValue(
-		new Map([
+	vi.mocked(fetchAssetPricesWithSessionState).mockResolvedValue({
+		prices: new Map([
 			["SPY", { price: 512.34, changePercent: 0.41 }],
 			["AAPL", { price: 201.1, changePercent: -0.18 }],
-		]) as Awaited<ReturnType<typeof fetchAssetPrices>>,
-	);
+		]) as Awaited<ReturnType<typeof fetchAssetPricesWithSessionState>>["prices"],
+		noSessionTrade: new Set(),
+	});
 	vi.mocked(fetchDailyCloses).mockResolvedValue([510.1, 511.2, 512.3]);
 	vi.mocked(fetchEarnings).mockResolvedValue({
 		failed: false,
@@ -114,12 +115,41 @@ describe("live-provider-check Lambda", () => {
 	it("A full Finnhub quote outage (null/zero prices, right map size) still fails the check", async () => {
 		// The fetcher pre-seeds every symbol to null, so `size === 2` would pass on a total
 		// outage — the strengthened per-symbol finite-positive-price assertion must catch it.
-		vi.mocked(fetchAssetPrices).mockResolvedValue(
-			new Map([
+		vi.mocked(fetchAssetPricesWithSessionState).mockResolvedValue({
+			prices: new Map([
 				["SPY", null],
 				["AAPL", { price: 0, changePercent: 0 }],
-			]) as Awaited<ReturnType<typeof fetchAssetPrices>>,
-		);
+			]) as Awaited<ReturnType<typeof fetchAssetPricesWithSessionState>>["prices"],
+			noSessionTrade: new Set(),
+		});
+		expectConsoleError(/Live provider checks failed/);
+		await expect(handler(event, context)).rejects.toThrow(/finnhub:asset-prices/);
+	});
+
+	it("A pre-market Finnhub free-tier stale trade timestamp (NO_SESSION_TRADE) still passes", async () => {
+		// Post-deploy often lands outside regular hours. Free-tier `/quote` leaves `t` on
+		// yesterday's close for liquid names → NO_SESSION_TRADE. That proves the endpoint
+		// answered; only a true miss (null without the sentinel) should fail the deploy.
+		vi.mocked(getCurrentMarketSession).mockResolvedValue("pre");
+		vi.mocked(fetchAssetPricesWithSessionState).mockResolvedValue({
+			prices: new Map([
+				["SPY", null],
+				["AAPL", null],
+			]) as Awaited<ReturnType<typeof fetchAssetPricesWithSessionState>>["prices"],
+			noSessionTrade: new Set(["SPY", "AAPL"]),
+		});
+		await expect(handler(event, context)).resolves.toBeUndefined();
+	});
+
+	it("A pre-market true quote miss (null without NO_SESSION_TRADE) still fails the check", async () => {
+		vi.mocked(getCurrentMarketSession).mockResolvedValue("pre");
+		vi.mocked(fetchAssetPricesWithSessionState).mockResolvedValue({
+			prices: new Map([
+				["SPY", null],
+				["AAPL", { price: 201.1, changePercent: -0.18 }],
+			]) as Awaited<ReturnType<typeof fetchAssetPricesWithSessionState>>["prices"],
+			noSessionTrade: new Set(),
+		});
 		expectConsoleError(/Live provider checks failed/);
 		await expect(handler(event, context)).rejects.toThrow(/finnhub:asset-prices/);
 	});

@@ -13,7 +13,7 @@ import { fetchActiveTickers } from "../../lib/assets/reference/universe";
 import { createLogger, type Logger } from "../../lib/logging";
 import { runLambda } from "../../lib/logging/request-context";
 import { fetchDailyCloses, fetchPrevClose } from "../../lib/market-data/bars";
-import { fetchAssetPrices } from "../../lib/market-data/prices";
+import { fetchAssetPricesWithSessionState } from "../../lib/market-data/prices";
 import { getCurrentMarketSession } from "../../lib/market-data/session";
 import { buildCandlestickSvg } from "../../lib/messaging/telegram/candlestick";
 import { checkTelegramLive } from "../../lib/messaging/telegram/health";
@@ -87,16 +87,28 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				}
 			}),
 			await runCheck(logger, "finnhub:asset-prices", async () => {
-				// Runs 16:00 UTC (regular session) so SPY/AAPL must have real live quotes.
-				// Asserts finite positive prices, not just map size — the fetcher pre-seeds
-				// every symbol to null, so `size === 2` passes even on a full vendor failure.
+				// Scheduled run is 16:00 UTC (regular session) — SPY/AAPL must have live quotes.
+				// Post-deploy can land in pre/after hours: Finnhub free-tier `/quote` often
+				// leaves `t` on yesterday's regular close for liquid names, so the parser
+				// returns NO_SESSION_TRADE (narrowed to null in `prices`). That still proves
+				// the endpoint answered and recognized the symbol — only a true miss
+				// (fetch/parse null, not in noSessionTrade) is red. Assert finite positive
+				// prices when a quote is present; map size alone is not enough (pre-seeded nulls).
 				const session = await getCurrentMarketSession();
-				const prices = await fetchAssetPrices(["SPY", "AAPL"], session);
+				const { prices, noSessionTrade } = await fetchAssetPricesWithSessionState(
+					["SPY", "AAPL"],
+					session,
+				);
 				for (const symbol of ["SPY", "AAPL"]) {
 					const quote = prices.get(symbol);
-					if (!quote || !Number.isFinite(quote.price) || quote.price <= 0) {
-						throw new Error(`fetchAssetPrices(${symbol}) returned ${JSON.stringify(quote)}`);
+					if (quote && Number.isFinite(quote.price) && quote.price > 0) continue;
+					if ((session === "pre" || session === "after") && noSessionTrade.has(symbol)) {
+						continue;
 					}
+					throw new Error(
+						`fetchAssetPricesWithSessionState(${symbol}) returned ${JSON.stringify(quote)}` +
+							` (session=${session}, noSessionTrade=${noSessionTrade.has(symbol)})`,
+					);
 				}
 			}),
 			await runCheck(logger, "massive:daily-closes", async () => {

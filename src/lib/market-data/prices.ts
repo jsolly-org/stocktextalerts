@@ -1,32 +1,15 @@
-import type {
-	AssetPriceMap,
-	ExtendedAssetQuote,
-	ExtendedQuoteMap,
-	MarketSession,
-	NoSessionTrade,
-} from "../types";
+import type { ExtendedAssetQuote, ExtendedQuoteMap, MarketSession, NoSessionTrade } from "../types";
 import { fetchLiveQuotes } from "./quotes";
 import type { AssetPricesWithSessionState } from "./types";
 
 /**
- * Fetch live quotes for a list of symbols and return a map keyed by symbol.
+ * Fetch live quotes for a list of symbols, plus the set recognized with no live trade for
+ * the current session. Used by the scheduled-notification renderer to show "no pre-market
+ * trades" instead of the generic "price unavailable" for illiquid tickers.
  *
  * `session` is threaded through so `fetchLiveQuotes` can distinguish a symbol that hasn't
  * traded this active session (surfaced as `NO_SESSION_TRADE`) from a genuine miss. It is
  * resolved once per scheduler tick and passed down — no per-call session lookup.
- */
-export async function fetchAssetPrices(
-	symbols: string[],
-	session: MarketSession,
-): Promise<AssetPriceMap> {
-	const quotes = await fetchLiveQuotes(symbols, session);
-	return narrowQuotesToPriceMap(quotes);
-}
-
-/**
- * Like `fetchAssetPrices`, but also returns the set of symbols recognized with no live trade
- * for the current session. Used by the scheduled-notification renderer to show "no pre-market
- * trades" instead of the generic "price unavailable" for illiquid tickers.
  */
 export async function fetchAssetPricesWithSessionState(
 	symbols: string[],
@@ -67,8 +50,8 @@ function splitQuotesByNoSessionTrade(
 
 /**
  * Fetch extended quotes for symbols (day high/low/open/prevClose; volume is null under
- * Finnhub `/quote`). Same underlying fetch as `fetchAssetPrices` — the extended fields ride
- * along on every quote.
+ * Finnhub `/quote`). Same underlying fetch as `fetchAssetPricesWithSessionState` — the
+ * extended fields ride along on every quote; session-trade sentinels narrow to null.
  */
 export async function fetchExtendedQuotes(
 	symbols: string[],

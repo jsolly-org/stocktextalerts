@@ -36,8 +36,7 @@ vi.mock("../../../src/lib/market-data/prices", async () => {
 		// Synthetic happy-path quotes for run-test scenarios (these tests
 		// assert on session-aware labeling/headers, not on the Massive call
 		// itself). Only the functions run.ts actually calls are mocked —
-		// fetchAssetPricesWithSessionState and fetchExtendedQuotes; the
-		// fetchAssetPrices entry point is unused in this Lambda path.
+		// fetchAssetPricesWithSessionState and fetchExtendedQuotes.
 		fetchAssetPricesWithSessionState: vi.fn(async (symbols: string[]) => ({
 			prices: new Map(
 				symbols.map((s) => [s, { price: 150.0, changePercent: 1.25, prevClose: 148.5 }]),
