@@ -101,7 +101,7 @@ for (const entry of NOTIFICATION_PREFERENCE_CATALOG) {
 }
 const user = { ...dbUser, ...channelPrefDefaults } as import("../lib/db/types").DashboardUser;
 ---
-<Layout title="Dashboard" description="Review and manage your asset notifications. Add or remove tracked assets, set your delivery schedule, and choose email or Telegram delivery." hideRegistrationBanner>
+<Layout title="Dashboard" description="Review and manage your asset notifications. Add or remove tracked assets, set your delivery schedule, and choose email, SMS, or Telegram delivery.">
 	<div class="min-h-screen bg-surface-alt">
 		<header>
 			<Navigation user={authUser} />

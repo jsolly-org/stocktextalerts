@@ -1,18 +1,21 @@
 # 📈 StockTextAlerts.com
 
-A securities notification app that sends scheduled email and Telegram updates (scheduled asset price notifications, daily digests, and asset events) and optional per-stock price-move alerts for tracked US stocks and ETFs. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email is sent via AWS SES; Telegram messages via the Telegram Bot API. 🔔
+A securities notification app that sends scheduled email, SMS, and Telegram updates (scheduled asset price notifications, daily digests, and asset events) and optional asset price alerts for tracked US stocks and ETFs. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via AWS SES and Twilio; Telegram via the Telegram Bot API. 🔔
 
 ## Features
 
 - **Asset Tracking** - Search and track US stocks and ETFs (up to 10)
 - **Email Notifications** - Receive updates via email (AWS SES)
-- **Telegram Notifications** - Optional delivery via the Telegram bot (Telegram Bot API)
-- **Price Move Alerts** - Optional per-stock alerts during US market hours: set a threshold per tracked stock as a percent or dollar move in a single trading day. Capped at one alert per symbol per US trading day
+- **SMS Notifications** - Optional SMS delivery (Twilio)
+- **Telegram Notifications** - Optional delivery to Telegram, including candlestick charts (Telegram Bot API)
+- **Asset Price Alerts** - Optional smart alerts for tracked stocks (not ETFs) during US market hours, with configurable sensitivity (Significant/Extreme). Alerts are capped at one alert per symbol per US trading day
+- **Phone Verification** - Secure phone verification via Twilio Verify
 - **Timezone Support** - Browser-detected timezones with user overrides
-- **Market Notifications** - Choose up to 8 delivery times for scheduled asset price updates (10:00 AM–3:59 PM ET on market-open days), and decide if they're delivered by email, Telegram, or both
-- **Daily Digest** - Once-daily digest with asset prices by email and/or Telegram, plus optional News/Rumors add-ons (email-only and may include clickable source links)
-- **Asset Events** - Daily notification of upcoming calendar events (earnings/dividends/splits) and IPOs, plus optional insider trades and analyst consensus (each event type can be toggled per channel and delivered by email and/or Telegram)
-- **Format Preferences** - Customize how your updates look with live email/Telegram previews and optional sparklines (weekly price trend)
+- **Market Notifications** - Choose up to 8 delivery times for scheduled asset price updates (10:00 AM–3:59 PM ET on market-open days), and decide if they're delivered by email, SMS, or Telegram
+- **Daily Digest** - Once-daily digest with asset prices by email, SMS, or Telegram, plus optional News/Rumors add-ons (email and Telegram, may include clickable source links)
+- **Asset Events** - Daily notification of upcoming calendar events (earnings/dividends/splits) and IPOs, plus optional insider trades and analyst consensus (each event type can be toggled per channel and delivered by email, SMS, or Telegram)
+- **Format Preferences** - Customize how your updates look with live SMS, email, and Telegram previews and optional sparklines (weekly price trend)
+- **SMS Controls** - Reply STOP to pause SMS, START to resume SMS, STOP EMAIL to disable email notifications, or STOP ALL to disable both channels
 
 ## Tech Stack
 
@@ -23,7 +26,8 @@ A securities notification app that sends scheduled email and Telegram updates (s
 - **Market Data**: Massive (prices/dividends/splits/IPOs) + Finnhub (symbols, earnings, market hours, analyst/insider extras)
 - **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons
 - **Email**: AWS SES
-- **Telegram**: Telegram Bot API
+- **SMS**: Twilio Verify API + Messaging API
+- **Telegram**: Telegram Bot API (candlestick charts rendered via `@resvg/resvg-wasm`)
 - **Hosting**: Vercel (dashboard) + AWS Lambda (notification crons via SAM)
 - **Search**: Server-side search over Finnhub-sourced asset data (local DB)
 - **Linting**: Biome (no ESLint or Prettier)
@@ -240,8 +244,8 @@ Real Massive/Finnhub round-trips are exercised in production by the scheduled `s
 1. **Register** - Create an account with email
 2. **Set Settings** - Configure timezone and notification schedule
 3. **Add Assets** - Search and add assets to track
-4. **Link Telegram** (optional) - Connect your Telegram account via the bot
-5. **Receive Notifications** - Get your asset updates via email and/or Telegram
+4. **Enable SMS** (optional) - Add phone number and verify via SMS code
+5. **Receive Notifications** - Get your asset updates via email, SMS, or Telegram
 
 ### API Endpoints
 
