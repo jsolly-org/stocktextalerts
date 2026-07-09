@@ -40,8 +40,9 @@ env:
   CI: true
   DOCKER_HOST: unix:///var/run/docker.sock
   DEFAULT_PASSWORD: ci-local-seed-password
-  # Container-registry throttle signature, shared by the db:start / db:reset retry loops below.
-  # Single source of truth so the two steps' retry classifier can never silently diverge.
+  # Container-registry throttle signature, shared by scripts/db/ci-db-retry.sh
+  # (background db:start + db:reset). Single source of truth so the classifier
+  # can never silently diverge between those steps.
   TRANSIENT_REGEX: 'toomanyrequests|rate exceeded|\b429\b|TLS handshake timeout|i/o timeout|connection reset by peer'
 
 jobs:
@@ -150,6 +151,19 @@ jobs:
         if: steps.gate.outputs.static == 'true'
         run: npm ci
 
+      # Kick off Supabase image pulls in the background so they overlap static checks,
+      # sam build, and Playwright install (~30–45s wall saved). The wait step below
+      # joins the background job and retries on transient registry throttle via the
+      # shared scripts/db/ci-db-retry.sh classifier.
+      - name: Start Supabase (background)
+        if: steps.gate.outputs.heavy == 'true'
+        run: |
+          set -Eeuo pipefail
+          nohup bash scripts/db/ci-db-retry.sh db:start /tmp/db-start.log \
+            > /tmp/db-start.nohup.out 2>&1 &
+          echo $! > /tmp/db-start.pid
+          echo "db:start launched in background (pid $(cat /tmp/db-start.pid))"
+
       - uses: astral-sh/setup-uv@v8.2.0
         if: steps.gate.outputs.static == 'true'
         with:
@@ -202,6 +216,34 @@ jobs:
         if: steps.gate.outputs.heavy == 'true'
         run: bash aws/deploy-web.sh --build
 
+      # Playwright install overlaps the background db:start image pulls. Cache is
+      # already accelerated by Blacksmith's transparent colocated cache backend
+      # (no useblacksmith/cache fork — those are archived).
+      - id: playwright-cache
+        if: steps.gate.outputs.heavy == 'true'
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          # runner.arch is in the key because runner.os alone is "Linux" on BOTH
+          # x64 and ARM — without it an ARM job would restore x64 Chromium binaries
+          # from a stale cache and fail at browser launch.
+          # Suffix -shell: CI installs chromium-headless-shell only (--only-shell).
+          key: playwright-shell-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-shell-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install Playwright
+        if: steps.gate.outputs.heavy == 'true'
+        run: |
+          # Headless shell only — E2E never sets channel/headed, so the full Chromium
+          # download is wasted. On cache hit skip install-deps: Blacksmith Ubuntu 24.04
+          # ARM already carries the shared libs; a missing-lib launch failure is loud.
+          if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
+            echo "Playwright cache hit — skipping install-deps (headless-shell binaries present)"
+          else
+            npx playwright install --with-deps --only-shell
+          fi
+
       - name: Prepare .env.local
         if: steps.gate.outputs.heavy == 'true'
         run: |
@@ -217,27 +259,43 @@ jobs:
             echo "EMAIL_SMTP_PORT=1025"
           } >> .env.local
 
-      - name: Start Supabase
+      - name: Wait for Supabase
         if: steps.gate.outputs.heavy == 'true'
         run: |
-          set -Eeuo pipefail   # explicit: the `cmd | tee` failure check below must not rely on the runner's default shell flags
-          # Retry ONLY on a transient container-registry throttle: the Supabase stack pulls
-          # images from public.ecr.aws / Docker Hub, whose anonymous per-IP rate limits are
-          # shared across GitHub's runner pool. Any non-throttle failure fails fast so a real
-          # error isn't masked by three pointless retries. Backoff gives the per-IP limit time.
-          for attempt in 1 2 3; do
-            if npm run db:start 2>&1 | tee /tmp/db-start.log; then exit 0; fi
-            if ! grep -qiE "$TRANSIENT_REGEX" /tmp/db-start.log; then
-              echo "::error::db:start failed for a non-transient reason (see log above); not retrying." >&2
-              exit 1
+          set -Eeuo pipefail
+          pid="$(cat /tmp/db-start.pid)"
+          echo "Waiting for background db:start (pid $pid)…"
+          # wait returns the child's exit status; if the pid is already gone,
+          # fall back to the log + a status probe so a race doesn't false-pass.
+          if kill -0 "$pid" 2>/dev/null; then
+            if wait "$pid"; then
+              echo "Background db:start succeeded"
+              exit 0
             fi
-            if [ "$attempt" -lt 3 ]; then
-              echo "::warning::db:start hit a transient registry throttle (attempt ${attempt}/3); retrying in $((attempt * 30))s." >&2
-              sleep "$((attempt * 30))"
-            fi
-          done
-          echo "::error::db:start still throttled by the container registry after 3 attempts." >&2
-          exit 1
+            bg_rc=$?
+          else
+            bg_rc=1
+            echo "Background db:start pid $pid already exited; inspecting log"
+          fi
+          # Surface the background log so a failure is diagnosable in the step output.
+          if [ -f /tmp/db-start.log ]; then
+            echo "——— /tmp/db-start.log ———"
+            cat /tmp/db-start.log || true
+            echo "——— end log ———"
+          fi
+          if [ -f /tmp/db-start.nohup.out ]; then
+            echo "——— /tmp/db-start.nohup.out ———"
+            cat /tmp/db-start.nohup.out || true
+            echo "——— end nohup ———"
+          fi
+          # If the stack is already up (background finished successfully but wait
+          # raced), accept it. Otherwise re-run via the shared retry script.
+          if ./node_modules/.bin/supabase status >/dev/null 2>&1; then
+            echo "Supabase is up despite background exit $bg_rc — continuing"
+            exit 0
+          fi
+          echo "::warning::Background db:start failed (rc=$bg_rc); retrying in foreground via ci-db-retry.sh"
+          bash scripts/db/ci-db-retry.sh db:start /tmp/db-start-fg.log
 
       - name: Load Supabase env
         if: steps.gate.outputs.heavy == 'true'
@@ -292,24 +350,14 @@ jobs:
       - name: Reset database
         if: steps.gate.outputs.heavy == 'true'
         run: |
-          set -Eeuo pipefail   # explicit: the `cmd | tee` failure check below must not rely on the runner's default shell flags
-          # Same registry-throttle retry as Start Supabase: db:reset regenerates types via a
-          # freshly-pulled postgres-meta container, the exact pull that flakes under rate limits.
-          # db:reset is idempotent (stop -> start -> migrate -> seed -> gen-types), so re-running
-          # a throttled attempt is safe. Non-throttle failures (bad migration, seed error) fail fast.
-          for attempt in 1 2 3; do
-            if npm run db:reset 2>&1 | tee /tmp/db-reset.log; then exit 0; fi
-            if ! grep -qiE "$TRANSIENT_REGEX" /tmp/db-reset.log; then
-              echo "::error::db:reset failed for a non-transient reason (see log above); not retrying." >&2
-              exit 1
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              echo "::warning::db:reset hit a transient registry throttle (attempt ${attempt}/3); retrying in $((attempt * 30))s." >&2
-              sleep "$((attempt * 30))"
-            fi
-          done
-          echo "::error::db:reset still throttled by the container registry after 3 attempts." >&2
-          exit 1
+          set -Eeuo pipefail
+          # Same registry-throttle retry as Start Supabase (shared script). db:reset
+          # regenerates types via a freshly-pulled postgres-meta container — the exact
+          # pull that flakes under rate limits. Idempotent, so re-running a throttled
+          # attempt is safe. Non-throttle failures (bad migration, seed error) fail fast.
+          # Also runs check:db-privileges + check:option-catalog (see scripts/db/reset.ts)
+          # — do not re-add those as standalone CI steps.
+          bash scripts/db/ci-db-retry.sh db:reset /tmp/db-reset.log
 
       - name: Verify generated types are checked in
         if: steps.gate.outputs.heavy == 'true'
@@ -320,38 +368,9 @@ jobs:
             exit 1
           fi
 
-      - id: playwright-cache
-        if: steps.gate.outputs.heavy == 'true'
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          # runner.arch is in the key because runner.os alone is "Linux" on BOTH
-          # x64 and ARM — without it an ARM job would restore x64 Chromium binaries
-          # from a stale cache and fail at browser launch.
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            playwright-${{ runner.os }}-${{ runner.arch }}-
-
-      - name: Install Playwright
-        if: steps.gate.outputs.heavy == 'true'
-        run: |
-          if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
-            npx playwright install-deps chromium
-          else
-            npx playwright install --with-deps chromium
-          fi
-
       - name: DB doctor
         if: steps.gate.outputs.heavy == 'true'
         run: npm run db:doctor
-
-      - name: Check DB privileges
-        if: steps.gate.outputs.heavy == 'true'
-        run: npm run check:db-privileges
-
-      - name: Check notification-option catalog
-        if: steps.gate.outputs.heavy == 'true'
-        run: npm run check:option-catalog
 
       - name: Unit tests
         if: steps.gate.outputs.heavy == 'true'
