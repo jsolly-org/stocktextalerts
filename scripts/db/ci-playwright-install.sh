@@ -26,8 +26,8 @@ if [ "$rc" -ne 0 ]; then
 fi
 
 if [[ ! -f "$deps_marker" ]]; then
-	echo "No OS-deps marker on this runner — running playwright install-deps"
-	npx playwright install-deps
+	echo "No OS-deps marker on this runner — running playwright install-deps chromium"
+	npx playwright install-deps chromium
 	rc=$?
 	if [ "$rc" -eq 0 ]; then
 		touch "$deps_marker"
