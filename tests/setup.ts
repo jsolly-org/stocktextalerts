@@ -358,13 +358,7 @@ afterAll(() => {
 beforeAll(async () => {
 	await verifyDatabaseSchemaUpToDate();
 	await verifySupabaseAdminAccess();
-	// CI resets the database immediately before each unit shard. When a shard opts
-	// into Vitest file parallelism, running this global delete in every worker can
-	// erase users created by another worker that has already started its tests. Keep
-	// the local/repeated-run cleanup by default, but let fresh CI shards skip it.
-	if (process.env.SKIP_TEST_GLOBAL_USER_CLEANUP !== "1") {
-		await cleanupAllNonPreservedUsers();
-	}
+	await cleanupAllNonPreservedUsers();
 	// Preload asset data once for all tests (cached after first load)
 	getRealAssetSymbols(1);
 });
