@@ -12,12 +12,14 @@
 	],
 	"ignoreDependencies": [
 		"@expo-google-fonts/roboto",
+		"github-actionlint",
 		"lint-staged",
 		"squawk-cli",
 		"supabase",
 		"vercel"
 	],
 	"ignoreBinaries": [
+		"github-actionlint",
 		"mise",
 		"printf",
 		"uvx"

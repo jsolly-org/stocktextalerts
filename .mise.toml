@@ -1,6 +1,7 @@
-# Repo-scoped pins for the system CLIs this repo's deploy path shells out to (not npm deps, not on
-# .nvmrc). The version-assert ceiling on the dependency-grounding presence floor — see
+# Repo-scoped pins for the system CLIs this repo's deploy/gate path shells out to (not npm deps,
+# not on .nvmrc). The version-assert ceiling on the dependency-grounding presence floor — see
 # dotagents/rules/tool-versions.md. Bump with `mise use <tool>@<ver>`.
 [tools]
 aws-sam-cli = "1.162.1"   # aqua backend → official AWS SAM CLI release binary
 awscli      = "2.35.9"    # aqua backend → official AWS CLI v2 release binary
+shellcheck  = "0.11.0"    # aqua backend — required by check:actions (actionlint SC* rules)

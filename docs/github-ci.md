@@ -20,7 +20,7 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 
 - staged gitleaks, staged markdown lint, Node pin (merge/rebase + empty-commit skips)
 - Lambda bundle build
-- Biome, YAML, actionlint, Astro check, Knip, Squawk, deploy-function coverage, migration grants (static)
+- Biome, YAML, actionlint (**shellcheck** required — pinned in [`.mise.toml`](../.mise.toml); `npm run check:actions` fails if missing so SC* rules can't silently skip locally), Astro check, Knip, Squawk, deploy-function coverage, migration grants (static)
 
 **Not in pre-commit (GitHub CI only):** `db:doctor`, `check:db-privileges`, `npm test`, `npm run test:e2e`, Astro build. These need local Supabase/Docker on the runner — no Podman/Postgres required locally before commit. Bypass = `git commit -n` only; CI is the backstop. Local `npm test` / `test:e2e` are also **opt-in** in this repo (`ALLOW_LOCAL_DB_TESTS=1` or `npm run test:local`) so agents do not hit the shared stack by default — see `tests/README.md`. Fleet agent conventions live in `~/code/dotagents`.
 

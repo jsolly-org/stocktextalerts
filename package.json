@@ -40,7 +40,7 @@
 		"check:option-catalog": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/check-option-catalog.ts",
 		"check:migration-grants": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/check-migration-grants.ts",
 		"audit:db-parity": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/dump-permissions.ts --diff-prod",
-		"check:actions": "github-actionlint .github/workflows/*.yml",
+		"check:actions": "bash scripts/check-actions.sh",
 		"check:yaml": "uvx yamllint@1.38.0 .",
 		"db:start": "node ./node_modules/.bin/tsx scripts/db/start.ts",
 		"db:stop": "node ./node_modules/.bin/tsx scripts/db/supabase.ts stop",
