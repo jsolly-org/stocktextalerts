@@ -32,10 +32,10 @@ function positiveOrNull(value: unknown): number | null {
  *   symbol hasn't printed this session (illiquid pre/after-hours). A `closed` market never
  *   yields the sentinel — the quote is the freshest close available.
  *
- * KNOWN RISK (verify post-deploy, risk #1 in the migration plan): this assumes Finnhub `/quote`
- * updates `c`/`t` for pre/after-hours trades. If the free tier only refreshes on regular-session
- * trades, every symbol goes stale-dated pre-market → `NO_SESSION_TRADE`, and after-hours shows
- * the locked 4pm close. Confirm with a live pre-market `/quote` on a liquid ticker.
+ * KNOWN RISK (confirmed 2026-07-09): Finnhub free-tier `/quote` often leaves `t` on yesterday's
+ * regular close for liquid names in pre/after hours → `NO_SESSION_TRADE` (and after-hours may
+ * show the locked 4pm close). Product copy handles that; the live-provider-check accepts the
+ * sentinel outside regular hours so post-deploy smokes don't false-red on free-tier staleness.
  */
 function parseFinnhubQuote(
 	payload: unknown,
