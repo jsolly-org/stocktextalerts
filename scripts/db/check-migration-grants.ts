@@ -15,8 +15,8 @@
  *
  *   ERROR   — a non-trigger `public` function is CREATEd but never granted
  *             EXECUTE in any non-baseline migration, and has no opt-out marker.
- *   WARNING — an explicit `GRANT ... ON FUNCTION ... TO PUBLIC` (broad).
- *   WARNING — `CREATE TABLE public.<t>` with no `ENABLE ROW LEVEL SECURITY`
+ *   ERROR   — an explicit `GRANT ... ON FUNCTION ... TO PUBLIC` (broad).
+ *   ERROR   — `CREATE TABLE public.<t>` with no `ENABLE ROW LEVEL SECURITY`
  *             for that table anywhere in the migrations (RLS surface review).
  *
  * Opt-out marker (same set of files), for the rare intentional case:
@@ -25,7 +25,8 @@
  * The squashed pg_dump baseline is skipped: it carries its own complete grant
  * block and squawk can't parse its IDENTITY/SEQUENCE syntax either.
  *
- * Exit codes: 0 — no errors (warnings allowed). 1 — one or more errors.
+ * Exit codes: 0 — clean. 1 — one or more findings (missing grants, PUBLIC
+ * grants, or tables without RLS). Soft warnings are not allowed — fail closed.
  *
  * Usage: npm run check:migration-grants
  */
@@ -156,7 +157,6 @@ function main(): void {
 	}
 
 	const errors: string[] = [];
-	const warnings: string[] = [];
 
 	for (const name of scan.createdNonTrigger) {
 		if (scan.granted.has(name) || scan.noGrantMarkers.has(name)) continue;
@@ -169,7 +169,7 @@ function main(): void {
 	}
 
 	for (const fileName of scan.publicGrantFiles) {
-		warnings.push(
+		errors.push(
 			`${fileName}: explicit GRANT ... ON FUNCTION ... TO PUBLIC. Prefer granting ` +
 				`specific roles (service_role / authenticated) instead of PUBLIC.`,
 		);
@@ -177,22 +177,15 @@ function main(): void {
 
 	for (const table of scan.createdTables) {
 		if (!scan.rlsEnabled.has(table)) {
-			warnings.push(
+			errors.push(
 				`Table public.${table} is created without 'ALTER TABLE ... ENABLE ROW LEVEL ` +
 					`SECURITY' in any migration. Confirm its API/RLS surface is intentional.`,
 			);
 		}
 	}
 
-	for (const warning of warnings) {
-		rootLogger.warn("check:migration-grants — warning", {
-			action: "check_migration_grants",
-			warning,
-		});
-	}
-
 	if (errors.length > 0) {
-		rootLogger.error("check:migration-grants — missing function grants", {
+		rootLogger.error("check:migration-grants — privilege findings", {
 			action: "check_migration_grants",
 			errorCount: errors.length,
 			errors,
@@ -204,7 +197,6 @@ function main(): void {
 	rootLogger.info("check:migration-grants — ok", {
 		action: "check_migration_grants",
 		migrationsScanned: files.length,
-		warningCount: warnings.length,
 	});
 }
 

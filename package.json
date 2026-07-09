@@ -11,9 +11,9 @@
 		"dev": "node --env-file-if-exists=.env.local ./node_modules/.bin/astro dev",
 		"dev:stop": "node --env-file-if-exists=.env.local ./node_modules/.bin/astro dev stop",
 		"prebuild": "node ./node_modules/.bin/tsx scripts/gen-release-id.ts",
-		"build": "node --env-file-if-exists=.env.local ./node_modules/.bin/astro build",
+		"build": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/build.ts",
 		"postbuild": "node ./node_modules/.bin/tsx scripts/restore-release-stub.ts",
-		"build:preview": "ASTRO_ADAPTER=node node --env-file-if-exists=.env.local ./node_modules/.bin/astro build",
+		"build:preview": "ASTRO_ADAPTER=node node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/build.ts",
 		"build:lambdas": "bash aws/deploy-web.sh --build",
 		"deploy:code": "bash aws/deploy-web.sh",
 		"deploy:infra": "npm --prefix aws run deploy:infra",
@@ -27,8 +27,8 @@
 		"test:e2e:local": "ALLOW_LOCAL_DB_TESTS=1 npm run test:e2e",
 		"test:e2e:preview": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-playwright.ts --config playwright.preview.config.ts",
 		"test:all": "npm run test && npm run test:e2e",
-		"check:ts": "astro check --minimumSeverity warning --minimumFailingSeverity warning",
-		"check:biome": "biome check --write --no-errors-on-unmatched",
+		"check:ts": "node ./node_modules/.bin/tsx scripts/check-ts.ts",
+		"check:biome": "biome check --write --no-errors-on-unmatched --error-on-warnings",
 		"check:knip": "knip",
 		"check:lib-boundaries": "node ./node_modules/.bin/tsx scripts/check-lib-boundaries.ts",
 		"check:md": "markdownlint-cli2 \"**/*.md\"",
@@ -41,7 +41,7 @@
 		"check:migration-grants": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/check-migration-grants.ts",
 		"audit:db-parity": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/dump-permissions.ts --diff-prod",
 		"check:actions": "bash scripts/check-actions.sh",
-		"check:yaml": "uvx yamllint@1.38.0 .",
+		"check:yaml": "uvx yamllint@1.38.0 -s .",
 		"db:start": "node ./node_modules/.bin/tsx scripts/db/start.ts",
 		"db:stop": "node ./node_modules/.bin/tsx scripts/db/supabase.ts stop",
 		"db:bootstrap": "node ./node_modules/.bin/tsx scripts/db/link-worktree-data.ts && npm run db:start && npm run db:reset && npm run db:doctor",
@@ -60,7 +60,7 @@
 	},
 	"lint-staged": {
 		"**/*.{ts,tsx,json,css,astro,html,vue}": [
-			"biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
+			"biome check --write --no-errors-on-unmatched --files-ignore-unknown=true --error-on-warnings"
 		],
 		"**/*.md": [
 			"markdownlint-cli2 --fix"
