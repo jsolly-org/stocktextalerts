@@ -1,6 +1,6 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import { escapeHtml, getSafeHrefUrl } from "../messaging/parts/html-utils";
-import type { PredictionMarketReading } from "./types";
+import type { PredictionMarketReading, PredictionMarketsDigestContent } from "./types";
 
 const BAR_WIDTH = 10;
 const EMAIL_LINK_STYLE = "color: #4f46e5; text-decoration: none; font-weight: 600;";
@@ -139,4 +139,66 @@ export function formatPredictionMarketsEmailHtml(
 		.join("");
 
 	return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse; margin: 0;">${rows}</table>`;
+}
+
+/** Plain-text body with optional Your Assets / Macro Weather group headers. */
+export function formatPredictionMarketsDigestText(
+	content: PredictionMarketsDigestContent,
+): string | null {
+	const parts: string[] = [];
+	if (content.assetMarkets.length > 0) {
+		const body = formatPredictionMarketsText(content.assetMarkets);
+		if (body) parts.push(`Your Assets\n${body}`);
+	}
+	if (content.macroMarkets.length > 0) {
+		const body = formatPredictionMarketsText(content.macroMarkets);
+		if (body) parts.push(`Macro Weather\n${body}`);
+	}
+	return parts.length > 0 ? parts.join("\n\n") : null;
+}
+
+/** Telegram body with group headers; asset markets precede macro. */
+export function formatPredictionMarketsDigestTelegram(
+	content: PredictionMarketsDigestContent,
+): FormattedString | null {
+	let msg: FormattedString | null = null;
+	if (content.assetMarkets.length > 0) {
+		const body = formatPredictionMarketsTelegram(content.assetMarkets);
+		if (body) {
+			msg = fmt`${FormattedString.bold("Your Assets")}\n${body}`;
+		}
+	}
+	if (content.macroMarkets.length > 0) {
+		const body = formatPredictionMarketsTelegram(content.macroMarkets);
+		if (body) {
+			const section = fmt`${FormattedString.bold("Macro Weather")}\n${body}`;
+			msg = msg ? fmt`${msg}\n\n${section}` : section;
+		}
+	}
+	return msg;
+}
+
+/** Email HTML with group headers. */
+export function formatPredictionMarketsDigestEmailHtml(
+	content: PredictionMarketsDigestContent,
+): string | null {
+	const parts: string[] = [];
+	if (content.assetMarkets.length > 0) {
+		const body = formatPredictionMarketsEmailHtml(content.assetMarkets);
+		if (body) {
+			parts.push(
+				`<div style="font-size: 12px; font-weight: 700; color: #374151; letter-spacing: 0.02em; margin: 0 0 6px;">Your Assets</div>${body}`,
+			);
+		}
+	}
+	if (content.macroMarkets.length > 0) {
+		const body = formatPredictionMarketsEmailHtml(content.macroMarkets);
+		if (body) {
+			const margin = parts.length > 0 ? "18px" : "0";
+			parts.push(
+				`<div style="font-size: 12px; font-weight: 700; color: #374151; letter-spacing: 0.02em; margin: ${margin} 0 6px;">Macro Weather</div>${body}`,
+			);
+		}
+	}
+	return parts.length > 0 ? parts.join("") : null;
 }

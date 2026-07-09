@@ -40,6 +40,12 @@ vi.mock("../../../src/lib/messaging/telegram/render-png", async (importOriginal)
 		await importOriginal<typeof import("../../../src/lib/messaging/telegram/render-png")>();
 	return { ...actual, renderChartPng: vi.fn(actual.renderChartPng) };
 });
+vi.mock("../../../src/lib/vendors/polymarket", () => ({
+	polymarketFetch: vi.fn(),
+}));
+vi.mock("../../../src/lib/vendors/kalshi", () => ({
+	kalshiFetch: vi.fn(),
+}));
 
 import { handler } from "../../../src/handlers/maintenance/live-provider-check";
 import { fetchEarnings } from "../../../src/lib/asset-events/earnings";
@@ -52,6 +58,8 @@ import { fetchAssetPricesWithSessionState } from "../../../src/lib/market-data/p
 import { getCurrentMarketSession } from "../../../src/lib/market-data/session";
 import { checkTelegramLive } from "../../../src/lib/messaging/telegram/health";
 import { renderChartPng } from "../../../src/lib/messaging/telegram/render-png";
+import { kalshiFetch } from "../../../src/lib/vendors/kalshi";
+import { polymarketFetch } from "../../../src/lib/vendors/polymarket";
 
 const event = { id: "evt-1", time: "2026-06-13T16:00:00Z" } as ScheduledEvent;
 const context = { awsRequestId: "test-request-id" } as Context;
@@ -93,6 +101,15 @@ function stubHealthyProviders(): void {
 		webhookUrl: "",
 		pendingUpdateCount: 0,
 		lastError: null,
+	});
+	vi.mocked(polymarketFetch).mockResolvedValue({
+		events: [{ title: "NVIDIA", slug: "nvidia", markets: [] }],
+	});
+	vi.mocked(kalshiFetch).mockImplementation(async (path: string) => {
+		if (path === "/series") {
+			return { series: [{ ticker: "KXTSLA", title: "Tesla" }], cursor: null };
+		}
+		return { markets: [{ ticker: "KXTSLA-26", title: "Tesla" }] };
 	});
 }
 
@@ -199,6 +216,21 @@ describe("live-provider-check Lambda", () => {
 		vi.mocked(renderChartPng).mockResolvedValueOnce(null);
 		expectConsoleError(/Live provider checks failed/);
 		await expect(handler(event, context)).rejects.toThrow(/chart:render-png/);
+	});
+
+	it("A Polymarket public-search outage fails the check and pages", async () => {
+		vi.mocked(polymarketFetch).mockResolvedValue({ events: [] });
+		expectConsoleError(/Live provider checks failed/);
+		await expect(handler(event, context)).rejects.toThrow(/polymarket:public-search/);
+	});
+
+	it("A Kalshi Companies series outage fails the check and pages", async () => {
+		vi.mocked(kalshiFetch).mockImplementation(async (path: string) => {
+			if (path === "/series") return { series: [] };
+			return { markets: [] };
+		});
+		expectConsoleError(/Live provider checks failed/);
+		await expect(handler(event, context)).rejects.toThrow(/kalshi:companies-series/);
 	});
 
 	it("An invalid bot token (getMe returns no bot id) fails the check and pages", async () => {

@@ -8,6 +8,7 @@ import {
 	storeDailyCloseRows,
 	storePriceHistoryRows,
 } from "../../market-data/price-history-cache";
+import { runPredictionMarketDiscoveryForSymbol } from "../../prediction-markets/pipeline";
 import type { VendorBackfillMessage } from "./messages";
 
 async function backfillDailyClosesForSymbol(
@@ -60,6 +61,31 @@ async function processNewSymbolWarmup(
 	const to = new Date().toISOString().slice(0, 10);
 	const from = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 	const dailyOk = await backfillDailyClosesForSymbol(supabase, symbol, from, to);
+
+	// Prediction-market discovery is demand-driven on newly tracked symbols.
+	// Soft-fail: warmup still succeeds if PM discovery fails (checked_at left NULL for drip).
+	try {
+		const { data: assetRow } = await supabase
+			.from("assets")
+			.select("name,pm_discovery_checked_at")
+			.eq("symbol", symbol)
+			.maybeSingle();
+		if (assetRow && !assetRow.pm_discovery_checked_at) {
+			await runPredictionMarketDiscoveryForSymbol({
+				supabase,
+				logger,
+				symbol,
+				name: assetRow.name ?? symbol,
+				enrichAliases: true,
+			});
+		}
+	} catch (error) {
+		logger.warn(
+			"Prediction-market discovery during warmup failed (non-fatal)",
+			{ symbol },
+			error instanceof Error ? error : new Error(String(error)),
+		);
+	}
 
 	return {
 		ok: failedProviders.length === 0 && dailyOk,

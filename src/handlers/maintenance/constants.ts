@@ -19,6 +19,12 @@ export const SWEEP_MIN_REMAINING_MS = 300_000;
 export const ICON_BACKFILL_MIN_REMAINING_MS = 300_000;
 
 /**
+ * Prediction-market discovery drip: up to 25 tracked symbols (Poly search + Kalshi
+ * series fetches + optional Grok). Soft-fail vendors; still needs wall-clock headroom.
+ */
+export const PM_DISCOVERY_MIN_REMAINING_MS = 240_000;
+
+/**
  * ISO weekday (1 = Monday … 7 = Sunday) on which the full universe reconcile runs.
  * Sunday: the market is closed, the 00:00 UTC schedule tick is quiet, and a full week
  * of listing changes lands before Monday's sessions. Delisting safety does NOT depend

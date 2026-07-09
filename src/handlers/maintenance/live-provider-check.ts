@@ -19,7 +19,9 @@ import { buildCandlestickSvg } from "../../lib/messaging/telegram/candlestick";
 import { checkTelegramLive } from "../../lib/messaging/telegram/health";
 import { renderChartPng } from "../../lib/messaging/telegram/render-png";
 import { createTelegramBot, readTelegramBotToken } from "../../lib/messaging/telegram/sender";
-import type { IntradayCandle } from "../../lib/types";
+import { type IntradayCandle, isRecord } from "../../lib/types";
+import { kalshiFetch } from "../../lib/vendors/kalshi";
+import { polymarketFetch } from "../../lib/vendors/polymarket";
 
 interface CheckResult {
 	name: string;
@@ -140,6 +142,44 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				const detail = await fetchTickerDetail("AAPL");
 				if (!detail.ok || detail.iconUrl === null) {
 					throw new Error(`fetchTickerDetail(AAPL) returned ${JSON.stringify(detail)}`);
+				}
+			}),
+			await runCheck(logger, "polymarket:public-search", async () => {
+				// Tracked-asset discovery uses Gamma public-search — not a full inventory crawl.
+				const payload = await polymarketFetch(
+					"/public-search",
+					{
+						q: "NVIDIA",
+						events_status: "active",
+						limit_per_type: "3",
+						keep_closed_markets: "0",
+					},
+					"live-provider-check",
+				);
+				if (!isRecord(payload) || !Array.isArray(payload.events) || payload.events.length === 0) {
+					throw new Error("polymarket public-search(NVIDIA) returned no events");
+				}
+			}),
+			await runCheck(logger, "kalshi:companies-series", async () => {
+				const seriesPayload = await kalshiFetch(
+					"/series",
+					{ limit: "5", category: "Companies" },
+					"live-provider-check",
+				);
+				if (
+					!isRecord(seriesPayload) ||
+					!Array.isArray(seriesPayload.series) ||
+					seriesPayload.series.length === 0
+				) {
+					throw new Error("kalshi /series?category=Companies returned no series");
+				}
+				const marketsPayload = await kalshiFetch(
+					"/markets",
+					{ limit: "3", status: "open", series_ticker: "KXTSLA" },
+					"live-provider-check",
+				);
+				if (!isRecord(marketsPayload) || !Array.isArray(marketsPayload.markets)) {
+					throw new Error("kalshi markets?series_ticker=KXTSLA returned invalid payload");
 				}
 			}),
 			await runCheck(logger, "chart:render-png", async () => {

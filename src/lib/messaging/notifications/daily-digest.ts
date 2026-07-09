@@ -3,6 +3,9 @@ import type { buildAssetEventsContent } from "../../asset-events/content";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import type { TopMover } from "../../market-data/types";
 import {
+	formatPredictionMarketsDigestEmailHtml,
+	formatPredictionMarketsDigestTelegram,
+	formatPredictionMarketsDigestText,
 	formatPredictionMarketsEmailHtml,
 	formatPredictionMarketsTelegram,
 	formatPredictionMarketsText,
@@ -202,13 +205,18 @@ export function formatDailyDigestEmail(options: {
 
 	const news = ensureBlankLineBetweenTickerSnippets((options.extras.news ?? "").trim());
 	const rumors = ensureBlankLineBetweenTickerSnippets((options.extras.rumors ?? "").trim());
+	const predictionMarketsDigest = options.extras.predictionMarketsDigest ?? null;
 	const predictionMarketsReadings = options.extras.predictionMarkets ?? null;
-	const predictionMarketsText = predictionMarketsReadings
-		? formatPredictionMarketsText(predictionMarketsReadings)
-		: null;
-	const predictionMarketsHtml = predictionMarketsReadings
-		? formatPredictionMarketsEmailHtml(predictionMarketsReadings)
-		: null;
+	const predictionMarketsText = predictionMarketsDigest
+		? formatPredictionMarketsDigestText(predictionMarketsDigest)
+		: predictionMarketsReadings
+			? formatPredictionMarketsText(predictionMarketsReadings)
+			: null;
+	const predictionMarketsHtml = predictionMarketsDigest
+		? formatPredictionMarketsDigestEmailHtml(predictionMarketsDigest)
+		: predictionMarketsReadings
+			? formatPredictionMarketsEmailHtml(predictionMarketsReadings)
+			: null;
 
 	const ae = options.assetEvents;
 	const earnings = (ae?.eventsSection?.earnings ?? "").trim();
@@ -380,9 +388,11 @@ export function formatDailyDigestTelegram(opts: {
 	if (opts.extras.rumors) {
 		msg = fmt`${msg}\n\n${FormattedString.bold("💬 Rumors")}\n${FormattedString.blockquote(opts.extras.rumors)}`;
 	}
-	const predictionMarketsTelegram = opts.extras.predictionMarkets
-		? formatPredictionMarketsTelegram(opts.extras.predictionMarkets)
-		: null;
+	const predictionMarketsTelegram = opts.extras.predictionMarketsDigest
+		? formatPredictionMarketsDigestTelegram(opts.extras.predictionMarketsDigest)
+		: opts.extras.predictionMarkets
+			? formatPredictionMarketsTelegram(opts.extras.predictionMarkets)
+			: null;
 	if (predictionMarketsTelegram) {
 		msg = fmt`${msg}\n\n${FormattedString.bold("🎯 Prediction Markets")}\n${predictionMarketsTelegram}`;
 	}

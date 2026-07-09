@@ -35,10 +35,14 @@ vi.mock("../../../src/lib/messaging/email/utils", () => ({
 vi.mock("../../../src/lib/vendors/backfill/enqueue", () => ({
 	enqueueAssetEventsIngestRetry: vi.fn(),
 }));
+vi.mock("../../../src/lib/prediction-markets/pipeline", () => ({
+	runPredictionMarketDiscoveryDrip: vi.fn(),
+}));
 
 import { handler } from "../../../src/handlers/maintenance/asset-maintenance";
 import {
 	ICON_BACKFILL_MIN_REMAINING_MS,
+	PM_DISCOVERY_MIN_REMAINING_MS,
 	RECONCILE_MIN_REMAINING_MS,
 	SWEEP_MIN_REMAINING_MS,
 } from "../../../src/handlers/maintenance/constants";
@@ -49,6 +53,7 @@ import { runIconBackfill } from "../../../src/lib/assets/icon-backfill";
 import { runUniverseReconcile } from "../../../src/lib/assets/universe-reconcile";
 import { createSupabaseAdminClient } from "../../../src/lib/db/supabase";
 import { createEmailSender } from "../../../src/lib/messaging/email/utils";
+import { runPredictionMarketDiscoveryDrip } from "../../../src/lib/prediction-markets/pipeline";
 import { enqueueAssetEventsIngestRetry } from "../../../src/lib/vendors/backfill/enqueue";
 
 /** Midnight-UTC schedule ticks on known weekdays (2026-07-05 is a Sunday). */
@@ -59,8 +64,12 @@ const WEDNESDAY_UTC = new Date("2026-07-08T00:00:30Z");
 const AMPLE_REMAINING_MS = 900_000;
 /** Clearly below every per-step budget. */
 const STARVED_REMAINING_MS =
-	Math.min(RECONCILE_MIN_REMAINING_MS, SWEEP_MIN_REMAINING_MS, ICON_BACKFILL_MIN_REMAINING_MS) -
-	60_000;
+	Math.min(
+		RECONCILE_MIN_REMAINING_MS,
+		SWEEP_MIN_REMAINING_MS,
+		ICON_BACKFILL_MIN_REMAINING_MS,
+		PM_DISCOVERY_MIN_REMAINING_MS,
+	) - 60_000;
 
 const event = { id: "evt-asset-maint-1", time: "2026-07-05T00:00:00Z" } as ScheduledEvent;
 
@@ -114,6 +123,11 @@ function stubHealthySteps(): void {
 		fetchFailed: 2,
 		writeFailed: 0,
 	});
+	vi.mocked(runPredictionMarketDiscoveryDrip).mockResolvedValue({
+		processed: 3,
+		matched: 2,
+		failed: 0,
+	});
 	vi.mocked(enqueueAssetEventsIngestRetry).mockResolvedValue(true);
 }
 
@@ -142,24 +156,27 @@ describe("asset-maintenance Lambda orchestration", () => {
 		expect(runUniverseReconcile).toHaveBeenCalledTimes(1);
 		expect(loggedMessages(infoSpy)).toContainEqual("Universe reconcile complete");
 		// Reconcile day never displaces the nightly steps.
+		expect(runPredictionMarketDiscoveryDrip).toHaveBeenCalledTimes(1);
 		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
 		expect(runIconBackfill).toHaveBeenCalledTimes(1);
 	});
 
-	it("On a Wednesday tick the reconcile is skipped, but the nightly sweep and icon backfill still run", async () => {
+	it("On a Wednesday tick the reconcile is skipped, but the nightly drip, sweep and icon backfill still run", async () => {
 		vi.setSystemTime(WEDNESDAY_UTC);
 
 		await handler(event, makeContext(AMPLE_REMAINING_MS));
 
 		expect(runUniverseReconcile).not.toHaveBeenCalled();
 		expect(loggedMessages(infoSpy)).toContainEqual("Universe reconcile skipped — runs weekly");
+		expect(runPredictionMarketDiscoveryDrip).toHaveBeenCalledTimes(1);
 		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
 		expect(runIconBackfill).toHaveBeenCalledTimes(1);
 	});
 
-	it("A starved invocation (remaining time below every step budget) skips reconcile, sweep, and icon backfill with pageable error logs", async () => {
+	it("A starved invocation (remaining time below every step budget) skips reconcile, pm discovery, sweep, and icon backfill with pageable error logs", async () => {
 		vi.setSystemTime(SUNDAY_UTC);
 		expectConsoleError(/Skipping universe_reconcile/);
+		expectConsoleError(/Skipping pm_discovery/);
 		expectConsoleError(/Skipping delisting_sweep/);
 		expectConsoleError(/Skipping icon_backfill/);
 
@@ -168,10 +185,12 @@ describe("asset-maintenance Lambda orchestration", () => {
 		// The unguarded calendar ingest still ran; every budget-guarded step did not.
 		expect(fetchAndStoreAssetEvents).toHaveBeenCalledTimes(2);
 		expect(runUniverseReconcile).not.toHaveBeenCalled();
+		expect(runPredictionMarketDiscoveryDrip).not.toHaveBeenCalled();
 		expect(runDelistingSweep).not.toHaveBeenCalled();
 		expect(runIconBackfill).not.toHaveBeenCalled();
 		// The skip is not silent: each guarded step left an ERROR log (ErrorLogAlarm pages).
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping universe_reconcile"));
+		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping pm_discovery"));
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping delisting_sweep"));
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping icon_backfill"));
 	});
@@ -192,6 +211,7 @@ describe("asset-maintenance Lambda orchestration", () => {
 			expect.objectContaining({ weekStart: "2026-07-06", weekEnd: "2026-07-10" }),
 		);
 		expect(fetchAndStoreFinnhubEnrichment).toHaveBeenCalledTimes(1);
+		expect(runPredictionMarketDiscoveryDrip).toHaveBeenCalledTimes(1);
 		expect(runUniverseReconcile).toHaveBeenCalledTimes(1);
 		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
 		expect(runIconBackfill).toHaveBeenCalledTimes(1);
@@ -200,6 +220,7 @@ describe("asset-maintenance Lambda orchestration", () => {
 
 		const summaries = loggedMessages(infoSpy);
 		expect(summaries).toContainEqual("Daily asset events fetch complete");
+		expect(summaries).toContainEqual("Prediction-market discovery drip complete");
 		expect(summaries).toContainEqual("Universe reconcile complete");
 		expect(summaries).toContainEqual("Delisting sweep complete");
 		expect(summaries).toContainEqual("Icon backfill complete");

@@ -174,6 +174,86 @@ export type Database = {
           },
         ]
       }
+      asset_prediction_aliases: {
+        Row: {
+          aliases: string[]
+          enriched_at: string | null
+          status: string
+          symbol: string
+        }
+        Insert: {
+          aliases?: string[]
+          enriched_at?: string | null
+          status?: string
+          symbol: string
+        }
+        Update: {
+          aliases?: string[]
+          enriched_at?: string | null
+          status?: string
+          symbol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_prediction_aliases_symbol_fkey"
+            columns: ["symbol"]
+            isOneToOne: true
+            referencedRelation: "assets"
+            referencedColumns: ["symbol"]
+          },
+        ]
+      }
+      asset_prediction_market_matches: {
+        Row: {
+          confidence: number
+          decision: string
+          evaluated_at: string
+          evidence: Json
+          id: string
+          match_kind: string
+          matcher_version: string
+          prediction_market_id: string
+          symbol: string
+        }
+        Insert: {
+          confidence?: number
+          decision?: string
+          evaluated_at?: string
+          evidence?: Json
+          id?: string
+          match_kind: string
+          matcher_version: string
+          prediction_market_id: string
+          symbol: string
+        }
+        Update: {
+          confidence?: number
+          decision?: string
+          evaluated_at?: string
+          evidence?: Json
+          id?: string
+          match_kind?: string
+          matcher_version?: string
+          prediction_market_id?: string
+          symbol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_prediction_market_matches_market_fkey"
+            columns: ["prediction_market_id"]
+            isOneToOne: false
+            referencedRelation: "prediction_markets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_prediction_market_matches_symbol_fkey"
+            columns: ["symbol"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["symbol"]
+          },
+        ]
+      }
       asset_price_history: {
         Row: {
           captured_at: string
@@ -202,6 +282,7 @@ export type Database = {
           icon_checked_at: string | null
           icon_url: string | null
           name: string
+          pm_discovery_checked_at: string | null
           symbol: string
           type: Database["public"]["Enums"]["asset_type"]
         }
@@ -211,6 +292,7 @@ export type Database = {
           icon_checked_at?: string | null
           icon_url?: string | null
           name: string
+          pm_discovery_checked_at?: string | null
           symbol: string
           type?: Database["public"]["Enums"]["asset_type"]
         }
@@ -220,6 +302,7 @@ export type Database = {
           icon_checked_at?: string | null
           icon_url?: string | null
           name?: string
+          pm_discovery_checked_at?: string | null
           symbol?: string
           type?: Database["public"]["Enums"]["asset_type"]
         }
@@ -404,6 +487,60 @@ export type Database = {
           market_key?: string
           probability_percent?: number
           venue?: string
+        }
+        Relationships: []
+      }
+      prediction_markets: {
+        Row: {
+          closes_at: string | null
+          created_at: string
+          event_id: string | null
+          id: string
+          label: string
+          match_kind: string
+          probability_percent: number | null
+          question: string
+          refreshed_at: string
+          series_id: string | null
+          status: string
+          url: string
+          venue: string
+          venue_market_id: string
+          volume: number | null
+        }
+        Insert: {
+          closes_at?: string | null
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          label: string
+          match_kind: string
+          probability_percent?: number | null
+          question: string
+          refreshed_at?: string
+          series_id?: string | null
+          status?: string
+          url: string
+          venue: string
+          venue_market_id: string
+          volume?: number | null
+        }
+        Update: {
+          closes_at?: string | null
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          label?: string
+          match_kind?: string
+          probability_percent?: number | null
+          question?: string
+          refreshed_at?: string
+          series_id?: string | null
+          status?: string
+          url?: string
+          venue?: string
+          venue_market_id?: string
+          volume?: number | null
         }
         Relationships: []
       }
