@@ -45,6 +45,13 @@ export const MIN_PLAUSIBLE_ACTIVE_UNIVERSE = 5000;
 export const DELISTING_SWEEP_MAX_SYMBOLS_PER_RUN = 15;
 
 /**
+ * Max tracked symbols the nightly prediction-market discovery drip processes per run.
+ * Each symbol may hit Polymarket search + Kalshi series markets + optional Grok alias
+ * enrich; sized like warmup enqueues so the asset-maintenance Lambda keeps headroom.
+ */
+export const PM_DISCOVERY_NIGHTLY_CAP = 25;
+
+/**
  * Milliseconds in the notification_log dedupe window. A successful
  * `type='delisting'` row within this window for a given user suppresses a
  * second email, even if the sweep re-runs due to a crash or retry. The

@@ -152,6 +152,7 @@ Resources:
           VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
           MASSIVE_API_KEY_SSM_PARAM: /stocktextalerts/massive-api-key
           FINNHUB_API_KEY_SSM_PARAM: /stocktextalerts/finnhub-api-key
+          XAI_API_KEY_SSM_PARAM: /stocktextalerts/xai-api-key
           UNSUBSCRIBE_TOKEN_SECRET_SSM_PARAM: /stocktextalerts/unsubscribe-token-secret
           SUPABASE_URL_SSM_PARAM: /stocktextalerts/supabase-url
           SUPABASE_SECRET_KEY_SSM_PARAM: /stocktextalerts/supabase-secret-key

@@ -229,8 +229,9 @@
 							id="daily_digest_include_prediction_markets_description"
 							class="text-sm text-body-secondary mt-0.5"
 						>
-							Daily odds from Kalshi and Polymarket on curated macro markets that move the
-							broader tape (Fed, recession, tariffs, and more), with day-over-day moves.
+							Daily odds from Kalshi and Polymarket for your tracked assets when
+							company-specific markets exist, plus curated macro context (Fed, recession,
+							tariffs, and more). Macro odds include day-over-day moves.
 						</p>
 					</div>
 					<div class="shrink-0">

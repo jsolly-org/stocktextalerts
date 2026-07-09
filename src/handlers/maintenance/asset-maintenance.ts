@@ -14,6 +14,7 @@ import { DateTime } from "luxon";
 import { fetchAndStoreFinnhubEnrichment } from "../../lib/asset-events/enrichment-store";
 import { fetchAndStoreAssetEvents } from "../../lib/asset-events/fetch";
 import type { AssetEventProvider } from "../../lib/asset-events/types";
+import { PM_DISCOVERY_NIGHTLY_CAP } from "../../lib/assets/constants";
 import { runDelistingSweep } from "../../lib/assets/delisting-sweep";
 import { runIconBackfill } from "../../lib/assets/icon-backfill";
 import { runUniverseReconcile } from "../../lib/assets/universe-reconcile";
@@ -21,9 +22,11 @@ import { createSupabaseAdminClient } from "../../lib/db/supabase";
 import { createLogger, type Logger } from "../../lib/logging";
 import { runLambda } from "../../lib/logging/request-context";
 import { createEmailSender } from "../../lib/messaging/email/utils";
+import { runPredictionMarketDiscoveryDrip } from "../../lib/prediction-markets/pipeline";
 import { enqueueAssetEventsIngestRetry } from "../../lib/vendors/backfill/enqueue";
 import {
 	ICON_BACKFILL_MIN_REMAINING_MS,
+	PM_DISCOVERY_MIN_REMAINING_MS,
 	RECONCILE_MIN_REMAINING_MS,
 	RECONCILE_UTC_WEEKDAY,
 	SWEEP_MIN_REMAINING_MS,
@@ -133,10 +136,33 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			enrichmentResult = await fetchAndStoreFinnhubEnrichment({ supabase, logger });
 		} catch (error) {
 			logger.error(
-				"Finnhub enrichment ingest failed (continuing with delisting sweep)",
+				"Finnhub enrichment ingest failed (continuing with prediction-market discovery)",
 				{ action: "fetch_finnhub_enrichment" },
 				error,
 			);
+		}
+
+		// Tracked-only prediction-market discovery drip (pm_discovery_checked_at IS NULL).
+		// After Finnhub enrichment, before delisting/icon — same demand-driven family as
+		// icon backfill, but scoped to user_assets rather than the full universe.
+		if (stepFitsRemainingTime(context, logger, "pm_discovery", PM_DISCOVERY_MIN_REMAINING_MS)) {
+			try {
+				const pmResult = await runPredictionMarketDiscoveryDrip({
+					supabase,
+					logger,
+					limit: PM_DISCOVERY_NIGHTLY_CAP,
+				});
+				logger.info("Prediction-market discovery drip complete", {
+					action: "daily_pm_discovery",
+					...pmResult,
+				});
+			} catch (error) {
+				logger.error(
+					"Prediction-market discovery drip failed",
+					{ action: "daily_pm_discovery" },
+					error,
+				);
+			}
 		}
 
 		const hasFailures = results.some((r) => r.failedProviders.length > 0);

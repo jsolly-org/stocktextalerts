@@ -21,7 +21,7 @@ import type { SparklineMap } from "../messaging/parts/sparkline";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { EmailSender, NotificationExtras } from "../messaging/types";
-import { buildPredictionMarketsReadings } from "../prediction-markets/content";
+import { buildPredictionMarketsDigestContent } from "../prediction-markets/content";
 import { MAX_NOTIFICATION_RETRIES } from "../scheduled-notifications/constants";
 import { getMaxDailyDigestSlotAttempts } from "../scheduled-notifications/store";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
@@ -344,8 +344,12 @@ export async function processDailyDigestUser(options: {
 		Fetch market-wide top movers (email/Telegram when opted in)
 		============= */
 		const topMoversSection = wantsTopMovers ? await buildTopMoversData() : null;
-		const predictionMarketsReadings = wantsPredictionMarkets
-			? await buildPredictionMarketsReadings({ supabase, logger })
+		const predictionMarketsDigest = wantsPredictionMarkets
+			? await buildPredictionMarketsDigestContent({
+					supabase,
+					logger,
+					userAssets,
+				})
 			: null;
 
 		const mergedCitations = [
@@ -412,7 +416,7 @@ export async function processDailyDigestUser(options: {
 			? {
 					news: newsResult?.content ?? null,
 					rumors: rumorsResult?.content ?? null,
-					predictionMarkets: wantsPredictionMarketsEmail ? predictionMarketsReadings : null,
+					predictionMarketsDigest: wantsPredictionMarketsEmail ? predictionMarketsDigest : null,
 					analyst: null,
 					insider: null,
 					topMovers: wantsTopMoversEmail ? topMoversSection : null,
@@ -428,7 +432,7 @@ export async function processDailyDigestUser(options: {
 			? {
 					news: null,
 					rumors: null,
-					predictionMarkets: wantsPredictionMarketsTelegram ? predictionMarketsReadings : null,
+					predictionMarketsDigest: wantsPredictionMarketsTelegram ? predictionMarketsDigest : null,
 					analyst: null,
 					insider: null,
 					topMovers: wantsTopMoversTelegram ? topMoversSection : null,
@@ -443,6 +447,7 @@ export async function processDailyDigestUser(options: {
 			(includePricesEmail && userAssets.length > 0 && emailEnabled) ||
 			emailExtras?.news ||
 			emailExtras?.rumors ||
+			emailExtras?.predictionMarketsDigest ||
 			emailExtras?.predictionMarkets ||
 			emailExtras?.topMovers ||
 			emailAssetEvents?.hasAnyContent
@@ -450,6 +455,7 @@ export async function processDailyDigestUser(options: {
 		const hasTelegramContent = !!(
 			(includePricesTelegram && userAssets.length > 0) ||
 			telegramExtras?.topMovers ||
+			telegramExtras?.predictionMarketsDigest ||
 			telegramExtras?.predictionMarkets ||
 			telegramAssetEvents?.hasAnyContent
 		);
