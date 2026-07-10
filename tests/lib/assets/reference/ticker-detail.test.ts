@@ -99,10 +99,13 @@ describe("fetchTickerDetail", () => {
 });
 
 describe("isAllowedLogoUrl", () => {
-	it("accepts https URLs on the Massive and legacy Finnhub CDN hosts", () => {
+	it("accepts https URLs on the Massive branding host", () => {
 		expect(isAllowedLogoUrl(MASSIVE_AAPL_LOGO_URL)).toBe(true);
-		expect(isAllowedLogoUrl("https://static.finnhub.io/logo/8ed99cb0-80ec-11ea.png")).toBe(true);
-		expect(isAllowedLogoUrl(FINNHUB_AAPL_LOGO_URL)).toBe(true);
+	});
+
+	it("rejects legacy Finnhub CDN hosts", () => {
+		expect(isAllowedLogoUrl("https://static.finnhub.io/logo/8ed99cb0-80ec-11ea.png")).toBe(false);
+		expect(isAllowedLogoUrl(FINNHUB_AAPL_LOGO_URL)).toBe(false);
 	});
 
 	it("rejects plain http, even on an allowed host", () => {
