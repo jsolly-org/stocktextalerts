@@ -25,6 +25,12 @@ export const ICON_BACKFILL_MIN_REMAINING_MS = 300_000;
 export const PM_DISCOVERY_MIN_REMAINING_MS = 240_000;
 
 /**
+ * Prediction-market snapshot refresh: re-fetch all active stored events.
+ * Soft-fails per event; needs headroom for Poly/Kalshi rate limits.
+ */
+export const PM_REFRESH_MIN_REMAINING_MS = 300_000;
+
+/**
  * ISO weekday (1 = Monday … 7 = Sunday) on which the full universe reconcile runs.
  * Sunday: the market is closed, the 00:00 UTC schedule tick is quiet, and a full week
  * of listing changes lands before Monday's sessions. Delisting safety does NOT depend

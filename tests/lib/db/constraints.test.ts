@@ -153,6 +153,63 @@ describe("User input is validated against required data format rules.", () => {
 		});
 	});
 
+	it("replace_user_assets preserves created_at for symbols that remain tracked", async () => {
+		const userId = randomUUID();
+		await client.query("insert into public.users (id, email) values ($1, $2)", [
+			userId,
+			`test-${randomUUID()}@example.com`,
+		]);
+
+		const aaplAsset = getAssetData("AAPL");
+		const msftAsset = getAssetData("MSFT");
+		await client.query(
+			"insert into public.assets (symbol, name, type) values ($1, $2, $3), ($4, $5, $6) on conflict (symbol) do nothing",
+			["AAPL", aaplAsset.name, "stock", "MSFT", msftAsset.name, "stock"],
+		);
+
+		await client.query(
+			"select set_config('request.jwt.claims', '{\"role\":\"service_role\"}', true)",
+		);
+		await client.query("select public.replace_user_assets($1::uuid, $2::text[])", [
+			userId,
+			["AAPL"],
+		]);
+
+		const before = await client.query<{ created_at: string }>(
+			"select created_at from public.user_assets where user_id = $1 and symbol = 'AAPL'",
+			[userId],
+		);
+		const originalCreatedAt = before.rows[0]?.created_at;
+		expect(originalCreatedAt).toBeTruthy();
+
+		// Force an older timestamp so a reset would be detectable.
+		await client.query(
+			"update public.user_assets set created_at = $1 where user_id = $2 and symbol = 'AAPL'",
+			["2026-01-01T00:00:00.000Z", userId],
+		);
+		const stamped = await client.query<{ created_at: Date | string }>(
+			"select created_at from public.user_assets where user_id = $1 and symbol = 'AAPL'",
+			[userId],
+		);
+		const stampedAt = stamped.rows[0]?.created_at;
+		expect(stampedAt).toBeTruthy();
+		const stampedIso = stampedAt instanceof Date ? stampedAt.toISOString() : String(stampedAt);
+
+		await client.query("select public.replace_user_assets($1::uuid, $2::text[])", [
+			userId,
+			["AAPL", "MSFT"],
+		]);
+
+		const after = await client.query<{ symbol: string; created_at: Date | string }>(
+			"select symbol, created_at from public.user_assets where user_id = $1 order by symbol",
+			[userId],
+		);
+		expect(after.rows.map((r) => r.symbol)).toEqual(["AAPL", "MSFT"]);
+		const aaplAfter = after.rows.find((r) => r.symbol === "AAPL")?.created_at;
+		const aaplAfterIso = aaplAfter instanceof Date ? aaplAfter.toISOString() : String(aaplAfter);
+		expect(aaplAfterIso).toBe(stampedIso);
+	});
+
 	it("An asset with type 'etf' is accepted by the database.", async () => {
 		const spyAsset = getAssetData("SPY");
 		const { rowCount } = await client.query(

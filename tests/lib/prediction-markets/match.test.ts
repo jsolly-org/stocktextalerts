@@ -9,10 +9,10 @@ import {
 } from "../../../src/lib/prediction-markets/aliases";
 import { findIdentityEvidence, resolveMatchKind } from "../../../src/lib/prediction-markets/match";
 import {
-	rankDiscoveredMarkets,
+	rankDiscoveredEvents,
 	selectDigestAssetMarkets,
 } from "../../../src/lib/prediction-markets/rank";
-import type { DiscoveredPredictionMarket } from "../../../src/lib/prediction-markets/types";
+import type { DiscoveredPredictionEvent } from "../../../src/lib/prediction-markets/types";
 
 describe("buildDeterministicAliases", () => {
 	it("includes ticker forms and GOOGL seed aliases", () => {
@@ -148,66 +148,69 @@ describe("polymarketSearchQueries", () => {
 	});
 });
 
-describe("rankDiscoveredMarkets", () => {
+describe("rankDiscoveredEvents", () => {
 	const base = {
-		eventId: null,
-		label: "x",
-		question: "x",
+		seriesId: null as string | null,
+		title: "x",
 		url: "https://example.com",
-		probabilityPercent: 50,
+		shape: "binary" as const,
+		shapeValidated: true,
 		volume: 100,
-		closesAt: null,
+		closesAt: null as string | null,
 		confidence: 80,
 		evidence: { where: "title" as const, alias: "NVDA" },
+		highlightAlias: "NVDA",
+		outcomes: [
+			{
+				venueContractId: "yes",
+				label: "Yes",
+				probabilityPercent: 50,
+				sortOrder: 0,
+				strikeValue: null,
+				volume: 100,
+			},
+		],
 	};
 
-	it("prefers one Poly price + one Kalshi KPI and one series", () => {
-		const candidates: DiscoveredPredictionMarket[] = [
+	it("orders by confidence then volume and respects persist cap", () => {
+		const candidates: DiscoveredPredictionEvent[] = [
 			{
 				...base,
 				venue: "polymarket",
-				venueMarketId: "c1",
-				seriesId: null,
+				venueEventId: "c1",
 				matchKind: "direct_price",
-				label: "NVDA price",
+				title: "NVDA price",
+				confidence: 90,
+				volume: 50,
 			},
 			{
 				...base,
 				venue: "polymarket",
-				venueMarketId: "c2",
-				seriesId: null,
+				venueEventId: "c2",
 				matchKind: "direct_price",
-				label: "NVDA price 2",
+				title: "NVDA price 2",
+				confidence: 90,
+				volume: 200,
 			},
 			{
 				...base,
 				venue: "kalshi",
-				venueMarketId: "KXNVDAA-1",
+				venueEventId: "KXNVDAA-1",
 				seriesId: "KXNVDAA",
 				matchKind: "kpi",
-				label: "headcount 1",
-			},
-			{
-				...base,
-				venue: "kalshi",
-				venueMarketId: "KXNVDAA-2",
-				seriesId: "KXNVDAA",
-				matchKind: "kpi",
-				label: "headcount 2",
+				title: "headcount 1",
+				confidence: 70,
 			},
 		];
-		const ranked = rankDiscoveredMarkets(candidates, 2);
+		const ranked = rankDiscoveredEvents(candidates, 2);
 		expect(ranked).toHaveLength(2);
-		expect(ranked[0]?.venue).toBe("polymarket");
-		expect(ranked[0]?.matchKind).toBe("direct_price");
-		expect(ranked[1]?.venue).toBe("kalshi");
-		expect(ranked[1]?.matchKind).toBe("kpi");
-		expect(ranked.filter((r) => r.seriesId === "KXNVDAA")).toHaveLength(1);
+		expect(ranked[0]?.venueEventId).toBe("c2");
+		expect(ranked[1]?.venueEventId).toBe("c1");
 	});
 });
 
 describe("selectDigestAssetMarkets", () => {
-	it("round-robins across symbols with caps", () => {
+	it("round-robins across symbols with caps (legacy helper)", () => {
 		const bySymbol = new Map([
 			[
 				"NVDA",

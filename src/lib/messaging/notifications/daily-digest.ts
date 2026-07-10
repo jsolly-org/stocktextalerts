@@ -188,6 +188,8 @@ export function formatDailyDigestEmail(options: {
 	/** User's 24-hour-time preference for the market-closed "as of" timestamp.
 	 *  Defaults to 12-hour (the DB default) when omitted; production callers pass it. */
 	is24Hour?: boolean;
+	/** IANA timezone for prediction-market Updated/Closes labels. */
+	timeZone?: string;
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
 	extras: NotificationExtras;
@@ -202,18 +204,22 @@ export function formatDailyDigestEmail(options: {
 	delayBannerHtml?: string | null;
 }): { subject: string; text: string; html: string } {
 	const urls = buildEmailUrls(options.user.id, options.user.email, "dailyNotifications");
+	const pmFormatOpts = {
+		timeZone: options.timeZone ?? US_MARKET_TIMEZONE,
+		use24Hour: options.is24Hour ?? false,
+	};
 
 	const news = ensureBlankLineBetweenTickerSnippets((options.extras.news ?? "").trim());
 	const rumors = ensureBlankLineBetweenTickerSnippets((options.extras.rumors ?? "").trim());
 	const predictionMarketsDigest = options.extras.predictionMarketsDigest ?? null;
 	const predictionMarketsReadings = options.extras.predictionMarkets ?? null;
 	const predictionMarketsText = predictionMarketsDigest
-		? formatPredictionMarketsDigestText(predictionMarketsDigest)
+		? formatPredictionMarketsDigestText(predictionMarketsDigest, pmFormatOpts)
 		: predictionMarketsReadings
 			? formatPredictionMarketsText(predictionMarketsReadings)
 			: null;
 	const predictionMarketsHtml = predictionMarketsDigest
-		? formatPredictionMarketsDigestEmailHtml(predictionMarketsDigest)
+		? formatPredictionMarketsDigestEmailHtml(predictionMarketsDigest, pmFormatOpts)
 		: predictionMarketsReadings
 			? formatPredictionMarketsEmailHtml(predictionMarketsReadings)
 			: null;
@@ -348,6 +354,8 @@ export function formatDailyDigestTelegram(opts: {
 	/** User's 24-hour-time preference for the market-closed "as of" timestamp.
 	 *  Defaults to 12-hour (the DB default) when omitted; production callers pass it. */
 	is24Hour?: boolean;
+	/** IANA timezone for prediction-market Updated/Closes labels. */
+	timeZone?: string;
 	sparklines?: SparklineMap;
 	marketOpen?: boolean;
 }): FormattedString {
@@ -388,8 +396,12 @@ export function formatDailyDigestTelegram(opts: {
 	if (opts.extras.rumors) {
 		msg = fmt`${msg}\n\n${FormattedString.bold("💬 Rumors")}\n${FormattedString.blockquote(opts.extras.rumors)}`;
 	}
+	const pmFormatOpts = {
+		timeZone: opts.timeZone ?? US_MARKET_TIMEZONE,
+		use24Hour: opts.is24Hour ?? false,
+	};
 	const predictionMarketsTelegram = opts.extras.predictionMarketsDigest
-		? formatPredictionMarketsDigestTelegram(opts.extras.predictionMarketsDigest)
+		? formatPredictionMarketsDigestTelegram(opts.extras.predictionMarketsDigest, pmFormatOpts)
 		: opts.extras.predictionMarkets
 			? formatPredictionMarketsTelegram(opts.extras.predictionMarkets)
 			: null;
