@@ -70,6 +70,7 @@
 							>
 								💰 Asset Prices
 							</span>
+							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
 						</div>
 						<p
 							id="daily_digest_include_prices_description"

@@ -4,6 +4,7 @@ import type { ApiJsonBody } from "../../lib/client/types";
 import {
 	MAX_PRICE_MOVE_DOLLAR_THRESHOLD,
 	MAX_PRICE_MOVE_PERCENT_THRESHOLD,
+	MIN_PRICE_MOVE_THRESHOLD,
 } from "../../lib/constants";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../lib/db/supabase";
 import { isPriceMoveThresholdUnit } from "../../lib/db/types";
@@ -22,9 +23,10 @@ interface ThresholdRequest {
  *
  * Upsert or clear the authenticated user's per-stock price-move alert threshold.
  * Body: `{ symbol, value, unit }`. A null/absent `value` clears the threshold
- * (disables alerts for that stock); a positive `value` with unit `"percent"` or
- * `"dollar"` upserts it. The symbol must be in the user's watchlist. Row presence
- * in `price_move_alert_thresholds` is what enables the alert — mirrors the
+ * (disables alerts for that stock); a whole-number `value` ≥ 1 with unit
+ * `"percent"` or `"dollar"` upserts it (see `MIN_PRICE_MOVE_THRESHOLD`). The
+ * symbol must be in the user's watchlist. Row presence in
+ * `price_move_alert_thresholds` is what enables the alert — mirrors the
  * opt-in-per-stock model. Writes run through the admin client after the session
  * user is authenticated (the table is not writable by the `authenticated` role).
  */
@@ -121,7 +123,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const value = typeof body.value === "number" ? body.value : Number(body.value);
 	const maxValue =
 		unit === "percent" ? MAX_PRICE_MOVE_PERCENT_THRESHOLD : MAX_PRICE_MOVE_DOLLAR_THRESHOLD;
-	if (!Number.isFinite(value) || value <= 0 || value > maxValue) {
+	// Whole numbers only (matches DB CHECK). Reject fractions rather than
+	// silently rounding — the dashboard input never sends them.
+	if (!Number.isInteger(value) || value < MIN_PRICE_MOVE_THRESHOLD || value > maxValue) {
 		return Response.json({ ok: false, message: "invalid_value" } satisfies ApiJsonBody, {
 			status: 400,
 		});
@@ -131,8 +135,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		{
 			user_id: user.id,
 			symbol,
-			// Round to 4 dp to match the numeric(12,4) column.
-			threshold_value: Math.round(value * 10000) / 10000,
+			threshold_value: value,
 			threshold_unit: unit,
 		},
 		{ onConflict: "user_id,symbol" },

@@ -57,13 +57,13 @@ describe("A signed-in user manages per-stock price-move thresholds.", () => {
 	it("Setting a percent threshold on a tracked stock persists the row.", async () => {
 		const { testUser, cookies } = await makeTrackedUser();
 
-		const response = await postThreshold({ symbol: "AAPL", value: 2.5, unit: "percent" }, cookies);
+		const response = await postThreshold({ symbol: "AAPL", value: 3, unit: "percent" }, cookies);
 		expect(response.status).toBe(200);
 		const payload = (await response.json()) as { ok: boolean; message: string };
 		expect(payload).toEqual({ ok: true, message: "threshold_saved" });
 
 		const row = await getThresholdRow(testUser.id, "AAPL");
-		expect(Number(row?.threshold_value)).toBe(2.5);
+		expect(Number(row?.threshold_value)).toBe(3);
 		expect(row?.threshold_unit).toBe("percent");
 	});
 
@@ -125,11 +125,13 @@ describe("A signed-in user manages per-stock price-move thresholds.", () => {
 		expect(await getThresholdRow(testUser.id, "AAPL")).toBeNull();
 	});
 
-	it("Out-of-bounds values (zero, negative, above the unit ceiling) are rejected.", async () => {
+	it("Out-of-bounds values (zero, sub-min, fractional, negative, above the unit ceiling) are rejected.", async () => {
 		const { testUser, cookies } = await makeTrackedUser();
 
 		for (const [value, unit] of [
 			[0, "percent"],
+			[0.5, "percent"],
+			[2.5, "percent"],
 			[-3, "percent"],
 			[101, "percent"],
 			[100_001, "dollar"],
@@ -143,8 +145,18 @@ describe("A signed-in user manages per-stock price-move thresholds.", () => {
 		expect(await getThresholdRow(testUser.id, "AAPL")).toBeNull();
 	});
 
-	it("Inclusive unit ceilings (100% / $100_000) are accepted.", async () => {
+	it("Inclusive unit floors and ceilings (1 / 100% / $100_000) are accepted.", async () => {
 		const { testUser, cookies } = await makeTrackedUser();
+
+		const floorResponse = await postThreshold(
+			{ symbol: "AAPL", value: 1, unit: "percent" },
+			cookies,
+		);
+		expect(floorResponse.status).toBe(200);
+		expect(await getThresholdRow(testUser.id, "AAPL")).toMatchObject({
+			threshold_value: 1,
+			threshold_unit: "percent",
+		});
 
 		const percentResponse = await postThreshold(
 			{ symbol: "AAPL", value: 100, unit: "percent" },
