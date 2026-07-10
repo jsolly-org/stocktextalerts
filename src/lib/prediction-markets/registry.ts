@@ -393,19 +393,6 @@ export async function loadActiveMatchedEvents(options: {
 	}>
 > {
 	const { supabase, logger } = options;
-	const { data, error } = await supabase
-		.from("prediction_markets")
-		.select(
-			"id,venue,venue_market_id,event_id,url,shape,status,asset_prediction_market_matches!inner(decision)",
-		)
-		.eq("status", "open")
-		.in("asset_prediction_market_matches.decision", ["accepted", "manual_include"]);
-
-	if (error) {
-		logger.error("Failed to load active matched prediction events", {}, error);
-		return [];
-	}
-
 	const seen = new Set<string>();
 	const out: Array<{
 		id: string;
@@ -415,17 +402,38 @@ export async function loadActiveMatchedEvents(options: {
 		url: string;
 		shape: PredictionMarketShape;
 	}> = [];
-	for (const row of data ?? []) {
-		if (seen.has(row.id)) continue;
-		seen.add(row.id);
-		out.push({
-			id: row.id,
-			venue: row.venue as "polymarket" | "kalshi",
-			venueMarketId: row.venue_market_id,
-			eventId: row.event_id,
-			url: row.url,
-			shape: (row.shape as PredictionMarketShape) ?? "binary",
-		});
+
+	// Paginate past PostgREST's ~1000-row cap (join can multiply rows further).
+	const PAGE_SIZE = 1000;
+	for (let from = 0; ; from += PAGE_SIZE) {
+		const { data, error } = await supabase
+			.from("prediction_markets")
+			.select(
+				"id,venue,venue_market_id,event_id,url,shape,status,asset_prediction_market_matches!inner(decision)",
+			)
+			.eq("status", "open")
+			.in("asset_prediction_market_matches.decision", ["accepted", "manual_include"])
+			.order("id", { ascending: true })
+			.range(from, from + PAGE_SIZE - 1);
+
+		if (error) {
+			logger.error("Failed to load active matched prediction events", { from }, error);
+			return out;
+		}
+		const rows = data ?? [];
+		for (const row of rows) {
+			if (seen.has(row.id)) continue;
+			seen.add(row.id);
+			out.push({
+				id: row.id,
+				venue: row.venue as "polymarket" | "kalshi",
+				venueMarketId: row.venue_market_id,
+				eventId: row.event_id,
+				url: row.url,
+				shape: (row.shape as PredictionMarketShape) ?? "binary",
+			});
+		}
+		if (rows.length < PAGE_SIZE) break;
 	}
 	return out;
 }

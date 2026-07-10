@@ -368,6 +368,46 @@ describe("runUniverseReconcile", () => {
 		expect(row?.icon_url).toBe(newIcon);
 	});
 
+	it("Does not advance reference_updated_utc when the force icon probe fails.", async () => {
+		const symbol = `${TEST_PREFIX}HOLD`;
+		createdSymbols.push(symbol);
+		const oldWatermark = "2026-01-01T00:00:00Z";
+		await upsertAssets([
+			{
+				symbol,
+				name: "Hold Watermark Inc",
+				type: "stock",
+				icon_url:
+					"https://api.massive.com/v1/reference/company-branding/x/images/2024-01-01_icon.png",
+				icon_checked_at: "2026-01-01T00:00:00Z",
+				reference_updated_utc: oldWatermark,
+			},
+		]);
+
+		const ensureIcon = vi.fn().mockResolvedValue({ probed: false, iconUrl: null });
+		const active = [
+			makeActiveTicker({
+				symbol,
+				name: "Hold Watermark Inc",
+				lastUpdatedUtc: "2026-07-01T00:00:00Z",
+			}),
+			...(await activeSetCoveringSeedExcept([symbol])),
+		];
+		fetchActiveTickersMock.mockResolvedValue(makeUniverse(active));
+		enqueueNewSymbolWarmupMock.mockResolvedValue(true);
+
+		const result = await runUniverseReconcile({
+			supabase: adminClient,
+			logger: rootLogger,
+			ensureIconChecked: ensureIcon,
+		});
+
+		expect(result.tickersRefreshed).toBe(0);
+		expect(ensureIcon).toHaveBeenCalledWith(expect.objectContaining({ force: true }));
+		const row = await getAsset(symbol);
+		expect(Date.parse(row?.reference_updated_utc ?? "")).toBe(Date.parse(oldWatermark));
+	});
+
 	it("referenceWatermarkAdvanced is strict and ignores nulls.", () => {
 		expect(referenceWatermarkAdvanced("2026-07-01T00:00:00Z", "2026-01-01T00:00:00Z")).toBe(true);
 		expect(referenceWatermarkAdvanced("2026-01-01T00:00:00Z", "2026-07-01T00:00:00Z")).toBe(false);

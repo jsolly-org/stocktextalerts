@@ -224,12 +224,41 @@ export async function runUniverseReconcile(
 		}
 
 		for (const chunk of chunksOf(toFullRefresh, CHUNK_SIZE)) {
+			// Probe icons BEFORE advancing the watermark. A transient Massive failure
+			// must leave reference_updated_utc unchanged so the next reconcile retries.
+			const probedOk = new Set<string>();
+			for (const batch of chunksOf(
+				chunk.map((t) => t.symbol),
+				10,
+			)) {
+				await Promise.all(
+					batch.map(async (symbol) => {
+						try {
+							const outcome = await ensureIcon({
+								supabase,
+								logger,
+								symbol,
+								force: true,
+							});
+							if (outcome.probed) probedOk.add(symbol);
+						} catch (probeError) {
+							logger.warn(
+								"Watermark-refresh icon probe failed",
+								{ action: "universe_reconcile", step: "icon_refresh", symbol },
+								probeError,
+							);
+						}
+					}),
+				);
+			}
+
 			const { error, count } = await supabase.from("assets").upsert(
 				chunk.map((ticker) => ({
 					symbol: ticker.symbol,
 					name: ticker.name,
 					type: ticker.type,
-					reference_updated_utc: ticker.lastUpdatedUtc,
+					// Only stamp watermark when the force probe completed definitively.
+					...(probedOk.has(ticker.symbol) ? { reference_updated_utc: ticker.lastUpdatedUtc } : {}),
 				})),
 				{ onConflict: "symbol", count: "exact" },
 			);
@@ -241,28 +270,13 @@ export async function runUniverseReconcile(
 				);
 				continue;
 			}
-			result.tickersRefreshed += count ?? chunk.length;
+			result.tickersRefreshed += probedOk.size;
 			for (const ticker of chunk) {
 				const stored = storedBySymbol.get(ticker.symbol);
 				if (stored != null && stored.name !== ticker.name) result.namesUpdated += 1;
 			}
-			for (const batch of chunksOf(
-				chunk.map((t) => t.symbol),
-				10,
-			)) {
-				await Promise.all(
-					batch.map(async (symbol) => {
-						try {
-							await ensureIcon({ supabase, logger, symbol, force: true });
-						} catch (probeError) {
-							logger.warn(
-								"Watermark-refresh icon probe failed",
-								{ action: "universe_reconcile", step: "icon_refresh", symbol },
-								probeError,
-							);
-						}
-					}),
-				);
+			if (count != null && count < chunk.length) {
+				// Upsert may still rewrite names for rows that skipped the watermark stamp.
 			}
 		}
 

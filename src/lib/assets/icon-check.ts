@@ -48,11 +48,13 @@ export async function ensureAssetIconChecked(
 		logger,
 		symbol,
 		getTickerDetail,
+		preserveExistingOnNull: force,
+		existingIconUrl: data.icon_url,
 	});
 	if (outcome.kind === "checked") {
 		return { probed: true, iconUrl: outcome.iconUrl };
 	}
-	return { probed: false, iconUrl: null };
+	return { probed: false, iconUrl: data.icon_url };
 }
 
 type CheckOutcome =
@@ -66,6 +68,8 @@ async function checkAndStoreIcon(options: {
 	symbol: string;
 	getTickerDetail: (symbol: string) => Promise<TickerDetail>;
 	logAction?: string;
+	preserveExistingOnNull?: boolean;
+	existingIconUrl?: string | null;
 }): Promise<CheckOutcome> {
 	const { supabase, logger, symbol, getTickerDetail, logAction = "icon_check" } = options;
 
@@ -77,6 +81,11 @@ async function checkAndStoreIcon(options: {
 		return { kind: "fetch_failed" };
 	}
 	if (!detail.ok) {
+		logger.warn("Icon detail fetch soft-failed (will retry)", {
+			action: logAction,
+			step: "fetch",
+			symbol,
+		});
 		return { kind: "fetch_failed" };
 	}
 
@@ -91,6 +100,17 @@ async function checkAndStoreIcon(options: {
 			symbol,
 		});
 		iconUrl = null;
+	}
+
+	// Force re-probe: Massive detail can 404 on list/detail lag. Do not wipe a
+	// previously good logo on a null answer — keep last good and still stamp checked.
+	if (options.preserveExistingOnNull && iconUrl === null && options.existingIconUrl) {
+		logger.warn("Force icon probe got null; keeping last good logo", {
+			action: logAction,
+			step: "preserve",
+			symbol,
+		});
+		iconUrl = options.existingIconUrl;
 	}
 
 	// Clear icon_base64 whenever we rewrite icon_url so email's cached data-URI

@@ -198,7 +198,6 @@ async function discoverPolymarket(
 ): Promise<VenueDiscoveryResult> {
 	const out: DiscoveredPredictionEvent[] = [];
 	const seen = new Set<string>();
-	let gotUsablePayload = false;
 	let softFailed = false;
 
 	// public-search supports `page` + `limit_per_type` (no documented hard max on
@@ -207,7 +206,7 @@ async function discoverPolymarket(
 	const MAX_SEARCH_PAGES = 100;
 
 	for (const q of polymarketSearchQueries(identity)) {
-		for (let page = 0; page < MAX_SEARCH_PAGES; page++) {
+		for (let page = 1; page <= MAX_SEARCH_PAGES; page++) {
 			const payload = await polymarketFetch(
 				"/public-search",
 				{
@@ -224,8 +223,10 @@ async function discoverPolymarket(
 				softFailed = true;
 				break;
 			}
-			if (!isRecord(payload) || !Array.isArray(payload.events)) break;
-			gotUsablePayload = true;
+			if (!isRecord(payload) || !Array.isArray(payload.events)) {
+				softFailed = true;
+				break;
+			}
 			const pageEvents = payload.events;
 			if (pageEvents.length === 0) break;
 
@@ -303,7 +304,8 @@ async function discoverPolymarket(
 			}
 
 			if (pageEvents.length < LIMIT_PER_TYPE) break;
-			if (page === MAX_SEARCH_PAGES - 1) {
+			if (page === MAX_SEARCH_PAGES) {
+				softFailed = true;
 				logger.warn("Polymarket public-search hit page ceiling", {
 					symbol: identity.symbol,
 					q,
@@ -316,9 +318,9 @@ async function discoverPolymarket(
 	logger.info("Polymarket discovery complete", {
 		symbol: identity.symbol,
 		candidateCount: out.length,
-		softFailed: softFailed && !gotUsablePayload,
+		softFailed,
 	});
-	return { events: out, softFailed: softFailed && !gotUsablePayload };
+	return { events: out, softFailed };
 }
 
 export type KalshiSeriesCatalog = {
@@ -348,7 +350,7 @@ async function loadKalshiCompanySeries(logger: Logger): Promise<KalshiSeriesCata
 			return { series: all, softFailed: true };
 		}
 		if (!isRecord(payload) || !Array.isArray(payload.series)) {
-			return { series: all, softFailed: page === 0 };
+			return { series: all, softFailed: true };
 		}
 		for (const s of payload.series) {
 			if (!isRecord(s)) continue;
@@ -364,6 +366,7 @@ async function loadKalshiCompanySeries(logger: Logger): Promise<KalshiSeriesCata
 				{ pages: KALSHI_MAX_PAGES, loaded: all.length },
 				new Error("kalshi series pagination ceiling"),
 			);
+			return { series: all, softFailed: true };
 		}
 	}
 	logger.info("Kalshi Companies series loaded", { count: all.length });
@@ -401,7 +404,7 @@ async function loadOpenKalshiMarketsForSeries(
 			return { markets, softFailed: true };
 		}
 		if (!isRecord(payload) || !Array.isArray(payload.markets)) {
-			return { markets, softFailed: page === 0 && markets.length === 0 };
+			return { markets, softFailed: true };
 		}
 		for (const m of payload.markets) {
 			if (isRecord(m)) markets.push(m);
@@ -414,6 +417,7 @@ async function loadOpenKalshiMarketsForSeries(
 				{ seriesTicker, pages: KALSHI_MAX_PAGES, loaded: markets.length },
 				new Error("kalshi markets pagination ceiling"),
 			);
+			return { markets, softFailed: true };
 		}
 	}
 	return { markets, softFailed: false };
@@ -430,7 +434,6 @@ async function discoverKalshi(
 	);
 	const byEvent = new Map<string, KalshiMarketRow[]>();
 	let softFailed = false;
-	let gotUsablePayload = seriesHits.length === 0;
 
 	for (const series of seriesHits) {
 		const { markets: rawMarkets, softFailed: pageSoftFailed } =
@@ -440,7 +443,6 @@ async function discoverKalshi(
 			if (rawMarkets.length === 0) continue;
 		}
 		if (rawMarkets.length === 0) continue;
-		gotUsablePayload = true;
 
 		for (const m of rawMarkets) {
 			const ticker = asString(m.ticker);
@@ -537,9 +539,9 @@ async function discoverKalshi(
 		symbol: identity.symbol,
 		seriesCount: seriesHits.length,
 		candidateCount: out.length,
-		softFailed: softFailed && !gotUsablePayload,
+		softFailed,
 	});
-	return { events: out, softFailed: softFailed && !gotUsablePayload };
+	return { events: out, softFailed };
 }
 
 /** Discover Polymarket + Kalshi event candidates for one asset identity. */
