@@ -5,14 +5,11 @@
 				Notification Channels
 			</h2>
 			<p :id="props.notificationChannelsDescId" class="text-sm text-body-secondary mt-1.5">
-				Choose how you want to receive alerts.
+				Choose how to receive alerts.
 			</p>
 		</header>
 
-		<fieldset
-			class="divide-y divide-edge"
-			:aria-describedby="props.notificationChannelsDescId"
-		>
+		<fieldset :aria-describedby="props.notificationChannelsDescId">
 			<legend class="sr-only">Notification channels</legend>
 
 			<div class="flex items-center justify-between gap-3 py-4">
@@ -35,7 +32,7 @@
 				/>
 			</div>
 
-			<div class="py-4">
+			<div class="pb-4">
 				<ConnectTelegramCard />
 			</div>
 		</fieldset>

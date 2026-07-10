@@ -1,10 +1,7 @@
 <template>
 	<fieldset
 		data-autosave-ignore
-		:class="[
-			'divide-y divide-divider transition-opacity duration-200',
-			{ 'opacity-50': needsChannelSelection },
-		]"
+		class="divide-y divide-divider"
 		:aria-disabled="needsChannelSelection ? 'true' : 'false'"
 	>
 		<legend class="sr-only">Scheduled update settings</legend>

@@ -13,9 +13,6 @@ export const RECONCILE_MIN_REMAINING_MS = 180_000;
 /** Delisting sweep: all tracked symbols at bounded concurrency, plus notification writes. */
 export const SWEEP_MIN_REMAINING_MS = 300_000;
 
-/** Icon backfill: up to 500 Massive branding calls at concurrency 10 (~1–2 min typical). */
-export const ICON_BACKFILL_MIN_REMAINING_MS = 120_000;
-
 /**
  * Prediction-market discovery drip: up to 25 tracked symbols (Poly search + Kalshi
  * series fetches + optional Grok). Soft-fail vendors; still needs wall-clock headroom.

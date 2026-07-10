@@ -131,7 +131,7 @@ describe("A signed-in user manages per-stock price-move thresholds.", () => {
 		for (const [value, unit] of [
 			[0, "percent"],
 			[-3, "percent"],
-			[1001, "percent"],
+			[101, "percent"],
 			[100_001, "dollar"],
 		] as const) {
 			const response = await postThreshold({ symbol: "AAPL", value, unit }, cookies);
@@ -141,5 +141,29 @@ describe("A signed-in user manages per-stock price-move thresholds.", () => {
 		}
 
 		expect(await getThresholdRow(testUser.id, "AAPL")).toBeNull();
+	});
+
+	it("Inclusive unit ceilings (100% / $100_000) are accepted.", async () => {
+		const { testUser, cookies } = await makeTrackedUser();
+
+		const percentResponse = await postThreshold(
+			{ symbol: "AAPL", value: 100, unit: "percent" },
+			cookies,
+		);
+		expect(percentResponse.status).toBe(200);
+		expect(await getThresholdRow(testUser.id, "AAPL")).toMatchObject({
+			threshold_value: 100,
+			threshold_unit: "percent",
+		});
+
+		const dollarResponse = await postThreshold(
+			{ symbol: "AAPL", value: 100_000, unit: "dollar" },
+			cookies,
+		);
+		expect(dollarResponse.status).toBe(200);
+		expect(await getThresholdRow(testUser.id, "AAPL")).toMatchObject({
+			threshold_value: 100_000,
+			threshold_unit: "dollar",
+		});
 	});
 });

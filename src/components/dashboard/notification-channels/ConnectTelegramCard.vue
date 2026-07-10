@@ -4,7 +4,7 @@
 			<div class="min-w-0">
 				<h3 class="text-base font-semibold text-heading">Telegram</h3>
 				<p class="mt-0.5 text-sm text-body-secondary">
-					Connect Telegram to receive your enabled notifications as bot messages.
+					Receive your enabled notifications as Telegram bot messages.
 				</p>
 			</div>
 

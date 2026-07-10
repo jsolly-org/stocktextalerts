@@ -1,7 +1,7 @@
 <template>
 	<div
 		v-if="needsSetup"
-		class="mt-4 rounded-lg border border-warning-border bg-warning-bg p-4"
+		class="mt-4 mb-6 rounded-lg border border-warning-border bg-warning-bg p-4"
 		role="status"
 		aria-live="polite"
 	>

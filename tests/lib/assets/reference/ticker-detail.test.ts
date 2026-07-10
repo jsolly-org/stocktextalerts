@@ -7,12 +7,6 @@ import {
 	fetchTickerDetail,
 	isAllowedLogoUrl,
 } from "../../../../src/lib/assets/reference/ticker-detail";
-import { VENDOR_FETCH_MAX_RETRIES } from "../../../../src/lib/vendors/constants";
-import { expectConsoleError } from "../../../setup";
-
-vi.mock("node:timers/promises", () => ({
-	setTimeout: vi.fn().mockResolvedValue(undefined),
-}));
 
 const MASSIVE_AAPL_LOGO_URL =
 	"https://api.massive.com/v1/reference/company-branding/d3d3LmFwcGxlLmNvbQ/images/2026-04-01_icon.png";
@@ -75,26 +69,31 @@ describe("fetchTickerDetail", () => {
 		await expect(fetchTickerDetail("SACH")).resolves.toEqual({ ok: true, iconUrl: null });
 	});
 
-	it("returns transient failure when the results shape is missing", async () => {
-		fetchSpy.mockResolvedValue(detailResponse({ status: "OK" }));
+	it("treats HTTP 404 as a definitive no-logo answer (list/detail lag)", async () => {
+		fetchSpy.mockResolvedValue(detailResponse({ status: "NOT_FOUND" }, 404));
 
-		await expect(fetchTickerDetail("AAPL")).resolves.toEqual({ ok: false });
+		await expect(fetchTickerDetail("AAUM")).resolves.toEqual({ ok: true, iconUrl: null });
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
 	});
 
-	it("returns transient failure after transport retries are exhausted", async () => {
-		expectConsoleError(/exhausted retries/);
+	it("treats a missing results object on 200 as a definitive no-logo answer", async () => {
+		fetchSpy.mockResolvedValue(detailResponse({ status: "OK" }));
+
+		await expect(fetchTickerDetail("AAPL")).resolves.toEqual({ ok: true, iconUrl: null });
+	});
+
+	it("returns transient failure on 5xx without retrying", async () => {
 		fetchSpy.mockResolvedValue(detailResponse({ status: "ERROR" }, 500));
 
 		await expect(fetchTickerDetail("AAPL")).resolves.toEqual({ ok: false });
-		expect(fetchSpy).toHaveBeenCalledTimes(VENDOR_FETCH_MAX_RETRIES);
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
 	});
 
-	it("returns transient failure after request timeouts are exhausted", async () => {
-		expectConsoleError(/exhausted retries/);
+	it("returns transient failure on request timeout", async () => {
 		fetchSpy.mockRejectedValue(Object.assign(new Error("timed out"), { name: "TimeoutError" }));
 
 		await expect(fetchTickerDetail("AAPL")).resolves.toEqual({ ok: false });
-		expect(fetchSpy).toHaveBeenCalledTimes(VENDOR_FETCH_MAX_RETRIES);
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
 	});
 });
 

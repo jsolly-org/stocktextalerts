@@ -1,5 +1,6 @@
 import { enqueueNewSymbolWarmup } from "../vendors/backfill/enqueue";
 import { CHUNK_SIZE, MIN_PLAUSIBLE_ACTIVE_UNIVERSE } from "./constants";
+import { ensureAssetIconChecked } from "./icon-check";
 import { fetchActiveTickers } from "./reference/universe";
 import type { StoredAsset, UniverseReconcileDeps, UniverseReconcileResult } from "./types";
 
@@ -22,8 +23,8 @@ const EMPTY_RESULT: UniverseReconcileResult = {
 	providerFetchFailed: false,
 };
 
-/** Shared by reconcile and the icon backfill — bounds `.in()` filter URLs and write batches. */
-export function chunksOf<T>(items: T[], size: number): T[][] {
+/** Shared by reconcile and icon probes — bounds `.in()` filter URLs and write batches. */
+function chunksOf<T>(items: T[], size: number): T[][] {
 	const chunks: T[][] = [];
 	for (let i = 0; i < items.length; i += size) {
 		chunks.push(items.slice(i, i + size));
@@ -34,9 +35,9 @@ export function chunksOf<T>(items: T[], size: number): T[][] {
 /**
  * Daily ticker-universe reconcile. Intended to run inside the asset-maintenance
  * Lambda BEFORE `runDelistingSweep`, in its own try/catch so a reconcile failure
- * never invalidates the sweep or the calendar-events job. Icon enrichment is NOT
- * part of reconcile — the nightly `runIconBackfill` drains never-checked symbols
- * on its own cadence.
+ * never invalidates the sweep or the calendar-events job. Icon enrichment for
+ * new listings runs inline after insert via `ensureAssetIconChecked` (watchlist
+ * adds probe the same way). There is no nightly icon drip.
  *
  * Flow:
  *   1. Fetch the active US listing from Massive's paginated reference API. If it
@@ -146,6 +147,28 @@ export async function runUniverseReconcile(
 				continue;
 			}
 			result.newListingsInserted += count ?? chunk.length;
+		}
+
+		// Probe branding for newly inserted listings (no nightly icon drip).
+		// Best-effort and bounded: a handful of IPOs/day is typical; failures leave
+		// icon_checked_at null for a later watchlist-add or reconcile retry.
+		const insertedSymbols = newTickers
+			.map((t) => t.symbol)
+			.filter((symbol) => !failedInsertSymbols.has(symbol));
+		for (const batch of chunksOf(insertedSymbols, 10)) {
+			await Promise.all(
+				batch.map(async (symbol) => {
+					try {
+						await ensureAssetIconChecked({ supabase, logger, symbol });
+					} catch (error) {
+						logger.warn(
+							"New-listing icon probe failed",
+							{ action: "universe_reconcile", step: "icon_check", symbol },
+							error,
+						);
+					}
+				}),
+			);
 		}
 
 		const namesToRefresh = storedRows.flatMap((row) => {
