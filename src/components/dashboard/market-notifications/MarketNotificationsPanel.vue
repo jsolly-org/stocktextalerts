@@ -200,7 +200,6 @@
 							>
 								<span class="min-w-0 flex-1 truncate text-sm font-medium text-heading">{{ asset.symbol }}</span>
 								<div class="flex shrink-0 items-center gap-1">
-									<span v-if="thresholdUnitFor(asset.symbol) === 'dollar'" class="text-sm text-muted">$</span>
 									<input
 										type="number"
 										inputmode="decimal"
@@ -215,7 +214,6 @@
 										@change="handleThresholdValueChange(asset.symbol, $event)"
 										@keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
 									/>
-									<span v-if="thresholdUnitFor(asset.symbol) === 'percent'" class="text-sm text-muted">%</span>
 									<div class="inline-flex overflow-hidden rounded-md border border-edge">
 										<button
 											type="button"
