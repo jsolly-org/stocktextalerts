@@ -269,19 +269,24 @@ async function listAllTickers(): Promise<ListedTicker[]> {
 async function fetchTickerDetails(
 	symbol: string,
 ): Promise<{ ok: boolean; icon_url: string | null }> {
+	// optional: listed tickers occasionally 404 on the details route (Massive
+	// list/detail lag). That is a definitive "no branding" for seed purposes,
+	// not a hard failure — aborting the whole snapshot on one miss is worse.
 	const data = await marketDataFetch(
 		`/v3/reference/tickers/${encodeURIComponent(symbol)}`,
 		{},
 		"ticker-details",
+		undefined,
+		{ optional: true },
 	);
 
 	if (typeof data !== "object" || data === null) {
-		return { ok: false, icon_url: null };
+		return { ok: true, icon_url: null };
 	}
 
 	const results = (data as Record<string, unknown>).results;
 	if (typeof results !== "object" || results === null) {
-		return { ok: false, icon_url: null };
+		return { ok: true, icon_url: null };
 	}
 
 	const rec = results as Record<string, unknown>;
