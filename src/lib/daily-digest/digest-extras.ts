@@ -7,25 +7,25 @@ import { isOptionalVendorUnavailable, withOptionalVendorBudget } from "../vendor
 
 const INTER_REQUEST_DELAY_MS = 100;
 
-/** Batch “extras” data fetched from Finnhub for a set of symbols. */
-interface FinnhubExtrasData {
+/** Batch digest extras fetched from Massive news and Finnhub enrichment. */
+interface DigestExtrasData {
 	news: Map<string, CompanyNewsItem[]>;
 	analyst: Map<string, RecommendationTrend | null>;
 	insider: Map<string, InsiderTransaction[]>;
-	/** True when analyst was requested and at least one symbol got an HTTP response (not retry exhaustion). */
+	/** True when analyst was requested and at least one symbol got an HTTP response. */
 	analystFetchSucceeded: boolean;
 }
 
-/** Fetch enabled Finnhub “extras” (news/analyst/insider) for a set of symbols. */
-export async function fetchFinnhubExtras(
+/** Fetch enabled provider extras for a set of symbols. */
+export async function fetchDigestExtras(
 	symbols: string[],
 	options: {
 		includeNews: boolean;
 		includeAnalyst: boolean;
 		includeInsider: boolean;
 	},
-): Promise<FinnhubExtrasData> {
-	const result: FinnhubExtrasData = {
+): Promise<DigestExtrasData> {
+	const result: DigestExtrasData = {
 		news: new Map(),
 		analyst: new Map(),
 		insider: new Map(),
@@ -35,7 +35,7 @@ export async function fetchFinnhubExtras(
 	if (symbols.length === 0) return result;
 	if (!options.includeNews && !options.includeAnalyst && !options.includeInsider) return result;
 
-	// Date range for company news: last 3 days
+	// Date range for Massive company news: last 3 days.
 	const now = new Date();
 	const to = now.toISOString().slice(0, 10);
 	const from = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -43,7 +43,7 @@ export async function fetchFinnhubExtras(
 	let analystHttpFailures = 0;
 	let newsBudgetRemainingMs = options.includeNews ? COMPANY_NEWS_USER_BUDGET_MS : 0;
 
-	// Fetch sequentially per symbol with small delays to stay within rate limits
+	// Fetch sequentially per symbol with small delays to keep provider fan-out bounded.
 	for (const symbol of symbols) {
 		const fetches: Promise<void>[] = [];
 
@@ -83,7 +83,7 @@ export async function fetchFinnhubExtras(
 			);
 		}
 
-		// Parallel fetches for the same symbol, sequential across symbols
+		// Finnhub analyst/insider requests for one symbol run together; symbols stay sequential.
 		if (fetches.length > 0) {
 			await Promise.all(fetches);
 		}

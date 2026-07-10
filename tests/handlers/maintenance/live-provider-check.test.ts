@@ -92,7 +92,7 @@ function stubHealthyProviders(): void {
 	vi.mocked(fetchActiveTickers).mockResolvedValue(buildPlausibleUniverse());
 	vi.mocked(fetchTickerDetail).mockResolvedValue({
 		ok: true,
-		iconUrl: "https://static2.finnhub.io/file/publicdatany/finnhubimage/stock_logo/AAPL.png",
+		iconUrl: "https://api.massive.com/v1/reference/company-branding/AAPL/images/icon.png",
 	});
 	vi.mocked(checkTelegramLive).mockResolvedValue({
 		ok: true,
@@ -129,7 +129,7 @@ describe("live-provider-check Lambda", () => {
 		await expect(handler(event, context)).rejects.toThrow(/massive:prev-close/);
 	});
 
-	it("A full Finnhub quote outage (null/zero prices, right map size) still fails the check", async () => {
+	it("A full Massive snapshot outage (null/zero prices, right map size) still fails the check", async () => {
 		// The fetcher pre-seeds every symbol to null, so `size === 2` would pass on a total
 		// outage — the strengthened per-symbol finite-positive-price assertion must catch it.
 		vi.mocked(fetchAssetPricesWithSessionState).mockResolvedValue({
@@ -140,13 +140,13 @@ describe("live-provider-check Lambda", () => {
 			noSessionTrade: new Set(),
 		});
 		expectConsoleError(/Live provider checks failed/);
-		await expect(handler(event, context)).rejects.toThrow(/finnhub:asset-prices/);
+		await expect(handler(event, context)).rejects.toThrow(/massive:asset-prices/);
 	});
 
-	it("A pre-market Finnhub free-tier stale trade timestamp (NO_SESSION_TRADE) still passes", async () => {
-		// Post-deploy often lands outside regular hours. Free-tier `/quote` leaves `t` on
-		// yesterday's close for liquid names → NO_SESSION_TRADE. That proves the endpoint
-		// answered; only a true miss (null without the sentinel) should fail the deploy.
+	it("A pre-market noSessionTrade for liquid names fails the check (no Finnhub stale-t loophole)", async () => {
+		// Massive Starter returns current-session minute bars for SPY/AAPL in pre-market.
+		// Accepting noSessionTrade as a pass would reintroduce Finnhub free-tier's
+		// stale-timestamp loophole and green a broken snapshot feed.
 		vi.mocked(getCurrentMarketSession).mockResolvedValue("pre");
 		vi.mocked(fetchAssetPricesWithSessionState).mockResolvedValue({
 			prices: new Map([
@@ -155,7 +155,8 @@ describe("live-provider-check Lambda", () => {
 			]) as Awaited<ReturnType<typeof fetchAssetPricesWithSessionState>>["prices"],
 			noSessionTrade: new Set(["SPY", "AAPL"]),
 		});
-		await expect(handler(event, context)).resolves.toBeUndefined();
+		expectConsoleError(/Live provider checks failed/);
+		await expect(handler(event, context)).rejects.toThrow(/massive:asset-prices/);
 	});
 
 	it("A pre-market true quote miss (null without NO_SESSION_TRADE) still fails the check", async () => {
@@ -168,25 +169,37 @@ describe("live-provider-check Lambda", () => {
 			noSessionTrade: new Set(),
 		});
 		expectConsoleError(/Live provider checks failed/);
-		await expect(handler(event, context)).rejects.toThrow(/finnhub:asset-prices/);
+		await expect(handler(event, context)).rejects.toThrow(/massive:asset-prices/);
 	});
 
-	it("A truncated Finnhub stock-symbols listing (below the plausibility floor) fails the check", async () => {
+	it("A pre-market Massive snapshot with finite prices passes outside regular hours", async () => {
+		vi.mocked(getCurrentMarketSession).mockResolvedValue("pre");
+		vi.mocked(fetchAssetPricesWithSessionState).mockResolvedValue({
+			prices: new Map([
+				["SPY", { price: 512.34, changePercent: 0.12 }],
+				["AAPL", { price: 201.1, changePercent: -0.18 }],
+			]) as Awaited<ReturnType<typeof fetchAssetPricesWithSessionState>>["prices"],
+			noSessionTrade: new Set(),
+		});
+		await expect(handler(event, context)).resolves.toBeUndefined();
+	});
+
+	it("A truncated Massive active universe (below the plausibility floor) fails the check", async () => {
 		// A transport failure or truncated page yields far fewer than the ~11k real
-		// listings — the floor assertion must catch it before Sunday's reconcile does.
+		// listings — the floor assertion must catch it before the daily reconcile does.
 		vi.mocked(fetchActiveTickers).mockResolvedValue(
 			buildPlausibleUniverse(MIN_PLAUSIBLE_ACTIVE_UNIVERSE - 1),
 		);
 		expectConsoleError(/Live provider checks failed/);
-		await expect(handler(event, context)).rejects.toThrow(/finnhub:stock-symbols/);
+		await expect(handler(event, context)).rejects.toThrow(/massive:active-universe/);
 	});
 
-	it("A Finnhub company-profile entitlement break (no AAPL logo) fails the check", async () => {
+	it("A Massive ticker-branding entitlement break (no AAPL logo) fails the check", async () => {
 		// AAPL definitively has a logo, so ok-with-null means the entitlement or
 		// response shape broke — not "no logo for this symbol".
 		vi.mocked(fetchTickerDetail).mockResolvedValue({ ok: true, iconUrl: null });
 		expectConsoleError(/Live provider checks failed/);
-		await expect(handler(event, context)).rejects.toThrow(/finnhub:company-profile/);
+		await expect(handler(event, context)).rejects.toThrow(/massive:ticker-branding/);
 	});
 
 	it("A Finnhub earnings-feed outage fails the check and pages", async () => {

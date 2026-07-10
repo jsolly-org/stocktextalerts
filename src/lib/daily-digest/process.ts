@@ -31,7 +31,7 @@ import type { MarketClosureInfo } from "../time/types";
 import type { AssetPriceMap, MarketSession, UserRecord } from "../types";
 import { buildTopMoversData, resolveGrokEligibility, updateGrokSendCounter } from "./content-build";
 import { processDailyDigestEmailDelivery, processDailyDigestTelegramDelivery } from "./delivery";
-import { buildNewsContextForGrok, fetchFinnhubExtras } from "./finnhub-extras";
+import { buildNewsContextForGrok, fetchDigestExtras } from "./digest-extras";
 import type { GrokSectionResult } from "./grok-sections";
 import { generateNewsWithGrok, generateRumorsWithGrok } from "./grok-sections";
 import {
@@ -299,7 +299,7 @@ export async function processDailyDigestUser(options: {
 		const marketOpen = session === "regular";
 
 		/* =============
-		Fetch Finnhub/Massive news for Grok (email-only; skip when not opted in)
+		Fetch Massive news for Grok (email-only; skip when not opted in)
 		============= */
 		let newsContext: string | undefined;
 		const wantsNewsContext =
@@ -308,12 +308,12 @@ export async function processDailyDigestUser(options: {
 			isDailyNotificationFacetEnabled(user.prefs, "email", "news") &&
 			tickers.length > 0;
 		if (wantsNewsContext) {
-			const finnhubNews = await fetchFinnhubExtras(tickers, {
+			const digestExtras = await fetchDigestExtras(tickers, {
 				includeNews: true,
 				includeAnalyst: false,
 				includeInsider: false,
 			});
-			newsContext = buildNewsContextForGrok(finnhubNews.news) || undefined;
+			newsContext = buildNewsContextForGrok(digestExtras.news) || undefined;
 		}
 
 		// Grok news/rumors are email-only.
@@ -327,7 +327,7 @@ export async function processDailyDigestUser(options: {
 							tickers,
 							localDateIso: scheduledDate,
 							timezone: user.timezone,
-							finnhubNewsContext: newsContext || undefined,
+							providerNewsContext: newsContext || undefined,
 						})
 					: Promise.resolve(null),
 				isDailyNotificationFacetEnabled(user.prefs, "email", "rumors")

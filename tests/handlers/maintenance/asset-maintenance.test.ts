@@ -1,5 +1,5 @@
 /**
- * Orchestration tests for the daily asset-maintenance Lambda: the Sunday-only
+ * Orchestration tests for the daily asset-maintenance Lambda: the nightly
  * universe-reconcile cadence and the per-step remaining-time budget guards.
  *
  * Every step implementation (ingest, enrichment, reconcile, sweep, icon backfill)
@@ -56,7 +56,7 @@ import { createEmailSender } from "../../../src/lib/messaging/email/utils";
 import { runPredictionMarketDiscoveryDrip } from "../../../src/lib/prediction-markets/pipeline";
 import { enqueueAssetEventsIngestRetry } from "../../../src/lib/vendors/backfill/enqueue";
 
-/** Midnight-UTC schedule ticks on known weekdays (2026-07-05 is a Sunday). */
+/** Midnight-UTC schedule ticks on known weekdays. */
 const SUNDAY_UTC = new Date("2026-07-05T00:00:30Z");
 const WEDNESDAY_UTC = new Date("2026-07-08T00:00:30Z");
 
@@ -96,17 +96,17 @@ function stubHealthySteps(): void {
 		activeTickersFetched: 11234,
 		allActiveSymbols: 26890,
 		newListingsInserted: 18,
+		namesUpdated: 420,
 		insertChunksFailed: 0,
 		delistedCleared: 2,
 		untrackedDelistedFlagged: 5,
 		delistFlagSkippedShrunkActive: false,
 		warmupEnqueued: 18,
 		warmupEnqueueFailed: 0,
-		warmupSkippedCap: 0,
 		providerFetchFailed: false,
 	});
 	vi.mocked(runDelistingSweep).mockResolvedValue({
-		symbolsChecked: 15,
+		symbolsChecked: 30,
 		newlyDetectedDelistings: 1,
 		reprocessedDelistings: 0,
 		usersNotified: 1,
@@ -148,26 +148,25 @@ describe("asset-maintenance Lambda orchestration", () => {
 		infoSpy.mockRestore();
 	});
 
-	it("On a Sunday tick the weekly universe reconcile runs (before the sweep)", async () => {
+	it("On a Sunday tick the nightly universe reconcile runs before the sweep", async () => {
 		vi.setSystemTime(SUNDAY_UTC);
 
 		await handler(event, makeContext(AMPLE_REMAINING_MS));
 
 		expect(runUniverseReconcile).toHaveBeenCalledTimes(1);
 		expect(loggedMessages(infoSpy)).toContainEqual("Universe reconcile complete");
-		// Reconcile day never displaces the nightly steps.
 		expect(runPredictionMarketDiscoveryDrip).toHaveBeenCalledTimes(1);
 		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
 		expect(runIconBackfill).toHaveBeenCalledTimes(1);
 	});
 
-	it("On a Wednesday tick the reconcile is skipped, but the nightly drip, sweep and icon backfill still run", async () => {
+	it("On a Wednesday tick the reconcile and every other nightly step run", async () => {
 		vi.setSystemTime(WEDNESDAY_UTC);
 
 		await handler(event, makeContext(AMPLE_REMAINING_MS));
 
-		expect(runUniverseReconcile).not.toHaveBeenCalled();
-		expect(loggedMessages(infoSpy)).toContainEqual("Universe reconcile skipped — runs weekly");
+		expect(runUniverseReconcile).toHaveBeenCalledTimes(1);
+		expect(loggedMessages(infoSpy)).toContainEqual("Universe reconcile complete");
 		expect(runPredictionMarketDiscoveryDrip).toHaveBeenCalledTimes(1);
 		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
 		expect(runIconBackfill).toHaveBeenCalledTimes(1);

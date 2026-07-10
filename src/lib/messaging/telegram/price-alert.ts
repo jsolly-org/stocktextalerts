@@ -4,6 +4,7 @@ import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import type { EnrichedAlert } from "../../price-alerts/types";
 import type { ChannelDeliveryStats, IntradayCandle } from "../../types";
+import { buildDataRecencyText } from "../parts/data-recency";
 import { TELEGRAM_FOOTER } from "../parts/footer";
 import { renderPriceAlertHeadline } from "../parts/price-alert-sentences";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
@@ -41,6 +42,7 @@ export async function formatPriceAlertTelegram(
 	// "AAPL is up 2.5% today ($228.50)" — the same sentence the email produces.
 	const boldTicker = FormattedString.bold(`🚨 ${alert.symbol}`);
 	let msg = fmt`${boldTicker}\n${renderPriceAlertHeadline(alert.priceMove)}`;
+	msg = fmt`${msg}\n${buildDataRecencyText()}`;
 
 	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
 

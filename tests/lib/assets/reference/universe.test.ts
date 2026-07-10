@@ -1,48 +1,35 @@
 /**
- * Fetch-level tests for `fetchActiveTickers` — stubs `globalThis.fetch` (like
- * tests/lib/company-news/fetch.test.ts) so the Finnhub `/stock/symbol` parsing,
- * filtering, and failure semantics are exercised without network or vi.mock.
- * FINNHUB_API_KEY comes from the tests/setup.ts env baseline.
+ * Fetch-level tests for Massive's paginated active ticker universe. The global
+ * fetch stub exercises URL construction, type pagination, parsing, and failure
+ * semantics without live provider calls.
  */
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
+import { ACTIVE_TICKER_TYPES } from "../../../../src/lib/assets/reference/constants";
 import { fetchActiveTickers } from "../../../../src/lib/assets/reference/universe";
 import { VENDOR_FETCH_MAX_RETRIES } from "../../../../src/lib/vendors/constants";
-import { errorMessages, expectConsoleError } from "../../../setup";
+import { expectConsoleError } from "../../../setup";
 
-// Mock retry delays so transport-failure tests don't wait real seconds.
 vi.mock("node:timers/promises", () => ({
 	setTimeout: vi.fn().mockResolvedValue(undefined),
 }));
 
-/** Build a Finnhub /stock/symbol JSON response (Finnhub returns a bare array). */
-function finnhubResponse(body: unknown, status = 200): Response {
+function massiveResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
 		status,
 		headers: { "Content-Type": "application/json" },
 	});
 }
 
-/** One realistic Finnhub /stock/symbol row. */
-function symbolRow(overrides: {
-	symbol: string;
-	description: string;
-	type: string;
-	mic?: string;
-}): Record<string, unknown> {
+function tickerRow(ticker: string, name?: string): Record<string, unknown> {
 	return {
-		currency: "USD",
-		description: overrides.description,
-		displaySymbol: overrides.symbol,
-		figi: "BBG000000000",
-		mic: overrides.mic ?? "XNAS",
-		symbol: overrides.symbol,
-		type: overrides.type,
+		ticker,
+		...(name === undefined ? {} : { name }),
+		active: true,
+		market: "stocks",
 	};
 }
 
-// Real ETF marketing names routinely blow past our varchar(255) name column.
-const LONG_ETF_NAME =
-	"GLOBAL X FUNDS - GLOBAL X S&P 500 COVERED CALL AND GROWTH ETF OF BENEFICIAL INTEREST REPRESENTING AN UNDIVIDED PROPORTIONATE SHARE IN THE ASSETS AND LIABILITIES OF THE SERIES ISSUED UNDER THE SECOND AMENDED AND RESTATED DECLARATION OF TRUST DATED FEBRUARY 2018";
+const LONG_ETF_NAME = `Global X ${"Covered Call and Growth ".repeat(14)}ETF`;
 
 describe("fetchActiveTickers", () => {
 	let fetchSpy: MockInstance<typeof fetch>;
@@ -55,94 +42,113 @@ describe("fetchActiveTickers", () => {
 		fetchSpy.mockRestore();
 	});
 
-	it("A full US listing splits into the typed stock/etf subset while the superset keeps every active symbol", async () => {
+	it("paginates every Massive type, preserves proper-case names, and keeps all valid symbols in the safety superset", async () => {
 		expect(LONG_ETF_NAME.length).toBeGreaterThan(255);
-		fetchSpy.mockResolvedValue(
-			finnhubResponse([
-				symbolRow({ symbol: "AAPL", description: "APPLE INC", type: "Common Stock" }),
-				// Duplicate listing on another venue — deduped from the typed subset.
-				symbolRow({
-					symbol: "AAPL",
-					description: "APPLE INC",
-					type: "Common Stock",
-					mic: "BATS",
-				}),
-				symbolRow({
-					symbol: "TSM",
-					description: "TAIWAN SEMICONDUCTOR MANUFACTURING - ADR",
-					type: "ADR",
-				}),
-				symbolRow({ symbol: "O", description: "REALTY INCOME CORP", type: "REIT" }),
-				symbolRow({ symbol: "XYLG", description: LONG_ETF_NAME, type: "ETP" }),
-				// Dotted share class: superset-only.
-				symbolRow({
-					symbol: "BRK.B",
-					description: "BERKSHIRE HATHAWAY INC-CL B",
-					type: "Common Stock",
-				}),
-				// Unmapped security type: superset-only.
-				symbolRow({
-					symbol: "OXY+",
-					description: "OCCIDENTAL PETROLEUM CORP WARRANT",
-					type: "Warrant",
-				}),
-				// Empty description: superset-only.
-				symbolRow({ symbol: "NVAX2", description: "", type: "Common Stock" }),
-				// 11-char corporate-action symbol (over the varchar(10) column): superset-only.
-				symbolRow({
-					symbol: "CIONA251230",
-					description: "CION INVESTMENT CORP 7.5% NOTES",
-					type: "Common Stock",
-				}),
-			]),
-		);
+		fetchSpy.mockImplementation(async (input) => {
+			const url = new URL(String(input));
+			const type = url.searchParams.get("type");
+			const cursor = url.searchParams.get("cursor");
+
+			if (type === "CS" && cursor === null) {
+				return massiveResponse({
+					results: [tickerRow("aapl", "Apple Inc.")],
+					next_url:
+						"https://api.massive.com/v3/reference/tickers?type=CS&cursor=next-cs&apiKey=provider-key",
+				});
+			}
+			if (type === "CS" && cursor === "next-cs") {
+				return massiveResponse({
+					results: [
+						tickerRow("BRK.B", "Berkshire Hathaway Inc."),
+						tickerRow("NVAX2"),
+						tickerRow("CIONA251230", "CION Investment Corp Notes"),
+						tickerRow("BAD SYMBOL", "Malformed Symbol Corp"),
+					],
+				});
+			}
+			if (type === "ADRC") {
+				return massiveResponse({
+					results: [tickerRow("TSM", "Taiwan Semiconductor Manufacturing Co. Ltd.")],
+				});
+			}
+			if (type === "OS") {
+				return massiveResponse({
+					// Cross-type duplicate: first normalized occurrence wins.
+					results: [tickerRow("AAPL", "Apple Incorporated")],
+				});
+			}
+			if (type === "ETF") {
+				return massiveResponse({ results: [tickerRow("XYLG", LONG_ETF_NAME)] });
+			}
+			return massiveResponse({ results: [] });
+		});
 
 		const universe = await fetchActiveTickers();
 
-		const fetchedUrl = String(fetchSpy.mock.calls[0]?.[0]);
-		expect(fetchedUrl).toBe(
-			"https://finnhub.io/api/v1/stock/symbol?exchange=US&token=test-finnhub-key",
-		);
-
-		expect(universe.tickers.map((t) => t.symbol)).toEqual(["AAPL", "TSM", "O", "XYLG"]);
-		expect(universe.tickers.map((t) => t.type)).toEqual(["stock", "stock", "stock", "etf"]);
-		// Over-long vendor names are truncated to the varchar(255) column.
-		const etf = universe.tickers.find((t) => t.symbol === "XYLG");
-		expect(etf?.name).toBe(LONG_ETF_NAME.slice(0, 255));
-
-		// EVERY active symbol lands in the superset — including the rows the typed
-		// subset skipped — so delist-absence checks can't misread a type quirk.
+		expect(universe.tickers.map((ticker) => ticker.symbol)).toEqual(["AAPL", "TSM", "XYLG"]);
+		expect(universe.tickers.map((ticker) => ticker.type)).toEqual(["stock", "stock", "etf"]);
+		expect(universe.tickers[0]?.name).toBe("Apple Inc.");
+		expect(universe.tickers[2]?.name).toBe(LONG_ETF_NAME.slice(0, 255));
 		expect(universe.allActiveSymbols).toEqual(
-			new Set(["AAPL", "TSM", "O", "XYLG", "BRK.B", "OXY+", "NVAX2", "CIONA251230"]),
+			new Set(["AAPL", "BRK.B", "NVAX2", "CIONA251230", "BAD SYMBOL", "TSM", "XYLG"]),
+		);
+
+		const requestedTypes = fetchSpy.mock.calls.map(([input]) => {
+			const url = new URL(String(input));
+			expect(url.origin).toBe("https://api.massive.com");
+			expect(url.pathname).toBe("/v3/reference/tickers");
+			expect(url.searchParams.get("apiKey")).toBe("test-massive-key");
+			return url.searchParams.get("type");
+		});
+		expect(new Set(requestedTypes)).toEqual(
+			new Set(ACTIVE_TICKER_TYPES.map(({ apiType }) => apiType)),
 		);
 	});
 
-	it("A non-array payload (Finnhub error body) yields an empty universe and logs the shape drift at error", async () => {
-		fetchSpy.mockImplementation(async () =>
-			finnhubResponse({ error: "You don't have access to this resource." }),
-		);
-		expectConsoleError(/payload was not an array/);
-
-		const universe = await fetchActiveTickers();
-
-		expect(universe.tickers).toEqual([]);
-		expect(universe.allActiveSymbols.size).toBe(0);
-		expect(errorMessages()).toContainEqual(expect.stringContaining("payload was not an array"));
-	});
-
-	it("A Finnhub outage (HTTP 500 across all retries) yields an empty universe without the shape-drift log", async () => {
-		fetchSpy.mockImplementation(async () =>
-			finnhubResponse({ error: "Internal server error" }, 500),
-		);
-		// Retry exhaustion on a required vendor logs at error — expected here.
+	it("returns an empty universe when a type's first page fails completely", async () => {
 		expectConsoleError(/exhausted retries/);
+		fetchSpy.mockResolvedValue(massiveResponse({ status: "ERROR" }, 500));
 
 		const universe = await fetchActiveTickers();
 
 		expect(fetchSpy).toHaveBeenCalledTimes(VENDOR_FETCH_MAX_RETRIES);
 		expect(universe.tickers).toEqual([]);
 		expect(universe.allActiveSymbols.size).toBe(0);
-		// Transport failure is finnhubFetch returning null — NOT payload drift.
-		expect(errorMessages()).not.toContainEqual(expect.stringContaining("payload was not an array"));
+	});
+
+	it("throws when a later page fails so reconcile cannot consume a truncated universe", async () => {
+		expectConsoleError(/exhausted retries/);
+		fetchSpy
+			.mockResolvedValueOnce(
+				massiveResponse({
+					results: [tickerRow("AAPL", "Apple Inc.")],
+					next_url: "https://api.massive.com/v3/reference/tickers?type=CS&cursor=next-cs",
+				}),
+			)
+			.mockResolvedValue(massiveResponse({ status: "ERROR" }, 500));
+
+		await expect(fetchActiveTickers()).rejects.toThrow("no data mid-pagination");
+		expect(fetchSpy).toHaveBeenCalledTimes(1 + VENDOR_FETCH_MAX_RETRIES);
+	});
+
+	it("rejects an untrusted pagination URL", async () => {
+		fetchSpy.mockResolvedValue(
+			massiveResponse({
+				results: [tickerRow("AAPL", "Apple Inc.")],
+				next_url: "https://attacker.example/v3/reference/tickers?cursor=stolen",
+			}),
+		);
+
+		await expect(fetchActiveTickers()).rejects.toThrow("host must be api.massive.com");
+	});
+
+	it("returns an empty universe when a first-page results shape drifts", async () => {
+		expectConsoleError(/missing results/);
+		fetchSpy.mockResolvedValue(massiveResponse({ results: { ticker: "AAPL" } }));
+
+		const universe = await fetchActiveTickers();
+
+		expect(universe.tickers).toEqual([]);
+		expect(universe.allActiveSymbols.size).toBe(0);
 	});
 });

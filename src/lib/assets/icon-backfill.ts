@@ -4,10 +4,10 @@ import type { IconBackfillDeps, IconBackfillResult } from "./types";
 import { chunksOf } from "./universe-reconcile";
 
 /**
- * Nightly icon backfill: probe Finnhub `/stock/profile2` for symbols that have never
- * been checked (`icon_checked_at IS NULL`), capped per run.
+ * Nightly icon backfill: probe Massive ticker detail for symbols that have never been
+ * checked (`icon_checked_at IS NULL`), capped per run.
  *
- * Stamping `icon_checked_at` on EVERY definitive answer — including "Finnhub has no
+ * Stamping `icon_checked_at` on EVERY definitive answer — including "Massive has no
  * logo for this symbol" — is the fix for the enrichment treadmill: a logo-less symbol
  * is checked exactly once instead of re-qualifying every night and wedging the cap
  * window. Only transport failures leave a symbol unchecked (retried on a later run).

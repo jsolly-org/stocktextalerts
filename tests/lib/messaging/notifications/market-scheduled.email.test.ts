@@ -31,10 +31,12 @@ describe("Email scheduled update includes asset price data.", () => {
 		expect(text).toContain("+1.23%");
 		expect(text).toContain("$412.10");
 		expect(text).toContain("-0.31%");
+		expect(text).toContain("Prices delayed up to 15 minutes.");
 
 		// HTML includes prices
 		expect(html).toContain("$187.42");
 		expect(html).toContain("$412.10");
+		expect(html).toContain("Prices delayed up to 15 minutes.");
 
 		// Green for positive (green-800), red for negative (red-700) — WCAG contrast
 		expect(html).toContain("color: #166534;");
@@ -97,6 +99,28 @@ describe("Email scheduled update includes asset price data.", () => {
 		expect(html).toContain("price unavailable");
 		expect(html).not.toContain("$0.00");
 		expect(html).not.toContain("$412.10");
+	});
+
+	it("labels pre-market no-session-trade symbols in text and HTML", () => {
+		const priceMap: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+			["MSFT", null],
+		]);
+
+		const { text, html } = formatMarketScheduledEmail(
+			testUser,
+			testAssets,
+			priceMap,
+			"pre",
+			undefined,
+			undefined,
+			undefined,
+			new Set(["MSFT"]),
+		);
+
+		expect(text).toContain("no pre-market trades");
+		expect(html).toContain("no pre-market trades");
+		expect(text).not.toMatch(/MSFT[\s\S]*price unavailable/);
 	});
 
 	it("A scheduled-email recipient sees an inline AAPL logo while symbols without logos remain text-only.", () => {

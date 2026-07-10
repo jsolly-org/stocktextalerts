@@ -2,28 +2,14 @@ import { setTimeout as realDelay } from "node:timers/promises";
 import { requireEnv } from "../db/env";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
-import { createSlidingWindowLimiter } from "../rate-limit";
 import { isRecord } from "../types";
 import {
 	VENDOR_FETCH_MAX_RETRIES as DEFAULT_MAX_RETRIES,
 	VENDOR_FETCH_REQUEST_TIMEOUT_MS as DEFAULT_REQUEST_TIMEOUT_MS,
 	MASSIVE_BASE_URL,
-	MASSIVE_LIMITER_WAIT_WARN_MS,
-	MASSIVE_MAX_CALLS_PER_MINUTE,
 	VENDOR_FETCH_RETRY_DELAY_MS as RETRY_DELAY_MS,
 } from "./constants";
 import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "./optional-vendors";
-
-/**
- * Shared across every Massive call site so the free tier's 5/min ceiling is enforced
- * proactively at the single choke point instead of tuned per job. Acquired before each
- * HTTP attempt. Callers must budget accordingly: at ~12s/call, a Lambda's total Massive
- * call count is bounded by its timeout (see AssetMaintenance's per-job caps).
- */
-const massiveLimiter = createSlidingWindowLimiter({
-	maxPerWindow: MASSIVE_MAX_CALLS_PER_MINUTE,
-	windowMs: 60_000,
-});
 
 function getMassiveApiKey(): string {
 	return requireEnv("MASSIVE_API_KEY");
@@ -87,22 +73,6 @@ export async function marketDataFetch(
 	// aws/template.yaml for the alarm split.
 	for (let attempt = 1; attempt <= maxRetries; attempt++) {
 		const isLastAttempt = attempt === maxRetries;
-
-		// Each HTTP attempt (including retries) consumes API budget, so gate here.
-		// The acquire wait is otherwise SILENT — time it and warn past the threshold,
-		// or a caller burning the whole Lambda budget in limiter waits presents as an
-		// opaque timeout with a clean log tail (the 2026-07-07 incident shape).
-		const acquireStart = performance.now();
-		await massiveLimiter.acquire();
-		const acquireWaitMs = Math.round(performance.now() - acquireStart);
-		if (acquireWaitMs >= MASSIVE_LIMITER_WAIT_WARN_MS) {
-			rootLogger.warn(`Massive ${label} rate-limiter wait exceeded threshold`, {
-				endpoint,
-				attempt,
-				acquireWaitMs,
-				...logContext,
-			});
-		}
 
 		try {
 			const response = await fetch(url, {

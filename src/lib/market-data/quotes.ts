@@ -1,168 +1,284 @@
 import { DateTime } from "luxon";
-import { US_MARKET_TIMEZONE } from "../constants";
+import {
+	US_AFTER_HOURS_CLOSE_EASTERN_MINUTES,
+	US_MARKET_CLOSE_EASTERN_MINUTES,
+	US_MARKET_OPEN_EASTERN_MINUTES,
+	US_MARKET_TIMEZONE,
+	US_PREMARKET_OPEN_EASTERN_MINUTES,
+} from "../constants";
 import { rootLogger } from "../logging";
+import { createErrorForLogging } from "../logging/errors";
 import type { ExtendedAssetQuote, MarketSession, NoSessionTrade } from "../types";
 import { isRecord, NO_SESSION_TRADE } from "../types";
-import { type FinnhubFailure, finnhubFetch } from "../vendors/finnhub";
+import { marketDataFetch } from "../vendors/massive";
 
-const QUOTE_FETCH_CONCURRENCY = 5;
-
-/** Finnhub `/quote` payload: current, change, change%, high, low, open, prev-close, unix-seconds. */
-interface FinnhubQuote {
-	c?: number;
-	d?: number;
-	dp?: number;
-	h?: number;
-	l?: number;
-	o?: number;
-	pc?: number;
-	t?: number;
+interface SnapshotTicker {
+	ticker: string;
+	updated?: number;
+	day?: {
+		o?: number;
+		h?: number;
+		l?: number;
+		c?: number;
+		v?: number;
+	};
+	min?: {
+		c?: number;
+		/** Milliseconds since epoch for the minute bar. */
+		t?: number;
+	};
+	prevDay?: {
+		c?: number;
+	};
 }
+
+const SNAPSHOT_QUOTES_MAX_TICKERS_PER_REQUEST = 250;
+const SNAPSHOT_QUOTES_LARGE_BATCH_TIMEOUT_MS = 35_000;
+const SNAPSHOT_QUOTES_CHUNK_CONCURRENCY = 2;
 
 function positiveOrNull(value: unknown): number | null {
 	return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
 }
 
-/**
- * Map a Finnhub `/quote` payload to an `ExtendedAssetQuote`, the `NO_SESSION_TRADE` sentinel,
- * or `null`.
- *
- * - `null` — unknown symbol (Finnhub returns `c: 0, t: 0`) or no price anchor for a %change.
- * - `NO_SESSION_TRADE` — an ACTIVE session whose last trade is dated before today (ET): the
- *   symbol hasn't printed this session (illiquid pre/after-hours). A `closed` market never
- *   yields the sentinel — the quote is the freshest close available.
- *
- * KNOWN RISK (confirmed 2026-07-09): Finnhub free-tier `/quote` often leaves `t` on yesterday's
- * regular close for liquid names in pre/after hours → `NO_SESSION_TRADE` (and after-hours may
- * show the locked 4pm close). Product copy handles that; the live-provider-check accepts the
- * sentinel outside regular hours so post-deploy smokes don't false-red on free-tier staleness.
- */
-function parseFinnhubQuote(
-	payload: unknown,
-	session: MarketSession,
-): ExtendedAssetQuote | NoSessionTrade | null {
-	if (!isRecord(payload)) return null;
-	const quote = payload as FinnhubQuote;
+function volumeOrNull(value: unknown): number | null {
+	return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+}
 
-	const price = positiveOrNull(quote.c);
-	if (price === null) return null;
+function snapshotTimestampSeconds(value: unknown): number | null {
+	return typeof value === "number" && Number.isFinite(value) && value > 0
+		? Math.floor(value / 1_000_000_000)
+		: null;
+}
 
-	const lastTradeSeconds =
-		typeof quote.t === "number" && Number.isFinite(quote.t) && quote.t > 0 ? quote.t : null;
-
-	// A priced quote with no usable trade timestamp skips the staleness check and is returned
-	// live (with a null timestamp) — better than fabricating a "no session trade" from a
-	// missing `t`.
-	if (session !== "closed" && lastTradeSeconds !== null) {
-		const tradeDate = DateTime.fromSeconds(lastTradeSeconds)
-			.setZone(US_MARKET_TIMEZONE)
-			.toISODate();
-		const todayEt = DateTime.now().setZone(US_MARKET_TIMEZONE).toISODate();
-		if (tradeDate !== null && todayEt !== null && tradeDate < todayEt) {
-			return NO_SESSION_TRADE;
-		}
+function isMinuteBarInCurrentSession(
+	minTimestamp: unknown,
+	session: "pre" | "regular" | "after",
+): boolean {
+	if (typeof minTimestamp !== "number" || !Number.isFinite(minTimestamp) || minTimestamp <= 0) {
+		return false;
 	}
 
-	const prevClose = positiveOrNull(quote.pc);
-	let changePercent: number;
-	if (prevClose !== null) {
-		// Derive from the displayed price + prior close rather than trusting `dp`, which can
-		// disagree with `c`/`pc` on Finnhub (mirrors the prior Massive derivation).
-		changePercent = ((price - prevClose) / prevClose) * 100;
-	} else if (typeof quote.dp === "number" && Number.isFinite(quote.dp)) {
-		changePercent = quote.dp;
-	} else {
+	const tradeTimeEt = DateTime.fromMillis(minTimestamp).setZone(US_MARKET_TIMEZONE);
+	const nowEt = DateTime.now().setZone(US_MARKET_TIMEZONE);
+	if (!tradeTimeEt.isValid || !nowEt.isValid || tradeTimeEt.toISODate() !== nowEt.toISODate()) {
+		return false;
+	}
+
+	const minuteOfDay = tradeTimeEt.hour * 60 + tradeTimeEt.minute;
+	switch (session) {
+		case "pre":
+			return (
+				minuteOfDay >= US_PREMARKET_OPEN_EASTERN_MINUTES &&
+				minuteOfDay < US_MARKET_OPEN_EASTERN_MINUTES
+			);
+		case "regular":
+			return (
+				minuteOfDay >= US_MARKET_OPEN_EASTERN_MINUTES &&
+				minuteOfDay < US_MARKET_CLOSE_EASTERN_MINUTES
+			);
+		case "after":
+			return (
+				minuteOfDay >= US_MARKET_CLOSE_EASTERN_MINUTES &&
+				minuteOfDay < US_AFTER_HOURS_CLOSE_EASTERN_MINUTES
+			);
+	}
+}
+
+function parseSnapshotTicker(
+	ticker: SnapshotTicker,
+	session: MarketSession,
+): ExtendedAssetQuote | NoSessionTrade | null {
+	const dayPrice = positiveOrNull(ticker.day?.c);
+	const minutePrice = positiveOrNull(ticker.min?.c);
+	let price: number | null;
+
+	switch (session) {
+		case "pre":
+			price = isMinuteBarInCurrentSession(ticker.min?.t, "pre") ? minutePrice : null;
+			break;
+		case "after":
+			price = isMinuteBarInCurrentSession(ticker.min?.t, "after") ? minutePrice : dayPrice;
+			break;
+		case "regular":
+			// Starter quotes can lag ~15m: right after the open, day.c is often empty while
+			// min is still a pre-market bar. Only accept min.c when min.t is in regular hours.
+			price =
+				dayPrice ?? (isMinuteBarInCurrentSession(ticker.min?.t, "regular") ? minutePrice : null);
+			break;
+		case "closed":
+			price = dayPrice;
+			break;
+	}
+
+	if (price === null) {
+		return NO_SESSION_TRADE;
+	}
+
+	const prevClose = positiveOrNull(ticker.prevDay?.c);
+	if (prevClose === null) {
+		return null;
+	}
+	const changePercent = ((price - prevClose) / prevClose) * 100;
+	if (!Number.isFinite(changePercent)) {
 		return null;
 	}
 
 	return {
 		price,
 		changePercent,
-		dayHigh: positiveOrNull(quote.h),
-		dayLow: positiveOrNull(quote.l),
-		dayOpen: positiveOrNull(quote.o),
+		dayHigh: positiveOrNull(ticker.day?.h),
+		dayLow: positiveOrNull(ticker.day?.l),
+		dayOpen: positiveOrNull(ticker.day?.o),
 		prevClose,
-		timestamp: lastTradeSeconds,
-		volume: null, // Finnhub `/quote` carries no volume.
+		timestamp: snapshotTimestampSeconds(ticker.updated),
+		volume: volumeOrNull(ticker.day?.v),
 	};
 }
 
+function chunkSymbols(symbols: string[], chunkSize: number): string[][] {
+	const chunks: string[][] = [];
+	for (let index = 0; index < symbols.length; index += chunkSize) {
+		chunks.push(symbols.slice(index, index + chunkSize));
+	}
+	return chunks;
+}
+
+async function fetchSnapshotQuotesChunk(options: {
+	symbols: string[];
+	session: MarketSession;
+	chunkIndex: number;
+	chunkCount: number;
+	totalTickerCount: number;
+}): Promise<Map<string, ExtendedAssetQuote | NoSessionTrade | null>> {
+	const { symbols, session, chunkIndex, chunkCount, totalTickerCount } = options;
+	const chunkResult = new Map<string, ExtendedAssetQuote | NoSessionTrade | null>();
+	for (const symbol of symbols) {
+		chunkResult.set(symbol, null);
+	}
+
+	const policy =
+		symbols.length >= SNAPSHOT_QUOTES_MAX_TICKERS_PER_REQUEST
+			? { requestTimeoutMs: SNAPSHOT_QUOTES_LARGE_BATCH_TIMEOUT_MS }
+			: undefined;
+	const data = await marketDataFetch(
+		"/v2/snapshot/locale/us/markets/stocks/tickers",
+		{ tickers: symbols.join(",") },
+		"snapshot-quotes",
+		{ tickerCount: totalTickerCount, chunkIndex, chunkCount },
+		policy,
+	);
+	if (!isRecord(data) || !Array.isArray(data.tickers)) {
+		rootLogger.error("Snapshot quote chunk returned unexpected payload shape", {
+			chunkIndex,
+			chunkCount,
+			tickerCount: symbols.length,
+			hasRecord: isRecord(data),
+			tickersType: isRecord(data) ? typeof data.tickers : "n/a",
+		});
+		return chunkResult;
+	}
+
+	for (const rawTicker of data.tickers) {
+		if (!isRecord(rawTicker) || typeof rawTicker.ticker !== "string") {
+			continue;
+		}
+		if (!chunkResult.has(rawTicker.ticker)) {
+			continue;
+		}
+		chunkResult.set(
+			rawTicker.ticker,
+			parseSnapshotTicker(rawTicker as unknown as SnapshotTicker, session),
+		);
+	}
+	return chunkResult;
+}
+
 /**
- * Fetch live quotes for `symbols` from Finnhub `/quote` — one request per symbol, each gated
- * by the shared per-process Finnhub budget inside `finnhubFetch`. The returned map always
- * contains every requested symbol: a quote, the `NO_SESSION_TRADE` sentinel, or `null` (fetch
- * failed / unknown symbol / no price anchor). Per-symbol failure never affects the others.
- *
- * SCALING CEILING: one call per symbol against the ~55/min Finnhub budget means the watched
- * universe must stay under ~55 unique symbols per scheduler tick. Fine for this private
- * two-user app (~15–40 symbols; a tick's calls finish in ~1s so the window rolls clean before
- * the next `rate(1 minute)` tick). Past ~55 the limiter queues calls into the next minute and
- * alerts lag — revisit (batch source / dedicated budget / paid tier) before the universe grows.
- * The scheduler Lambda's duration metric + 300s timeout are the backstop if it's ever breached.
+ * Fetch Massive batch snapshots. Every requested symbol is pre-seeded in the result:
+ * `null` means the fetch missed it, while `NO_SESSION_TRADE` means Massive recognized it
+ * but there is no price attributable to the requested session.
  */
-export async function fetchLiveQuotes(
+export async function fetchSnapshotQuotes(
 	symbols: string[],
 	session: MarketSession,
 ): Promise<Map<string, ExtendedAssetQuote | NoSessionTrade | null>> {
 	const result = new Map<string, ExtendedAssetQuote | NoSessionTrade | null>();
 	if (symbols.length === 0) return result;
-	for (const symbol of symbols) result.set(symbol, null);
 
-	const queue = [...symbols];
-	// Terminal failure per failed symbol (reason + HTTP status). finnhubFetch fires
-	// `onTerminalFailure` exactly when it returns null — a per-symbol fetch/outage, distinct from a
-	// successful fetch that parses to null for an unknown symbol (`c: 0`) — so `failures.length` IS
-	// the fetch-failure count, and it also carries the WHY (rate-limit 429, expected on the free
-	// tier, vs a real upstream outage 5xx/timeout) for the all-symbols log below. Single-threaded
-	// workers push between awaits, so no race.
-	const failures: FinnhubFailure[] = [];
+	for (const symbol of symbols) {
+		result.set(symbol, null);
+	}
+
+	const chunks = chunkSymbols(symbols, SNAPSHOT_QUOTES_MAX_TICKERS_PER_REQUEST);
+	const queue = chunks.map((chunk, index) => ({ chunk, chunkIndex: index + 1 }));
 	async function worker(): Promise<void> {
 		for (;;) {
-			const symbol = queue.shift();
-			if (symbol === undefined) break;
-			// Optional: a single symbol exhausting retries logs at warn, not error — routine on
-			// Finnhub's free tier and not worth paging the ErrorLogAlarm every minute.
-			const payload = await finnhubFetch("/quote", { symbol }, "quote", {
-				optional: true,
-				onTerminalFailure: (failure) => failures.push(failure),
-			});
-			result.set(symbol, parseFinnhubQuote(payload, session));
+			const next = queue.shift();
+			if (next === undefined) break;
+			try {
+				const chunkResult = await fetchSnapshotQuotesChunk({
+					symbols: next.chunk,
+					session,
+					chunkIndex: next.chunkIndex,
+					chunkCount: chunks.length,
+					totalTickerCount: symbols.length,
+				});
+				for (const [symbol, entry] of chunkResult) {
+					result.set(symbol, entry);
+				}
+			} catch (error) {
+				rootLogger.error(
+					"Snapshot quote chunk failed",
+					{
+						chunkIndex: next.chunkIndex,
+						chunkCount: chunks.length,
+						tickerCount: next.chunk.length,
+					},
+					createErrorForLogging(error),
+				);
+			}
 		}
 	}
 
 	const workers: Promise<void>[] = [];
-	for (let i = 0; i < Math.min(QUOTE_FETCH_CONCURRENCY, symbols.length); i++) {
+	for (let index = 0; index < Math.min(SNAPSHOT_QUOTES_CHUNK_CONCURRENCY, queue.length); index++) {
 		workers.push(worker());
 	}
 	await Promise.all(workers);
-
-	// Every symbol's fetch failed → a real live-quote outage (not per-symbol flakiness, and not
-	// merely unknown symbols) — page once. This is the "alerting is blind this tick" signal:
-	// per-symbol failures are now warn-level, and the scheduler's own blind-tick page fires only
-	// when the capture throws, which a null-returning outage does not.
-	if (failures.length === symbols.length) {
-		rootLogger.error("Finnhub /quote failed for every symbol — live quotes unavailable", {
-			action: "fetch_live_quotes",
-			symbolCount: symbols.length,
-			// e.g. { rate_limited: 12 } (free-tier throttle) vs { "api_error:503": 12 } (upstream
-			// outage) — the breakdown is what makes rate-limit vs outage provable from CloudWatch.
-			failureBreakdown: summarizeFailures(failures),
-		});
-	}
-
 	return result;
 }
 
-/**
- * Count terminal failures by reason, folding the HTTP status into the key for `api_error`
- * (`api_error:503`) so an all-symbols outage's cause is legible at a glance. `rate_limited` is
- * always 429 and `timeout`/`request_failed` carry no status, so those stay bare-reason keys.
- */
-function summarizeFailures(failures: FinnhubFailure[]): Record<string, number> {
-	const breakdown: Record<string, number> = {};
-	for (const failure of failures) {
-		const key = failure.reason === "api_error" ? `api_error:${failure.status}` : failure.reason;
-		breakdown[key] = (breakdown[key] ?? 0) + 1;
+/** Fetch the latest completed daily bar for closed-session snapshot misses. */
+export async function fetchPrevDayBar(symbol: string): Promise<ExtendedAssetQuote | null> {
+	const data = await marketDataFetch(
+		`/v2/aggs/ticker/${encodeURIComponent(symbol)}/prev`,
+		{ adjusted: "true" },
+		"prev-day-bar",
+	);
+	if (!isRecord(data) || !Array.isArray(data.results) || data.results.length === 0) {
+		return null;
 	}
-	return breakdown;
+	const row = data.results[0];
+	if (!isRecord(row)) {
+		return null;
+	}
+
+	const close = positiveOrNull(row.c);
+	if (close === null) {
+		return null;
+	}
+	const timestamp =
+		typeof row.t === "number" && Number.isFinite(row.t) && row.t > 0
+			? Math.floor(row.t / 1000)
+			: null;
+	return {
+		price: close,
+		changePercent: 0,
+		dayHigh: positiveOrNull(row.h),
+		dayLow: positiveOrNull(row.l),
+		dayOpen: positiveOrNull(row.o),
+		prevClose: null,
+		timestamp,
+		volume: volumeOrNull(row.v),
+	};
 }

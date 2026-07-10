@@ -1,7 +1,7 @@
 /**
- * SQS consumer for deferred vendor API work. Retries failed Massive/Finnhub
- * operations enqueued by other Lambdas or the web tier — asset-events ingest,
- * daily-close cache backfill, price-history store, and new-symbol warmup.
+ * SQS consumer for deferred vendor API work. Retries failed provider operations
+ * enqueued by other Lambdas or the web tier — Massive/Finnhub asset-events ingest,
+ * Massive daily-close and reference warmups, and price-history persistence.
  * Reports partial batch failures for SQS redrive.
  */
 import type { Context, SQSBatchResponse, SQSEvent } from "aws-lambda";

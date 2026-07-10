@@ -5,6 +5,7 @@ import { NO_SESSION_TRADE } from "../../types";
 import { formatAssetsHtmlList } from "../email/asset-price-list";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
 import { formatAssetsTextList } from "../parts/asset-price-list";
+import { buildDataRecencyHtml, buildDataRecencyText } from "../parts/data-recency";
 import { TELEGRAM_FOOTER } from "../parts/footer";
 import {
 	buildMarketClosedBannerEmailHtml,
@@ -76,6 +77,7 @@ export function formatMarketScheduledEmail(
 	}
 
 	const delayText = delayBanners?.text ? `\n${delayBanners.text}\n` : "";
+	const dataRecencyText = buildDataRecencyText();
 	const marketDisclaimer = marketOpen
 		? ""
 		: `\n${buildMarketClosedBannerEmailText(marketClosureInfo ?? null)}\n`;
@@ -108,7 +110,7 @@ export function formatMarketScheduledEmail(
 		true,
 		marketOpen ? marketSession : undefined,
 	);
-	const text = `${sessionFirstLineText}Your tracked assets:\n${delayText}${marketDisclaimer}${assetsList}${textFooter}`;
+	const text = `${sessionFirstLineText}Your tracked assets:\n${delayText}${dataRecencyText}\n${marketDisclaimer}${assetsList}${textFooter}`;
 	const escapedAssetsListHtml = formatAssetsHtmlList(userAssets, getPrice, {
 		getSparkline,
 		getLogoHtml,
@@ -132,6 +134,7 @@ export function formatMarketScheduledEmail(
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
 		${sessionFirstLineHtml}
 		${delayBanners?.html || ""}
+		${buildDataRecencyHtml()}
 		${marketClosedBannerHtml}
 		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Your Scheduled Price Notification</h2>
 		<div style="background: #f9fafb; padding: 20px; border-radius: 6px; margin-bottom: 30px; color: #1f2937; font-size: 14px;">
@@ -161,6 +164,7 @@ interface MarketScheduledTelegramOptions {
 	};
 	delayBanner?: string | null;
 	marketClosureInfo?: MarketClosureInfo | null;
+	noSessionTrade?: Set<string>;
 }
 
 /** Render a scheduled multi-asset price snapshot as a Telegram message. The Telegram
@@ -183,6 +187,7 @@ export function formatMarketScheduledTelegram(
 	if (opts.delayBanner) {
 		msg = fmt`${msg}\n${opts.delayBanner}`;
 	}
+	msg = fmt`${msg}\n${buildDataRecencyText()}`;
 	if (marketClosedBanner) {
 		msg = fmt`${msg}\n${marketClosedBanner}`;
 	}
@@ -191,6 +196,8 @@ export function formatMarketScheduledTelegram(
 		msg,
 		userAssets: opts.userAssets,
 		assetPrices: opts.assetPrices,
+		noSessionTrade: opts.noSessionTrade,
+		marketSession: opts.marketSession,
 	});
 
 	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
