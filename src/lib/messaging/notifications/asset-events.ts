@@ -8,6 +8,7 @@ import {
 	buildMarketClosedBannerEmailText,
 	buildMarketClosedBannerTelegram,
 } from "../parts/market-closure";
+import { boldTickerPrefixesTelegram } from "../parts/ticker-prefix";
 
 /** Build the email payload (subject/text/html) for an asset-events digest. */
 export function formatAssetEventsEmail(options: {
@@ -150,22 +151,22 @@ export function formatAssetEventsTelegram(opts: {
 	}
 
 	if (opts.earningsSection) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("📅 Earnings")}\n${opts.earningsSection}`;
+		msg = fmt`${msg}\n\n${FormattedString.bold("📅 Earnings")}\n${boldTickerPrefixesTelegram(opts.earningsSection)}`;
 	}
 	if (opts.dividendsSection) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("💰 Ex-Dividend")}\n${opts.dividendsSection}`;
+		msg = fmt`${msg}\n\n${FormattedString.bold("💰 Ex-Dividend")}\n${boldTickerPrefixesTelegram(opts.dividendsSection)}`;
 	}
 	if (opts.splitsSection) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("✂️ Splits")}\n${opts.splitsSection}`;
+		msg = fmt`${msg}\n\n${FormattedString.bold("✂️ Splits")}\n${boldTickerPrefixesTelegram(opts.splitsSection)}`;
 	}
 	if (opts.iposSection) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("🆕 Upcoming IPOs")}\n${opts.iposSection}`;
+		msg = fmt`${msg}\n\n${FormattedString.bold("🆕 Upcoming IPOs")}\n${boldTickerPrefixesTelegram(opts.iposSection)}`;
 	}
 	if (opts.insiderSection) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("🏦 Insider Trades")}\n${opts.insiderSection}`;
+		msg = fmt`${msg}\n\n${FormattedString.bold("🏦 Insider Trades")}\n${boldTickerPrefixesTelegram(opts.insiderSection)}`;
 	}
 	if (opts.analystSection) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("📊 Analyst Consensus (published monthly on the 1st)")}\n${opts.analystSection}`;
+		msg = fmt`${msg}\n\n${FormattedString.bold("📊 Analyst Consensus (published monthly on the 1st)")}\n${boldTickerPrefixesTelegram(opts.analystSection)}`;
 	}
 	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
 	return msg;
