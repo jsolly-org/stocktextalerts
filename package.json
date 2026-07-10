@@ -57,7 +57,8 @@
 		"db:fill-icons": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/fill-asset-icons.ts",
 		"db:generate-seed": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/generate-seed.ts",
 		"telegram:set-webhook": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/telegram-set-webhook.ts",
-		"telegram:set-commands": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/telegram-set-commands.ts"
+		"telegram:set-commands": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/telegram-set-commands.ts",
+		"janitor": "node ./node_modules/.bin/tsx scripts/janitor/run.ts"
 	},
 	"lint-staged": {
 		"**/*.{ts,tsx,json,css,astro,html,vue}": [
