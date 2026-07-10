@@ -1,0 +1,96 @@
+name: Janitor
+
+# Scheduled maintainer pass — drains authorized open PRs/issues in this repo
+# the same way `/janitor once` does locally. Provider-swappable: default is
+# Cursor CLI; set JANITOR_PROVIDER (+ matching API key secret) to anthropic or
+# openai. See scripts/janitor/.
+
+on:
+  schedule:
+    # Noon + 5pm Eastern. GitHub cron is UTC-only and does not observe DST:
+    # these map to 12:00/17:00 America/New_York during EDT (UTC-4). In EST
+    # (UTC-5) they fire one hour later wall-clock (1pm / 6pm). Acceptable.
+    - cron: "0 16,21 * * *"
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: Agent provider
+        type: choice
+        options:
+          - cursor
+          - anthropic
+          - openai
+        default: cursor
+      model:
+        description: Optional model override (provider-specific id; leave empty for default)
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: read
+  actions: write
+
+concurrency:
+  group: janitor
+  cancel-in-progress: false
+
+jobs:
+  janitor:
+    name: janitor
+    # ARM: cheapest tier; the agent CLI is arch-neutral. Long wall-clock is the
+    # agent pass itself, not compile/test fan-out.
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so the agent can update-branch / merge-tree cleanly.
+          fetch-depth: 0
+          # Prefer a PAT so pushes from the agent re-trigger CI (GITHUB_TOKEN
+          # pushes are ignored by Actions to prevent recursion). Fine-grained
+          # PAT: Contents + PRs + Issues + Actions (write) + Metadata on this
+          # repo (Actions needed for `gh run rerun`). Use a non-admin token —
+          # enforce_admins is off, so an admin PAT can bypass required checks.
+          token: ${{ secrets.JANITOR_GITHUB_TOKEN || github.token }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git identity
+        run: |
+          git config user.name "stocktextalerts-janitor"
+          git config user.email "janitor@users.noreply.github.com"
+
+      - name: Run janitor
+        env:
+          # Provider selection: workflow_dispatch input wins; schedule → cursor.
+          JANITOR_PROVIDER: ${{ inputs.provider || 'cursor' }}
+          JANITOR_MODEL: ${{ inputs.model || '' }}
+          JANITOR_TIMEOUT_SECONDS: "2700"
+          # Prefer a PAT so agent pushes re-trigger CI (GITHUB_TOKEN pushes are
+          # ignored by Actions). Set repo secret JANITOR_GITHUB_TOKEN.
+          GH_TOKEN: ${{ secrets.JANITOR_GITHUB_TOKEN || github.token }}
+          GITHUB_TOKEN: ${{ secrets.JANITOR_GITHUB_TOKEN || github.token }}
+          HAS_JANITOR_PAT: ${{ secrets.JANITOR_GITHUB_TOKEN != '' }}
+          # Inject only the active provider key (least privilege — unused
+          # provider secrets stay out of the agent process env).
+          CURSOR_API_KEY: ${{ (inputs.provider || 'cursor') == 'cursor' && secrets.CURSOR_API_KEY || '' }}
+          ANTHROPIC_API_KEY: ${{ (inputs.provider || 'cursor') == 'anthropic' && secrets.ANTHROPIC_API_KEY || '' }}
+          CODEX_API_KEY: ${{ (inputs.provider || 'cursor') == 'openai' && secrets.CODEX_API_KEY || '' }}
+          OPENAI_API_KEY: ${{ (inputs.provider || 'cursor') == 'openai' && secrets.OPENAI_API_KEY || '' }}
+        run: |
+          if [ "$HAS_JANITOR_PAT" != "true" ]; then
+            echo "::warning::JANITOR_GITHUB_TOKEN is unset — agent pushes will not re-trigger CI. Set a PAT secret for full janitor behavior."
+          fi
+          npm run janitor
