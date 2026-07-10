@@ -74,7 +74,7 @@ export function validateEnrichedAliases(options: {
 		seen.add(n);
 		out.push(trimmed);
 	}
-	return out.slice(0, 12);
+	return out;
 }
 
 function parseAliasJson(text: string): string[] {

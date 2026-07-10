@@ -17,6 +17,8 @@ type AssetFixture = {
 	delisted_at?: string;
 	icon_url?: string | null;
 	icon_checked_at?: string | null;
+	icon_base64?: string | null;
+	reference_updated_utc?: string | null;
 };
 
 async function withPgClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
@@ -38,11 +40,16 @@ export async function upsertAssets(records: AssetFixture[]): Promise<void> {
 	await withPgClient(async (client) => {
 		await client.query(
 			`
-				INSERT INTO public.assets (symbol, name, type, delisted_at, icon_url, icon_checked_at)
-				SELECT symbol, name, type::public.asset_type, delisted_at, icon_url, icon_checked_at
+				INSERT INTO public.assets (
+					symbol, name, type, delisted_at, icon_url, icon_checked_at,
+					icon_base64, reference_updated_utc
+				)
+				SELECT symbol, name, type::public.asset_type, delisted_at, icon_url, icon_checked_at,
+				       icon_base64, reference_updated_utc
 				FROM jsonb_to_recordset($1::jsonb)
 					AS r(symbol text, name text, type text, delisted_at timestamptz,
-					     icon_url text, icon_checked_at timestamptz)
+					     icon_url text, icon_checked_at timestamptz,
+					     icon_base64 text, reference_updated_utc timestamptz)
 				ON CONFLICT (symbol) DO UPDATE
 					SET name = EXCLUDED.name,
 					    type = EXCLUDED.type,
@@ -52,7 +59,11 @@ export async function upsertAssets(records: AssetFixture[]): Promise<void> {
 					    -- or wipe its icon state.
 					    delisted_at = COALESCE(EXCLUDED.delisted_at, public.assets.delisted_at),
 					    icon_url = COALESCE(EXCLUDED.icon_url, public.assets.icon_url),
-					    icon_checked_at = COALESCE(EXCLUDED.icon_checked_at, public.assets.icon_checked_at)
+					    icon_checked_at = COALESCE(EXCLUDED.icon_checked_at, public.assets.icon_checked_at),
+					    icon_base64 = COALESCE(EXCLUDED.icon_base64, public.assets.icon_base64),
+					    reference_updated_utc = COALESCE(
+					      EXCLUDED.reference_updated_utc, public.assets.reference_updated_utc
+					    )
 			`,
 			[JSON.stringify(records)],
 		);

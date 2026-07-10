@@ -27,7 +27,10 @@ vi.mock("../../../src/lib/vendors/backfill/enqueue", async (importOriginal) => {
 });
 
 import type { ActiveTicker, ActiveUniverse } from "../../../src/lib/assets/types";
-import { runUniverseReconcile } from "../../../src/lib/assets/universe-reconcile";
+import {
+	referenceWatermarkAdvanced,
+	runUniverseReconcile,
+} from "../../../src/lib/assets/universe-reconcile";
 import { rootLogger } from "../../../src/lib/logging";
 import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";
@@ -44,7 +47,7 @@ const TEST_PREFIX = `Z${randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase()
 async function getAsset(symbol: string) {
 	const { data } = await adminClient
 		.from("assets")
-		.select("symbol, name, type, delisted_at")
+		.select("symbol, name, type, delisted_at, reference_updated_utc, icon_url, icon_checked_at")
 		.eq("symbol", symbol)
 		.maybeSingle();
 	return data;
@@ -59,6 +62,7 @@ function makeActiveTicker(overrides: Partial<ActiveTicker> & { symbol: string })
 	return {
 		name: `ACTIVE ${overrides.symbol} INC`,
 		type: "stock",
+		lastUpdatedUtc: null,
 		...overrides,
 	};
 }
@@ -262,6 +266,154 @@ describe("runUniverseReconcile", () => {
 		expect(result.namesUpdated).toBe(1);
 		expect(result.warmupEnqueued).toBe(0);
 		expect(warmup.enqueued).toHaveLength(0);
+	});
+
+	it("Bootstraps a missing reference_updated_utc from the list feed without force-probing icons.", async () => {
+		const symbol = `${TEST_PREFIX}BOOT`;
+		createdSymbols.push(symbol);
+		await upsertAssets([
+			{
+				symbol,
+				name: "Bootstrap Watermark Inc",
+				type: "stock",
+				icon_url:
+					"https://api.massive.com/v1/reference/company-branding/x/images/2024-01-01_icon.png",
+				icon_checked_at: "2026-01-01T00:00:00Z",
+				reference_updated_utc: null,
+			},
+		]);
+
+		const ensureIcon = vi.fn().mockResolvedValue({ probed: false, iconUrl: null });
+		const watermark = "2026-06-01T00:00:00Z";
+		const active = [
+			makeActiveTicker({
+				symbol,
+				name: "Bootstrap Watermark Inc",
+				lastUpdatedUtc: watermark,
+			}),
+			...(await activeSetCoveringSeedExcept([symbol])),
+		];
+		fetchActiveTickersMock.mockResolvedValue(makeUniverse(active));
+		enqueueNewSymbolWarmupMock.mockResolvedValue(true);
+
+		const result = await runUniverseReconcile({
+			supabase: adminClient,
+			logger: rootLogger,
+			ensureIconChecked: ensureIcon,
+		});
+
+		expect(result.referenceWatermarksBootstrapped).toBe(1);
+		expect(result.tickersRefreshed).toBe(0);
+		expect(ensureIcon).not.toHaveBeenCalled();
+		const row = await getAsset(symbol);
+		expect(row?.reference_updated_utc).not.toBeNull();
+		expect(Date.parse(row?.reference_updated_utc ?? "")).toBe(Date.parse(watermark));
+	});
+
+	it("Force-refreshes name + icon when Massive last_updated_utc advances past the stored watermark.", async () => {
+		const symbol = `${TEST_PREFIX}ADV`;
+		createdSymbols.push(symbol);
+		const oldIcon =
+			"https://api.massive.com/v1/reference/company-branding/x/images/2024-01-01_icon.png";
+		const newIcon =
+			"https://api.massive.com/v1/reference/company-branding/x/images/2026-07-01_icon.png";
+		await upsertAssets([
+			{
+				symbol,
+				name: "Old Name Corp",
+				type: "stock",
+				icon_url: oldIcon,
+				icon_checked_at: "2026-01-01T00:00:00Z",
+				icon_base64: "data:image/png;base64,old",
+				reference_updated_utc: "2026-01-01T00:00:00Z",
+			},
+		]);
+
+		const ensureIcon = vi.fn().mockImplementation(async ({ symbol: s }: { symbol: string }) => {
+			await adminClient
+				.from("assets")
+				.update({
+					icon_url: newIcon,
+					icon_checked_at: new Date().toISOString(),
+					icon_base64: null,
+				})
+				.eq("symbol", s);
+			return { probed: true, iconUrl: newIcon };
+		});
+
+		const active = [
+			makeActiveTicker({
+				symbol,
+				name: "New Name Corp",
+				lastUpdatedUtc: "2026-07-01T00:00:00Z",
+			}),
+			...(await activeSetCoveringSeedExcept([symbol])),
+		];
+		fetchActiveTickersMock.mockResolvedValue(makeUniverse(active));
+		enqueueNewSymbolWarmupMock.mockResolvedValue(true);
+
+		const result = await runUniverseReconcile({
+			supabase: adminClient,
+			logger: rootLogger,
+			ensureIconChecked: ensureIcon,
+		});
+
+		expect(result.tickersRefreshed).toBe(1);
+		expect(result.namesUpdated).toBe(1);
+		expect(result.referenceWatermarksBootstrapped).toBe(0);
+		expect(ensureIcon).toHaveBeenCalledWith(expect.objectContaining({ symbol, force: true }));
+		const row = await getAsset(symbol);
+		expect(row?.name).toBe("New Name Corp");
+		expect(Date.parse(row?.reference_updated_utc ?? "")).toBe(Date.parse("2026-07-01T00:00:00Z"));
+		expect(row?.icon_url).toBe(newIcon);
+	});
+
+	it("Does not advance reference_updated_utc when the force icon probe fails.", async () => {
+		const symbol = `${TEST_PREFIX}HOLD`;
+		createdSymbols.push(symbol);
+		const oldWatermark = "2026-01-01T00:00:00Z";
+		await upsertAssets([
+			{
+				symbol,
+				name: "Hold Watermark Inc",
+				type: "stock",
+				icon_url:
+					"https://api.massive.com/v1/reference/company-branding/x/images/2024-01-01_icon.png",
+				icon_checked_at: "2026-01-01T00:00:00Z",
+				reference_updated_utc: oldWatermark,
+			},
+		]);
+
+		const ensureIcon = vi.fn().mockResolvedValue({ probed: false, iconUrl: null });
+		const active = [
+			makeActiveTicker({
+				symbol,
+				name: "Hold Watermark Inc",
+				lastUpdatedUtc: "2026-07-01T00:00:00Z",
+			}),
+			...(await activeSetCoveringSeedExcept([symbol])),
+		];
+		fetchActiveTickersMock.mockResolvedValue(makeUniverse(active));
+		enqueueNewSymbolWarmupMock.mockResolvedValue(true);
+
+		const result = await runUniverseReconcile({
+			supabase: adminClient,
+			logger: rootLogger,
+			ensureIconChecked: ensureIcon,
+		});
+
+		expect(result.tickersRefreshed).toBe(0);
+		expect(ensureIcon).toHaveBeenCalledWith(expect.objectContaining({ force: true }));
+		const row = await getAsset(symbol);
+		expect(Date.parse(row?.reference_updated_utc ?? "")).toBe(Date.parse(oldWatermark));
+	});
+
+	it("referenceWatermarkAdvanced is strict and ignores nulls.", () => {
+		expect(referenceWatermarkAdvanced("2026-07-01T00:00:00Z", "2026-01-01T00:00:00Z")).toBe(true);
+		expect(referenceWatermarkAdvanced("2026-01-01T00:00:00Z", "2026-07-01T00:00:00Z")).toBe(false);
+		expect(referenceWatermarkAdvanced("2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z")).toBe(false);
+		expect(referenceWatermarkAdvanced(null, "2026-01-01T00:00:00Z")).toBe(false);
+		expect(referenceWatermarkAdvanced("2026-07-01T00:00:00Z", null)).toBe(false);
 	});
 
 	it("A previously-delisted symbol that reappears only in the active safety superset has its delisted_at cleared.", async () => {

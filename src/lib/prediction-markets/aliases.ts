@@ -90,7 +90,7 @@ export function polymarketSearchQueries(identity: AssetIdentity): string[] {
 		if (alias === sym || alias.startsWith("(") || alias.startsWith("$")) continue;
 		if (alias.length >= 3) queries.add(alias);
 	}
-	return [...queries].slice(0, 6);
+	return [...queries];
 }
 
 /**

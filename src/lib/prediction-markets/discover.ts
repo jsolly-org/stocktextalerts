@@ -198,108 +198,129 @@ async function discoverPolymarket(
 ): Promise<VenueDiscoveryResult> {
 	const out: DiscoveredPredictionEvent[] = [];
 	const seen = new Set<string>();
-	let gotUsablePayload = false;
 	let softFailed = false;
 
+	// public-search supports `page` + `limit_per_type` (no documented hard max on
+	// limit_per_type). Page until a short/empty page — same spirit as Kalshi cursors.
+	const LIMIT_PER_TYPE = 50;
+	const MAX_SEARCH_PAGES = 100;
+
 	for (const q of polymarketSearchQueries(identity)) {
-		const payload = await polymarketFetch(
-			"/public-search",
-			{
-				q,
-				events_status: "active",
-				limit_per_type: "10",
-				keep_closed_markets: "0",
-			},
-			`pm-discover:${identity.symbol}`,
-			{ optional: true },
-		);
-		if (payload === null) {
-			softFailed = true;
-			continue;
-		}
-		if (!isRecord(payload) || !Array.isArray(payload.events)) continue;
-		gotUsablePayload = true;
-
-		for (const event of payload.events) {
-			if (!isRecord(event)) continue;
-			const flat = flattenPolymarketEvent(event);
-			if (isJunkTitle(flat.title)) continue;
-			const activeMarkets = flat.markets.filter((m) => !m.closed && m.active);
-			if (activeMarkets.length === 0) continue;
-
-			const venueEventId = flat.eventSlug ?? activeMarkets[0]?.conditionId;
-			if (!venueEventId || seen.has(venueEventId)) continue;
-
-			const outcomeLabels = activeMarkets
-				.map((m) => m.groupItemTitle)
-				.filter((x): x is string => Boolean(x));
-
-			const eventEvidence = findIdentityEvidence(flat.title, outcomeLabels, identity);
-			if (!eventEvidence) {
-				// Also accept when a single-market question matches.
-				const questionEvidence = activeMarkets
-					.map((m) => findIdentityEvidence(m.question, [], identity))
-					.find((e) => e !== null);
-				if (!questionEvidence) continue;
-			}
-
-			const evidence =
-				eventEvidence ??
-				findIdentityEvidence(activeMarkets[0]?.question ?? flat.title, [], identity);
-			if (!evidence) continue;
-
-			const questionForKind = activeMarkets[0]?.question || flat.title;
-			const matchKind = resolveMatchKind(questionForKind, evidence);
-			if (!matchKind) continue;
-
-			let outcomes = buildPolymarketOutcomes(activeMarkets);
-			const detected = detectPredictionMarketShape({
-				outcomes,
-				negRisk: flat.negRisk,
-			});
-			if (detected.shape === "binary") {
-				outcomes = ensureBinaryOutcomes(outcomes, venueEventId);
-			}
-
-			const validOutcomes = outcomes.filter((o) => o.probabilityPercent != null);
-			if (validOutcomes.length === 0) continue;
-
-			const closesAt =
-				flat.endDate ??
-				activeMarkets.map((m) => m.endDate).find((d): d is string => Boolean(d)) ??
-				null;
-
-			const primaryUrl = polymarketMarketUrl(
-				activeMarkets[0]?.slug ?? venueEventId,
-				flat.eventSlug,
+		for (let page = 1; page <= MAX_SEARCH_PAGES; page++) {
+			const payload = await polymarketFetch(
+				"/public-search",
+				{
+					q,
+					events_status: "active",
+					limit_per_type: String(LIMIT_PER_TYPE),
+					page: String(page),
+					keep_closed_markets: "0",
+				},
+				`pm-discover:${identity.symbol}`,
+				{ optional: true },
 			);
+			if (payload === null) {
+				softFailed = true;
+				break;
+			}
+			if (!isRecord(payload) || !Array.isArray(payload.events)) {
+				softFailed = true;
+				break;
+			}
+			const pageEvents = payload.events;
+			if (pageEvents.length === 0) break;
 
-			seen.add(venueEventId);
-			out.push({
-				venue: "polymarket",
-				venueEventId,
-				seriesId: null,
-				title: flat.title || questionForKind,
-				url: primaryUrl,
-				matchKind,
-				shape: detected.shape,
-				shapeValidated: detected.validated,
-				volume: flat.volume || activeMarkets.reduce((s, m) => s + m.volume, 0),
-				closesAt,
-				confidence: evidence.where === "title" ? 80 : 70,
-				evidence,
-				outcomes: validOutcomes,
-				highlightAlias: evidence.alias,
-			});
+			for (const event of pageEvents) {
+				if (!isRecord(event)) continue;
+				const flat = flattenPolymarketEvent(event);
+				if (isJunkTitle(flat.title)) continue;
+				const activeMarkets = flat.markets.filter((m) => !m.closed && m.active);
+				if (activeMarkets.length === 0) continue;
+
+				const venueEventId = flat.eventSlug ?? activeMarkets[0]?.conditionId;
+				if (!venueEventId || seen.has(venueEventId)) continue;
+
+				const outcomeLabels = activeMarkets
+					.map((m) => m.groupItemTitle)
+					.filter((x): x is string => Boolean(x));
+
+				const eventEvidence = findIdentityEvidence(flat.title, outcomeLabels, identity);
+				if (!eventEvidence) {
+					// Also accept when a single-market question matches.
+					const questionEvidence = activeMarkets
+						.map((m) => findIdentityEvidence(m.question, [], identity))
+						.find((e) => e !== null);
+					if (!questionEvidence) continue;
+				}
+
+				const evidence =
+					eventEvidence ??
+					findIdentityEvidence(activeMarkets[0]?.question ?? flat.title, [], identity);
+				if (!evidence) continue;
+
+				const questionForKind = activeMarkets[0]?.question || flat.title;
+				const matchKind = resolveMatchKind(questionForKind, evidence);
+				if (!matchKind) continue;
+
+				let outcomes = buildPolymarketOutcomes(activeMarkets);
+				const detected = detectPredictionMarketShape({
+					outcomes,
+					negRisk: flat.negRisk,
+				});
+				if (detected.shape === "binary") {
+					outcomes = ensureBinaryOutcomes(outcomes, venueEventId);
+				}
+
+				const validOutcomes = outcomes.filter((o) => o.probabilityPercent != null);
+				if (validOutcomes.length === 0) continue;
+
+				const closesAt =
+					flat.endDate ??
+					activeMarkets.map((m) => m.endDate).find((d): d is string => Boolean(d)) ??
+					null;
+
+				const primaryUrl = polymarketMarketUrl(
+					activeMarkets[0]?.slug ?? venueEventId,
+					flat.eventSlug,
+				);
+
+				seen.add(venueEventId);
+				out.push({
+					venue: "polymarket",
+					venueEventId,
+					seriesId: null,
+					title: flat.title || questionForKind,
+					url: primaryUrl,
+					matchKind,
+					shape: detected.shape,
+					shapeValidated: detected.validated,
+					volume: flat.volume || activeMarkets.reduce((s, m) => s + m.volume, 0),
+					closesAt,
+					confidence: evidence.where === "title" ? 80 : 70,
+					evidence,
+					outcomes: validOutcomes,
+					highlightAlias: evidence.alias,
+				});
+			}
+
+			if (pageEvents.length < LIMIT_PER_TYPE) break;
+			if (page === MAX_SEARCH_PAGES) {
+				softFailed = true;
+				logger.warn("Polymarket public-search hit page ceiling", {
+					symbol: identity.symbol,
+					q,
+					pages: MAX_SEARCH_PAGES,
+				});
+			}
 		}
 	}
 
 	logger.info("Polymarket discovery complete", {
 		symbol: identity.symbol,
 		candidateCount: out.length,
-		softFailed: softFailed && !gotUsablePayload,
+		softFailed,
 	});
-	return { events: out, softFailed: softFailed && !gotUsablePayload };
+	return { events: out, softFailed };
 }
 
 export type KalshiSeriesCatalog = {
@@ -307,11 +328,19 @@ export type KalshiSeriesCatalog = {
 	softFailed: boolean;
 };
 
+/** Kalshi list endpoints: page size 1–100 (docs default 100). */
+const KALSHI_PAGE_LIMIT = 100;
+/** Runaway-cursor guard — not a product cap; log if hit. */
+const KALSHI_MAX_PAGES = 10_000;
+
 async function loadKalshiCompanySeries(logger: Logger): Promise<KalshiSeriesCatalog> {
 	const all: Array<{ ticker: string; title: string }> = [];
 	let cursor = "";
-	for (let page = 0; page < 20; page++) {
-		const params: Record<string, string> = { limit: "200", category: "Companies" };
+	for (let page = 0; page < KALSHI_MAX_PAGES; page++) {
+		const params: Record<string, string> = {
+			limit: String(KALSHI_PAGE_LIMIT),
+			category: "Companies",
+		};
 		if (cursor) params.cursor = cursor;
 		const payload = await kalshiFetch("/series", params, "pm-kalshi-series", {
 			optional: true,
@@ -321,7 +350,7 @@ async function loadKalshiCompanySeries(logger: Logger): Promise<KalshiSeriesCata
 			return { series: all, softFailed: true };
 		}
 		if (!isRecord(payload) || !Array.isArray(payload.series)) {
-			return { series: all, softFailed: page === 0 };
+			return { series: all, softFailed: true };
 		}
 		for (const s of payload.series) {
 			if (!isRecord(s)) continue;
@@ -331,6 +360,14 @@ async function loadKalshiCompanySeries(logger: Logger): Promise<KalshiSeriesCata
 		}
 		cursor = asString(payload.cursor) ?? "";
 		if (!cursor || payload.series.length === 0) break;
+		if (page === KALSHI_MAX_PAGES - 1) {
+			logger.error(
+				"Kalshi Companies series hit page ceiling — catalog may be truncated",
+				{ pages: KALSHI_MAX_PAGES, loaded: all.length },
+				new Error("kalshi series pagination ceiling"),
+			);
+			return { series: all, softFailed: true };
+		}
 	}
 	logger.info("Kalshi Companies series loaded", { count: all.length });
 	return { series: all, softFailed: false };
@@ -346,6 +383,46 @@ type KalshiMarketRow = {
 	strikeValue: number | null;
 };
 
+/** Fetch every open market for a series (cursor-paginate per Kalshi docs). */
+async function loadOpenKalshiMarketsForSeries(
+	seriesTicker: string,
+	logger: Logger,
+): Promise<{ markets: Record<string, unknown>[]; softFailed: boolean }> {
+	const markets: Record<string, unknown>[] = [];
+	let cursor = "";
+	for (let page = 0; page < KALSHI_MAX_PAGES; page++) {
+		const params: Record<string, string> = {
+			limit: String(KALSHI_PAGE_LIMIT),
+			status: "open",
+			series_ticker: seriesTicker,
+		};
+		if (cursor) params.cursor = cursor;
+		const payload = await kalshiFetch("/markets", params, `pm-kalshi-markets:${seriesTicker}`, {
+			optional: true,
+		});
+		if (payload === null) {
+			return { markets, softFailed: true };
+		}
+		if (!isRecord(payload) || !Array.isArray(payload.markets)) {
+			return { markets, softFailed: true };
+		}
+		for (const m of payload.markets) {
+			if (isRecord(m)) markets.push(m);
+		}
+		cursor = asString(payload.cursor) ?? "";
+		if (!cursor || payload.markets.length === 0) break;
+		if (page === KALSHI_MAX_PAGES - 1) {
+			logger.error(
+				"Kalshi markets hit page ceiling — series may be truncated",
+				{ seriesTicker, pages: KALSHI_MAX_PAGES, loaded: markets.length },
+				new Error("kalshi markets pagination ceiling"),
+			);
+			return { markets, softFailed: true };
+		}
+	}
+	return { markets, softFailed: false };
+}
+
 async function discoverKalshi(
 	identity: AssetIdentity,
 	seriesCatalog: readonly { ticker: string; title: string }[],
@@ -357,24 +434,17 @@ async function discoverKalshi(
 	);
 	const byEvent = new Map<string, KalshiMarketRow[]>();
 	let softFailed = false;
-	let gotUsablePayload = seriesHits.length === 0;
 
 	for (const series of seriesHits) {
-		const payload = await kalshiFetch(
-			"/markets",
-			{ limit: "30", status: "open", series_ticker: series.ticker },
-			`pm-kalshi-markets:${series.ticker}`,
-			{ optional: true },
-		);
-		if (payload === null) {
+		const { markets: rawMarkets, softFailed: pageSoftFailed } =
+			await loadOpenKalshiMarketsForSeries(series.ticker, logger);
+		if (pageSoftFailed) {
 			softFailed = true;
-			continue;
+			if (rawMarkets.length === 0) continue;
 		}
-		if (!isRecord(payload) || !Array.isArray(payload.markets)) continue;
-		gotUsablePayload = true;
+		if (rawMarkets.length === 0) continue;
 
-		for (const m of payload.markets) {
-			if (!isRecord(m)) continue;
+		for (const m of rawMarkets) {
 			const ticker = asString(m.ticker);
 			const title = asString(m.title) ?? "";
 			if (!ticker || !title) continue;
@@ -469,9 +539,9 @@ async function discoverKalshi(
 		symbol: identity.symbol,
 		seriesCount: seriesHits.length,
 		candidateCount: out.length,
-		softFailed: softFailed && !gotUsablePayload,
+		softFailed,
 	});
-	return { events: out, softFailed: softFailed && !gotUsablePayload };
+	return { events: out, softFailed };
 }
 
 /** Discover Polymarket + Kalshi event candidates for one asset identity. */

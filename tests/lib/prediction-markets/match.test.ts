@@ -172,7 +172,7 @@ describe("rankDiscoveredEvents", () => {
 		],
 	};
 
-	it("orders by confidence then volume and respects persist cap", () => {
+	it("orders by confidence then volume; optional limit truncates for tests", () => {
 		const candidates: DiscoveredPredictionEvent[] = [
 			{
 				...base,
@@ -202,10 +202,15 @@ describe("rankDiscoveredEvents", () => {
 				confidence: 70,
 			},
 		];
-		const ranked = rankDiscoveredEvents(candidates, 2);
-		expect(ranked).toHaveLength(2);
-		expect(ranked[0]?.venueEventId).toBe("c2");
-		expect(ranked[1]?.venueEventId).toBe("c1");
+		const full = rankDiscoveredEvents(candidates);
+		expect(full).toHaveLength(3);
+		expect(full[0]?.venueEventId).toBe("c2");
+		expect(full[1]?.venueEventId).toBe("c1");
+		expect(full[2]?.venueEventId).toBe("KXNVDAA-1");
+		const capped = rankDiscoveredEvents(candidates, 2);
+		expect(capped).toHaveLength(2);
+		expect(capped[0]?.venueEventId).toBe("c2");
+		expect(capped[1]?.venueEventId).toBe("c1");
 	});
 });
 

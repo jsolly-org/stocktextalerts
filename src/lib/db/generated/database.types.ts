@@ -283,6 +283,7 @@ export type Database = {
           icon_url: string | null
           name: string
           pm_discovery_checked_at: string | null
+          reference_updated_utc: string | null
           symbol: string
           type: Database["public"]["Enums"]["asset_type"]
         }
@@ -293,6 +294,7 @@ export type Database = {
           icon_url?: string | null
           name: string
           pm_discovery_checked_at?: string | null
+          reference_updated_utc?: string | null
           symbol: string
           type?: Database["public"]["Enums"]["asset_type"]
         }
@@ -303,6 +305,7 @@ export type Database = {
           icon_url?: string | null
           name?: string
           pm_discovery_checked_at?: string | null
+          reference_updated_utc?: string | null
           symbol?: string
           type?: Database["public"]["Enums"]["asset_type"]
         }

@@ -20,7 +20,7 @@ export const POLYMARKET_MAX_CALLS_PER_MINUTE = 60;
 
 /**
  * Proactive per-process Kalshi call budget. Public REST is unauthenticated;
- * 60/min is plenty for a curated digest strip.
+ * 60/min stays well under typical read budgets while we cursor-paginate.
  */
 export const KALSHI_MAX_CALLS_PER_MINUTE = 60;
 
