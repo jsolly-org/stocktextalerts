@@ -29,6 +29,13 @@ export const MIN_PLAUSIBLE_ACTIVE_UNIVERSE = 5000;
 export const PM_DISCOVERY_NIGHTLY_CAP = 25;
 
 /**
+ * Max open matched prediction-market events refreshed per midnight run.
+ * Each event is one Poly or Kalshi fetch (~60/min); 40 ≈ ~40s of limiter wait
+ * plus parse/DB, leaving headroom for delisting sweep and icon backfill.
+ */
+export const PM_REFRESH_NIGHTLY_CAP = 40;
+
+/**
  * Milliseconds in the notification_log dedupe window. A successful
  * `type='delisting'` row within this window for a given user suppresses a
  * second email, even if the sweep re-runs due to a crash or retry. The

@@ -74,6 +74,7 @@ export async function processDailyDigestEmailDelivery(options: {
 	const message = formatDailyDigestEmail({
 		user,
 		is24Hour: user.use_24_hour_time,
+		timeZone: user.timezone,
 		userAssets,
 		assetPrices,
 		extras,
@@ -202,6 +203,7 @@ export async function processDailyDigestTelegramDelivery(options: {
 		delayBanner,
 		marketClosureInfo,
 		is24Hour,
+		timeZone: user.timezone,
 		sparklines,
 		marketOpen,
 	});

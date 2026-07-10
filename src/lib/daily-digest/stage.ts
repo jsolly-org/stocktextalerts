@@ -94,6 +94,7 @@ export async function stageDailyDigestContent(options: StageDailyDigestOptions):
 			? formatDailyDigestEmail({
 					user,
 					is24Hour: user.use_24_hour_time,
+					timeZone: user.timezone,
 					userAssets: emailPriceAssets,
 					assetPrices: emailPriceMap,
 					extras: emailExtras,
@@ -116,6 +117,7 @@ export async function stageDailyDigestContent(options: StageDailyDigestOptions):
 					delayBanner: delayBannerText,
 					marketClosureInfo,
 					is24Hour: user.use_24_hour_time,
+					timeZone: user.timezone,
 					sparklines,
 					marketOpen,
 				})

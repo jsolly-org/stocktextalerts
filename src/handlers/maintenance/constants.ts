@@ -21,3 +21,9 @@ export const ICON_BACKFILL_MIN_REMAINING_MS = 120_000;
  * series fetches + optional Grok). Soft-fail vendors; still needs wall-clock headroom.
  */
 export const PM_DISCOVERY_MIN_REMAINING_MS = 240_000;
+
+/**
+ * Prediction-market snapshot refresh: re-fetch all active stored events.
+ * Soft-fails per event; needs headroom for Poly/Kalshi rate limits.
+ */
+export const PM_REFRESH_MIN_REMAINING_MS = 300_000;

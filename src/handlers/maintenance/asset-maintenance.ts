@@ -23,10 +23,12 @@ import { createLogger, type Logger } from "../../lib/logging";
 import { runLambda } from "../../lib/logging/request-context";
 import { createEmailSender } from "../../lib/messaging/email/utils";
 import { runPredictionMarketDiscoveryDrip } from "../../lib/prediction-markets/pipeline";
+import { refreshActivePredictionMarketSnapshots } from "../../lib/prediction-markets/refresh";
 import { enqueueAssetEventsIngestRetry } from "../../lib/vendors/backfill/enqueue";
 import {
 	ICON_BACKFILL_MIN_REMAINING_MS,
 	PM_DISCOVERY_MIN_REMAINING_MS,
+	PM_REFRESH_MIN_REMAINING_MS,
 	RECONCILE_MIN_REMAINING_MS,
 	SWEEP_MIN_REMAINING_MS,
 } from "./constants";
@@ -139,6 +141,28 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				{ action: "fetch_finnhub_enrichment" },
 				error,
 			);
+		}
+
+		// Refresh all active stored prediction-market event/outcome snapshots first
+		// so digests stay DB-read-only against fresh odds. Soft-fails keep last good.
+		if (stepFitsRemainingTime(context, logger, "pm_refresh", PM_REFRESH_MIN_REMAINING_MS)) {
+			try {
+				const refreshResult = await refreshActivePredictionMarketSnapshots({
+					supabase,
+					logger,
+					getRemainingTimeInMillis: () => context.getRemainingTimeInMillis(),
+				});
+				logger.info("Prediction-market snapshot refresh complete", {
+					action: "daily_pm_refresh",
+					...refreshResult,
+				});
+			} catch (error) {
+				logger.error(
+					"Prediction-market snapshot refresh failed",
+					{ action: "daily_pm_refresh" },
+					error,
+				);
+			}
 		}
 
 		// Tracked-only prediction-market discovery drip (pm_discovery_checked_at IS NULL).

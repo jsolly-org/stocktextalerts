@@ -3,12 +3,11 @@ import { isRecord } from "../types";
 import { kalshiFetch } from "../vendors/kalshi";
 import { polymarketFetch } from "../vendors/polymarket";
 import { CURATED_PREDICTION_MARKETS } from "./catalog";
-import type { CuratedPredictionMarket, PredictionMarketReading } from "./types";
+import type { CuratedPredictionMarket, PredictionMarketEventCard } from "./types";
 import { kalshiMarketUrl, polymarketMarketUrl } from "./urls";
 
 function parseYesProbabilityPercent(raw: unknown): number | null {
 	if (typeof raw === "number" && Number.isFinite(raw)) {
-		// Kalshi dollars are 0–1; Polymarket outcomePrices are 0–1 strings/numbers.
 		const asPercent = raw <= 1 ? raw * 100 : raw;
 		if (asPercent < 0 || asPercent > 100) return null;
 		return Math.round(asPercent * 10) / 10;
@@ -39,6 +38,7 @@ function parsePolymarketYesPrice(market: Record<string, unknown>): number | null
 type VenueReading = {
 	probabilityPercent: number;
 	url: string;
+	closesAt: string | null;
 };
 
 function polymarketEventSlug(row: Record<string, unknown>): string | null {
@@ -83,9 +83,16 @@ async function fetchPolymarketReading(
 		logger.warn("Polymarket curated market missing Yes price", { marketKey: market.key, slug });
 		return null;
 	}
+	const closesAt =
+		typeof row.endDate === "string"
+			? row.endDate
+			: typeof row.end_date_iso === "string"
+				? row.end_date_iso
+				: null;
 	return {
 		probabilityPercent,
 		url: polymarketMarketUrl(slug, polymarketEventSlug(row)),
+		closesAt,
 	};
 }
 
@@ -114,7 +121,6 @@ async function fetchKalshiReading(
 		return null;
 	}
 
-	// Prefer mid of bid/ask when both present; else last trade / yes bid.
 	const yesBid = parseYesProbabilityPercent(row.yes_bid_dollars);
 	const yesAsk = parseYesProbabilityPercent(row.yes_ask_dollars);
 	const probabilityPercent =
@@ -131,39 +137,75 @@ async function fetchKalshiReading(
 	}
 
 	const eventTicker = typeof row.event_ticker === "string" ? row.event_ticker : null;
+	const closesAt =
+		typeof row.close_time === "string"
+			? row.close_time
+			: typeof row.expected_expiration_time === "string"
+				? row.expected_expiration_time
+				: null;
 	return {
 		probabilityPercent,
 		url: kalshiMarketUrl(ticker, eventTicker),
+		closesAt,
+	};
+}
+
+function toBinaryCard(
+	market: CuratedPredictionMarket,
+	reading: VenueReading,
+): PredictionMarketEventCard {
+	const yes = reading.probabilityPercent;
+	const no = Math.round((100 - yes) * 10) / 10;
+	return {
+		key: market.key,
+		title: market.label,
+		venue: market.venue,
+		url: reading.url,
+		shape: "binary",
+		closesAt: reading.closesAt,
+		refreshedAt: new Date().toISOString(),
+		volume: 0,
+		shapeValidated: true,
+		outcomes: [
+			{
+				venueContractId: `${market.key}:yes`,
+				label: "Yes",
+				probabilityPercent: yes,
+				sortOrder: 0,
+				strikeValue: null,
+				volume: 0,
+			},
+			{
+				venueContractId: `${market.key}:no`,
+				label: "No",
+				probabilityPercent: no,
+				sortOrder: 1,
+				strikeValue: null,
+				volume: 0,
+			},
+		],
 	};
 }
 
 /**
- * Fetch current Yes probabilities for the curated strip.
- * Soft-fails per market (optional vendors) — returns only successful readings.
- * Markets are fetched in parallel so a slow venue doesn't serialize the strip.
+ * Fetch curated macro markets as binary event cards (same grammar as assets).
+ * Soft-fails per market — returns only successful cards.
  */
-export async function fetchCuratedPredictionMarketReadings(options: {
+export async function fetchCuratedPredictionMarketCards(options: {
 	logger: Logger;
-}): Promise<PredictionMarketReading[]> {
+}): Promise<PredictionMarketEventCard[]> {
 	const { logger } = options;
 
 	const settled = await Promise.all(
-		CURATED_PREDICTION_MARKETS.map(async (market): Promise<PredictionMarketReading | null> => {
+		CURATED_PREDICTION_MARKETS.map(async (market): Promise<PredictionMarketEventCard | null> => {
 			const venueReading =
 				market.venue === "polymarket"
 					? await fetchPolymarketReading(market, logger)
 					: await fetchKalshiReading(market, logger);
 			if (venueReading === null) return null;
-			return {
-				key: market.key,
-				label: market.label,
-				venue: market.venue,
-				probabilityPercent: venueReading.probabilityPercent,
-				deltaPoints: null,
-				url: venueReading.url,
-			};
+			return toBinaryCard(market, venueReading);
 		}),
 	);
 
-	return settled.filter((reading): reading is PredictionMarketReading => reading !== null);
+	return settled.filter((card): card is PredictionMarketEventCard => card !== null);
 }

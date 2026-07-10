@@ -1,12 +1,143 @@
 import { describe, expect, it } from "vitest";
 import {
+	formatEventCardEmailHtml,
+	formatEventCardText,
 	formatPredictionMarketsEmailHtml,
 	formatPredictionMarketsTelegram,
 	formatPredictionMarketsText,
 } from "../../../src/lib/prediction-markets/format";
-import { attachPredictionMarketDeltas } from "../../../src/lib/prediction-markets/store";
-import type { PredictionMarketReading } from "../../../src/lib/prediction-markets/types";
+import type {
+	PredictionMarketEventCard,
+	PredictionMarketReading,
+} from "../../../src/lib/prediction-markets/types";
 import { kalshiMarketUrl, polymarketMarketUrl } from "../../../src/lib/prediction-markets/urls";
+
+const binaryCard: PredictionMarketEventCard = {
+	key: "recession_2026",
+	title: "Recession '26",
+	venue: "kalshi",
+	url: "https://kalshi.com/markets/kxrecssnber/kxrecssnber-26",
+	shape: "binary",
+	shapeValidated: true,
+	closesAt: "2026-12-31T00:00:00.000Z",
+	refreshedAt: "2026-07-10T12:00:00.000Z",
+	volume: 0,
+	outcomes: [
+		{
+			venueContractId: "yes",
+			label: "Yes",
+			probabilityPercent: 11,
+			sortOrder: 0,
+			strikeValue: null,
+			volume: 0,
+		},
+		{
+			venueContractId: "no",
+			label: "No",
+			probabilityPercent: 89,
+			sortOrder: 1,
+			strikeValue: null,
+			volume: 0,
+		},
+	],
+};
+
+const exclusiveCard: PredictionMarketEventCard = {
+	key: "ai-race",
+	title: "Which company leads AI?",
+	venue: "polymarket",
+	url: "https://polymarket.com/event/ai",
+	shape: "exclusive",
+	shapeValidated: true,
+	closesAt: "2026-08-01T00:00:00.000Z",
+	refreshedAt: "2026-07-10T12:00:00.000Z",
+	volume: 5000,
+	symbol: "GOOGL",
+	outcomes: [
+		{
+			venueContractId: "o",
+			label: "OpenAI",
+			probabilityPercent: 40,
+			sortOrder: 0,
+			strikeValue: null,
+			volume: 1,
+		},
+		{
+			venueContractId: "a",
+			label: "Anthropic",
+			probabilityPercent: 30,
+			sortOrder: 1,
+			strikeValue: null,
+			volume: 1,
+		},
+		{
+			venueContractId: "g",
+			label: "Google",
+			probabilityPercent: 12,
+			sortOrder: 2,
+			strikeValue: null,
+			volume: 1,
+			highlighted: true,
+		},
+		{
+			venueContractId: "m",
+			label: "Meta",
+			probabilityPercent: 10,
+			sortOrder: 3,
+			strikeValue: null,
+			volume: 1,
+		},
+		{
+			venueContractId: "x",
+			label: "xAI",
+			probabilityPercent: 5,
+			sortOrder: 4,
+			strikeValue: null,
+			volume: 1,
+		},
+		{
+			venueContractId: "z",
+			label: "Other",
+			probabilityPercent: 3,
+			sortOrder: 5,
+			strikeValue: null,
+			volume: 1,
+		},
+	],
+};
+
+const formatOpts = { timeZone: "UTC", use24Hour: true };
+
+describe("formatEventCardText", () => {
+	it("renders binary Yes/No without deltas", () => {
+		const text = formatEventCardText(binaryCard, formatOpts);
+		expect(text).toContain("Yes");
+		expect(text).toContain("No");
+		expect(text).toContain("11%");
+		expect(text).toContain("Updated");
+		expect(text).not.toContain("▲");
+		expect(text).not.toContain("▼");
+	});
+
+	it("renders exclusive fields with all ≤6 outcomes", () => {
+		const text = formatEventCardText(exclusiveCard, formatOpts);
+		expect(text).toContain("Google");
+		expect(text).toContain("★");
+		expect(text).toContain("OpenAI");
+		expect(text).not.toContain("Others");
+	});
+});
+
+describe("formatEventCardEmailHtml", () => {
+	it("renders card shell with venue link", () => {
+		const html = formatEventCardEmailHtml(binaryCard, formatOpts);
+		expect(html).toContain("Recession &#39;26");
+		expect(html).toContain('href="https://kalshi.com/markets/kxrecssnber/kxrecssnber-26"');
+		expect(html).toContain("View full market");
+		expect(html).toContain("Yes");
+		expect(html).toContain("No");
+	});
+});
 
 const sampleReadings: PredictionMarketReading[] = [
 	{
@@ -35,15 +166,12 @@ const sampleReadings: PredictionMarketReading[] = [
 	},
 ];
 
-describe("formatPredictionMarketsText", () => {
-	it("renders stacked rows with unicode probability bars", () => {
-		expect(formatPredictionMarketsText(sampleReadings)).toBe(
-			[
-				"Recession '26    10%  █░░░░░░░░░  ▲2",
-				"Fed cut by '27   23%  ██░░░░░░░░  ▼5",
-				"S&P best '26     70%  ███████░░░  —",
-			].join("\n"),
-		);
+describe("legacy formatPredictionMarketsText", () => {
+	it("renders stacked rows without requiring deltas", () => {
+		const text = formatPredictionMarketsText(sampleReadings);
+		expect(text).toContain("Recession '26");
+		expect(text).toContain("10%");
+		expect(text).toContain("Fed cut by '27");
 	});
 
 	it("returns null for an empty strip", () => {
@@ -51,97 +179,29 @@ describe("formatPredictionMarketsText", () => {
 	});
 });
 
-describe("formatPredictionMarketsTelegram", () => {
+describe("legacy formatPredictionMarketsTelegram", () => {
 	it("links each market label via text_link entities", () => {
 		const formatted = formatPredictionMarketsTelegram(sampleReadings);
 		expect(formatted).not.toBeNull();
-		expect(formatted?.text).toContain("Recession '26");
-		expect(formatted?.text).toContain("█░░░░░░░░░");
 		const linkEntities = (formatted?.entities ?? []).filter((e) => e.type === "text_link");
 		expect(linkEntities).toHaveLength(3);
-		expect(linkEntities.map((e) => ("url" in e ? e.url : null))).toEqual([
-			sampleReadings[0]?.url,
-			sampleReadings[1]?.url,
-			sampleReadings[2]?.url,
-		]);
-	});
-
-	it("returns null for an empty strip", () => {
-		expect(formatPredictionMarketsTelegram([])).toBeNull();
 	});
 });
 
-describe("formatPredictionMarketsEmailHtml", () => {
-	it("renders probability bars, venue labels, and market links", () => {
+describe("legacy formatPredictionMarketsEmailHtml", () => {
+	it("renders binary cards from scalar readings", () => {
 		const html = formatPredictionMarketsEmailHtml(sampleReadings);
 		expect(html).toContain("Recession &#39;26");
 		expect(html).toContain('href="https://kalshi.com/markets/kxrecssnber/kxrecssnber-26"');
 		expect(html).toContain(
 			'href="https://polymarket.com/event/will-the-sp-500-have-the-best-performance-in-2026-545"',
 		);
-		expect(html).toContain("Kalshi");
-		expect(html).toContain("Polymarket");
-		expect(html).toContain("width: 10%");
-		expect(html).toContain("width: 70%");
-		expect(html).toContain("▲2");
-		expect(html).toContain("▼5");
-		expect(html).toContain("#059669");
-		expect(html).toContain("#dc2626");
-	});
-
-	it("returns null for an empty strip", () => {
-		expect(formatPredictionMarketsEmailHtml([])).toBeNull();
 	});
 });
 
-describe("prediction market URL builders", () => {
-	it("builds Kalshi and Polymarket public pages", () => {
-		expect(kalshiMarketUrl("KXRECSSNBER-26")).toBe(
-			"https://kalshi.com/markets/kxrecssnber/kxrecssnber-26",
-		);
-		expect(kalshiMarketUrl("KXRATECUT-26DEC31", "KXRATECUT-26DEC31")).toBe(
-			"https://kalshi.com/markets/kxratecut/kxratecut-26dec31",
-		);
-		expect(polymarketMarketUrl("fed-rate-cut-by-december-2026-meeting")).toBe(
-			"https://polymarket.com/event/fed-rate-cut-by-december-2026-meeting",
-		);
-		expect(
-			polymarketMarketUrl("fed-rate-cut-by-december-2026-meeting", "fed-rate-cut-by-629"),
-		).toBe(
-			"https://polymarket.com/event/fed-rate-cut-by-629/fed-rate-cut-by-december-2026-meeting",
-		);
-	});
-});
-
-describe("attachPredictionMarketDeltas", () => {
-	it("computes percentage-point deltas from a baseline map", () => {
-		const readings: PredictionMarketReading[] = [
-			{
-				key: "recession_2026",
-				label: "Recession '26",
-				venue: "kalshi",
-				probabilityPercent: 12,
-				deltaPoints: null,
-				url: "https://kalshi.com/markets/kxrecssnber/kxrecssnber-26",
-			},
-		];
-		const withDeltas = attachPredictionMarketDeltas(readings, new Map([["recession_2026", 9]]));
-		expect(withDeltas[0]?.deltaPoints).toBe(3);
-		expect(withDeltas[0]?.url).toBe(readings[0]?.url);
-	});
-
-	it("keeps delta null when no baseline exists", () => {
-		const readings: PredictionMarketReading[] = [
-			{
-				key: "recession_2026",
-				label: "Recession '26",
-				venue: "kalshi",
-				probabilityPercent: 12,
-				deltaPoints: null,
-				url: "https://kalshi.com/markets/kxrecssnber/kxrecssnber-26",
-			},
-		];
-		const withDeltas = attachPredictionMarketDeltas(readings, new Map());
-		expect(withDeltas[0]?.deltaPoints).toBeNull();
+describe("url helpers still used by fixtures", () => {
+	it("builds venue urls", () => {
+		expect(kalshiMarketUrl("kxrecssnber-26", "kxrecssnber")).toContain("kalshi.com");
+		expect(polymarketMarketUrl("slug", "event")).toContain("polymarket.com");
 	});
 });

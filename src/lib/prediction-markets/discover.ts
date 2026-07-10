@@ -4,7 +4,12 @@ import { kalshiFetch } from "../vendors/kalshi";
 import { polymarketFetch } from "../vendors/polymarket";
 import { polymarketSearchQueries } from "./aliases";
 import { findIdentityEvidence, isJunkTitle, resolveMatchKind } from "./match";
-import type { AssetIdentity, DiscoveredPredictionMarket } from "./types";
+import { detectPredictionMarketShape, ensureBinaryOutcomes, extractStrikeValue } from "./shape";
+import type {
+	AssetIdentity,
+	DiscoveredPredictionEvent,
+	DiscoveredPredictionOutcome,
+} from "./types";
 import { kalshiMarketUrl, polymarketMarketUrl } from "./urls";
 
 function parseYesProbabilityPercent(raw: unknown): number | null {
@@ -36,6 +41,34 @@ function parsePolymarketYesPrice(market: Record<string, unknown>): number | null
 	return parseYesProbabilityPercent(prices[0]);
 }
 
+function parseOutcomeLabels(market: Record<string, unknown>): string[] {
+	const raw = market.outcomes;
+	let outcomes: unknown = raw;
+	if (typeof raw === "string") {
+		try {
+			outcomes = JSON.parse(raw) as unknown;
+		} catch {
+			return [];
+		}
+	}
+	if (!Array.isArray(outcomes)) return [];
+	return outcomes.filter((x): x is string => typeof x === "string" && x.trim() !== "");
+}
+
+function parseOutcomePrices(market: Record<string, unknown>): number[] {
+	const raw = market.outcomePrices;
+	let prices: unknown = raw;
+	if (typeof raw === "string") {
+		try {
+			prices = JSON.parse(raw) as unknown;
+		} catch {
+			return [];
+		}
+	}
+	if (!Array.isArray(prices)) return [];
+	return prices.map((p) => parseYesProbabilityPercent(p)).filter((p): p is number => p !== null);
+}
+
 function asString(value: unknown): string | null {
 	return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 }
@@ -50,7 +83,7 @@ function escapeRegExp(value: string): string {
 }
 
 export type VenueDiscoveryResult = {
-	markets: DiscoveredPredictionMarket[];
+	events: DiscoveredPredictionEvent[];
 	/**
 	 * True when a required venue call soft-failed (optional fetch returned null).
 	 * Callers must NOT stamp pm_discovery_checked_at or reject prior matches.
@@ -68,22 +101,30 @@ type PolyMarketRow = {
 	volume: number;
 	endDate: string | null;
 	probabilityPercent: number | null;
+	outcomeLabels: string[];
+	outcomePrices: number[];
 };
 
 function flattenPolymarketEvent(event: Record<string, unknown>): {
 	title: string;
 	eventSlug: string | null;
+	negRisk: boolean;
 	markets: PolyMarketRow[];
+	endDate: string | null;
+	volume: number;
 } {
 	const title = asString(event.title) ?? "";
 	const eventSlug = asString(event.slug);
 	const marketsRaw = Array.isArray(event.markets) ? event.markets : [];
 	const markets: PolyMarketRow[] = [];
+	let volume = asNumber(event.volume ?? event.volumeNum);
 	for (const m of marketsRaw) {
 		if (!isRecord(m)) continue;
 		const conditionId = asString(m.conditionId) ?? asString(m.condition_id);
 		const slug = asString(m.slug) ?? eventSlug;
 		if (!conditionId || !slug) continue;
+		const marketVolume = asNumber(m.volumeNum ?? m.volume);
+		volume += marketVolume;
 		markets.push({
 			conditionId,
 			question: asString(m.question) ?? title,
@@ -91,19 +132,71 @@ function flattenPolymarketEvent(event: Record<string, unknown>): {
 			groupItemTitle: asString(m.groupItemTitle),
 			closed: m.closed === true,
 			active: m.active !== false,
-			volume: asNumber(m.volumeNum ?? m.volume),
+			volume: marketVolume,
 			endDate: asString(m.endDate) ?? asString(event.endDate),
 			probabilityPercent: parsePolymarketYesPrice(m),
+			outcomeLabels: parseOutcomeLabels(m),
+			outcomePrices: parseOutcomePrices(m),
 		});
 	}
-	return { title, eventSlug, markets };
+	return {
+		title,
+		eventSlug,
+		negRisk: event.negRisk === true || event.neg_risk === true,
+		markets,
+		endDate: asString(event.endDate),
+		volume,
+	};
+}
+
+function buildPolymarketOutcomes(markets: readonly PolyMarketRow[]): DiscoveredPredictionOutcome[] {
+	// Multi-market event: each child market is an outcome leg (groupItemTitle).
+	if (markets.length > 1) {
+		return markets.map((m, index) => {
+			const label = m.groupItemTitle ?? m.question;
+			return {
+				venueContractId: m.conditionId,
+				label,
+				probabilityPercent: m.probabilityPercent,
+				sortOrder: index,
+				strikeValue: extractStrikeValue(label),
+				volume: m.volume,
+			};
+		});
+	}
+
+	const market = markets[0];
+	if (!market) return [];
+
+	// Single market with explicit Yes/No outcomePrices alignment.
+	if (market.outcomeLabels.length >= 2 && market.outcomePrices.length >= 2) {
+		return market.outcomeLabels.map((label, index) => ({
+			venueContractId: `${market.conditionId}:${index}`,
+			label,
+			probabilityPercent: market.outcomePrices[index] ?? null,
+			sortOrder: index,
+			strikeValue: extractStrikeValue(label),
+			volume: market.volume,
+		}));
+	}
+
+	return [
+		{
+			venueContractId: market.conditionId,
+			label: "Yes",
+			probabilityPercent: market.probabilityPercent,
+			sortOrder: 0,
+			strikeValue: null,
+			volume: market.volume,
+		},
+	];
 }
 
 async function discoverPolymarket(
 	identity: AssetIdentity,
 	logger: Logger,
 ): Promise<VenueDiscoveryResult> {
-	const out: DiscoveredPredictionMarket[] = [];
+	const out: DiscoveredPredictionEvent[] = [];
 	const seen = new Set<string>();
 	let gotUsablePayload = false;
 	let softFailed = false;
@@ -131,55 +224,73 @@ async function discoverPolymarket(
 			if (!isRecord(event)) continue;
 			const flat = flattenPolymarketEvent(event);
 			if (isJunkTitle(flat.title)) continue;
+			const activeMarkets = flat.markets.filter((m) => !m.closed && m.active);
+			if (activeMarkets.length === 0) continue;
 
-			const outcomeLabels = flat.markets
+			const venueEventId = flat.eventSlug ?? activeMarkets[0]?.conditionId;
+			if (!venueEventId || seen.has(venueEventId)) continue;
+
+			const outcomeLabels = activeMarkets
 				.map((m) => m.groupItemTitle)
 				.filter((x): x is string => Boolean(x));
 
-			// Event-level identity (title) OR per-market outcome leg
 			const eventEvidence = findIdentityEvidence(flat.title, outcomeLabels, identity);
-
-			for (const market of flat.markets) {
-				if (seen.has(market.conditionId)) continue;
-				if (market.closed || !market.active) continue;
-
-				const marketEvidence =
-					findIdentityEvidence(
-						market.question,
-						market.groupItemTitle ? [market.groupItemTitle] : [],
-						identity,
-					) ?? eventEvidence;
-
-				if (!marketEvidence) continue;
-
-				// For outcome-leg hits, only keep the matching leg's contract
-				if (marketEvidence.where === "outcome" && market.groupItemTitle) {
-					const legOk = findIdentityEvidence("", [market.groupItemTitle], identity) !== null;
-					if (!legOk) continue;
-				}
-
-				const matchKind = resolveMatchKind(market.question || flat.title, marketEvidence);
-				if (!matchKind) continue;
-
-				seen.add(market.conditionId);
-				out.push({
-					venue: "polymarket",
-					venueMarketId: market.conditionId,
-					eventId: flat.eventSlug,
-					seriesId: null,
-					label: market.groupItemTitle
-						? `${flat.title}: ${market.groupItemTitle}`
-						: flat.title || market.question,
-					question: market.question || flat.title,
-					url: polymarketMarketUrl(market.slug, flat.eventSlug),
-					matchKind,
-					probabilityPercent: market.probabilityPercent,
-					volume: market.volume,
-					closesAt: market.endDate,
-					confidence: marketEvidence.where === "title" ? 80 : 70,
-					evidence: marketEvidence,
-				});
+			if (!eventEvidence) {
+				// Also accept when a single-market question matches.
+				const questionEvidence = activeMarkets
+					.map((m) => findIdentityEvidence(m.question, [], identity))
+					.find((e) => e !== null);
+				if (!questionEvidence) continue;
 			}
+
+			const evidence =
+				eventEvidence ??
+				findIdentityEvidence(activeMarkets[0]?.question ?? flat.title, [], identity);
+			if (!evidence) continue;
+
+			const questionForKind = activeMarkets[0]?.question || flat.title;
+			const matchKind = resolveMatchKind(questionForKind, evidence);
+			if (!matchKind) continue;
+
+			let outcomes = buildPolymarketOutcomes(activeMarkets);
+			const detected = detectPredictionMarketShape({
+				outcomes,
+				negRisk: flat.negRisk,
+			});
+			if (detected.shape === "binary") {
+				outcomes = ensureBinaryOutcomes(outcomes, venueEventId);
+			}
+
+			const validOutcomes = outcomes.filter((o) => o.probabilityPercent != null);
+			if (validOutcomes.length === 0) continue;
+
+			const closesAt =
+				flat.endDate ??
+				activeMarkets.map((m) => m.endDate).find((d): d is string => Boolean(d)) ??
+				null;
+
+			const primaryUrl = polymarketMarketUrl(
+				activeMarkets[0]?.slug ?? venueEventId,
+				flat.eventSlug,
+			);
+
+			seen.add(venueEventId);
+			out.push({
+				venue: "polymarket",
+				venueEventId,
+				seriesId: null,
+				title: flat.title || questionForKind,
+				url: primaryUrl,
+				matchKind,
+				shape: detected.shape,
+				shapeValidated: detected.validated,
+				volume: flat.volume || activeMarkets.reduce((s, m) => s + m.volume, 0),
+				closesAt,
+				confidence: evidence.where === "title" ? 80 : 70,
+				evidence,
+				outcomes: validOutcomes,
+				highlightAlias: evidence.alias,
+			});
 		}
 	}
 
@@ -188,9 +299,7 @@ async function discoverPolymarket(
 		candidateCount: out.length,
 		softFailed: softFailed && !gotUsablePayload,
 	});
-	// Soft-fail only when every query failed transport — a single usable empty
-	// search is definitive "none found" for that identity.
-	return { markets: out, softFailed: softFailed && !gotUsablePayload };
+	return { events: out, softFailed: softFailed && !gotUsablePayload };
 }
 
 export type KalshiSeriesCatalog = {
@@ -209,8 +318,6 @@ async function loadKalshiCompanySeries(logger: Logger): Promise<KalshiSeriesCata
 		});
 		if (payload === null) {
 			logger.warn("Kalshi Companies series soft-failed", { page, loaded: all.length });
-			// First page null = no catalog; mid-page null with partial data is still
-			// soft-fail so we don't stamp "none" from an incomplete Companies crawl.
 			return { series: all, softFailed: true };
 		}
 		if (!isRecord(payload) || !Array.isArray(payload.series)) {
@@ -229,6 +336,16 @@ async function loadKalshiCompanySeries(logger: Logger): Promise<KalshiSeriesCata
 	return { series: all, softFailed: false };
 }
 
+type KalshiMarketRow = {
+	ticker: string;
+	title: string;
+	eventTicker: string;
+	probabilityPercent: number | null;
+	volume: number;
+	closesAt: string | null;
+	strikeValue: number | null;
+};
+
 async function discoverKalshi(
 	identity: AssetIdentity,
 	seriesCatalog: readonly { ticker: string; title: string }[],
@@ -238,9 +355,9 @@ async function discoverKalshi(
 	const seriesHits = seriesCatalog.filter((s) =>
 		new RegExp(`^KX${escapeRegExp(sym)}A?$`, "i").test(s.ticker),
 	);
-	const out: DiscoveredPredictionMarket[] = [];
+	const byEvent = new Map<string, KalshiMarketRow[]>();
 	let softFailed = false;
-	let gotUsablePayload = seriesHits.length === 0; // no series = definitive miss
+	let gotUsablePayload = seriesHits.length === 0;
 
 	for (const series of seriesHits) {
 		const payload = await kalshiFetch(
@@ -263,13 +380,6 @@ async function discoverKalshi(
 			if (!ticker || !title) continue;
 			if (isJunkTitle(title)) continue;
 
-			const evidence = findIdentityEvidence(title, [], identity) ?? {
-				where: "title" as const,
-				alias: series.ticker,
-			};
-			const resolved = resolveMatchKind(title, evidence) ?? "kpi";
-			// Kalshi Companies series are price or KPI fundamentals — never company_subject.
-			const matchKind = resolved === "direct_price" ? "direct_price" : "kpi";
 			const yesBid = parseYesProbabilityPercent(m.yes_bid_dollars ?? m.yes_bid);
 			const yesAsk = parseYesProbabilityPercent(m.yes_ask_dollars ?? m.yes_ask);
 			const probabilityPercent =
@@ -277,23 +387,82 @@ async function discoverKalshi(
 					? Math.round(((yesBid + yesAsk) / 2) * 10) / 10
 					: (parseYesProbabilityPercent(m.last_price_dollars) ?? yesBid ?? yesAsk);
 
-			const eventTicker = asString(m.event_ticker);
-			out.push({
-				venue: "kalshi",
-				venueMarketId: ticker,
-				eventId: eventTicker,
-				seriesId: series.ticker,
-				label: title,
-				question: title,
-				url: kalshiMarketUrl(ticker, eventTicker),
-				matchKind,
+			const eventTicker = asString(m.event_ticker) ?? ticker;
+			const floorStrike = asNumber(m.floor_strike);
+			const strikeValue =
+				Number.isFinite(floorStrike) && floorStrike !== 0 ? floorStrike : extractStrikeValue(title);
+
+			const row: KalshiMarketRow = {
+				ticker,
+				title,
+				eventTicker,
 				probabilityPercent,
 				volume: asNumber(m.volume),
 				closesAt: asString(m.close_time) ?? asString(m.expected_expiration_time),
-				confidence: 90,
-				evidence,
-			});
+				strikeValue,
+			};
+			const list = byEvent.get(eventTicker) ?? [];
+			list.push(row);
+			byEvent.set(eventTicker, list);
 		}
+	}
+
+	const out: DiscoveredPredictionEvent[] = [];
+	for (const [eventTicker, markets] of byEvent) {
+		const title = markets[0]?.title ?? eventTicker;
+		const evidence = findIdentityEvidence(
+			title,
+			markets.map((m) => m.title),
+			identity,
+		) ?? {
+			where: "title" as const,
+			alias: eventTicker,
+		};
+		const resolved = resolveMatchKind(title, evidence) ?? "kpi";
+		const matchKind = resolved === "direct_price" ? "direct_price" : "kpi";
+
+		let outcomes: DiscoveredPredictionOutcome[] = markets.map((m, index) => ({
+			venueContractId: m.ticker,
+			label: markets.length === 1 ? "Yes" : m.title,
+			probabilityPercent: m.probabilityPercent,
+			sortOrder: index,
+			strikeValue: m.strikeValue,
+			volume: m.volume,
+		}));
+
+		const detected = detectPredictionMarketShape({ outcomes });
+		if (detected.shape === "binary") {
+			outcomes = ensureBinaryOutcomes(outcomes, eventTicker);
+		}
+
+		const validOutcomes = outcomes.filter((o) => o.probabilityPercent != null);
+		if (validOutcomes.length === 0) continue;
+
+		const closesAt =
+			markets
+				.map((m) => m.closesAt)
+				.filter((d): d is string => Boolean(d))
+				.sort((a, b) => Date.parse(a) - Date.parse(b))[0] ?? null;
+
+		out.push({
+			venue: "kalshi",
+			venueEventId: eventTicker,
+			seriesId: seriesHits.find((s) => eventTicker.startsWith(s.ticker))?.ticker ?? null,
+			title:
+				markets.length === 1
+					? title
+					: (seriesHits.find((s) => eventTicker.startsWith(s.ticker))?.title ?? title),
+			url: kalshiMarketUrl(markets[0]?.ticker ?? eventTicker, eventTicker),
+			matchKind,
+			shape: detected.shape,
+			shapeValidated: detected.validated,
+			volume: markets.reduce((s, m) => s + m.volume, 0),
+			closesAt,
+			confidence: 90,
+			evidence,
+			outcomes: validOutcomes,
+			highlightAlias: evidence.alias,
+		});
 	}
 
 	logger.info("Kalshi discovery complete", {
@@ -302,10 +471,10 @@ async function discoverKalshi(
 		candidateCount: out.length,
 		softFailed: softFailed && !gotUsablePayload,
 	});
-	return { markets: out, softFailed: softFailed && !gotUsablePayload };
+	return { events: out, softFailed: softFailed && !gotUsablePayload };
 }
 
-/** Discover Polymarket + Kalshi candidates for one asset identity. */
+/** Discover Polymarket + Kalshi event candidates for one asset identity. */
 export async function discoverMarketsForAsset(options: {
 	identity: AssetIdentity;
 	logger: Logger;
@@ -319,7 +488,7 @@ export async function discoverMarketsForAsset(options: {
 		discoverKalshi(identity, catalog.series, logger),
 	]);
 	return {
-		markets: [...poly.markets, ...kalshi.markets],
+		events: [...poly.events, ...kalshi.events],
 		softFailed: catalog.softFailed || poly.softFailed || kalshi.softFailed,
 	};
 }

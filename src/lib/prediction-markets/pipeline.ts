@@ -7,7 +7,7 @@ import {
 	type KalshiSeriesCatalog,
 	loadKalshiCompanySeries,
 } from "./discover";
-import { rankDiscoveredMarkets } from "./rank";
+import { rankDiscoveredEvents } from "./rank";
 import {
 	loadUncheckedTrackedSymbols,
 	persistDiscoveredMatches,
@@ -109,12 +109,12 @@ export async function runPredictionMarketDiscoveryForSymbol(options: {
 		if (discovery.softFailed) {
 			logger.warn("Prediction-market discovery soft-failed (not stamping checked_at)", {
 				symbol: sym,
-				candidateCount: discovery.markets.length,
+				candidateCount: discovery.events.length,
 			});
 			return { ok: false, matchCount: 0, aliasCount: identity.aliases.length };
 		}
 
-		const ranked = rankDiscoveredMarkets(discovery.markets, 2);
+		const ranked = rankDiscoveredEvents(discovery.events);
 		const matchCount = await persistDiscoveredMatches({
 			supabase,
 			logger,
@@ -127,7 +127,7 @@ export async function runPredictionMarketDiscoveryForSymbol(options: {
 		logger.info("Prediction-market discovery complete", {
 			symbol: sym,
 			aliasCount: identity.aliases.length,
-			candidateCount: discovery.markets.length,
+			candidateCount: discovery.events.length,
 			matchCount,
 		});
 

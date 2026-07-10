@@ -490,6 +490,50 @@ export type Database = {
         }
         Relationships: []
       }
+      prediction_market_outcomes: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          prediction_market_id: string
+          probability_percent: number | null
+          sort_order: number
+          strike_value: number | null
+          venue_contract_id: string
+          volume: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          prediction_market_id: string
+          probability_percent?: number | null
+          sort_order?: number
+          strike_value?: number | null
+          venue_contract_id: string
+          volume?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          prediction_market_id?: string
+          probability_percent?: number | null
+          sort_order?: number
+          strike_value?: number | null
+          venue_contract_id?: string
+          volume?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prediction_market_outcomes_market_fkey"
+            columns: ["prediction_market_id"]
+            isOneToOne: false
+            referencedRelation: "prediction_markets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prediction_markets: {
         Row: {
           closes_at: string | null
@@ -502,6 +546,9 @@ export type Database = {
           question: string
           refreshed_at: string
           series_id: string | null
+          shape: string | null
+          shape_meta: Json
+          shape_validated: boolean
           status: string
           url: string
           venue: string
@@ -519,6 +566,9 @@ export type Database = {
           question: string
           refreshed_at?: string
           series_id?: string | null
+          shape?: string | null
+          shape_meta?: Json
+          shape_validated?: boolean
           status?: string
           url: string
           venue: string
@@ -536,6 +586,9 @@ export type Database = {
           question?: string
           refreshed_at?: string
           series_id?: string | null
+          shape?: string | null
+          shape_meta?: Json
+          shape_validated?: boolean
           status?: string
           url?: string
           venue?: string

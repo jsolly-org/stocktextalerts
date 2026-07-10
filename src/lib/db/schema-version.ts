@@ -1,3 +1,3 @@
 // Update EXPECTED_DB_SCHEMA_VERSION whenever migrations are applied or regenerated
 // (use the latest migration commit/tag or schema version timestamp and update tests).
-export const EXPECTED_DB_SCHEMA_VERSION = "20260709232338_tracked_prediction_markets_discovery";
+export const EXPECTED_DB_SCHEMA_VERSION = "20260710133830_prediction_market_event_cards";
