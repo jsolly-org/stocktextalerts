@@ -66,4 +66,52 @@ describe("Telegram daily digest formatting", () => {
 		expect(msg.text).not.toContain("Rumors");
 		expect(msg.text).not.toContain("Top movers");
 	});
+
+	it("bolds top-mover and IPO tickers in Telegram entities", () => {
+		const msg = formatDailyDigestTelegram({
+			userAssets: [{ symbol: "AAPL", name: "Apple Inc." }],
+			assetPrices: new Map([["AAPL", { price: 228.5, changePercent: 2.5 }]]),
+			extras: {
+				topMovers: {
+					gainers: [{ ticker: "JLHL", price: 12.79, changePercent: 586.27 }],
+					losers: [],
+				},
+			},
+			assetEvents: {
+				eventsSection: {
+					earnings: null,
+					dividends: null,
+					splits: null,
+					ipos: "SKHY V: IPO tomorrow — SK Hynix Inc",
+				},
+				analystSection: null,
+				insiderSection: null,
+				hasAnyContent: true,
+			},
+			dateLabel: "Fri, Jul 10",
+		});
+
+		expect(msg.text).toContain("JLHL — $12.79");
+		expect(msg.text).toContain("SKHY V: IPO tomorrow");
+		const boldTexts = msg.entities
+			.filter((e) => e.type === "bold")
+			.map((e) => msg.text.slice(e.offset, e.offset + e.length));
+		expect(boldTexts).toContain("JLHL");
+		expect(boldTexts).toContain("SKHY V:");
+	});
+
+	it("preserves bold ticker entities inside news blockquotes", () => {
+		const msg = formatDailyDigestTelegram({
+			userAssets: [{ symbol: "AAPL", name: "Apple Inc." }],
+			assetPrices: new Map([["AAPL", { price: 228.5, changePercent: 2.5 }]]),
+			extras: { news: "AAPL: First news line" },
+			dateLabel: "Fri, Jul 10",
+		});
+
+		expect(msg.entities.some((e) => e.type === "blockquote")).toBe(true);
+		const boldTexts = msg.entities
+			.filter((e) => e.type === "bold")
+			.map((e) => msg.text.slice(e.offset, e.offset + e.length));
+		expect(boldTexts).toContain("AAPL:");
+	});
 });

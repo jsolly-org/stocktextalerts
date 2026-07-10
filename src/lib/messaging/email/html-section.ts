@@ -1,4 +1,5 @@
 import { escapeHtml } from "../parts/html-utils";
+import { boldTickerPrefixesHtml } from "../parts/ticker-prefix";
 
 /** Finnhub cloud logo as a base64 data-URI, sized to match inline heading text. */
 const FINNHUB_LOGO_IMG = `<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNjAgMTEwIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZmgiIHgxPSIwIiB5MT0iMCIgeDI9IjAiIHkyPSIxIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzZCRDY3NyIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMyRUEwNDMiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDwhLS0gQ2xvdWQgLS0+CiAgPHBhdGggZD0iCiAgICBNNTAgODgKICAgIFEzNiA4OCwgMzYgNzQKICAgIFEzNiA2NiwgNDIgNjIKICAgIFEzNiA1MiwgNDQgNDQKICAgIFE1MiAzNiwgNjQgMzgKICAgIFE2NiAyMiwgODIgMTgKICAgIFE5NiAxNCwgMTA0IDI4CiAgICBRMTEwIDIyLCAxMjAgMjYKICAgIFExMzQgMzAsIDEzNCA0NgogICAgUTE0NiA1MCwgMTQ2IDYyCiAgICBRMTQ2IDc2LCAxMzIgODAKICAgIFExMzAgODgsIDExOCA4OAogICAgWgogICIgZmlsbD0idXJsKCNmaCkiLz4KICA8IS0tIFNwZWVkIGxpbmVzIC0tPgogIDxyZWN0IHg9IjQiIHk9IjU0IiB3aWR0aD0iMzAiIGhlaWdodD0iOCIgcng9IjQiIGZpbGw9InVybCgjZmgpIi8+CiAgPHJlY3QgeD0iMTIiIHk9IjY4IiB3aWR0aD0iMjQiIGhlaWdodD0iOCIgcng9IjQiIGZpbGw9InVybCgjZmgpIi8+CiAgPHJlY3QgeD0iMTgiIHk9IjgyIiB3aWR0aD0iMTgiIGhlaWdodD0iOCIgcng9IjQiIGZpbGw9InVybCgjZmgpIi8+Cjwvc3ZnPgo=" alt="Powered by Finnhub" style="height: 16px; width: auto; vertical-align: middle; margin-left: 4px;" />`;
@@ -117,10 +118,7 @@ export function renderEmailSection(
 ): string {
 	if (!content) return "";
 
-	const htmlContent = markdownLinksToHtml(content).replace(
-		/^([A-Z][A-Z0-9.-]{0,9}:)/gm,
-		"<strong>$1</strong>",
-	);
+	const htmlContent = boldTickerPrefixesHtml(markdownLinksToHtml(content));
 	const outlookContent = htmlToOutlookPreLike(htmlContent);
 
 	return `${sectionHeading(emoji, title, options)}<!--[if mso]><div style="margin: 0; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px; line-height: 18px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; mso-line-height-rule: exactly;">${outlookContent}</div><![endif]--><!--[if !mso]><!--><pre style="white-space: pre-wrap; margin: 0; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${htmlContent}</pre><!--<![endif]-->`;
