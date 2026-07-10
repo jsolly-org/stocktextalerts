@@ -28,7 +28,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import { marketDataFetch } from "../../src/lib/vendors/massive";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_FILE = path.join(__dirname, "..", "data", "us-assets.json");
@@ -264,21 +263,43 @@ async function listAllTickers(): Promise<ListedTicker[]> {
 }
 
 /**
- * Fetch details for a single ticker (branding + SIC code).
+ * Fetch details for a single ticker (branding).
+ *
+ * Uses a direct fetch (not marketDataFetch) so HTTP status is visible:
+ * 404 / empty branding → definitive null icon (ok); 429/5xx/network → fail so
+ * main() can abort instead of writing an icon-wiped snapshot.
  */
 async function fetchTickerDetails(
 	symbol: string,
 ): Promise<{ ok: boolean; icon_url: string | null }> {
-	// optional: listed tickers occasionally 404 on the details route (Massive
-	// list/detail lag). That is a definitive "no branding" for seed purposes,
-	// not a hard failure — aborting the whole snapshot on one miss is worse.
-	const data = await marketDataFetch(
-		`/v3/reference/tickers/${encodeURIComponent(symbol)}`,
-		{},
-		"ticker-details",
-		undefined,
-		{ optional: true },
-	);
+	const apiKey = process.env.MASSIVE_API_KEY;
+	if (!apiKey) {
+		return { ok: false, icon_url: null };
+	}
+
+	const url = `${MASSIVE_BASE_URL}/v3/reference/tickers/${encodeURIComponent(symbol)}?apiKey=${apiKey}`;
+	let response: Response;
+	try {
+		response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+	} catch {
+		return { ok: false, icon_url: null };
+	}
+
+	// Listed tickers occasionally 404 on the details route (Massive list/detail
+	// lag). That is a definitive "no branding" for seed — not a hard failure.
+	if (response.status === 404) {
+		return { ok: true, icon_url: null };
+	}
+	if (!response.ok) {
+		return { ok: false, icon_url: null };
+	}
+
+	let data: unknown;
+	try {
+		data = await response.json();
+	} catch {
+		return { ok: false, icon_url: null };
+	}
 
 	if (typeof data !== "object" || data === null) {
 		return { ok: true, icon_url: null };
@@ -294,9 +315,9 @@ async function fetchTickerDetails(
 
 	let icon_url: string | null = null;
 	if (typeof branding === "object" && branding !== null) {
-		const url = (branding as Record<string, unknown>).icon_url;
-		if (typeof url === "string" && url.trim() !== "") {
-			icon_url = url;
+		const urlValue = (branding as Record<string, unknown>).icon_url;
+		if (typeof urlValue === "string" && urlValue.trim() !== "") {
+			icon_url = urlValue;
 		}
 	}
 

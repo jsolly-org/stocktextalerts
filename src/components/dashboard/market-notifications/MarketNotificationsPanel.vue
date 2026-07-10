@@ -177,9 +177,7 @@
 					</p>
 					<div
 						v-else-if="!notificationSetupBlocked"
-						class="mt-3 border-t border-divider pt-3 transition-opacity duration-200"
-						:class="{ 'opacity-50': !priceMoveAlertsEnabled }"
-						:aria-disabled="!priceMoveAlertsEnabled ? 'true' : undefined"
+						class="mt-3 border-t border-divider pt-3"
 						:title="priceMoveThresholdsDisabledTitle"
 						data-autosave-ignore
 					>
@@ -201,7 +199,10 @@
 						>
 							Turn on Email or Telegram above to set thresholds.
 						</p>
-						<ul class="flex flex-col gap-2">
+						<ul
+							class="flex flex-col gap-2 transition-opacity duration-200"
+							:class="{ 'opacity-50': !priceMoveAlertsEnabled }"
+						>
 							<li
 								v-for="asset in trackedAssets"
 								:key="asset.symbol"
@@ -219,6 +220,7 @@
 								<div class="flex w-[8.5rem] shrink-0 items-center gap-1">
 									<button
 										v-if="!thresholdIsSet(asset.symbol)"
+										:id="`price-move-set-threshold-${asset.symbol}`"
 										type="button"
 										class="w-full cursor-pointer rounded-md border border-dashed border-edge px-2.5 py-1 text-sm text-muted transition-colors hover:border-edge-strong hover:text-heading focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed"
 										:disabled="!priceMoveAlertsEnabled"
@@ -645,6 +647,13 @@ function handleThresholdValueChange(symbol: string, event: Event) {
 	entry.value = target.value;
 	thresholdInputs[symbol] = entry;
 	void saveThreshold(symbol);
+	// Clearing unmounts this input — hand focus to the Set Threshold button so
+	// keyboard users don't land on <body> (WCAG 2.4.3).
+	if (target.value.trim() === "") {
+		void nextTick(() => {
+			document.getElementById(`price-move-set-threshold-${symbol}`)?.focus();
+		});
+	}
 }
 function setThresholdUnit(symbol: string, unit: PriceMoveThresholdUnit) {
 	// Default the missing-entry unit to percent — NOT the clicked unit — so the

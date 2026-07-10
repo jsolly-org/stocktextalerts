@@ -353,6 +353,68 @@ describe("runIconBackfill", () => {
 		expect((await getAsset(untrackedEarly))?.icon_checked_at).toBeNull();
 	});
 
+	it("After tracked symbols fill part of the cap, remaining slots drip alphabetical untracked symbols.", async () => {
+		const untrackedEarly = `${TEST_PREFIX}AAB`;
+		const untrackedLater = `${TEST_PREFIX}AAC`;
+		const trackedLate = `${TEST_PREFIX}YYY`;
+		createdSymbols.push(untrackedEarly, untrackedLater, trackedLate);
+		await upsertAssets([
+			{ symbol: untrackedEarly, name: "Untracked Early Drip Inc", type: "stock" },
+			{ symbol: untrackedLater, name: "Untracked Later Drip Inc", type: "stock" },
+			{ symbol: trackedLate, name: "Tracked Late Drip Inc", type: "stock" },
+		]);
+
+		const testUser = await createTestUser({
+			email: `icon-prio-fill-${randomUUID()}@example.com`,
+			password: TEST_PASSWORD,
+			confirmed: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+		const { error: trackError } = await adminClient
+			.from("user_assets")
+			.insert({ user_id: testUser.id, symbol: trackedLate });
+		expect(trackError).toBeNull();
+
+		const detail = makeFakeDetail(
+			new Map([
+				[
+					trackedLate,
+					{
+						ok: true,
+						iconUrl: `https://api.massive.com/v1/reference/company-branding/${trackedLate}/images/icon.png`,
+					},
+				],
+				[
+					untrackedEarly,
+					{
+						ok: true,
+						iconUrl: `https://api.massive.com/v1/reference/company-branding/${untrackedEarly}/images/icon.png`,
+					},
+				],
+				[
+					untrackedLater,
+					{
+						ok: true,
+						iconUrl: `https://api.massive.com/v1/reference/company-branding/${untrackedLater}/images/icon.png`,
+					},
+				],
+			]),
+		);
+		const result = await runIconBackfill({
+			supabase: adminClient,
+			logger: rootLogger,
+			cap: 2,
+			getTickerDetail: detail.fn,
+		});
+
+		expect(detail.calls).toEqual([trackedLate, untrackedEarly]);
+		expect(result.checked).toBe(2);
+		expect(result.iconsFound).toBe(2);
+		expect((await getAsset(trackedLate))?.icon_checked_at).not.toBeNull();
+		expect((await getAsset(untrackedEarly))?.icon_checked_at).not.toBeNull();
+		expect((await getAsset(untrackedLater))?.icon_checked_at).toBeNull();
+	});
+
 	it("Already-checked and delisted rows are never candidates — the drip only probes live, never-checked symbols.", async () => {
 		const checkedSymbol = `${TEST_PREFIX}DONE`;
 		const delistedSymbol = `${TEST_PREFIX}DEAD`;
