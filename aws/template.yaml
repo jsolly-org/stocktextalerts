@@ -70,13 +70,11 @@ Resources:
         # so nothing is External here — esbuild bundles the JS glue and deploy-web.sh's
         # copy_chart_assets ships the .wasm + font files into the bundle.
         #
-        # Massive free-tier budget (5 calls/min via the shared limiter): this per-minute
-        # tick's Massive usage is small by design — live quotes are Finnhub; remaining
-        # Massive calls are sparkline cache-misses, the odd intraday-bars chart fallback,
-        # and digest extras (movers 2 calls + company news, which the 8s per-user
-        # COMPANY_NEWS_USER_BUDGET_MS bounds to ~1 paced call). Worst case ≈ 3-5 calls
-        # ≈ 1 min of pacing inside the 300s timeout. News/movers degrade gracefully
-        # (optional + circuit breaker) when the budget squeezes them out.
+        # Massive Starter owns quotes, news, movers, and branding used on this tick.
+        # Per-minute Massive usage stays modest (batch snapshots, sparkline cache-misses,
+        # optional digest news/movers). News/movers degrade gracefully (optional + circuit
+        # breaker) when a user budget squeezes them out. Timeout 300s is headroom, not a
+        # free-tier pacing budget.
     Properties:
       FunctionName: stocktextalerts-schedule
       Handler: schedule.handler
@@ -104,7 +102,6 @@ Resources:
           SITE_URL: !Ref SiteUrl
           EMAIL_FROM: !Ref EmailFrom
           MASSIVE_API_KEY_SSM_PARAM: /stocktextalerts/massive-api-key
-          FINNHUB_API_KEY_SSM_PARAM: /stocktextalerts/finnhub-api-key
           XAI_API_KEY_SSM_PARAM: /stocktextalerts/xai-api-key
           TELEGRAM_BOT_TOKEN_SSM_PARAM: /stocktextalerts/telegram-bot-token
           SUPABASE_URL_SSM_PARAM: /stocktextalerts/supabase-url
@@ -136,11 +133,10 @@ Resources:
       FunctionName: stocktextalerts-asset-maintenance
       Handler: asset-maintenance.handler
       CodeUri: src/handlers
-      # 900s: Massive's free tier allows 5 calls/min (~12s/call), so the nightly run's
-      # budget — corporate actions (~6) + universe crawl (~11 pages) + enrichment (cap 25)
-      # + delisting rolling window (15) ≈ 57 calls — needs ~11.5 min end to end.
-      # 900s is Lambda's hard max: the ~200s of headroom absorbs retries only, so any NEW
-      # Massive call added to this function must displace an existing per-job cap.
+      # 900s: nightly work spans Massive corporate actions, universe reconcile,
+      # branding drip, delisting confirms, plus Finnhub earnings/recommendation/insider
+      # ingest and prediction-market discovery. Remaining-time guards skip steps that
+      # can't fit; 900s is Lambda's hard max and absorbs retries / slow vendor days.
       Timeout: 900
       MemorySize: 512
       LoggingConfig:
@@ -519,7 +515,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: stocktextalerts-live-provider-check-lambda-errors
-      AlarmDescription: Live Massive/Finnhub provider health check failed (or the Lambda threw / timed out / OOMed)
+      AlarmDescription: Live Massive/Finnhub residual provider health check failed (or the Lambda threw / timed out / OOMed)
       Namespace: AWS/Lambda
       MetricName: Errors
       Dimensions:
@@ -779,7 +775,7 @@ Resources:
           MetricValue: "1"
           DefaultValue: 0
 
-  # Per-Lambda vendor retry-exhaustion counters (Massive/Finnhub). Each is
+  # Per-Lambda vendor retry-exhaustion counters (Massive + residual Finnhub). Each is
   # subtracted from ErrorLogCount in ErrorLogAlarm so single vendor blips
   # don't page on the global error alarm; per-Lambda alarms below use
   # cadence-appropriate thresholds (sustained for the per-minute Schedule,
@@ -901,7 +897,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: stocktextalerts-schedule-vendor-retry
-      AlarmDescription: Sustained vendor retry exhaustion in ScheduleFunction (Massive/Finnhub)
+      AlarmDescription: Sustained vendor retry exhaustion in ScheduleFunction (Massive)
       Namespace: stocktextalerts
       MetricName: ScheduleVendorRetryCount
       Statistic: Sum
@@ -923,7 +919,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: stocktextalerts-asset-maintenance-vendor-retry
-      AlarmDescription: Vendor retry exhaustion in AssetMaintenanceFunction (Finnhub earnings calendar)
+      AlarmDescription: Vendor retry exhaustion in AssetMaintenanceFunction (Massive + Finnhub residual)
       Namespace: stocktextalerts
       MetricName: AssetMaintenanceVendorRetryCount
       Statistic: Sum
