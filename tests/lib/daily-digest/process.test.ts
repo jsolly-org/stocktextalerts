@@ -3,7 +3,7 @@
  *
  * Covers real-world cases: user with no assets and no digest options is skipped
  * and next_send_at is advanced; email-enabled user with a news preference
- * fetches Finnhub extras; Grok limit reached skips the Finnhub news fetch.
+ * fetches Massive company news for Grok; Grok limit reached skips that fetch.
  */
 import { DateTime } from "luxon";
 import { describe, expect, it, vi } from "vitest";
@@ -76,7 +76,7 @@ getCurrentMarketSessionMock.mockResolvedValue("regular");
 fetchIntradaySparklinesMock.mockResolvedValue(new Map());
 fetchSparklinesMock.mockResolvedValue(new Map());
 
-const fetchDigestExtrasMock = vi.hoisted(() => vi.fn());
+const fetchDigestNewsForGrokMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../../../src/lib/daily-digest/digest-extras", async () => {
 	const actual = await vi.importActual<
@@ -84,16 +84,11 @@ vi.mock("../../../src/lib/daily-digest/digest-extras", async () => {
 	>("../../../src/lib/daily-digest/digest-extras");
 	return {
 		...actual,
-		fetchDigestExtras: fetchDigestExtrasMock,
+		fetchDigestNewsForGrok: fetchDigestNewsForGrokMock,
 	};
 });
 
-fetchDigestExtrasMock.mockResolvedValue({
-	news: new Map(),
-	analyst: new Map(),
-	insider: new Map(),
-	analystFetchSucceeded: false,
-});
+fetchDigestNewsForGrokMock.mockResolvedValue(new Map());
 
 vi.mock("../../../src/lib/market-data/movers", () => ({
 	fetchTopMovers: vi.fn().mockResolvedValue([]),
@@ -168,7 +163,7 @@ describe("Daily digest process scenarios", () => {
 		const nowIso = now.toISO();
 		expect(nowIso).toBeTruthy();
 
-		fetchDigestExtrasMock.mockClear();
+		fetchDigestNewsForGrokMock.mockClear();
 
 		const { id } = await createTestUser({
 			timezone: "America/New_York",
@@ -209,10 +204,7 @@ describe("Daily digest process scenarios", () => {
 			}),
 		});
 
-		expect(fetchDigestExtrasMock).toHaveBeenCalledWith(
-			["AAPL"],
-			expect.objectContaining({ includeNews: true }),
-		);
+		expect(fetchDigestNewsForGrokMock).toHaveBeenCalledWith(["AAPL"]);
 	});
 
 	it("Grok limit reached skips provider news fetch even when email news is enabled.", async () => {
@@ -220,7 +212,7 @@ describe("Daily digest process scenarios", () => {
 		const nowIso = now.toISO();
 		expect(nowIso).toBeTruthy();
 
-		fetchDigestExtrasMock.mockClear();
+		fetchDigestNewsForGrokMock.mockClear();
 
 		const { id } = await createTestUser({
 			timezone: "America/New_York",
@@ -262,6 +254,6 @@ describe("Daily digest process scenarios", () => {
 			}),
 		});
 
-		expect(fetchDigestExtrasMock).not.toHaveBeenCalled();
+		expect(fetchDigestNewsForGrokMock).not.toHaveBeenCalled();
 	});
 });

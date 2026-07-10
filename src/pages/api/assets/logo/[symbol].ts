@@ -14,11 +14,10 @@ import { isValidAssetSymbol } from "../../../../lib/validation";
  *
  * Authenticated logo proxy for dashboard `AssetBadge` images. Looks up
  * `assets.icon_url` and streams the upstream bytes back to the browser.
- * `resolveLogoUpstreamUrl` restricts the host to the allowed logo CDNs (SSRF
- * guard on the DB-sourced URL) and appends `MASSIVE_API_KEY` server-side for
- * Massive-era URLs so the key never reaches the client; Finnhub CDN URLs are
- * public. CDN caching via Astro 7 `context.cache.set()` (Vercel `cacheVercel()`
- * in production).
+ * `resolveLogoUpstreamUrl` restricts the host to Massive branding URLs (SSRF
+ * guard on the DB-sourced URL) and appends `MASSIVE_API_KEY` server-side so the
+ * key never reaches the client. CDN caching via Astro 7 `context.cache.set()`
+ * (Vercel `cacheVercel()` in production).
  */
 export const GET: APIRoute = async ({ url, params, request, cookies, locals, cache }) => {
 	const logger = createLogger({

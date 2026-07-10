@@ -1,17 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-	formatAnalystSectionEmail,
-	formatInsiderSectionEmail,
-} from "../../../src/lib/asset-events/format";
-import {
 	buildNewsContextForGrok,
-	fetchDigestExtras,
+	fetchDigestNewsForGrok,
 } from "../../../src/lib/daily-digest/digest-extras";
-import type {
-	CompanyNewsItem,
-	InsiderTransaction,
-	RecommendationTrend,
-} from "../../../src/lib/types";
+import type { CompanyNewsItem } from "../../../src/lib/types";
 import {
 	isOptionalVendorUnavailable,
 	recordOptionalVendorFailure,
@@ -93,54 +85,7 @@ describe("buildNewsContextForGrok formats provider headlines into a Grok context
 	});
 });
 
-describe("formatAnalystSection formats recommendation trends per ticker.", () => {
-	it("Formats email analyst section with full breakdown.", () => {
-		const data = new Map<string, RecommendationTrend | null>([
-			[
-				"NVDA",
-				{
-					buy: 38,
-					hold: 6,
-					sell: 2,
-					strongBuy: 15,
-					strongSell: 1,
-					period: "2026-01-01",
-				},
-			],
-		]);
-
-		const result = formatAnalystSectionEmail(data);
-
-		expect(result).toContain("15 Strong Buy");
-		expect(result).toContain("38 Buy");
-		expect(result).toContain("6 Hold");
-		expect(result).toContain("2 Sell");
-		expect(result).toContain("1 Strong Sell");
-		expect(result).toContain("2026-01-01");
-	});
-});
-
-describe("formatInsiderSection formats insider transactions per ticker.", () => {
-	it("Formats email insider section with more transactions.", () => {
-		const transactions: InsiderTransaction[] = Array.from({ length: 5 }, (_, i) => ({
-			name: `Insider ${i}`,
-			share: 1000,
-			change: i % 2 === 0 ? -1000 : 1000,
-			transactionType: i % 2 === 0 ? "S" : "P",
-			transactionDate: `2026-02-0${i + 1}`,
-		}));
-
-		const data = new Map<string, InsiderTransaction[]>([["TSLA", transactions]]);
-
-		const result = formatInsiderSectionEmail(data);
-
-		expect(result).not.toBeNull();
-		const lines = result?.split("\n");
-		expect(lines?.length).toBe(5);
-	});
-});
-
-describe("fetchDigestExtras company-news degradation", () => {
+describe("fetchDigestNewsForGrok company-news degradation", () => {
 	afterEach(() => {
 		resetOptionalVendorCircuits();
 		vi.restoreAllMocks();
@@ -154,13 +99,9 @@ describe("fetchDigestExtras company-news degradation", () => {
 		recordOptionalVendorFailure("company-news");
 		expect(isOptionalVendorUnavailable("company-news")).toBe(true);
 
-		const result = await fetchDigestExtras(["AAPL", "MSFT"], {
-			includeNews: true,
-			includeAnalyst: false,
-			includeInsider: false,
-		});
+		const result = await fetchDigestNewsForGrok(["AAPL", "MSFT"]);
 
-		expect(result.news.size).toBe(0);
+		expect(result.size).toBe(0);
 		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 });

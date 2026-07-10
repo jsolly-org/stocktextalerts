@@ -19,19 +19,14 @@ export const ACTIVE_TICKER_TYPES: ReadonlyArray<{
 ];
 
 /** The one allowed logo host whose fetches must carry the Massive API key. */
-export const MASSIVE_LOGO_HOST = "api.massive.com";
+const MASSIVE_LOGO_HOST = "api.massive.com";
 
 /**
- * Hosts a stored `assets.icon_url` may point at. Massive-era rows carry
- * `api.massive.com` branding URLs (fetched with the API key appended);
- * Finnhub-era rows carry public `static*.finnhub.io` CDN URLs. Anything else
- * is treated as a poisoned value and rejected (SSRF guard).
+ * Hosts a stored `assets.icon_url` may point at. Massive branding URLs live on
+ * `api.massive.com` (fetched with the API key appended). Anything else is
+ * treated as a poisoned value and rejected (SSRF guard).
  */
-export const ALLOWED_LOGO_HOSTS: ReadonlySet<string> = new Set([
-	MASSIVE_LOGO_HOST,
-	"static.finnhub.io",
-	"static2.finnhub.io",
-]);
+export const ALLOWED_LOGO_HOSTS: ReadonlySet<string> = new Set([MASSIVE_LOGO_HOST]);
 
 /** Upper bound on fetched logo bytes — shared by the dashboard proxy and email inlining. */
 export const MAX_LOGO_BYTES = 100 * 1024;

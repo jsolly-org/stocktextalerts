@@ -2,7 +2,7 @@ import { requireEnv } from "../../db/env";
 import { isRecord } from "../../types";
 import { marketDataFetch } from "../../vendors/massive";
 import type { TickerDetail } from "../types";
-import { ALLOWED_LOGO_HOSTS, MASSIVE_LOGO_HOST, MASSIVE_TICKERS_PATH_PREFIX } from "./constants";
+import { ALLOWED_LOGO_HOSTS, MASSIVE_TICKERS_PATH_PREFIX } from "./constants";
 
 /**
  * Fetch the logo URL for a single ticker from Massive's ticker-detail endpoint.
@@ -55,17 +55,15 @@ export function isAllowedLogoUrl(iconUrl: string): boolean {
 /**
  * Resolve a stored `assets.icon_url` to the URL to actually fetch, or `null` when the
  * value is not an https URL on an allowed logo host (SSRF guard — icon_url is
- * DB-sourced). Massive-era URLs get the API key appended server-side; Finnhub CDN
- * URLs are public and pass through untouched. Shared by the dashboard logo proxy and
- * the email logo fetcher so the allowlist can't drift between them.
+ * DB-sourced). Massive branding URLs get the API key appended server-side.
+ * Shared by the dashboard logo proxy and the email logo fetcher so the allowlist
+ * can't drift between them.
  */
 export function resolveLogoUpstreamUrl(iconUrl: string): string | null {
 	if (!isAllowedLogoUrl(iconUrl)) {
 		return null;
 	}
 	const parsed = new URL(iconUrl);
-	if (parsed.hostname === MASSIVE_LOGO_HOST) {
-		parsed.searchParams.set("apiKey", requireEnv("MASSIVE_API_KEY"));
-	}
+	parsed.searchParams.set("apiKey", requireEnv("MASSIVE_API_KEY"));
 	return parsed.toString();
 }

@@ -155,7 +155,7 @@ const ASSET_EVENT_TYPES = [
 		description:
 			"Included in your daily delivery when earnings, ex-dividend dates, or stock splits are scheduled in the next 3 days.",
 		massive: true,
-		finnhub: false,
+		finnhub: true,
 	},
 	{
 		key: "ipo" as const,
