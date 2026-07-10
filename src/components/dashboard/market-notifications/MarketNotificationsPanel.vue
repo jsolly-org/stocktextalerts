@@ -198,7 +198,15 @@
 								:key="asset.symbol"
 								class="flex items-center gap-2"
 							>
-								<span class="min-w-0 flex-1 truncate text-sm font-medium text-heading">{{ asset.symbol }}</span>
+								<span class="min-w-0 flex-1 flex items-center gap-2 text-sm font-medium text-heading">
+									<AssetBadge
+										:type="asset.type"
+										:symbol="asset.symbol"
+										:icon-url="asset.icon_url"
+										size="compact"
+									/>
+									<span class="truncate">{{ asset.symbol }}</span>
+								</span>
 								<div class="flex shrink-0 items-center gap-1">
 									<input
 										type="number"
@@ -264,6 +272,7 @@ import {
 } from "../../../lib/time/display";
 import { parseTimeToMinutes } from "../../../lib/time/parse";
 import FadeTransition from "../../FadeTransition.vue";
+import AssetBadge from "../assets/AssetBadge.vue";
 import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import { useScheduledUpdateTiming } from "../composables/useScheduledUpdateTiming";
