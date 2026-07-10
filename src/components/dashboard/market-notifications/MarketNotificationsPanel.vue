@@ -145,12 +145,15 @@
 				/>
 				<div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
 					<div class="min-w-0">
-						<span
-							id="price_move_alerts_label"
-							class="text-base font-semibold text-heading"
-						>
-							Price Move Alerts
-						</span>
+						<div class="flex items-center gap-2">
+							<span
+								id="price_move_alerts_label"
+								class="text-base font-semibold text-heading"
+							>
+								Price Move Alerts
+							</span>
+							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
+						</div>
 						<p id="price_move_alerts_description" class="text-sm text-body-secondary mt-0.5">
 							Get notified when a tracked stock moves past a threshold you set — as a percent or a dollar change in a single trading day. Measured from yesterday's close on the first alert, then re-triggered on each additional move of that size.
 						</p>
@@ -234,10 +237,10 @@
 										<input
 											:id="`price-move-threshold-${asset.symbol}`"
 											type="number"
-											inputmode="decimal"
-											min="0"
+											inputmode="numeric"
+											:min="MIN_PRICE_MOVE_THRESHOLD"
 											:max="thresholdMaxFor(asset.symbol)"
-											step="any"
+											step="1"
 											class="w-0 min-w-0 flex-1 rounded-md border bg-surface-alt px-2 py-1 text-right text-sm text-heading focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed"
 											:class="thresholdErrors[asset.symbol] ? 'border-red-500' : 'border-edge'"
 											:aria-label="`Price-move threshold for ${asset.symbol} in ${thresholdUnitFor(asset.symbol) === 'percent' ? 'percent' : 'dollars'}`"
@@ -296,6 +299,7 @@ import { DASHBOARD_SECTION_IDS,
 	DEFAULT_PRICE_MOVE_THRESHOLD_PERCENT,
 	MAX_PRICE_MOVE_DOLLAR_THRESHOLD,
 	MAX_PRICE_MOVE_PERCENT_THRESHOLD,
+	MIN_PRICE_MOVE_THRESHOLD,
 	US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,} from "../../../lib/constants";
 import type { PriceMoveThresholdUnit } from "../../../lib/db/types";
@@ -612,9 +616,22 @@ function thresholdMaxFor(symbol: string): number {
 		? MAX_PRICE_MOVE_PERCENT_THRESHOLD
 		: MAX_PRICE_MOVE_DOLLAR_THRESHOLD;
 }
-/** Block keys that type=number still accepts (sign, scientific notation). */
+/** Clamp to a whole number in the unit's accepted range (exclusive of clear). */
+function clampThresholdValue(value: number, unit: PriceMoveThresholdUnit): number {
+	const max =
+		unit === "percent" ? MAX_PRICE_MOVE_PERCENT_THRESHOLD : MAX_PRICE_MOVE_DOLLAR_THRESHOLD;
+	return Math.min(max, Math.max(MIN_PRICE_MOVE_THRESHOLD, Math.round(value)));
+}
+/** Block keys that type=number still accepts (sign, scientific notation, decimals). */
 function onThresholdKeydown(event: KeyboardEvent) {
-	if (event.key === "-" || event.key === "+" || event.key === "e" || event.key === "E") {
+	if (
+		event.key === "-" ||
+		event.key === "+" ||
+		event.key === "e" ||
+		event.key === "E" ||
+		event.key === "." ||
+		event.key === ","
+	) {
 		event.preventDefault();
 	}
 }
@@ -630,30 +647,41 @@ function armDefaultThreshold(symbol: string) {
 }
 function handleThresholdValueChange(symbol: string, event: Event) {
 	const target = event.target as HTMLInputElement;
-	// A number input with unparseable text reports value "" but badInput=true —
-	// treating that as "clear the threshold" would announce a success the user
-	// didn't ask for while the garbage text stays visible. Bump the seq too so
-	// an earlier in-flight save can't settle afterward and overwrite this error.
-	if (target.validity.badInput) {
-		thresholdSaveSeq[symbol] = (thresholdSaveSeq[symbol] ?? 0) + 1;
-		thresholdErrors[symbol] = true;
-		thresholdStatus.value = { kind: "error", symbol };
-		return;
-	}
 	const entry = thresholdInputs[symbol] ?? {
 		value: "",
 		unit: "percent" as PriceMoveThresholdUnit,
 	};
-	entry.value = target.value;
-	thresholdInputs[symbol] = entry;
-	void saveThreshold(symbol);
-	// Clearing unmounts this input — hand focus to the Set Threshold button so
-	// keyboard users don't land on <body> (WCAG 2.4.3).
-	if (target.value.trim() === "") {
+	// Unparseable text (e.g. "1e") reports value "" with badInput — revert to the
+	// last known good value instead of clearing or flashing an error. Invalid
+	// numbers shouldn't be reachable as a committed state.
+	if (target.validity.badInput) {
+		target.value = entry.value;
+		return;
+	}
+	const trimmed = target.value.trim();
+	// Empty still clears (opts the stock out) — that's intentional, not invalid.
+	if (trimmed === "") {
+		entry.value = "";
+		thresholdInputs[symbol] = entry;
+		void saveThreshold(symbol);
 		void nextTick(() => {
 			document.getElementById(`price-move-set-threshold-${symbol}`)?.focus();
 		});
+		return;
 	}
+	const parsed = Number(trimmed);
+	if (!Number.isFinite(parsed)) {
+		target.value = entry.value;
+		return;
+	}
+	// Out-of-range (0, negative paste, over-max) or fractional paste → clamp to a
+	// whole number in [min, max] so the save path never sees an invalid value.
+	const clamped = clampThresholdValue(parsed, entry.unit);
+	const next = String(clamped);
+	entry.value = next;
+	thresholdInputs[symbol] = entry;
+	if (target.value !== next) target.value = next;
+	void saveThreshold(symbol);
 }
 function setThresholdUnit(symbol: string, unit: PriceMoveThresholdUnit) {
 	// Default the missing-entry unit to percent — NOT the clicked unit — so the
@@ -676,7 +704,12 @@ async function saveThreshold(symbol: string): Promise<void> {
 	const value = raw === "" ? null : Number(raw);
 	const maxValue =
 		unit === "percent" ? MAX_PRICE_MOVE_PERCENT_THRESHOLD : MAX_PRICE_MOVE_DOLLAR_THRESHOLD;
-	if (value !== null && (!Number.isFinite(value) || value <= 0 || value > maxValue)) {
+	// Backstop only — handleThresholdValueChange clamps to a whole number before
+	// calling us, so this should not fire for normal UI input.
+	if (
+		value !== null &&
+		(!Number.isInteger(value) || value < MIN_PRICE_MOVE_THRESHOLD || value > maxValue)
+	) {
 		thresholdErrors[symbol] = true;
 		thresholdStatus.value = { kind: "error", symbol };
 		return;

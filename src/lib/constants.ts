@@ -181,9 +181,14 @@ Price-move alerts
  *  Expressed as a percent move. */
 export const DEFAULT_PRICE_MOVE_THRESHOLD_PERCENT = 5;
 
-/** Largest per-stock thresholds accepted (guard fat-finger input); the DB only
- *  enforces > 0. Percent caps at a full-day double; dollar allows large single-day
- *  moves on high-priced names. */
+/** Smallest per-stock threshold accepted (1% or $1). Whole numbers only —
+ *  matches the DB CHECK (`threshold_value >= 1 AND = trunc(...)`) and the
+ *  HTML `min` / `step=1` so spinners and typed input can't land invalid values. */
+export const MIN_PRICE_MOVE_THRESHOLD = 1;
+
+/** Largest per-stock thresholds accepted (guard fat-finger input). Percent caps
+ *  at a full-day double; dollar allows large single-day moves on high-priced
+ *  names. The DB enforces whole numbers >= 1; these ceilings are app-only. */
 export const MAX_PRICE_MOVE_PERCENT_THRESHOLD = 100;
 export const MAX_PRICE_MOVE_DOLLAR_THRESHOLD = 100_000;
 
