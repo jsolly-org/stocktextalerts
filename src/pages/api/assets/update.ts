@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { ensureAssetIconChecked } from "../../../lib/assets/icon-backfill";
+import { ensureAssetIconChecked } from "../../../lib/assets/icon-check";
 import { createUserService } from "../../../lib/auth/user-service";
 import type { ApiJsonBody } from "../../../lib/client/types";
 import { getUserAssets } from "../../../lib/db";
@@ -225,9 +225,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	}
 
 	// Probe Massive branding for net-new tracked symbols that have never been
-	// icon-checked. Best-effort: failures leave the row unchecked for the
-	// nightly tracked-first drip. Writes go through the admin client (assets
-	// UPDATE is service_role-only).
+	// icon-checked. Best-effort: failures leave the row unchecked for a later
+	// watchlist add or universe-reconcile retry. Writes go through the admin
+	// client (assets UPDATE is service_role-only).
 	const admin = createSupabaseAdminClient();
 	for (const symbol of uniqueSymbols) {
 		if (previousSymbolSet.has(symbol)) continue;

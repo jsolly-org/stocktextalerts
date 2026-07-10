@@ -320,7 +320,7 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 
 Massive Starter quotes may be delayed by up to 15 minutes. The one-minute scheduler cadence is retained for delivery precision, not real-time quote freshness.
 
-**`AssetMaintenanceFunction`** (daily at 00:00 UTC) — ingests Finnhub earnings and recommendation/insider enrichment; ingests Massive dividends, splits, and IPOs; runs the daily Massive universe reconcile, Massive delisting confirms, and Massive branding icon backfill.
+**`AssetMaintenanceFunction`** (daily at 00:00 UTC) — ingests Finnhub earnings and recommendation/insider enrichment; ingests Massive dividends, splits, and IPOs; runs the daily Massive universe reconcile (including branding probes for new listings) and Massive delisting confirms.
 
 **`ComputeDailyStatsFunction`** (weekdays at 22:00 UTC) — caches per-symbol daily closes in `asset_daily_closes` (the source for the dashboard watchlist sparklines) for tracked assets.
 

@@ -2,10 +2,10 @@
  * Orchestration tests for the daily asset-maintenance Lambda: the nightly
  * universe-reconcile cadence and the per-step remaining-time budget guards.
  *
- * Every step implementation (ingest, enrichment, reconcile, sweep, icon backfill,
- * pm discovery, pm refresh) is mocked — the handler is thin orchestration, and
- * what these tests pin is WHICH steps run under which clock/budget conditions,
- * plus the pageable error logs when a step is skipped.
+ * Every step implementation (ingest, enrichment, reconcile, sweep, pm discovery,
+ * pm refresh) is mocked — the handler is thin orchestration, and what these
+ * tests pin is WHICH steps run under which clock/budget conditions, plus the
+ * pageable error logs when a step is skipped.
  */
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
@@ -19,9 +19,6 @@ vi.mock("../../../src/lib/asset-events/fetch", () => ({
 }));
 vi.mock("../../../src/lib/assets/delisting-sweep", () => ({
 	runDelistingSweep: vi.fn(),
-}));
-vi.mock("../../../src/lib/assets/icon-backfill", () => ({
-	runIconBackfill: vi.fn(),
 }));
 vi.mock("../../../src/lib/assets/universe-reconcile", () => ({
 	runUniverseReconcile: vi.fn(),
@@ -44,7 +41,6 @@ vi.mock("../../../src/lib/prediction-markets/refresh", () => ({
 
 import { handler } from "../../../src/handlers/maintenance/asset-maintenance";
 import {
-	ICON_BACKFILL_MIN_REMAINING_MS,
 	PM_DISCOVERY_MIN_REMAINING_MS,
 	PM_REFRESH_MIN_REMAINING_MS,
 	RECONCILE_MIN_REMAINING_MS,
@@ -53,7 +49,6 @@ import {
 import { fetchAndStoreFinnhubEnrichment } from "../../../src/lib/asset-events/enrichment-store";
 import { fetchAndStoreAssetEvents } from "../../../src/lib/asset-events/fetch";
 import { runDelistingSweep } from "../../../src/lib/assets/delisting-sweep";
-import { runIconBackfill } from "../../../src/lib/assets/icon-backfill";
 import { runUniverseReconcile } from "../../../src/lib/assets/universe-reconcile";
 import { createSupabaseAdminClient } from "../../../src/lib/db/supabase";
 import { createEmailSender } from "../../../src/lib/messaging/email/utils";
@@ -72,7 +67,6 @@ const STARVED_REMAINING_MS =
 	Math.min(
 		RECONCILE_MIN_REMAINING_MS,
 		SWEEP_MIN_REMAINING_MS,
-		ICON_BACKFILL_MIN_REMAINING_MS,
 		PM_DISCOVERY_MIN_REMAINING_MS,
 		PM_REFRESH_MIN_REMAINING_MS,
 	) - 60_000;
@@ -122,13 +116,6 @@ function stubHealthySteps(): void {
 		userAssetRowsDeleted: 1,
 		providerErrors: 0,
 	});
-	vi.mocked(runIconBackfill).mockResolvedValue({
-		candidatesRemaining: 1843,
-		checked: 25,
-		iconsFound: 18,
-		fetchFailed: 2,
-		writeFailed: 0,
-	});
 	vi.mocked(refreshActivePredictionMarketSnapshots).mockResolvedValue({
 		refreshed: 4,
 		failed: 0,
@@ -170,7 +157,6 @@ describe("asset-maintenance Lambda orchestration", () => {
 		expect(refreshActivePredictionMarketSnapshots).toHaveBeenCalledTimes(1);
 		expect(runPredictionMarketDiscoveryDrip).toHaveBeenCalledTimes(1);
 		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
-		expect(runIconBackfill).toHaveBeenCalledTimes(1);
 	});
 
 	it("On a Wednesday tick the reconcile and every other nightly step run", async () => {
@@ -183,16 +169,14 @@ describe("asset-maintenance Lambda orchestration", () => {
 		expect(refreshActivePredictionMarketSnapshots).toHaveBeenCalledTimes(1);
 		expect(runPredictionMarketDiscoveryDrip).toHaveBeenCalledTimes(1);
 		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
-		expect(runIconBackfill).toHaveBeenCalledTimes(1);
 	});
 
-	it("A starved invocation (remaining time below every step budget) skips reconcile, pm refresh, pm discovery, sweep, and icon backfill with pageable error logs", async () => {
+	it("A starved invocation (remaining time below every step budget) skips reconcile, pm refresh, pm discovery, and sweep with pageable error logs", async () => {
 		vi.setSystemTime(SUNDAY_UTC);
 		expectConsoleError(/Skipping universe_reconcile/);
 		expectConsoleError(/Skipping pm_refresh/);
 		expectConsoleError(/Skipping pm_discovery/);
 		expectConsoleError(/Skipping delisting_sweep/);
-		expectConsoleError(/Skipping icon_backfill/);
 
 		await handler(event, makeContext(STARVED_REMAINING_MS));
 
@@ -202,13 +186,11 @@ describe("asset-maintenance Lambda orchestration", () => {
 		expect(refreshActivePredictionMarketSnapshots).not.toHaveBeenCalled();
 		expect(runPredictionMarketDiscoveryDrip).not.toHaveBeenCalled();
 		expect(runDelistingSweep).not.toHaveBeenCalled();
-		expect(runIconBackfill).not.toHaveBeenCalled();
 		// The skip is not silent: each guarded step left an ERROR log (ErrorLogAlarm pages).
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping universe_reconcile"));
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping pm_refresh"));
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping pm_discovery"));
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping delisting_sweep"));
-		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping icon_backfill"));
 	});
 
 	it("With ample remaining time every step runs, summaries are logged, and nothing errors", async () => {
@@ -231,7 +213,6 @@ describe("asset-maintenance Lambda orchestration", () => {
 		expect(runPredictionMarketDiscoveryDrip).toHaveBeenCalledTimes(1);
 		expect(runUniverseReconcile).toHaveBeenCalledTimes(1);
 		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
-		expect(runIconBackfill).toHaveBeenCalledTimes(1);
 		// Nothing failed, so no vendor-backfill retry was enqueued.
 		expect(enqueueAssetEventsIngestRetry).not.toHaveBeenCalled();
 
@@ -241,7 +222,6 @@ describe("asset-maintenance Lambda orchestration", () => {
 		expect(summaries).toContainEqual("Prediction-market discovery drip complete");
 		expect(summaries).toContainEqual("Universe reconcile complete");
 		expect(summaries).toContainEqual("Delisting sweep complete");
-		expect(summaries).toContainEqual("Icon backfill complete");
 		// No expectConsoleError() registered: tests/setup.ts fails this test on ANY
 		// console.error, so "nothing errors" is enforced automatically.
 	});

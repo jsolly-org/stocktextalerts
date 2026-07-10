@@ -1,15 +1,3 @@
-// --- Icon backfill tuning ---
-
-/**
- * Max never-checked symbols the nightly icon backfill probes per run. Each probe is one
- * Massive ticker-detail call. Massive Starter does not impose the old Finnhub free-tier
- * call budget, but the cap keeps Lambda work and upstream fan-out bounded.
- */
-export const ICON_BACKFILL_NIGHTLY_CAP = 500;
-
-/** Bounded concurrency for Massive ticker-detail fetches. */
-export const ICON_BACKFILL_CONCURRENCY = 10;
-
 /** Upsert/flag chunk size — keeps `.in()` filter URLs under practical length limits. */
 export const CHUNK_SIZE = 500;
 
@@ -31,7 +19,7 @@ export const PM_DISCOVERY_NIGHTLY_CAP = 25;
 /**
  * Max open matched prediction-market events refreshed per midnight run.
  * Each event is one Poly or Kalshi fetch (~60/min); 40 ≈ ~40s of limiter wait
- * plus parse/DB, leaving headroom for delisting sweep and icon backfill.
+ * plus parse/DB, leaving headroom for delisting sweep.
  */
 export const PM_REFRESH_NIGHTLY_CAP = 40;
 

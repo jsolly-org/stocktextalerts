@@ -1,9 +1,9 @@
 /**
  * Daily asset-data maintenance (EventBridge: midnight UTC). Ingests Finnhub
  * earnings/recommendation/insider data and Massive corporate actions, reconciles
- * the Massive tradable universe, runs Massive delisting confirms (notifying
- * affected users), and drips the Massive branding icon backfill. Enqueues
- * vendor-backfill retries on partial ingest failures.
+ * the Massive tradable universe, and runs Massive delisting confirms (notifying
+ * affected users). Enqueues vendor-backfill retries on partial ingest failures.
+ * New-listing icon probes run inside universe reconcile (not a separate drip).
  *
  * Steps that spend vendor budget check the Lambda's remaining time first and skip
  * WITH AN ERROR LOG when they cannot fit, avoiding a partial step that ends in an
@@ -16,7 +16,6 @@ import { fetchAndStoreAssetEvents } from "../../lib/asset-events/fetch";
 import type { AssetEventProvider } from "../../lib/asset-events/types";
 import { PM_DISCOVERY_NIGHTLY_CAP } from "../../lib/assets/constants";
 import { runDelistingSweep } from "../../lib/assets/delisting-sweep";
-import { runIconBackfill } from "../../lib/assets/icon-backfill";
 import { runUniverseReconcile } from "../../lib/assets/universe-reconcile";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";
 import { createLogger, type Logger } from "../../lib/logging";
@@ -26,7 +25,6 @@ import { runPredictionMarketDiscoveryDrip } from "../../lib/prediction-markets/p
 import { refreshActivePredictionMarketSnapshots } from "../../lib/prediction-markets/refresh";
 import { enqueueAssetEventsIngestRetry } from "../../lib/vendors/backfill/enqueue";
 import {
-	ICON_BACKFILL_MIN_REMAINING_MS,
 	PM_DISCOVERY_MIN_REMAINING_MS,
 	PM_REFRESH_MIN_REMAINING_MS,
 	RECONCILE_MIN_REMAINING_MS,
@@ -166,8 +164,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 		}
 
 		// Tracked-only prediction-market discovery drip (pm_discovery_checked_at IS NULL).
-		// After Finnhub enrichment, before delisting/icon — same demand-driven family as
-		// icon backfill, but scoped to user_assets rather than the full universe.
+		// After Finnhub enrichment, before delisting — demand-driven, scoped to user_assets.
 		if (stepFitsRemainingTime(context, logger, "pm_discovery", PM_DISCOVERY_MIN_REMAINING_MS)) {
 			try {
 				const pmResult = await runPredictionMarketDiscoveryDrip({
@@ -259,21 +256,6 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				});
 			} catch (error) {
 				logger.error("Delisting sweep failed", { action: "daily_delisting_sweep" }, error);
-			}
-		}
-
-		// Massive branding icon backfill runs LAST: it is the least important step
-		// (cosmetic logos), so it can never starve the sweep of vendor work or Lambda time.
-		// Within the drip, tracked symbols still fill the cap before the universe backlog.
-		if (stepFitsRemainingTime(context, logger, "icon_backfill", ICON_BACKFILL_MIN_REMAINING_MS)) {
-			try {
-				const iconResult = await runIconBackfill({ supabase, logger });
-				logger.info("Icon backfill complete", {
-					action: "daily_icon_backfill",
-					...iconResult,
-				});
-			} catch (error) {
-				logger.error("Icon backfill failed", { action: "daily_icon_backfill" }, error);
 			}
 		}
 	});

@@ -65,35 +65,9 @@ export interface UniverseReconcileResult {
 	providerFetchFailed: boolean;
 }
 
-// --- Icon backfill ---
+// --- Icon check (on-add / new-listing probe) ---
 
-/** Dependencies for `runIconBackfill`. */
-export interface IconBackfillDeps {
-	supabase: SupabaseAdminClient;
-	logger: Logger;
-	/** Per-run check cap. Defaults to `ICON_BACKFILL_NIGHTLY_CAP`. */
-	cap?: number;
-	/** Bounded detail-fetch concurrency. Defaults to `ICON_BACKFILL_CONCURRENCY`. */
-	concurrency?: number;
-	/** Detail-fetch seam, injectable for tests. Defaults to `fetchTickerDetail`. */
-	getTickerDetail?: (symbol: string) => Promise<TickerDetail>;
-}
-
-/** Summary counters returned by `runIconBackfill`. */
-export interface IconBackfillResult {
-	/** Unchecked candidates remaining in the table before this run. */
-	candidatesRemaining: number;
-	/** Symbols definitively checked this run (icon or confirmed none). */
-	checked: number;
-	/** Checked symbols that yielded an icon URL. */
-	iconsFound: number;
-	/** Detail fetches that failed transport — left unchecked for a later run. */
-	fetchFailed: number;
-	/** DB writes that failed — left unchecked for a later run. */
-	writeFailed: number;
-}
-
-/** Dependencies for `ensureAssetIconChecked` (on-add / single-symbol probe). */
+/** Dependencies for `ensureAssetIconChecked`. */
 export interface EnsureAssetIconCheckedDeps {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
@@ -102,7 +76,7 @@ export interface EnsureAssetIconCheckedDeps {
 	getTickerDetail?: (symbol: string) => Promise<TickerDetail>;
 }
 
-/** Result of a single-symbol on-add icon probe. */
+/** Result of a single-symbol icon probe. */
 export interface EnsureAssetIconCheckedResult {
 	/** True when this call performed a definitive Massive check + DB write. */
 	probed: boolean;
