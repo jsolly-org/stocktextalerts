@@ -309,8 +309,11 @@ describe("Daily digest email prices", () => {
 		expect(message.text).toContain("Losers:");
 		expect(message.text).toContain("BIIB — $212.45 (-18.67%)");
 		expect(message.html).toContain("Top Movers");
-		expect(message.html).toContain("SKYQ");
-		expect(message.html).toContain("BIIB");
+		expect(message.html).toContain("<strong>SKYQ</strong>");
+		expect(message.html).toContain("<strong>BIIB</strong>");
+		expect(message.html).not.toContain("<strong>Gainers:</strong>");
+		expect(message.html).toContain("Gainers:");
+		expect(message.html).toContain("Losers:");
 	});
 
 	it("omits top movers section from email when not opted in", () => {

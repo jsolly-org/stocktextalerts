@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { markdownLinksToHtml } from "../../../../src/lib/messaging/email/html-section";
+import {
+	markdownLinksToHtml,
+	renderEmailSection,
+} from "../../../../src/lib/messaging/email/html-section";
 
 /* ============= markdownLinksToHtml ============= */
 describe("markdownLinksToHtml", () => {
@@ -71,5 +74,27 @@ describe("markdownLinksToHtml", () => {
 		expect(html).toContain(
 			'<a href="https://www.cnbc.com/article" style="color: #667eea; text-decoration: underline;" target="_blank" rel="noopener noreferrer">CNBC</a>',
 		);
+	});
+});
+
+describe("renderEmailSection ticker bolding", () => {
+	it("bolds space-suffixed IPO tickers and em-dash top movers", () => {
+		const ipos = renderEmailSection(
+			"🆕",
+			"Upcoming IPOs",
+			"MRCOU: IPO today — Mercator\nSKHY V: IPO tomorrow — SK Hynix Inc",
+		);
+		expect(ipos).toContain("<strong>MRCOU:</strong>");
+		expect(ipos).toContain("<strong>SKHY V:</strong>");
+
+		const movers = renderEmailSection(
+			"🚀",
+			"Top Movers",
+			"Gainers:\nJLHL — $12.79 (+586.27%)\n\nLosers:\nAFJK — $12.89 (-51.29%)",
+		);
+		expect(movers).toContain("<strong>JLHL</strong> — $12.79");
+		expect(movers).toContain("<strong>AFJK</strong> — $12.89");
+		expect(movers).not.toContain("<strong>Gainers:</strong>");
+		expect(movers).toContain("Gainers:");
 	});
 });
