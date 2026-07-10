@@ -546,7 +546,7 @@ export type Database = {
           question: string
           refreshed_at: string
           series_id: string | null
-          shape: string
+          shape: string | null
           shape_meta: Json
           shape_validated: boolean
           status: string
@@ -566,7 +566,7 @@ export type Database = {
           question: string
           refreshed_at?: string
           series_id?: string | null
-          shape?: string
+          shape?: string | null
           shape_meta?: Json
           shape_validated?: boolean
           status?: string
@@ -586,7 +586,7 @@ export type Database = {
           question?: string
           refreshed_at?: string
           series_id?: string | null
-          shape?: string
+          shape?: string | null
           shape_meta?: Json
           shape_validated?: boolean
           status?: string
