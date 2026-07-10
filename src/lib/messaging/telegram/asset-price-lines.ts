@@ -1,8 +1,9 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
-import type { AssetPriceMap } from "../../types";
+import type { ActiveMarketSession, AssetPriceMap } from "../../types";
 import {
 	formatSignedChangePercent,
 	formatUsdPrice,
+	getNoSessionTradeText,
 	resolveDisplayChangePercent,
 } from "../parts/asset-price-list";
 import type { SparklineData } from "../parts/sparkline";
@@ -15,12 +16,17 @@ export function appendTelegramAssetPriceLines(options: {
 	assetPrices: AssetPriceMap;
 	getSparkline?: (symbol: string) => SparklineData | null | undefined;
 	showChangePercent?: (symbol: string) => boolean;
+	noSessionTrade?: Set<string>;
+	marketSession?: ActiveMarketSession;
 }): FormattedString {
 	let { msg } = options;
 	for (const asset of options.userAssets) {
 		const quote = options.assetPrices.get(asset.symbol);
 		if (!quote) {
-			msg = fmt`${msg}\n${asset.symbol} — price unavailable`;
+			const noSessionTradeText = options.noSessionTrade?.has(asset.symbol)
+				? getNoSessionTradeText(asset.symbol, options.marketSession)
+				: null;
+			msg = fmt`${msg}\n${noSessionTradeText ?? `${asset.symbol} — price unavailable`}`;
 			continue;
 		}
 		const sparkline = options.getSparkline?.(asset.symbol);

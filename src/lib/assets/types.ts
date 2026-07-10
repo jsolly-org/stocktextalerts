@@ -14,7 +14,7 @@ export interface ActiveTicker {
 /** The fetched active US listing: the typed subset we store, plus every active symbol. */
 export interface ActiveUniverse {
 	tickers: ActiveTicker[];
-	/** Every active symbol regardless of security type — delist-absence checks key on this. */
+	/** Every symbol returned by the configured active Massive type pages. */
 	allActiveSymbols: ReadonlySet<string>;
 }
 
@@ -29,6 +29,7 @@ export type TickerDetail = { ok: true; iconUrl: string | null } | { ok: false };
 /** A stored `assets` row, the subset reconcile reads for classification. */
 export interface StoredAsset {
 	symbol: string;
+	name: string;
 	delisted_at: string | null;
 }
 
@@ -36,18 +37,18 @@ export interface StoredAsset {
 export interface UniverseReconcileDeps {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	/** Max new-listing warmup backfills enqueued per run. Defaults to `MAX_WARMUP_ENQUEUES_PER_RUN`. */
-	warmupCap?: number;
 }
 
 /** Summary counters returned by `runUniverseReconcile`. */
 export interface UniverseReconcileResult {
 	/** Size of the de-duplicated stock/etf active set. */
 	activeTickersFetched: number;
-	/** Size of the full active symbol superset (all security types). */
+	/** Size of the full active symbol superset from the configured Massive type pages. */
 	allActiveSymbols: number;
 	/** Active symbols that did not previously exist in `assets`, inserted this run. */
 	newListingsInserted: number;
+	/** Existing active rows whose stored name was refreshed from Massive. */
+	namesUpdated: number;
 	/** Insert chunks that failed to write (partial coverage — surfaced in the summary). */
 	insertChunksFailed: number;
 	/** Previously-flagged rows set back to `delisted_at = null` (reappeared). */
@@ -60,8 +61,6 @@ export interface UniverseReconcileResult {
 	warmupEnqueued: number;
 	/** New symbols whose warmup enqueue returned false. */
 	warmupEnqueueFailed: number;
-	/** New symbols beyond the warmup cap, never enqueued (logged, not retried). */
-	warmupSkippedCap: number;
 	/** True when step 1 returned an empty set — the run aborted before any mutation. */
 	providerFetchFailed: boolean;
 }
@@ -105,7 +104,7 @@ export interface DelistingSweepDeps {
 
 /** Summary counters returned by `runDelistingSweep`. */
 export interface DelistingSweepResult {
-	/** Symbols actually reference-checked this run (tonight's rolling window, not all tracked). */
+	/** Tracked, non-flagged symbols reference-checked this run. */
 	symbolsChecked: number;
 	newlyDetectedDelistings: number;
 	reprocessedDelistings: number;

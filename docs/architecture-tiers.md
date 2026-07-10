@@ -32,12 +32,12 @@ Seven deployed functions (see `aws/template.yaml`):
 
 | Handler | Trigger | Role |
 | --- | --- | --- |
-| `schedule` | Every 1 minute | Deliver staged notifications; run full schedule pipeline; purge expired short URLs and dispatch keys |
-| `asset-maintenance` | Daily 00:00 UTC | Asset events ingest, universe reconcile, delisting sweep, Finnhub enrichment |
+| `schedule` | Every 1 minute | Precise notification delivery and price-alert processing; Massive Starter quotes may be delayed up to 15 minutes |
+| `asset-maintenance` | Daily 00:00 UTC | Massive corporate actions, universe reconcile, delisting confirms, and branding backfill; Finnhub earnings/recommendation/insider ingest |
 | `compute-daily-stats` | Weekdays 22:00 UTC | Compute ADV/ATR; cache daily closes |
 | `vendor-backfill` | SQS | Retry failed vendor work (asset events, daily closes, price history) |
 | `email-dispatch` | Lambda Function URL (HMAC POST) | Centralized SES send with idempotency |
-| `live-provider-check` | Weekdays 16:00 UTC + post-deploy | Live Massive/Finnhub/Telegram smoke test |
+| `live-provider-check` | Weekdays 16:00 UTC + post-deploy | Live Massive snapshot/bars/reference/branding, Finnhub earnings, prediction-market, Telegram, and chart-render smoke tests |
 | `backup-user-settings` | 5× daily UTC | Export user settings snapshot to S3 |
 
 Handlers are thin wrappers: `runLambda()` for SSM secret hydration, then call into `src/lib/`. They use the admin Supabase client (no browser cookies).

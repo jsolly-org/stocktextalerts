@@ -77,14 +77,20 @@ describe("runIconBackfill", () => {
 		createdSymbols.length = 0;
 	});
 
-	it("A never-checked listing whose Finnhub profile carries a logo gets icon_url written and icon_checked_at stamped.", async () => {
+	it("A never-checked listing whose Massive detail carries a logo gets icon_url written and icon_checked_at stamped.", async () => {
 		const symbol = `${TEST_PREFIX}LOGO`;
 		createdSymbols.push(symbol);
 		await upsertAssets([{ symbol, name: "Freshly Listed Robotics Inc", type: "stock" }]);
 
 		const detail = makeFakeDetail(
 			new Map([
-				[symbol, { ok: true, iconUrl: `https://static2.finnhub.io/file/logo/${symbol}.png` }],
+				[
+					symbol,
+					{
+						ok: true,
+						iconUrl: `https://api.massive.com/v1/reference/company-branding/${symbol}/images/icon.png`,
+					},
+				],
 			]),
 		);
 		const result = await runIconBackfill({
@@ -104,7 +110,9 @@ describe("runIconBackfill", () => {
 		});
 
 		const row = await getAsset(symbol);
-		expect(row?.icon_url).toBe(`https://static2.finnhub.io/file/logo/${symbol}.png`);
+		expect(row?.icon_url).toBe(
+			`https://api.massive.com/v1/reference/company-branding/${symbol}/images/icon.png`,
+		);
 		expect(row?.icon_checked_at).not.toBeNull();
 	});
 
@@ -113,7 +121,7 @@ describe("runIconBackfill", () => {
 		createdSymbols.push(symbol);
 		await upsertAssets([{ symbol, name: "Logo-Less Holdings LP", type: "stock" }]);
 
-		// Finnhub answered and has no logo — a definitive "checked, none available".
+		// Massive answered and has no logo — a definitive "checked, none available".
 		const firstRun = makeFakeDetail(new Map([[symbol, { ok: true, iconUrl: null }]]));
 		const result = await runIconBackfill({
 			supabase: adminClient,
@@ -180,7 +188,13 @@ describe("runIconBackfill", () => {
 		// Still a candidate: the next (healthy) run picks it up and settles it.
 		const healthyRun = makeFakeDetail(
 			new Map([
-				[symbol, { ok: true, iconUrl: `https://static2.finnhub.io/file/logo/${symbol}.png` }],
+				[
+					symbol,
+					{
+						ok: true,
+						iconUrl: `https://api.massive.com/v1/reference/company-branding/${symbol}/images/icon.png`,
+					},
+				],
 			]),
 		);
 		const retryResult = await runIconBackfill({
@@ -198,7 +212,9 @@ describe("runIconBackfill", () => {
 			writeFailed: 0,
 		});
 		const afterRetry = await getAsset(symbol);
-		expect(afterRetry?.icon_url).toBe(`https://static2.finnhub.io/file/logo/${symbol}.png`);
+		expect(afterRetry?.icon_url).toBe(
+			`https://api.massive.com/v1/reference/company-branding/${symbol}/images/icon.png`,
+		);
 		expect(afterRetry?.icon_checked_at).not.toBeNull();
 	});
 
@@ -213,8 +229,14 @@ describe("runIconBackfill", () => {
 
 		const detail = makeFakeDetail(
 			new Map<string, TickerDetail | Error>([
-				[throwSymbol, new Error("Finnhub profile2 socket hang up")],
-				[okSymbol, { ok: true, iconUrl: `https://static2.finnhub.io/file/logo/${okSymbol}.png` }],
+				[throwSymbol, new Error("Massive ticker-detail socket hang up")],
+				[
+					okSymbol,
+					{
+						ok: true,
+						iconUrl: `https://api.massive.com/v1/reference/company-branding/${okSymbol}/images/icon.png`,
+					},
+				],
 			]),
 		);
 		const result = await runIconBackfill({
@@ -236,7 +258,9 @@ describe("runIconBackfill", () => {
 		const thrown = await getAsset(throwSymbol);
 		expect(thrown?.icon_checked_at).toBeNull();
 		const healthy = await getAsset(okSymbol);
-		expect(healthy?.icon_url).toBe(`https://static2.finnhub.io/file/logo/${okSymbol}.png`);
+		expect(healthy?.icon_url).toBe(
+			`https://api.massive.com/v1/reference/company-branding/${okSymbol}/images/icon.png`,
+		);
 		// The throw is surfaced at warn (transient — the next run retries it).
 		expect(warnMessages()).toContainEqual(expect.stringContaining("detail fetch threw"));
 	});
@@ -283,7 +307,7 @@ describe("runIconBackfill", () => {
 				symbol: checkedSymbol,
 				name: "Settled Last Month Inc",
 				type: "stock",
-				icon_url: `https://static2.finnhub.io/file/logo/${checkedSymbol}.png`,
+				icon_url: `https://api.massive.com/v1/reference/company-branding/${checkedSymbol}/images/icon.png`,
 				icon_checked_at: "2026-06-15T02:00:00Z",
 			},
 			{
@@ -313,7 +337,9 @@ describe("runIconBackfill", () => {
 		});
 		// Neither row moved.
 		const checkedRow = await getAsset(checkedSymbol);
-		expect(checkedRow?.icon_url).toBe(`https://static2.finnhub.io/file/logo/${checkedSymbol}.png`);
+		expect(checkedRow?.icon_url).toBe(
+			`https://api.massive.com/v1/reference/company-branding/${checkedSymbol}/images/icon.png`,
+		);
 		const delistedRow = await getAsset(delistedSymbol);
 		expect(delistedRow?.icon_checked_at).toBeNull();
 	});
@@ -335,7 +361,10 @@ describe("runIconBackfill", () => {
 			new Map(
 				inWindow.map((symbol): [string, TickerDetail] => [
 					symbol,
-					{ ok: true, iconUrl: `https://static2.finnhub.io/file/logo/${symbol}.png` },
+					{
+						ok: true,
+						iconUrl: `https://api.massive.com/v1/reference/company-branding/${symbol}/images/icon.png`,
+					},
 				]),
 			),
 		);

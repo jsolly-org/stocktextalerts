@@ -1,31 +1,38 @@
 import { requireEnv } from "../../db/env";
 import { isRecord } from "../../types";
-import { finnhubFetch } from "../../vendors/finnhub";
+import { marketDataFetch } from "../../vendors/massive";
 import type { TickerDetail } from "../types";
-import { ALLOWED_LOGO_HOSTS, MASSIVE_LOGO_HOST } from "./constants";
+import { ALLOWED_LOGO_HOSTS, MASSIVE_LOGO_HOST, MASSIVE_TICKERS_PATH_PREFIX } from "./constants";
 
 /**
- * Fetch the logo URL for a single ticker from Finnhub `/stock/profile2` (free tier).
+ * Fetch the logo URL for a single ticker from Massive's ticker-detail endpoint.
  *
  * `ok: false` means the answer is not definitive (transport failure, or a payload
  * whose shape drifted) — leave the row unchecked so a later run retries. `ok: true,
- * iconUrl: null` means Finnhub definitively has no logo: either `{}` (unknown
- * symbol) or a profile whose `logo` is empty. A NON-empty payload missing the
- * `logo` key entirely is treated as shape drift, not definitive-none — otherwise a
- * vendor field rename would durably stamp "no logo" across the whole drip.
+ * iconUrl: null` means Massive returned a `results` object with no branding icon.
  */
 export async function fetchTickerDetail(symbol: string): Promise<TickerDetail> {
-	const data = await finnhubFetch("/stock/profile2", { symbol }, "company-profile", {
-		optional: true,
-	});
+	const data = await marketDataFetch(
+		`${MASSIVE_TICKERS_PATH_PREFIX}/${encodeURIComponent(symbol)}`,
+		{},
+		"ticker-details",
+		{ symbol },
+	);
 	if (!isRecord(data)) {
 		return { ok: false };
 	}
-	if (Object.keys(data).length > 0 && !("logo" in data)) {
+
+	const results = data.results;
+	if (!isRecord(results)) {
 		return { ok: false };
 	}
-	const logo = typeof data.logo === "string" ? data.logo.trim() : "";
-	return { ok: true, iconUrl: logo !== "" ? logo : null };
+
+	const branding = results.branding;
+	const iconUrl =
+		isRecord(branding) && typeof branding.icon_url === "string" && branding.icon_url.trim() !== ""
+			? branding.icon_url
+			: null;
+	return { ok: true, iconUrl };
 }
 
 /**

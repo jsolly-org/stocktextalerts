@@ -23,13 +23,13 @@ A securities notification app that sends scheduled email, SMS, and Telegram upda
 - **UI**: Vue 3 components with Tailwind CSS
 - **Icons**: Local SVGs in `/src/icons` loaded via `astro-icon` in `.astro` files; Vue components import SVGs via `vite-svg-loader` using the `?component` suffix
 - **Database**: Supabase (PostgreSQL)
-- **Market Data**: Massive (prices/dividends/splits/IPOs) + Finnhub (symbols, earnings, market hours, analyst/insider extras)
+- **Market Data**: Massive (batch snapshot quotes, bars/closes, calendar/holidays, movers, reference/universe, branding/logos, company news, corporate actions, delisting confirms) + Finnhub (earnings calendar, recommendation trends, insider transactions only)
 - **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons
 - **Email**: AWS SES
 - **SMS**: Twilio Verify API + Messaging API
 - **Telegram**: Telegram Bot API (candlestick charts rendered via `@resvg/resvg-wasm`)
 - **Hosting**: Vercel (dashboard) + AWS Lambda (notification crons via SAM)
-- **Search**: Server-side search over Finnhub-sourced asset data (local DB)
+- **Search**: Server-side search over Massive-sourced asset reference data (local DB)
 - **Linting**: Biome (no ESLint or Prettier)
 - **Testing**: Vitest + Playwright
 
@@ -110,10 +110,10 @@ EMAIL_DISPATCH_SECRET=your-email-dispatch-secret
 EMAIL_SMTP_HOST=localhost
 EMAIL_SMTP_PORT=1025
 
-# Massive (asset prices / dividends / splits / news)
+# Massive (quotes / bars / calendar / movers / reference / branding / news / corporate actions / delistings)
 MASSIVE_API_KEY=your-massive-api-key
 
-# Finnhub (earnings / market hours / symbol search / analyst/insider extras)
+# Finnhub (earnings calendar / recommendation trends / insider transactions only)
 FINNHUB_API_KEY=your-finnhub-api-key
 
 # xAI (Grok) - optional, only needed for News/Rumors add-ons
@@ -318,7 +318,9 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 4. Sends daily digest notifications (News/Rumors) at the user’s chosen daily time
 5. Sends via email and/or Telegram based on settings and logs attempts to the `notification_log` table
 
-**`AssetMaintenanceFunction`** (daily at 00:00 UTC) — pre-populates the `asset_events` table with earnings, dividends, splits, and IPOs; runs Finnhub analyst/insider enrichment, the asset-universe reconcile, and the delisting sweep.
+Massive Starter quotes may be delayed by up to 15 minutes. The one-minute scheduler cadence is retained for delivery precision, not real-time quote freshness.
+
+**`AssetMaintenanceFunction`** (daily at 00:00 UTC) — ingests Finnhub earnings and recommendation/insider enrichment; ingests Massive dividends, splits, and IPOs; runs the daily Massive universe reconcile, Massive delisting confirms, and Massive branding icon backfill.
 
 **`ComputeDailyStatsFunction`** (weekdays at 22:00 UTC) — caches per-symbol daily closes in `asset_daily_closes` (the source for the dashboard watchlist sparklines) for tracked assets.
 
@@ -357,7 +359,7 @@ The `scripts/data/us-assets.json` file must follow this structure:
 ```json
 {
   "metadata": {
-    "source": "https://finnhub.io/api/v1/stock/symbol?exchange=US",
+    "source": "Massive API /v3/reference/tickers + /v3/reference/tickers/{symbol}",
     "fetched_at": "2026-02-09T00:00:00Z",
     "type_counts": { "stock": 6000, "etf": 3000 },
     "total_symbols": 9000
@@ -393,7 +395,7 @@ See `scripts/data/us-assets.json` for the canonical schema and example data.
 
 ### Update Process
 
-1. Run `npm run db:fetch-assets` to fetch updated asset data from Finnhub, or update `scripts/data/us-assets.json` manually
+1. Run `npm run db:fetch-assets` to fetch updated reference and branding data from Massive, or update `scripts/data/us-assets.json` manually
 2. Regenerate the seed file:
 
     ```bash

@@ -5,8 +5,8 @@ import {
 } from "../../../src/lib/asset-events/format";
 import {
 	buildNewsContextForGrok,
-	fetchFinnhubExtras,
-} from "../../../src/lib/daily-digest/finnhub-extras";
+	fetchDigestExtras,
+} from "../../../src/lib/daily-digest/digest-extras";
 import type {
 	CompanyNewsItem,
 	InsiderTransaction,
@@ -18,7 +18,7 @@ import {
 } from "../../../src/lib/vendors/optional-vendors";
 import { resetOptionalVendorCircuits } from "../../helpers/reset-optional-vendor-circuits";
 
-describe("buildNewsContextForGrok formats Finnhub headlines into a Grok context string.", () => {
+describe("buildNewsContextForGrok formats provider headlines into a Grok context string.", () => {
 	it("Builds context lines from multiple tickers with headlines.", () => {
 		const newsData = new Map<string, CompanyNewsItem[]>([
 			[
@@ -136,12 +136,11 @@ describe("formatInsiderSection formats insider transactions per ticker.", () => 
 
 		expect(result).not.toBeNull();
 		const lines = result?.split("\n");
-		// Email allows up to 5
 		expect(lines?.length).toBe(5);
 	});
 });
 
-describe("fetchFinnhubExtras company-news degradation", () => {
+describe("fetchDigestExtras company-news degradation", () => {
 	afterEach(() => {
 		resetOptionalVendorCircuits();
 		vi.restoreAllMocks();
@@ -155,7 +154,7 @@ describe("fetchFinnhubExtras company-news degradation", () => {
 		recordOptionalVendorFailure("company-news");
 		expect(isOptionalVendorUnavailable("company-news")).toBe(true);
 
-		const result = await fetchFinnhubExtras(["AAPL", "MSFT"], {
+		const result = await fetchDigestExtras(["AAPL", "MSFT"], {
 			includeNews: true,
 			includeAnalyst: false,
 			includeInsider: false,

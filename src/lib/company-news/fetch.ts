@@ -1,18 +1,15 @@
 import { type CompanyNewsItem, isRecord } from "../types";
-import { finnhubFetch } from "../vendors/finnhub";
-import {
-	isOptionalVendorUnavailable,
-	noteOptionalVendorSkip,
-	recordOptionalVendorFailure,
-	recordOptionalVendorSuccess,
-} from "../vendors/optional-vendors";
-import { COMPANY_NEWS_MAX_ARTICLES } from "./constants";
+import { marketDataFetch } from "../vendors/massive";
+import { isOptionalVendorUnavailable, noteOptionalVendorSkip } from "../vendors/optional-vendors";
+import { COMPANY_NEWS_MAX_ARTICLES, COMPANY_NEWS_REQUEST_TIMEOUT_MS } from "./constants";
 
 /**
- * Fetch recent company news headlines for a ticker within a date range from Finnhub
- * `/company-news` (free tier, one symbol per call, `from`/`to` as YYYY-MM-DD).
- * Finnhub returns newest-first, single-symbol articles — no roundup filtering needed.
+ * Maximum number of ticker tags an article may carry before it is treated as a
+ * generic roundup (for example, "10 stocks to buy now") rather than company news.
  */
+const MAX_TICKERS_PER_ARTICLE = 5;
+
+/** Fetch recent company news headlines for a ticker from Massive. */
 export async function fetchCompanyNews(
 	symbol: string,
 	from: string,
@@ -23,31 +20,58 @@ export async function fetchCompanyNews(
 		return [];
 	}
 
-	const data = await finnhubFetch("/company-news", { symbol, from, to }, "company-news", {
-		optional: true,
-	});
-	if (!Array.isArray(data)) {
-		recordOptionalVendorFailure("company-news");
-		return [];
+	// Massive datetime filters treat a bare YYYY-MM-DD as midnight UTC — use full
+	// day bounds so `to = today` still includes today's articles.
+	const data = await marketDataFetch(
+		"/v2/reference/news",
+		{
+			ticker: symbol,
+			"published_utc.gte": `${from}T00:00:00Z`,
+			"published_utc.lte": `${to}T23:59:59Z`,
+			limit: String(COMPANY_NEWS_MAX_ARTICLES),
+			sort: "published_utc",
+			order: "desc",
+		},
+		"company-news",
+		{ symbol },
+		{
+			maxRetries: 1,
+			requestTimeoutMs: COMPANY_NEWS_REQUEST_TIMEOUT_MS,
+			optional: true,
+		},
+	);
+	if (!isRecord(data) || !Array.isArray(data.results)) {
+		// Throw so withOptionalVendorBudget records failure and can open the circuit.
+		// A successful empty `results: []` is a normal "no articles" answer, not a failure.
+		throw new Error(`Massive company-news returned unexpected payload for ${symbol}`);
 	}
 
-	recordOptionalVendorSuccess("company-news");
-
-	return data
+	return data.results
 		.flatMap((item: unknown): CompanyNewsItem[] => {
 			if (!isRecord(item)) return [];
 			const row = item;
 
-			if (typeof row.headline !== "string" || row.headline === "") return [];
-			if (typeof row.datetime !== "number" || !Number.isFinite(row.datetime)) return [];
+			if (typeof row.title !== "string" || row.title === "") return [];
+			if (typeof row.published_utc !== "string") return [];
+			const publishedAt = Date.parse(row.published_utc);
+			if (Number.isNaN(publishedAt)) return [];
+
+			const tickers = Array.isArray(row.tickers)
+				? row.tickers.filter((ticker): ticker is string => typeof ticker === "string")
+				: [];
+			if (tickers.length > MAX_TICKERS_PER_ARTICLE) return [];
 
 			return [
 				{
-					headline: row.headline,
-					summary: typeof row.summary === "string" ? row.summary : "",
-					datetime: Math.floor(row.datetime),
-					url: typeof row.url === "string" ? row.url : "",
-					source: typeof row.source === "string" ? row.source : "",
+					headline: row.title,
+					summary: typeof row.description === "string" ? row.description : "",
+					datetime: Math.floor(publishedAt / 1000),
+					url: typeof row.article_url === "string" ? row.article_url : "",
+					source:
+						isRecord(row.publisher) && typeof row.publisher.name === "string"
+							? row.publisher.name
+							: "",
+					tickers,
 				},
 			];
 		})

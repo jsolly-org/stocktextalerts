@@ -12,7 +12,7 @@ import {
 import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "./optional-vendors";
 
 /**
- * Shared across every Finnhub call site (quotes, earnings, enrichment) so the whole
+ * Shared across every Finnhub call site (earnings, analyst, insider) so the whole
  * per-process budget can't be blown by one caller. Acquired before each HTTP attempt.
  */
 const finnhubLimiter = createSlidingWindowLimiter({
@@ -23,13 +23,6 @@ const finnhubLimiter = createSlidingWindowLimiter({
 export type FinnhubFetchPolicy = {
 	/** When true, terminal failures log as optional degradation (warn), not vendor_retry_exhausted. */
 	optional?: boolean;
-	/**
-	 * Invoked once with the terminal failure (reason + HTTP status) right before `finnhubFetch`
-	 * returns `null`, so a caller aggregating many calls (e.g. every symbol in a scheduler tick)
-	 * can record per-call status and later prove rate-limit vs outage from one log line. Not
-	 * called on success.
-	 */
-	onTerminalFailure?: (failure: FinnhubFailure) => void;
 };
 
 /** Read the Finnhub API key from env. Throws if not set. */
@@ -68,7 +61,7 @@ function computeRetryDelayMs(attempt: number, retryAfterMs: number | null): numb
 	return base + jitter;
 }
 
-export type FinnhubFailure =
+type FinnhubFailure =
 	| { reason: "rate_limited"; status: 429 }
 	| { reason: "api_error"; status: number; bodyPreview?: string }
 	| { reason: "timeout"; error: Error }
@@ -89,8 +82,8 @@ export async function finnhubFetch(
 	const url = `${FINNHUB_BASE_URL}${endpoint}?${query.toString()}`;
 
 	// Per-attempt failures are silent. Only terminal exhaustion is logged:
-	// rate-limit exhaustion at info (expected on free tier), other failures
-	// at error (genuine outage).
+	// rate-limit exhaustion at info (expected under shared-key contention),
+	// other failures at error (genuine outage) unless optional.
 	let lastFailure: FinnhubFailure | null = null;
 
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -159,10 +152,6 @@ export async function finnhubFetch(
 	}
 
 	if (lastFailure) {
-		// Hand the terminal failure to the caller before we log-and-return-null, so an aggregating
-		// caller can record per-call reason/status (rate-limit vs outage) even though the return
-		// value is a bare `null`.
-		policy?.onTerminalFailure?.(lastFailure);
 		const context: Record<string, unknown> = {
 			endpoint,
 			paramKeys: Object.keys(params),
@@ -171,8 +160,8 @@ export async function finnhubFetch(
 		};
 		if (lastFailure.reason === "rate_limited") {
 			context.status = lastFailure.status;
-			// Rate-limit exhaustion is an expected operational reality on
-			// Finnhub's free tier — not pageable. Terminal state, no further
+			// Rate-limit exhaustion is an expected operational reality under the
+			// shared free-tier key — not pageable. Terminal state, no further
 			// retry, so info (not warn) per project rule that warn requires
 			// an escalation path.
 			rootLogger.info(`Finnhub ${label} exhausted retries (rate limited)`, context);

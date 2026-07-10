@@ -26,8 +26,8 @@ interface SparklineTimeAxisOptions {
 /**
  * Generate an inline SVG area-chart sparkline as a base64 `<img>` tag.
  *
- * Uses the same `data:image/svg+xml;base64,...` pattern as the Finnhub/Grok
- * logos in `html-section.ts` for maximum email-client compatibility.
+ * Uses the same `data:image/svg+xml;base64,...` pattern as the provider logos in
+ * `html-section.ts` for maximum email-client compatibility.
  *
  * When timeAxis is provided, points are placed at real time positions (not uniform
  * index spacing), so the line aligns with the time-axis labels for non-uniform bars.

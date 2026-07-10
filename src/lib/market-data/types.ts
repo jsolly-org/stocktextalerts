@@ -1,5 +1,5 @@
 import type { AppSupabaseClient } from "../db/supabase";
-import type { AssetPriceMap } from "../types";
+import type { ExtendedQuoteMap } from "../types";
 
 export interface TopMover {
 	ticker: string;
@@ -12,7 +12,7 @@ export interface TopMover {
  * returned by Massive but had no live trade in the current session.
  */
 export interface AssetPricesWithSessionState {
-	prices: AssetPriceMap;
+	prices: ExtendedQuoteMap;
 	noSessionTrade: Set<string>;
 }
 

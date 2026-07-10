@@ -2,6 +2,7 @@ import { renderIntradaySparklineImg } from "../../messaging/email/intraday-spark
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
 import { toSvgSparklineImg } from "../../messaging/email/svg-sparkline";
 import { formatUsdPrice, getChangeColor } from "../../messaging/parts/asset-price-list";
+import { buildDataRecencyHtml, buildDataRecencyText } from "../../messaging/parts/data-recency";
 import { escapeHtml } from "../../messaging/parts/html-utils";
 import { EMAIL_SPARKLINE_LABEL, type SparklineData } from "../../messaging/parts/sparkline";
 import type { ExtendedAssetQuote, IntradayBarsResult } from "../../types";
@@ -198,6 +199,7 @@ export function formatFlatPriceAlertEmail(options: {
 	textLines.push(`Price Move Alert: ${symbol} — ${companyName}`);
 	textLines.push("");
 	textLines.push(`Current: ${formatUsdPrice(currentPrice)}`);
+	textLines.push(buildDataRecencyText());
 	textLines.push("");
 	for (const row of rows) {
 		textLines.push(formatPriceRowTextLine(row));
@@ -258,6 +260,7 @@ export function formatFlatPriceAlertEmail(options: {
 	const html = renderEmailShell({
 		bodyHtml: `<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600; display: flex; align-items: center; gap: 8px;">Price Move Alert: ${logoBlock}<span>${escapeHtml(symbol)} <span style="color: #6b7280; font-size: 16px; font-weight: 400;">— ${escapeHtml(companyName)}</span></span></h2>
 		<p style="color: #111827; font-size: 32px; font-weight: 700; margin: 16px 0 12px 0; font-variant-numeric: tabular-nums;">${escapeHtml(formatUsdPrice(currentPrice))}</p>
+		${buildDataRecencyHtml()}
 		<table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
 			<tbody>${rowsHtml}
 			</tbody>

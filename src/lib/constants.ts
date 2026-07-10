@@ -277,6 +277,10 @@ export const DEFAULT_MARKET_UPDATE_TIME_MINUTES = 9 * 60; // 9:00 AM local time 
 export const US_MARKET_OPEN_EASTERN_MINUTES = 9 * 60 + 30;
 /** US market close time in ET (minutes since midnight). */
 export const US_MARKET_CLOSE_EASTERN_MINUTES = 16 * 60; // 4:00 PM ET
+/** US pre-market session open in ET (minutes since midnight). */
+export const US_PREMARKET_OPEN_EASTERN_MINUTES = 4 * 60; // 4:00 AM ET
+/** US after-hours session close in ET (minutes since midnight; exclusive minute bound). */
+export const US_AFTER_HOURS_CLOSE_EASTERN_MINUTES = 20 * 60; // 8:00 PM ET
 /** 30 min before open — used as the default preset time for daily digests. */
 export const US_BEFORE_OPEN_EASTERN_MINUTES = 9 * 60; // 9:00 AM ET
 /** 30 min after open — used as the default preset time for scheduled price notifications. */

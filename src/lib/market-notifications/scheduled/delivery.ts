@@ -145,6 +145,7 @@ export async function processMarketScheduledTelegramDelivery(options: {
 	scheduledMinutes: MinuteOfDay;
 	userAssets: UserAssetRow[];
 	priceMap: AssetPriceMap;
+	noSessionTrade?: Set<string>;
 	/** Active session for this slot (Telegram is only dispatched for active sessions). */
 	marketSession: ActiveMarketSession;
 	sessionFirstLine?: {
@@ -164,6 +165,7 @@ export async function processMarketScheduledTelegramDelivery(options: {
 		scheduledMinutes,
 		userAssets,
 		priceMap,
+		noSessionTrade,
 		marketSession,
 		sessionFirstLine,
 		delayBanner,
@@ -210,6 +212,7 @@ export async function processMarketScheduledTelegramDelivery(options: {
 	const formatted = formatMarketScheduledTelegram({
 		userAssets,
 		assetPrices: priceMap,
+		noSessionTrade,
 		marketSession,
 		sessionFirstLine,
 		delayBanner,

@@ -1,8 +1,8 @@
 /**
- * Integration tests for the weekly ticker-universe reconcile.
+ * Integration tests for the daily ticker-universe reconcile.
  *
  * Uses real local Supabase (via the service-role `adminClient`, which the reconcile
- * itself writes through) + a fully STUBBED Finnhub provider via vi.mock on the
+ * itself writes through) + a fully STUBBED Massive provider via vi.mock on the
  * universe module, plus a stubbed warmup enqueue — no network, no live provider keys.
  *
  * Asset fixture seeding goes through `upsertAssets` (direct `pg`, postgres owner) in
@@ -33,7 +33,7 @@ import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
-import { expectConsoleError, warnMessages } from "../../setup";
+import { expectConsoleError } from "../../setup";
 
 /**
  * Unique test symbol prefix (max 10 chars, alphanumeric uppercase). `Z` prefix
@@ -64,9 +64,8 @@ function makeActiveTicker(overrides: Partial<ActiveTicker> & { symbol: string })
 }
 
 /**
- * Assemble an `ActiveUniverse` from a typed stock/etf subset plus symbols that are
- * active under some OTHER security type (Unit, Warrant, …) — present in the
- * superset but absent from `tickers`, exactly what Finnhub's type quirks produce.
+ * Assemble an `ActiveUniverse` from the insertable stock/etf subset plus symbols
+ * Massive returned that failed insertion filters.
  */
 function makeUniverse(
 	tickers: ActiveTicker[],
@@ -115,7 +114,7 @@ async function allActiveStoredAssets(): Promise<
  *
  * Step 2 never writes to these rows either: they all already exist in `assets`, so
  * none qualifies as a new listing (inserts use `ignoreDuplicates` and reconcile
- * never rewrites existing rows' names).
+ * only rewrites names when Massive returns a different value).
  */
 async function activeSetCoveringSeedExcept(excludedSymbols: string[]): Promise<ActiveTicker[]> {
 	const excluded = new Set(excludedSymbols);
@@ -183,6 +182,7 @@ describe("runUniverseReconcile", () => {
 		expect(result.activeTickersFetched).toBe(0);
 		expect(result.allActiveSymbols).toBe(0);
 		expect(result.newListingsInserted).toBe(0);
+		expect(result.namesUpdated).toBe(0);
 		expect(result.untrackedDelistedFlagged).toBe(0);
 		expect(result.delistedCleared).toBe(0);
 		// No warmup work happened.
@@ -195,7 +195,7 @@ describe("runUniverseReconcile", () => {
 		expectConsoleError(/empty active set/);
 	});
 
-	it("A new IPO listing in Finnhub's active set is inserted with name + type and queued for warmup.", async () => {
+	it("A new IPO listing in Massive's active set is inserted with name + type and queued for warmup.", async () => {
 		const newSymbol = `${TEST_PREFIX}NEW`;
 		createdSymbols.push(newSymbol);
 
@@ -222,6 +222,7 @@ describe("runUniverseReconcile", () => {
 		expect(result.allActiveSymbols).toBe(universe.allActiveSymbols.size);
 		// Only our symbol was new — every seed row already exists in `assets`.
 		expect(result.newListingsInserted).toBe(1);
+		expect(result.namesUpdated).toBe(0);
 		expect(result.insertChunksFailed).toBe(0);
 
 		const row = await getAsset(newSymbol);
@@ -231,23 +232,20 @@ describe("runUniverseReconcile", () => {
 
 		// New symbol queued for price warmup.
 		expect(result.warmupEnqueued).toBe(1);
-		expect(result.warmupSkippedCap).toBe(0);
 		expect(warmup.enqueued).toContainEqual({
 			symbol: newSymbol,
 			reason: "universe_reconcile_new_listing",
 		});
 	});
 
-	it("An existing row keeps its proper-case Massive-era name even when Finnhub lists an upper-case one, and is not re-queued for warmup.", async () => {
+	it("An existing active row refreshes a changed name from Massive and is not re-queued for warmup.", async () => {
 		const symbol = `${TEST_PREFIX}KEEP`;
 		createdSymbols.push(symbol);
 		await upsertAssets([{ symbol, name: "Proper Case Industries Inc", type: "stock" }]);
 
 		const warmup = makeFakeWarmup();
-		// Finnhub descriptions are upper-case; reconcile must never rewrite the
-		// stored name with them (only NEW rows take the new source's spelling).
 		const active = [
-			makeActiveTicker({ symbol, name: "PROPER CASE INDUSTRIES INC", type: "stock" }),
+			makeActiveTicker({ symbol, name: "Proper Case Industries, Inc.", type: "stock" }),
 			...(await activeSetCoveringSeedExcept([symbol])),
 		];
 		fetchActiveTickersMock.mockResolvedValue(makeUniverse(active));
@@ -258,14 +256,15 @@ describe("runUniverseReconcile", () => {
 		});
 
 		const row = await getAsset(symbol);
-		expect(row?.name).toBe("Proper Case Industries Inc");
+		expect(row?.name).toBe("Proper Case Industries, Inc.");
 		// Already listed → not a new listing, not warmed.
 		expect(result.newListingsInserted).toBe(0);
+		expect(result.namesUpdated).toBe(1);
 		expect(result.warmupEnqueued).toBe(0);
 		expect(warmup.enqueued).toHaveLength(0);
 	});
 
-	it("A previously-delisted symbol that reappears in the active SUPERSET (even under a non-stock/etf type) has its delisted_at cleared.", async () => {
+	it("A previously-delisted symbol that reappears only in the active safety superset has its delisted_at cleared.", async () => {
 		const symbol = `${TEST_PREFIX}RBN`;
 		createdSymbols.push(symbol);
 		await upsertAssets([
@@ -281,8 +280,8 @@ describe("runUniverseReconcile", () => {
 		const before = await getAsset(symbol);
 		expect(before?.delisted_at).not.toBeNull();
 
-		// The reappearing symbol is ONLY in the superset (say Finnhub now classifies it
-		// as a Unit) — the clear must key on superset membership, not the typed subset.
+		// The reappearing symbol is ONLY in the superset because its Massive row could
+		// not be inserted — the clear must key on superset membership, not the typed subset.
 		const active = await activeSetCoveringSeedExcept([symbol]);
 		fetchActiveTickersMock.mockResolvedValue(makeUniverse(active, [symbol]));
 		const result = await runUniverseReconcile({
@@ -295,7 +294,7 @@ describe("runUniverseReconcile", () => {
 		expect(after?.delisted_at).toBeNull();
 	});
 
-	it("An UNtracked stored symbol absent from the SUPERSET is flagged delisted, but one absent only from the typed subset is NOT (type quirk ≠ vanished).", async () => {
+	it("An UNtracked stored symbol absent from the SUPERSET is flagged delisted, but one present only in the safety superset is not.", async () => {
 		const goneSymbol = `${TEST_PREFIX}GONE`;
 		const typeQuirkSymbol = `${TEST_PREFIX}QRK`;
 		const stillActive = `${TEST_PREFIX}LIVE`;
@@ -307,8 +306,8 @@ describe("runUniverseReconcile", () => {
 		]);
 
 		// Active typed set = whole seed universe + `stillActive`, but NOT `goneSymbol`
-		// or `typeQuirkSymbol`. `typeQuirkSymbol` stays in the SUPERSET (active under
-		// some other security type); `goneSymbol` is absent from both. Excluding only
+		// or `typeQuirkSymbol`. `typeQuirkSymbol` stays in the SUPERSET because Massive
+		// returned it in a row that could not be inserted; `goneSymbol` is absent from both. Excluding only
 		// these two is what isolates the delist-flag to our rows instead of stamping
 		// the entire shared seed table delisted.
 		const active = await activeSetCoveringSeedExcept([goneSymbol, typeQuirkSymbol]);
@@ -325,7 +324,7 @@ describe("runUniverseReconcile", () => {
 		const quirk = await getAsset(typeQuirkSymbol);
 		const live = await getAsset(stillActive);
 		expect(gone?.delisted_at).not.toBeNull();
-		// Present in the superset (just not as stock/etf) → must survive.
+		// Present in the safety superset (just not insertable) → must survive.
 		expect(quirk?.delisted_at).toBeNull();
 		expect(live?.delisted_at).toBeNull();
 	});
@@ -396,7 +395,7 @@ describe("runUniverseReconcile", () => {
 		expect(gone?.delisted_at).toBeNull();
 	});
 
-	it("More new listings than the warmup cap: only the cap is enqueued, the rest are counted as skipped (never a backfill storm).", async () => {
+	it("Every newly inserted listing is enqueued for warmup.", async () => {
 		const symbols = [
 			`${TEST_PREFIX}W1`,
 			`${TEST_PREFIX}W2`,
@@ -406,9 +405,7 @@ describe("runUniverseReconcile", () => {
 		createdSymbols.push(...symbols);
 
 		const warmup = makeFakeWarmup();
-		// All four are brand-new → all four are warmup-eligible. Placed FIRST in the
-		// active set, so with warmupCap 2 the module's `warmable.slice(0, cap)` (array
-		// order) enqueues exactly W1+W2 and skips W3+W4.
+		// All four are brand-new and therefore all four are warmup-eligible.
 		const active = [
 			...symbols.map((symbol) => makeActiveTicker({ symbol, name: `CAPPED LISTING ${symbol}` })),
 			...(await activeSetCoveringSeedExcept(symbols)),
@@ -418,7 +415,6 @@ describe("runUniverseReconcile", () => {
 		const result = await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
-			warmupCap: 2,
 		});
 
 		// The insert itself is uncapped: all four rows landed in `assets`.
@@ -426,12 +422,8 @@ describe("runUniverseReconcile", () => {
 		const rows = await Promise.all(symbols.map((s) => getAsset(s)));
 		for (const row of rows) expect(row?.delisted_at).toBeNull();
 
-		// Exactly the first two (array order) were enqueued; the overflow is counted, not retried.
-		expect(result.warmupEnqueued).toBe(2);
-		expect(result.warmupSkippedCap).toBe(2);
+		expect(result.warmupEnqueued).toBe(4);
 		expect(result.warmupEnqueueFailed).toBe(0);
-		expect(warmup.enqueued.map((m) => m.symbol)).toEqual([symbols[0], symbols[1]]);
-		// The skip is surfaced as a warning (informational — skipped symbols never warm).
-		expect(warnMessages()).toContainEqual(expect.stringContaining("warmup capped"));
+		expect(warmup.enqueued.map((m) => m.symbol)).toEqual(symbols);
 	});
 });

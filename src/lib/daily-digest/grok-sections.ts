@@ -96,7 +96,7 @@ function buildNewsPrompt(options: {
 	tickers: string[];
 	localDateIso: string;
 	timezone: string;
-	finnhubNewsContext?: string;
+	providerNewsContext?: string;
 }): { system: string; user: string } {
 	const tickers = options.tickers.join(", ");
 
@@ -110,8 +110,8 @@ function buildNewsPrompt(options: {
 		"Plain text otherwise — no markdown formatting beyond citation links " +
 		"(no **bold**, no *italic*, no headings, no bullets like `-` or `*`).";
 
-	const newsContextBlock = options.finnhubNewsContext
-		? `\nHere are recent headlines for context (use these as your primary source):\n${options.finnhubNewsContext}\n`
+	const newsContextBlock = options.providerNewsContext
+		? `\nHere are recent headlines for context (use these as your primary source):\n${options.providerNewsContext}\n`
 		: "";
 
 	const bulletCount = Math.min(options.tickers.length, 10);
@@ -195,7 +195,7 @@ export async function generateNewsWithGrok(options: {
 	tickers: string[];
 	localDateIso: string;
 	timezone: string;
-	finnhubNewsContext?: string;
+	providerNewsContext?: string;
 	requestId?: string;
 }): Promise<GrokSectionResult | null> {
 	if (options.tickers.length === 0) return null;

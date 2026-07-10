@@ -76,19 +76,19 @@ getCurrentMarketSessionMock.mockResolvedValue("regular");
 fetchIntradaySparklinesMock.mockResolvedValue(new Map());
 fetchSparklinesMock.mockResolvedValue(new Map());
 
-const fetchFinnhubExtrasMock = vi.hoisted(() => vi.fn());
+const fetchDigestExtrasMock = vi.hoisted(() => vi.fn());
 
-vi.mock("../../../src/lib/daily-digest/finnhub-extras", async () => {
+vi.mock("../../../src/lib/daily-digest/digest-extras", async () => {
 	const actual = await vi.importActual<
-		typeof import("../../../src/lib/daily-digest/finnhub-extras")
-	>("../../../src/lib/daily-digest/finnhub-extras");
+		typeof import("../../../src/lib/daily-digest/digest-extras")
+	>("../../../src/lib/daily-digest/digest-extras");
 	return {
 		...actual,
-		fetchFinnhubExtras: fetchFinnhubExtrasMock,
+		fetchDigestExtras: fetchDigestExtrasMock,
 	};
 });
 
-fetchFinnhubExtrasMock.mockResolvedValue({
+fetchDigestExtrasMock.mockResolvedValue({
 	news: new Map(),
 	analyst: new Map(),
 	insider: new Map(),
@@ -163,12 +163,12 @@ describe("Daily digest process scenarios", () => {
 		expect(after?.daily_notification_next_send_at).not.toBe(nextSendAtBefore);
 	});
 
-	it("Email-enabled user with news preference fetches Finnhub extras for company news.", async () => {
+	it("Email-enabled user with news preference fetches digest extras for company news.", async () => {
 		const now = DateTime.utc();
 		const nowIso = now.toISO();
 		expect(nowIso).toBeTruthy();
 
-		fetchFinnhubExtrasMock.mockClear();
+		fetchDigestExtrasMock.mockClear();
 
 		const { id } = await createTestUser({
 			timezone: "America/New_York",
@@ -209,18 +209,18 @@ describe("Daily digest process scenarios", () => {
 			}),
 		});
 
-		expect(fetchFinnhubExtrasMock).toHaveBeenCalledWith(
+		expect(fetchDigestExtrasMock).toHaveBeenCalledWith(
 			["AAPL"],
 			expect.objectContaining({ includeNews: true }),
 		);
 	});
 
-	it("Grok limit reached skips Finnhub news fetch even when email news is enabled.", async () => {
+	it("Grok limit reached skips provider news fetch even when email news is enabled.", async () => {
 		const now = DateTime.utc();
 		const nowIso = now.toISO();
 		expect(nowIso).toBeTruthy();
 
-		fetchFinnhubExtrasMock.mockClear();
+		fetchDigestExtrasMock.mockClear();
 
 		const { id } = await createTestUser({
 			timezone: "America/New_York",
@@ -262,6 +262,6 @@ describe("Daily digest process scenarios", () => {
 			}),
 		});
 
-		expect(fetchFinnhubExtrasMock).not.toHaveBeenCalled();
+		expect(fetchDigestExtrasMock).not.toHaveBeenCalled();
 	});
 });
