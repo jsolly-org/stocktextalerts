@@ -1,103 +1,58 @@
+/**
+ * Daily-digest Massive company-news fetch for Grok context.
+ *
+ * Analyst/insider live in the asset-events path via `loadStoredFinnhubExtras`
+ * (DB-backed, filled by the enrichment pipeline) — not fetched here.
+ */
 import { setTimeout as realDelay } from "node:timers/promises";
-import { fetchInsiderTransactions, fetchRecommendationTrends } from "../asset-events/enrichment";
 import { COMPANY_NEWS_USER_BUDGET_MS } from "../company-news/constants";
 import { fetchCompanyNews } from "../company-news/fetch";
-import type { CompanyNewsItem, InsiderTransaction, RecommendationTrend } from "../types";
+import type { CompanyNewsItem } from "../types";
 import { isOptionalVendorUnavailable, withOptionalVendorBudget } from "../vendors/optional-vendors";
 
 const INTER_REQUEST_DELAY_MS = 100;
 
-/** Batch digest extras fetched from Massive news and Finnhub enrichment. */
-interface DigestExtrasData {
-	news: Map<string, CompanyNewsItem[]>;
-	analyst: Map<string, RecommendationTrend | null>;
-	insider: Map<string, InsiderTransaction[]>;
-	/** True when analyst was requested and at least one symbol got an HTTP response. */
-	analystFetchSucceeded: boolean;
-}
-
-/** Fetch enabled provider extras for a set of symbols. */
-export async function fetchDigestExtras(
+/**
+ * Fetch Massive company news for the given symbols (Grok email context).
+ * Soft-fails under the per-user news budget; open company-news circuit skips the batch.
+ */
+export async function fetchDigestNewsForGrok(
 	symbols: string[],
-	options: {
-		includeNews: boolean;
-		includeAnalyst: boolean;
-		includeInsider: boolean;
-	},
-): Promise<DigestExtrasData> {
-	const result: DigestExtrasData = {
-		news: new Map(),
-		analyst: new Map(),
-		insider: new Map(),
-		analystFetchSucceeded: false,
-	};
+): Promise<Map<string, CompanyNewsItem[]>> {
+	const news = new Map<string, CompanyNewsItem[]>();
 
-	if (symbols.length === 0) return result;
-	if (!options.includeNews && !options.includeAnalyst && !options.includeInsider) return result;
+	if (symbols.length === 0) return news;
+	if (isOptionalVendorUnavailable("company-news")) return news;
 
 	// Date range for Massive company news: last 3 days.
 	const now = new Date();
 	const to = now.toISOString().slice(0, 10);
 	const from = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-	let analystHttpFailures = 0;
-	let newsBudgetRemainingMs = options.includeNews ? COMPANY_NEWS_USER_BUDGET_MS : 0;
+	let newsBudgetRemainingMs = COMPANY_NEWS_USER_BUDGET_MS;
 
-	// Fetch sequentially per symbol with small delays to keep provider fan-out bounded.
 	for (const symbol of symbols) {
-		const fetches: Promise<void>[] = [];
-
-		if (options.includeNews) {
-			if (newsBudgetRemainingMs <= 0 || isOptionalVendorUnavailable("company-news")) {
-				break;
-			}
-			const budgetForSymbol = Math.min(newsBudgetRemainingMs, COMPANY_NEWS_USER_BUDGET_MS);
-			const newsStart = Date.now();
-			const newsResult = await withOptionalVendorBudget("company-news", budgetForSymbol, () =>
-				fetchCompanyNews(symbol, from, to),
-			);
-			newsBudgetRemainingMs -= Date.now() - newsStart;
-			if (newsResult.status === "ok") {
-				result.news.set(symbol, newsResult.value);
-			} else {
-				break;
-			}
+		if (newsBudgetRemainingMs <= 0 || isOptionalVendorUnavailable("company-news")) {
+			break;
 		}
-
-		if (options.includeAnalyst) {
-			fetches.push(
-				fetchRecommendationTrends(symbol).then(({ trend, httpSucceeded }) => {
-					result.analyst.set(symbol, trend);
-					if (!httpSucceeded) {
-						analystHttpFailures++;
-					}
-				}),
-			);
-		}
-
-		if (options.includeInsider) {
-			fetches.push(
-				fetchInsiderTransactions(symbol).then((data) => {
-					result.insider.set(symbol, data);
-				}),
-			);
-		}
-
-		// Finnhub analyst/insider requests for one symbol run together; symbols stay sequential.
-		if (fetches.length > 0) {
-			await Promise.all(fetches);
+		const budgetForSymbol = Math.min(newsBudgetRemainingMs, COMPANY_NEWS_USER_BUDGET_MS);
+		const newsStart = Date.now();
+		const newsResult = await withOptionalVendorBudget("company-news", budgetForSymbol, () =>
+			fetchCompanyNews(symbol, from, to),
+		);
+		newsBudgetRemainingMs -= Date.now() - newsStart;
+		if (newsResult.status === "ok") {
+			news.set(symbol, newsResult.value);
+		} else {
+			break;
 		}
 		await realDelay(INTER_REQUEST_DELAY_MS);
 	}
 
-	if (options.includeAnalyst && symbols.length > 0) {
-		result.analystFetchSucceeded = analystHttpFailures < symbols.length;
-	}
-
-	return result;
+	return news;
 }
 
-/** Build a compact, line-based news context string for Grok. */
+/** Flatten news Map into a compact string for the Grok prompt. */
 export function buildNewsContextForGrok(newsData: Map<string, CompanyNewsItem[]>): string {
 	const lines: string[] = [];
 	for (const [symbol, items] of newsData) {

@@ -3,7 +3,7 @@
  *
  * This module is the "prepare" side of the pre-compute/deliver pipeline. It
  * queries users whose next_send_at falls within the upcoming 30-second window,
- * runs the full processing pipeline (prices, Grok, Finnhub, formatting), and
+ * runs the full processing pipeline (prices, Grok, Massive news, formatting), and
  * writes the rendered content to `staged_notifications`. The next pass's
  * deliver phase will send this content near-instantly at the scheduled time.
  *

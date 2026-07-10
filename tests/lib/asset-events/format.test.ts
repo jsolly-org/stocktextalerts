@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { formatAssetEventsSectionEmail } from "../../../src/lib/asset-events/format";
+import {
+	formatAnalystSectionEmail,
+	formatAssetEventsSectionEmail,
+	formatInsiderSectionEmail,
+} from "../../../src/lib/asset-events/format";
+import type { InsiderTransaction, RecommendationTrend } from "../../../src/lib/types";
 
 describe("formatAssetEventsSection", () => {
 	it("formats earnings for email with estimates", () => {
@@ -177,5 +182,52 @@ describe("formatAssetEventsSection", () => {
 		expect(result.dividends).toContain("JNJ: ex-div in 2 days (02-15) — $1.19/share");
 		expect(result.dividends).not.toContain("pays");
 		expect(result.dividends).not.toContain("quarterly");
+	});
+});
+
+describe("formatAnalystSection formats recommendation trends per ticker.", () => {
+	it("Formats email analyst section with full breakdown.", () => {
+		const data = new Map<string, RecommendationTrend | null>([
+			[
+				"NVDA",
+				{
+					buy: 38,
+					hold: 6,
+					sell: 2,
+					strongBuy: 15,
+					strongSell: 1,
+					period: "2026-01-01",
+				},
+			],
+		]);
+
+		const result = formatAnalystSectionEmail(data);
+
+		expect(result).toContain("15 Strong Buy");
+		expect(result).toContain("38 Buy");
+		expect(result).toContain("6 Hold");
+		expect(result).toContain("2 Sell");
+		expect(result).toContain("1 Strong Sell");
+		expect(result).toContain("2026-01-01");
+	});
+});
+
+describe("formatInsiderSection formats insider transactions per ticker.", () => {
+	it("Formats email insider section with more transactions.", () => {
+		const transactions: InsiderTransaction[] = Array.from({ length: 5 }, (_, i) => ({
+			name: `Insider ${i}`,
+			share: 1000,
+			change: i % 2 === 0 ? -1000 : 1000,
+			transactionType: i % 2 === 0 ? "S" : "P",
+			transactionDate: `2026-02-0${i + 1}`,
+		}));
+
+		const data = new Map<string, InsiderTransaction[]>([["TSLA", transactions]]);
+
+		const result = formatInsiderSectionEmail(data);
+
+		expect(result).not.toBeNull();
+		const lines = result?.split("\n");
+		expect(lines?.length).toBe(5);
 	});
 });

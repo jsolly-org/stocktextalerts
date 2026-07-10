@@ -31,7 +31,7 @@ import type { MarketClosureInfo } from "../time/types";
 import type { AssetPriceMap, MarketSession, UserRecord } from "../types";
 import { buildTopMoversData, resolveGrokEligibility, updateGrokSendCounter } from "./content-build";
 import { processDailyDigestEmailDelivery, processDailyDigestTelegramDelivery } from "./delivery";
-import { buildNewsContextForGrok, fetchDigestExtras } from "./digest-extras";
+import { buildNewsContextForGrok, fetchDigestNewsForGrok } from "./digest-extras";
 import type { GrokSectionResult } from "./grok-sections";
 import { generateNewsWithGrok, generateRumorsWithGrok } from "./grok-sections";
 import {
@@ -308,12 +308,8 @@ export async function processDailyDigestUser(options: {
 			isDailyNotificationFacetEnabled(user.prefs, "email", "news") &&
 			tickers.length > 0;
 		if (wantsNewsContext) {
-			const digestExtras = await fetchDigestExtras(tickers, {
-				includeNews: true,
-				includeAnalyst: false,
-				includeInsider: false,
-			});
-			newsContext = buildNewsContextForGrok(digestExtras.news) || undefined;
+			const newsBySymbol = await fetchDigestNewsForGrok(tickers);
+			newsContext = buildNewsContextForGrok(newsBySymbol) || undefined;
 		}
 
 		// Grok news/rumors are email-only.
