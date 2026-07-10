@@ -224,6 +224,16 @@
 							>
 								🎯 Prediction Markets
 							</span>
+							<KalshiLogoIcon
+								class="h-4.5 w-auto shrink-0"
+								aria-label="Powered by Kalshi"
+								role="img"
+							/>
+							<PolymarketLogoIcon
+								class="h-4.5 w-auto shrink-0"
+								aria-label="Powered by Polymarket"
+								role="img"
+							/>
 						</div>
 						<p
 							id="daily_digest_include_prediction_markets_description"
@@ -272,7 +282,9 @@ import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
+import KalshiLogoIcon from "../../../icons/kalshi.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
+import PolymarketLogoIcon from "../../../icons/polymarket.svg?component";
 import { DASHBOARD_SECTION_IDS } from "../../../lib/constants";
 import { etMinuteToUserLocal } from "../../../lib/time/conversion";
 import {
