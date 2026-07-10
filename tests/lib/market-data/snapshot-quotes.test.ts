@@ -373,7 +373,10 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 	});
 
 	it("splits lists above 250 symbols into multiple snapshot requests", async () => {
-		const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(snapshotResponse([]));
+		// Fresh Response per call — concurrent chunks must not share one body stream.
+		const fetchSpy = vi
+			.spyOn(globalThis, "fetch")
+			.mockImplementation(async () => snapshotResponse([]));
 		const symbols = Array.from({ length: 251 }, (_, index) => `SYM${index}`);
 
 		await fetchSnapshotQuotes(symbols, "regular");

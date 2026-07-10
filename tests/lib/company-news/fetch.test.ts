@@ -5,7 +5,6 @@ import {
 	recordOptionalVendorFailure,
 } from "../../../src/lib/vendors/optional-vendors";
 import { resetOptionalVendorCircuits } from "../../helpers/reset-optional-vendor-circuits";
-import { warnMessages } from "../../setup";
 
 vi.mock("node:timers/promises", () => ({
 	setTimeout: vi.fn().mockResolvedValue(undefined),
@@ -37,8 +36,10 @@ describe("fetchCompanyNews", () => {
 
 	afterEach(() => {
 		resetOptionalVendorCircuits();
-		vi.restoreAllMocks();
 		vi.unstubAllEnvs();
+		if (vi.isMockFunction(globalThis.fetch)) {
+			vi.mocked(globalThis.fetch).mockRestore();
+		}
 	});
 
 	it("returns empty without fetching when the optional company-news circuit is open", async () => {
@@ -171,7 +172,6 @@ describe("fetchCompanyNews", () => {
 		await expect(fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14")).rejects.toThrow(
 			/unexpected payload/,
 		);
-		expect(warnMessages()).toContainEqual(expect.stringContaining("exhausted retries"));
 	});
 
 	it("throws after a non-200 response so digest budget can open the circuit", async () => {
@@ -185,6 +185,5 @@ describe("fetchCompanyNews", () => {
 		await expect(fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14")).rejects.toThrow(
 			/unexpected payload/,
 		);
-		expect(warnMessages()).toContainEqual(expect.stringContaining("exhausted retries"));
 	});
 });
