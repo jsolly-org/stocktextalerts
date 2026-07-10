@@ -20,10 +20,15 @@ function massiveResponse(body: unknown, status = 200): Response {
 	});
 }
 
-function tickerRow(ticker: string, name?: string): Record<string, unknown> {
+function tickerRow(
+	ticker: string,
+	name?: string,
+	lastUpdatedUtc?: string,
+): Record<string, unknown> {
 	return {
 		ticker,
 		...(name === undefined ? {} : { name }),
+		...(lastUpdatedUtc === undefined ? {} : { last_updated_utc: lastUpdatedUtc }),
 		active: true,
 		market: "stocks",
 	};
@@ -51,7 +56,7 @@ describe("fetchActiveTickers", () => {
 
 			if (type === "CS" && cursor === null) {
 				return massiveResponse({
-					results: [tickerRow("aapl", "Apple Inc.")],
+					results: [tickerRow("aapl", "Apple Inc.", "2026-06-15T00:00:00Z")],
 					next_url:
 						"https://api.massive.com/v3/reference/tickers?type=CS&cursor=next-cs&apiKey=provider-key",
 				});
@@ -88,6 +93,8 @@ describe("fetchActiveTickers", () => {
 		expect(universe.tickers.map((ticker) => ticker.symbol)).toEqual(["AAPL", "TSM", "XYLG"]);
 		expect(universe.tickers.map((ticker) => ticker.type)).toEqual(["stock", "stock", "etf"]);
 		expect(universe.tickers[0]?.name).toBe("Apple Inc.");
+		expect(universe.tickers[0]?.lastUpdatedUtc).toBe("2026-06-15T00:00:00Z");
+		expect(universe.tickers[1]?.lastUpdatedUtc).toBeNull();
 		expect(universe.tickers[2]?.name).toBe(LONG_ETF_NAME.slice(0, 255));
 		expect(universe.allActiveSymbols).toEqual(
 			new Set(["AAPL", "BRK.B", "NVAX2", "CIONA251230", "BAD SYMBOL", "TSM", "XYLG"]),

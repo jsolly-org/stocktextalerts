@@ -14,13 +14,14 @@ export const RECONCILE_MIN_REMAINING_MS = 180_000;
 export const SWEEP_MIN_REMAINING_MS = 300_000;
 
 /**
- * Prediction-market discovery drip: up to 25 tracked symbols (Poly search + Kalshi
- * series fetches + optional Grok). Soft-fail vendors; still needs wall-clock headroom.
+ * Prediction-market discovery: all unchecked tracked symbols (Poly + Kalshi +
+ * optional Grok). Soft-fail vendors; wall-clock headroom for the step gate +
+ * in-loop remaining-time abort.
  */
 export const PM_DISCOVERY_MIN_REMAINING_MS = 240_000;
 
 /**
- * Prediction-market snapshot refresh: re-fetch all active stored events.
- * Soft-fails per event; needs headroom for Poly/Kalshi rate limits.
+ * Prediction-market snapshot refresh: all active matched events. Soft-fails per
+ * event; needs headroom for Poly/Kalshi rate limits + in-loop abort.
  */
 export const PM_REFRESH_MIN_REMAINING_MS = 300_000;

@@ -147,4 +147,43 @@ describe("ensureAssetIconChecked", () => {
 		expect(result).toEqual({ probed: false, iconUrl: null });
 		expect((await getAsset(symbol))?.icon_checked_at).toBeNull();
 	});
+
+	it("Force-reprobes an already-checked row and clears icon_base64.", async () => {
+		const symbol = `${TEST_PREFIX}FORCE`;
+		createdSymbols.push(symbol);
+		const oldUrl =
+			"https://api.massive.com/v1/reference/company-branding/x/images/2024-01-01_icon.png";
+		const newUrl =
+			"https://api.massive.com/v1/reference/company-branding/x/images/2026-07-01_icon.png";
+		await upsertAssets([
+			{
+				symbol,
+				name: "Force Refresh Inc",
+				type: "stock",
+				icon_url: oldUrl,
+				icon_checked_at: "2026-01-01T00:00:00Z",
+				icon_base64: "data:image/png;base64,old",
+			},
+		]);
+
+		const detail = makeFakeDetail(new Map([[symbol, { ok: true, iconUrl: newUrl }]]));
+		const result = await ensureAssetIconChecked({
+			supabase: adminClient,
+			logger: rootLogger,
+			symbol,
+			force: true,
+			getTickerDetail: detail.fn,
+		});
+
+		expect(result).toEqual({ probed: true, iconUrl: newUrl });
+		expect(detail.calls).toEqual([symbol]);
+		const { data } = await adminClient
+			.from("assets")
+			.select("icon_url, icon_base64, icon_checked_at")
+			.eq("symbol", symbol)
+			.maybeSingle();
+		expect(data?.icon_url).toBe(newUrl);
+		expect(data?.icon_base64).toBeNull();
+		expect(data?.icon_checked_at).not.toBe("2026-01-01T00:00:00Z");
+	});
 });

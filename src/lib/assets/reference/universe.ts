@@ -63,10 +63,16 @@ function parseActiveTickerPage(
 		// varchar(255)): one malformed vendor row must not fail its whole insert chunk.
 		if (symbol.length > 10 || /\s/.test(symbol)) continue;
 
+		const lastUpdatedRaw =
+			typeof item.last_updated_utc === "string" ? item.last_updated_utc.trim() : "";
+		const lastUpdatedUtc =
+			lastUpdatedRaw !== "" && Number.isFinite(Date.parse(lastUpdatedRaw)) ? lastUpdatedRaw : null;
+
 		tickers.push({
 			symbol,
 			name: name.slice(0, 255),
 			type: normalizedType,
+			lastUpdatedUtc,
 		});
 	}
 	return { tickers, allActiveSymbols };

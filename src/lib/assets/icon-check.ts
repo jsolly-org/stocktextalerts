@@ -8,18 +8,19 @@ import type {
 } from "./types";
 
 /**
- * Probe Massive for a single asset's logo when it has never been checked.
+ * Probe Massive for a single asset's logo when it has never been checked, or
+ * when `force` is set (Massive reference watermark advanced).
  *
- * Used on watchlist add and when universe reconcile inserts a new listing.
- * No-ops when the row is missing, delisted, or already stamped. Failures are
- * non-throwing for the caller — transport/write issues leave the row unchecked
- * (and are logged here). There is no nightly drip; a later add/reconcile retry
- * is the only automatic path.
+ * Used on watchlist add, universe reconcile new listings, and watermark-gated
+ * refreshes. No-ops when the row is missing or delisted; without `force`, also
+ * no-ops when already stamped. Failures are non-throwing for the caller —
+ * transport/write issues leave the row unchecked (and are logged here). There
+ * is no nightly drip; a later add/reconcile retry is the only automatic path.
  */
 export async function ensureAssetIconChecked(
 	deps: EnsureAssetIconCheckedDeps,
 ): Promise<EnsureAssetIconCheckedResult> {
-	const { supabase, logger, symbol } = deps;
+	const { supabase, logger, symbol, force = false } = deps;
 	const getTickerDetail = deps.getTickerDetail ?? fetchTickerDetail;
 
 	const { data, error } = await supabase
@@ -35,8 +36,11 @@ export async function ensureAssetIconChecked(
 		);
 		return { probed: false, iconUrl: null };
 	}
-	if (!data || data.delisted_at !== null || data.icon_checked_at !== null) {
+	if (!data || data.delisted_at !== null) {
 		return { probed: false, iconUrl: data?.icon_url ?? null };
+	}
+	if (!force && data.icon_checked_at !== null) {
+		return { probed: false, iconUrl: data.icon_url };
 	}
 
 	const outcome = await checkAndStoreIcon({
@@ -89,9 +93,15 @@ async function checkAndStoreIcon(options: {
 		iconUrl = null;
 	}
 
+	// Clear icon_base64 whenever we rewrite icon_url so email's cached data-URI
+	// cannot outlive a Massive branding URL change.
 	const { error: writeErr } = await supabase
 		.from("assets")
-		.update({ icon_url: iconUrl, icon_checked_at: new Date().toISOString() })
+		.update({
+			icon_url: iconUrl,
+			icon_checked_at: new Date().toISOString(),
+			icon_base64: null,
+		})
 		.eq("symbol", symbol);
 	if (writeErr) {
 		logger.error(

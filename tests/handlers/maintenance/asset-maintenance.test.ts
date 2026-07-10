@@ -97,6 +97,8 @@ function stubHealthySteps(): void {
 		allActiveSymbols: 26890,
 		newListingsInserted: 18,
 		namesUpdated: 420,
+		tickersRefreshed: 3,
+		referenceWatermarksBootstrapped: 0,
 		insertChunksFailed: 0,
 		delistedCleared: 2,
 		untrackedDelistedFlagged: 5,
@@ -126,6 +128,7 @@ function stubHealthySteps(): void {
 		processed: 3,
 		matched: 2,
 		failed: 0,
+		skipped: 0,
 	});
 	vi.mocked(enqueueAssetEventsIngestRetry).mockResolvedValue(true);
 }
@@ -219,7 +222,7 @@ describe("asset-maintenance Lambda orchestration", () => {
 		const summaries = loggedMessages(infoSpy);
 		expect(summaries).toContainEqual("Daily asset events fetch complete");
 		expect(summaries).toContainEqual("Prediction-market snapshot refresh complete");
-		expect(summaries).toContainEqual("Prediction-market discovery drip complete");
+		expect(summaries).toContainEqual("Prediction-market discovery complete");
 		expect(summaries).toContainEqual("Universe reconcile complete");
 		expect(summaries).toContainEqual("Delisting sweep complete");
 		// No expectConsoleError() registered: tests/setup.ts fails this test on ANY

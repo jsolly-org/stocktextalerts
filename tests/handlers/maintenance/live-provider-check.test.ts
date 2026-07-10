@@ -70,6 +70,7 @@ function buildPlausibleUniverse(size = MIN_PLAUSIBLE_ACTIVE_UNIVERSE): ActiveUni
 		symbol: `TICK${i}`,
 		name: `LISTED COMPANY ${i} INC`,
 		type: "stock" as const,
+		lastUpdatedUtc: null as string | null,
 	}));
 	return { tickers, allActiveSymbols: new Set(tickers.map((t) => t.symbol)) };
 }

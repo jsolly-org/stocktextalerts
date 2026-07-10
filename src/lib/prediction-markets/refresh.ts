@@ -1,4 +1,3 @@
-import { PM_REFRESH_NIGHTLY_CAP } from "../assets/constants";
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { isRecord } from "../types";
@@ -265,42 +264,42 @@ async function refreshKalshiEvent(options: { venueEventId: string; logger: Logge
 /**
  * Midnight refresh: re-fetch all active stored event/outcome snapshots.
  * Soft-fails per event — keeps the last good snapshot when a venue call fails.
+ * No artificial event cap — Lambda remaining-time is the only backstop.
  */
 export async function refreshActivePredictionMarketSnapshots(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	/** Cap events processed this run (default {@link PM_REFRESH_NIGHTLY_CAP}). */
-	limit?: number;
 	/** Abort when remaining Lambda ms drops below this floor. */
 	minRemainingMs?: number;
 	getRemainingTimeInMillis?: () => number;
 }): Promise<{ refreshed: number; failed: number; closed: number; skipped: number }> {
 	const { supabase, logger } = options;
-	const limit = options.limit ?? PM_REFRESH_NIGHTLY_CAP;
 	const minRemainingMs = options.minRemainingMs ?? 120_000;
-	const allEvents = await loadActiveMatchedEvents({ supabase, logger });
-	const events = allEvents.slice(0, limit);
-	const skipped = Math.max(0, allEvents.length - events.length);
+	const events = await loadActiveMatchedEvents({ supabase, logger });
 	let refreshed = 0;
 	let failed = 0;
 	let closed = 0;
+	let processed = 0;
 
 	for (const event of events) {
 		if (options.getRemainingTimeInMillis && options.getRemainingTimeInMillis() < minRemainingMs) {
+			const skipped = events.length - processed;
 			logger.error(
 				"Aborting prediction-market refresh — insufficient remaining Lambda time",
 				{
 					refreshed,
 					failed,
 					closed,
+					skipped,
 					remainingMs: options.getRemainingTimeInMillis(),
 					minRemainingMs,
 				},
 				new Error("pm_refresh aborted for remaining-time budget"),
 			);
-			break;
+			return { refreshed, failed, closed, skipped };
 		}
 
+		processed += 1;
 		try {
 			const snapshot =
 				event.venue === "polymarket"
@@ -388,7 +387,7 @@ export async function refreshActivePredictionMarketSnapshots(options: {
 	if (failed > 0 && failed === events.length && events.length > 0) {
 		logger.error(
 			"Prediction-market snapshot refresh soft-failed for every event",
-			{ eventCount: events.length, failed, skipped },
+			{ eventCount: events.length, failed, skipped: 0 },
 			new Error("All prediction-market refreshes soft-failed"),
 		);
 	} else {
@@ -397,8 +396,8 @@ export async function refreshActivePredictionMarketSnapshots(options: {
 			refreshed,
 			failed,
 			closed,
-			skipped,
+			skipped: 0,
 		});
 	}
-	return { refreshed, failed, closed, skipped };
+	return { refreshed, failed, closed, skipped: 0 };
 }

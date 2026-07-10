@@ -14,7 +14,6 @@ import { DateTime } from "luxon";
 import { fetchAndStoreFinnhubEnrichment } from "../../lib/asset-events/enrichment-store";
 import { fetchAndStoreAssetEvents } from "../../lib/asset-events/fetch";
 import type { AssetEventProvider } from "../../lib/asset-events/types";
-import { PM_DISCOVERY_NIGHTLY_CAP } from "../../lib/assets/constants";
 import { runDelistingSweep } from "../../lib/assets/delisting-sweep";
 import { runUniverseReconcile } from "../../lib/assets/universe-reconcile";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";
@@ -141,8 +140,9 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			);
 		}
 
-		// Refresh all active stored prediction-market event/outcome snapshots first
-		// so digests stay DB-read-only against fresh odds. Soft-fails keep last good.
+		// Refresh all active matched prediction-market event/outcome snapshots so
+		// digests stay DB-read-only against fresh odds. Soft-fails keep last good.
+		// Unbounded event count; remaining-time abort is the only backstop.
 		if (stepFitsRemainingTime(context, logger, "pm_refresh", PM_REFRESH_MIN_REMAINING_MS)) {
 			try {
 				const refreshResult = await refreshActivePredictionMarketSnapshots({
@@ -163,25 +163,21 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			}
 		}
 
-		// Tracked-only prediction-market discovery drip (pm_discovery_checked_at IS NULL).
-		// After Finnhub enrichment, before delisting — demand-driven, scoped to user_assets.
+		// All unchecked tracked symbols (pm_discovery_checked_at IS NULL). No symbol
+		// cap — remaining-time abort is the only backstop.
 		if (stepFitsRemainingTime(context, logger, "pm_discovery", PM_DISCOVERY_MIN_REMAINING_MS)) {
 			try {
 				const pmResult = await runPredictionMarketDiscoveryDrip({
 					supabase,
 					logger,
-					limit: PM_DISCOVERY_NIGHTLY_CAP,
+					getRemainingTimeInMillis: () => context.getRemainingTimeInMillis(),
 				});
-				logger.info("Prediction-market discovery drip complete", {
+				logger.info("Prediction-market discovery complete", {
 					action: "daily_pm_discovery",
 					...pmResult,
 				});
 			} catch (error) {
-				logger.error(
-					"Prediction-market discovery drip failed",
-					{ action: "daily_pm_discovery" },
-					error,
-				);
+				logger.error("Prediction-market discovery failed", { action: "daily_pm_discovery" }, error);
 			}
 		}
 

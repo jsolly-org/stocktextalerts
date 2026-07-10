@@ -1,22 +1,19 @@
 import type { DiscoveredPredictionEvent } from "./types";
 
-/** Cap persisted discovery candidates per symbol. */
-const DISCOVERY_PERSIST_CAP = 20;
-
 /**
- * Prefer higher-confidence / higher-volume events for persistence.
- * Digest selection (soonest deadline + ongoing lane) happens at read time.
+ * Prefer higher-confidence / higher-volume events for persistence order.
+ * Returns the full ranked list — digest selection happens at read time.
  */
 export function rankDiscoveredEvents(
 	candidates: readonly DiscoveredPredictionEvent[],
-	limit = DISCOVERY_PERSIST_CAP,
+	/** Optional truncate for tests; production callers omit this. */
+	limit?: number,
 ): DiscoveredPredictionEvent[] {
-	return [...candidates]
-		.sort((a, b) => {
-			if (b.confidence !== a.confidence) return b.confidence - a.confidence;
-			return b.volume - a.volume;
-		})
-		.slice(0, limit);
+	const ranked = [...candidates].sort((a, b) => {
+		if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+		return b.volume - a.volume;
+	});
+	return limit === undefined ? ranked : ranked.slice(0, limit);
 }
 
 /**

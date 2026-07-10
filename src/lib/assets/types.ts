@@ -9,6 +9,12 @@ export interface ActiveTicker {
 	symbol: string;
 	name: string;
 	type: "stock" | "etf";
+	/**
+	 * Massive's `last_updated_utc` from the list feed (ISO), when present.
+	 * Used by reconcile to gate full ticker refreshes; null when the provider
+	 * omitted it (name-only refresh still applies).
+	 */
+	lastUpdatedUtc: string | null;
 }
 
 /** The fetched active US listing: the typed subset we store, plus every active symbol. */
@@ -31,12 +37,16 @@ export interface StoredAsset {
 	symbol: string;
 	name: string;
 	delisted_at: string | null;
+	/** Last Massive `last_updated_utc` we stamped; null until first reconcile bootstrap. */
+	reference_updated_utc: string | null;
 }
 
 /** Dependencies for `runUniverseReconcile`. */
 export interface UniverseReconcileDeps {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
+	/** Icon-probe seam (new listings + watermark-advanced refreshes). */
+	ensureIconChecked?: (deps: EnsureAssetIconCheckedDeps) => Promise<EnsureAssetIconCheckedResult>;
 }
 
 /** Summary counters returned by `runUniverseReconcile`. */
@@ -49,6 +59,13 @@ export interface UniverseReconcileResult {
 	newListingsInserted: number;
 	/** Existing active rows whose stored name was refreshed from Massive. */
 	namesUpdated: number;
+	/**
+	 * Existing active rows whose Massive `last_updated_utc` advanced — name/type
+	 * stamped and icon force-probed.
+	 */
+	tickersRefreshed: number;
+	/** Existing active rows that received a first-time `reference_updated_utc` stamp (no icon probe). */
+	referenceWatermarksBootstrapped: number;
 	/** Insert chunks that failed to write (partial coverage — surfaced in the summary). */
 	insertChunksFailed: number;
 	/** Previously-flagged rows set back to `delisted_at = null` (reappeared). */
@@ -72,6 +89,11 @@ export interface EnsureAssetIconCheckedDeps {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	symbol: string;
+	/**
+	 * When true, re-probe even if `icon_checked_at` is already set (Massive
+	 * reference watermark advanced). Still no-ops for missing/delisted rows.
+	 */
+	force?: boolean;
 	/** Detail-fetch seam, injectable for tests. Defaults to `fetchTickerDetail`. */
 	getTickerDetail?: (symbol: string) => Promise<TickerDetail>;
 }

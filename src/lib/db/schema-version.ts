@@ -1,3 +1,3 @@
 // Update EXPECTED_DB_SCHEMA_VERSION whenever migrations are applied or regenerated
 // (use the latest migration commit/tag or schema version timestamp and update tests).
-export const EXPECTED_DB_SCHEMA_VERSION = "20260710173956_clear_finnhub_legacy_logos";
+export const EXPECTED_DB_SCHEMA_VERSION = "20260710214140_restore_reference_updated_utc";

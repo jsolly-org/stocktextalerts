@@ -143,25 +143,47 @@ export async function runPredictionMarketDiscoveryForSymbol(options: {
 }
 
 /**
- * Nightly drip: process tracked symbols with pm_discovery_checked_at IS NULL.
+ * Nightly discovery: every tracked symbol with pm_discovery_checked_at IS NULL.
+ * No artificial symbol cap — Lambda remaining-time is the only backstop.
  */
 export async function runPredictionMarketDiscoveryDrip(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	limit: number;
-}): Promise<{ processed: number; matched: number; failed: number }> {
-	const { supabase, logger, limit } = options;
-	const queue = await loadUncheckedTrackedSymbols({ supabase, limit });
+	/** Abort when remaining Lambda ms drops below this floor. */
+	minRemainingMs?: number;
+	getRemainingTimeInMillis?: () => number;
+}): Promise<{ processed: number; matched: number; failed: number; skipped: number }> {
+	const { supabase, logger } = options;
+	const minRemainingMs = options.minRemainingMs ?? 120_000;
+	const queue = await loadUncheckedTrackedSymbols({ supabase });
 	if (queue.length === 0) {
-		logger.info("Prediction-market discovery drip empty", { limit });
-		return { processed: 0, matched: 0, failed: 0 };
+		logger.info("Prediction-market discovery queue empty");
+		return { processed: 0, matched: 0, failed: 0, skipped: 0 };
 	}
 
 	const kalshiSeriesCatalog = await loadKalshiCompanySeries(logger);
 	let matched = 0;
 	let failed = 0;
+	let processed = 0;
 
 	for (const item of queue) {
+		if (options.getRemainingTimeInMillis && options.getRemainingTimeInMillis() < minRemainingMs) {
+			const skipped = queue.length - processed;
+			logger.error(
+				"Aborting prediction-market discovery — insufficient remaining Lambda time",
+				{
+					processed,
+					matched,
+					failed,
+					skipped,
+					remainingMs: options.getRemainingTimeInMillis(),
+					minRemainingMs,
+				},
+				new Error("pm_discovery aborted for remaining-time budget"),
+			);
+			return { processed, matched, failed, skipped };
+		}
+
 		const result = await runPredictionMarketDiscoveryForSymbol({
 			supabase,
 			logger,
@@ -170,9 +192,10 @@ export async function runPredictionMarketDiscoveryDrip(options: {
 			enrichAliases: true,
 			kalshiSeriesCatalog,
 		});
+		processed += 1;
 		if (result.ok) matched += result.matchCount;
 		else failed += 1;
 	}
 
-	return { processed: queue.length, matched, failed };
+	return { processed, matched, failed, skipped: 0 };
 }

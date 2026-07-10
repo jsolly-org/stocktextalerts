@@ -2,11 +2,32 @@ import { enqueueNewSymbolWarmup } from "../vendors/backfill/enqueue";
 import { CHUNK_SIZE, MIN_PLAUSIBLE_ACTIVE_UNIVERSE } from "./constants";
 import { ensureAssetIconChecked } from "./icon-check";
 import { fetchActiveTickers } from "./reference/universe";
-import type { StoredAsset, UniverseReconcileDeps, UniverseReconcileResult } from "./types";
+import type {
+	ActiveTicker,
+	StoredAsset,
+	UniverseReconcileDeps,
+	UniverseReconcileResult,
+} from "./types";
 
 /** True when the fetched active set is below the plausibility floor. */
 export function activeSetTooSmallToFlag(activeCount: number): boolean {
 	return activeCount < MIN_PLAUSIBLE_ACTIVE_UNIVERSE;
+}
+
+/**
+ * True when Massive's list `last_updated_utc` is strictly newer than the stored
+ * watermark. Null on either side is not an advance (null stored → bootstrap stamp
+ * only; null incoming → name-only path).
+ */
+export function referenceWatermarkAdvanced(
+	incoming: string | null,
+	stored: string | null,
+): boolean {
+	if (incoming == null || stored == null) return false;
+	const incomingMs = Date.parse(incoming);
+	const storedMs = Date.parse(stored);
+	if (!Number.isFinite(incomingMs) || !Number.isFinite(storedMs)) return false;
+	return incomingMs > storedMs;
 }
 
 const EMPTY_RESULT: UniverseReconcileResult = {
@@ -14,6 +35,8 @@ const EMPTY_RESULT: UniverseReconcileResult = {
 	allActiveSymbols: 0,
 	newListingsInserted: 0,
 	namesUpdated: 0,
+	tickersRefreshed: 0,
+	referenceWatermarksBootstrapped: 0,
 	insertChunksFailed: 0,
 	delistedCleared: 0,
 	untrackedDelistedFlagged: 0,
@@ -35,9 +58,12 @@ function chunksOf<T>(items: T[], size: number): T[][] {
 /**
  * Daily ticker-universe reconcile. Intended to run inside the asset-maintenance
  * Lambda BEFORE `runDelistingSweep`, in its own try/catch so a reconcile failure
- * never invalidates the sweep or the calendar-events job. Icon enrichment for
- * new listings runs inline after insert via `ensureAssetIconChecked` (watchlist
- * adds probe the same way). There is no nightly icon drip.
+ * never invalidates the sweep or the calendar-events job.
+ *
+ * Icon enrichment: new listings probe once; existing rows force-reprobe only when
+ * Massive's list `last_updated_utc` advances past the stored watermark. First-seen
+ * watermarks are stamped without a detail probe (avoids a one-shot ~27k fetch).
+ * There is no nightly icon drip.
  *
  * Flow:
  *   1. Fetch the active US listing from Massive's paginated reference API. If it
@@ -47,7 +73,7 @@ function chunksOf<T>(items: T[], size: number): T[][] {
  *      would be catastrophic. This is the single most important safety gate in the
  *      module.
  *   2. Load stored `assets` state, then INSERT new stock/etf listings, refresh
- *      existing active rows with Massive's proper-case names, and clear
+ *      existing active rows (name / watermark / icon on advance), and clear
  *      `delisted_at` on any stored symbol that reappeared in the active superset.
  *   3. Bulk-flag `delisted_at` on stored symbols ABSENT from the active SUPERSET
  *      (every valid symbol returned by the configured Massive type pages, including
@@ -65,6 +91,7 @@ export async function runUniverseReconcile(
 	deps: UniverseReconcileDeps,
 ): Promise<UniverseReconcileResult> {
 	const { supabase, logger } = deps;
+	const ensureIcon = deps.ensureIconChecked ?? ensureAssetIconChecked;
 
 	const result: UniverseReconcileResult = { ...EMPTY_RESULT };
 
@@ -99,7 +126,7 @@ export async function runUniverseReconcile(
 	for (let from = 0; ; from += STORED_PAGE_SIZE) {
 		const { data: page, error: storedErr } = await supabase
 			.from("assets")
-			.select("symbol, name, delisted_at")
+			.select("symbol, name, delisted_at, reference_updated_utc")
 			.order("symbol", { ascending: true })
 			.range(from, from + STORED_PAGE_SIZE - 1);
 		if (storedErr) {
@@ -117,7 +144,7 @@ export async function runUniverseReconcile(
 	const storedSymbols = new Set(storedRows.map((r) => r.symbol));
 	const activeBySymbol = new Map(active.map((ticker) => [ticker.symbol, ticker]));
 
-	// --- Step 2: Insert new listings, refresh names, and clear reappeared delistings. ---
+	// --- Step 2: Insert new listings, refresh names/watermarks/icons, clear reappeared. ---
 	// Symbols whose insert chunk failed are excluded from step 4 warmup, since a failed
 	// insert may mean the row is not in `assets` and warming a phantom symbol just churns.
 	const newTickers = active.filter((t) => !storedSymbols.has(t.symbol));
@@ -129,6 +156,7 @@ export async function runUniverseReconcile(
 				name: t.name,
 				type: t.type,
 				delisted_at: null,
+				reference_updated_utc: t.lastUpdatedUtc,
 			}));
 			// ignoreDuplicates: a concurrent insert (e.g. the search path) must not
 			// turn the whole chunk into an error — existing rows are simply skipped.
@@ -159,7 +187,7 @@ export async function runUniverseReconcile(
 			await Promise.all(
 				batch.map(async (symbol) => {
 					try {
-						await ensureAssetIconChecked({ supabase, logger, symbol });
+						await ensureIcon({ supabase, logger, symbol });
 					} catch (error) {
 						logger.warn(
 							"New-listing icon probe failed",
@@ -171,16 +199,106 @@ export async function runUniverseReconcile(
 			);
 		}
 
-		const namesToRefresh = storedRows.flatMap((row) => {
-			if (row.delisted_at !== null) return [];
+		const storedBySymbol = new Map(storedRows.map((r) => [r.symbol, r]));
+		const toFullRefresh: ActiveTicker[] = [];
+		const toBootstrapWatermark: ActiveTicker[] = [];
+		const toNameOnly: ActiveTicker[] = [];
+
+		for (const row of storedRows) {
+			if (row.delisted_at !== null) continue;
 			const activeTicker = activeBySymbol.get(row.symbol);
-			if (!activeTicker || activeTicker.name === row.name) return [];
-			return [activeTicker];
-		});
-		for (const chunk of chunksOf(namesToRefresh, CHUNK_SIZE)) {
+			if (!activeTicker) continue;
+
+			const nameChanged = activeTicker.name !== row.name;
+			if (referenceWatermarkAdvanced(activeTicker.lastUpdatedUtc, row.reference_updated_utc)) {
+				toFullRefresh.push(activeTicker);
+				continue;
+			}
+			if (activeTicker.lastUpdatedUtc != null && row.reference_updated_utc == null) {
+				toBootstrapWatermark.push(activeTicker);
+				continue;
+			}
+			if (nameChanged) {
+				toNameOnly.push(activeTicker);
+			}
+		}
+
+		for (const chunk of chunksOf(toFullRefresh, CHUNK_SIZE)) {
+			const { error, count } = await supabase.from("assets").upsert(
+				chunk.map((ticker) => ({
+					symbol: ticker.symbol,
+					name: ticker.name,
+					type: ticker.type,
+					reference_updated_utc: ticker.lastUpdatedUtc,
+				})),
+				{ onConflict: "symbol", count: "exact" },
+			);
+			if (error) {
+				logger.error(
+					"Universe reconcile watermark-refresh chunk failed",
+					{ action: "universe_reconcile", step: "refresh_watermark", chunkSize: chunk.length },
+					error,
+				);
+				continue;
+			}
+			result.tickersRefreshed += count ?? chunk.length;
+			for (const ticker of chunk) {
+				const stored = storedBySymbol.get(ticker.symbol);
+				if (stored != null && stored.name !== ticker.name) result.namesUpdated += 1;
+			}
+			for (const batch of chunksOf(
+				chunk.map((t) => t.symbol),
+				10,
+			)) {
+				await Promise.all(
+					batch.map(async (symbol) => {
+						try {
+							await ensureIcon({ supabase, logger, symbol, force: true });
+						} catch (probeError) {
+							logger.warn(
+								"Watermark-refresh icon probe failed",
+								{ action: "universe_reconcile", step: "icon_refresh", symbol },
+								probeError,
+							);
+						}
+					}),
+				);
+			}
+		}
+
+		for (const chunk of chunksOf(toBootstrapWatermark, CHUNK_SIZE)) {
+			const { error, count } = await supabase.from("assets").upsert(
+				chunk.map((ticker) => ({
+					symbol: ticker.symbol,
+					name: ticker.name,
+					type: ticker.type,
+					reference_updated_utc: ticker.lastUpdatedUtc,
+				})),
+				{ onConflict: "symbol", count: "exact" },
+			);
+			if (error) {
+				logger.error(
+					"Universe reconcile watermark-bootstrap chunk failed",
+					{
+						action: "universe_reconcile",
+						step: "bootstrap_watermark",
+						chunkSize: chunk.length,
+					},
+					error,
+				);
+				continue;
+			}
+			result.referenceWatermarksBootstrapped += count ?? chunk.length;
+			for (const ticker of chunk) {
+				const stored = storedBySymbol.get(ticker.symbol);
+				if (stored != null && stored.name !== ticker.name) result.namesUpdated += 1;
+			}
+		}
+
+		for (const chunk of chunksOf(toNameOnly, CHUNK_SIZE)) {
 			// Upsert batches let a one-time provider ownership switch refresh thousands
 			// of names without issuing one PostgREST request per row. Only these
-			// already-active, name-different rows enter the batch.
+			// already-active, name-different rows enter the batch (watermark unchanged).
 			const { error, count } = await supabase.from("assets").upsert(
 				chunk.map((ticker) => ({
 					symbol: ticker.symbol,
