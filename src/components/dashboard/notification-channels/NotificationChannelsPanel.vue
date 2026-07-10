@@ -41,7 +41,7 @@
 				@set-before-open="handleSetBeforeOpen"
 			/>
 
-			<div v-if="isHydrated && nextDailyDeliveryText" class="mt-4 border-t border-edge pt-4">
+			<div v-if="isHydrated && nextDailyDeliveryText" class="mt-4">
 				<p class="inline-flex items-center gap-2 text-sm text-body-secondary">
 					<BellAlertIcon class="size-4 shrink-0 text-success-strong" aria-hidden="true" />
 					<span>Next delivery <span class="font-medium text-heading">{{ nextDailyDeliveryText }}</span>.</span>

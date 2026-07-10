@@ -43,7 +43,7 @@ const omitManifestOnVercel =
   <head>
     <meta charset="UTF-8" />
     <meta name="description" content={description} />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)" />
     <meta name="generator" content={Astro.generator} />
@@ -124,11 +124,11 @@ const omitManifestOnVercel =
     <slot />
     <a
       href="mailto:support@stocktextalerts.com"
-      class="fixed bottom-4 right-4 z-50 flex items-center gap-1.5 rounded-full border border-edge/60 bg-surface-alt/85 px-3 py-1.5 text-xs text-label shadow-sm backdrop-blur-md backdrop-saturate-150 transition-colors hover:text-primary"
+      class="fixed z-50 flex items-center gap-1.5 rounded-full border border-edge/60 bg-surface-alt/85 px-2.5 py-1.5 text-xs text-label shadow-sm backdrop-blur-md backdrop-saturate-150 transition-colors hover:text-primary sm:gap-1.5 sm:px-3 bottom-[max(1rem,env(safe-area-inset-bottom,0px))] right-[max(1rem,env(safe-area-inset-right,0px))]"
       aria-label="Contact support via email"
     >
       <Icon name="envelope" class="size-3.5" aria-hidden="true" />
-      Support
+      <span class="max-sm:sr-only">Support</span>
     </a>
     <script>
       (() => {

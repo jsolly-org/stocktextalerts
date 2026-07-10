@@ -19,11 +19,14 @@
  */
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { runIconBackfill } from "../../../src/lib/assets/icon-backfill";
+import { ensureAssetIconChecked, runIconBackfill } from "../../../src/lib/assets/icon-backfill";
 import type { TickerDetail } from "../../../src/lib/assets/types";
 import { rootLogger } from "../../../src/lib/logging";
 import { deleteAssets, markAllAssetIconsChecked, upsertAssets } from "../../helpers/asset-db";
+import { TEST_PASSWORD } from "../../helpers/constants";
 import { adminClient } from "../../helpers/test-env";
+import { createTestUser } from "../../helpers/test-user";
+import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 import { expectConsoleError, warnMessages } from "../../setup";
 
 /**
@@ -298,6 +301,58 @@ describe("runIconBackfill", () => {
 		);
 	});
 
+	it("Tracked symbols fill the cap before the alphabetical drip — a late-alphabet watched ticker beats an earlier untracked one.", async () => {
+		const untrackedEarly = `${TEST_PREFIX}AAA`;
+		const trackedLate = `${TEST_PREFIX}ZZZ`;
+		createdSymbols.push(untrackedEarly, trackedLate);
+		await upsertAssets([
+			{ symbol: untrackedEarly, name: "Untracked Early Alphabet Inc", type: "stock" },
+			{ symbol: trackedLate, name: "Tracked Late Alphabet Inc", type: "stock" },
+		]);
+
+		const testUser = await createTestUser({
+			email: `icon-prio-${randomUUID()}@example.com`,
+			password: TEST_PASSWORD,
+			confirmed: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+		const { error: trackError } = await adminClient
+			.from("user_assets")
+			.insert({ user_id: testUser.id, symbol: trackedLate });
+		expect(trackError).toBeNull();
+
+		const detail = makeFakeDetail(
+			new Map([
+				[
+					trackedLate,
+					{
+						ok: true,
+						iconUrl: `https://api.massive.com/v1/reference/company-branding/${trackedLate}/images/icon.png`,
+					},
+				],
+				[
+					untrackedEarly,
+					{
+						ok: true,
+						iconUrl: `https://api.massive.com/v1/reference/company-branding/${untrackedEarly}/images/icon.png`,
+					},
+				],
+			]),
+		);
+		const result = await runIconBackfill({
+			supabase: adminClient,
+			logger: rootLogger,
+			cap: 1,
+			getTickerDetail: detail.fn,
+		});
+
+		expect(detail.calls).toEqual([trackedLate]);
+		expect(result.checked).toBe(1);
+		expect(result.iconsFound).toBe(1);
+		expect((await getAsset(trackedLate))?.icon_checked_at).not.toBeNull();
+		expect((await getAsset(untrackedEarly))?.icon_checked_at).toBeNull();
+	});
+
 	it("Already-checked and delisted rows are never candidates — the drip only probes live, never-checked symbols.", async () => {
 		const checkedSymbol = `${TEST_PREFIX}DONE`;
 		const delistedSymbol = `${TEST_PREFIX}DEAD`;
@@ -387,5 +442,77 @@ describe("runIconBackfill", () => {
 		});
 		const row = await getAsset(beyondCap);
 		expect(row?.icon_checked_at).toBeNull();
+	});
+});
+
+describe("ensureAssetIconChecked", () => {
+	const createdSymbols: string[] = [];
+
+	beforeAll(async () => {
+		await markAllAssetIconsChecked();
+	});
+
+	afterEach(async () => {
+		await deleteAssets(createdSymbols).catch(() => {});
+		createdSymbols.length = 0;
+	});
+
+	it("Probes and stamps a never-checked symbol on watchlist add.", async () => {
+		const symbol = `${TEST_PREFIX}ADD1`;
+		createdSymbols.push(symbol);
+		await upsertAssets([{ symbol, name: "On Add Probe Inc", type: "stock" }]);
+
+		const detail = makeFakeDetail(
+			new Map([
+				[
+					symbol,
+					{
+						ok: true,
+						iconUrl: `https://api.massive.com/v1/reference/company-branding/${symbol}/images/icon.png`,
+					},
+				],
+			]),
+		);
+		const result = await ensureAssetIconChecked({
+			supabase: adminClient,
+			logger: rootLogger,
+			symbol,
+			getTickerDetail: detail.fn,
+		});
+
+		expect(result).toEqual({
+			probed: true,
+			iconUrl: `https://api.massive.com/v1/reference/company-branding/${symbol}/images/icon.png`,
+		});
+		expect(detail.calls).toEqual([symbol]);
+		const row = await getAsset(symbol);
+		expect(row?.icon_url).toBe(result.iconUrl);
+		expect(row?.icon_checked_at).not.toBeNull();
+	});
+
+	it("No-ops when the symbol was already checked — Massive is not called again.", async () => {
+		const symbol = `${TEST_PREFIX}ADD2`;
+		createdSymbols.push(symbol);
+		const existingUrl = `https://api.massive.com/v1/reference/company-branding/${symbol}/images/icon.png`;
+		await upsertAssets([
+			{
+				symbol,
+				name: "Already Checked Inc",
+				type: "stock",
+				icon_url: existingUrl,
+				icon_checked_at: "2026-06-15T02:00:00Z",
+			},
+		]);
+
+		const detail = makeFakeDetail();
+		const result = await ensureAssetIconChecked({
+			supabase: adminClient,
+			logger: rootLogger,
+			symbol,
+			getTickerDetail: detail.fn,
+		});
+
+		expect(result).toEqual({ probed: false, iconUrl: existingUrl });
+		expect(detail.calls).toEqual([]);
 	});
 });

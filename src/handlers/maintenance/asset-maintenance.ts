@@ -264,6 +264,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 
 		// Massive branding icon backfill runs LAST: it is the least important step
 		// (cosmetic logos), so it can never starve the sweep of vendor work or Lambda time.
+		// Within the drip, tracked symbols still fill the cap before the universe backlog.
 		if (stepFitsRemainingTime(context, logger, "icon_backfill", ICON_BACKFILL_MIN_REMAINING_MS)) {
 			try {
 				const iconResult = await runIconBackfill({ supabase, logger });

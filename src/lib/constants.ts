@@ -177,13 +177,14 @@ if (
 Price-move alerts
 ============= */
 
-/** Default threshold suggested for a newly-added price-move alert, and the value the
- *  rollout migration replicated for existing users. Expressed as a percent move. */
+/** Default threshold applied when the user clicks "Set Threshold" on an unset stock.
+ *  Expressed as a percent move. */
 export const DEFAULT_PRICE_MOVE_THRESHOLD_PERCENT = 5;
 
 /** Largest per-stock thresholds accepted (guard fat-finger input); the DB only
- *  enforces > 0. 1000% or $100k covers any realistic single-day move. */
-export const MAX_PRICE_MOVE_PERCENT_THRESHOLD = 1000;
+ *  enforces > 0. Percent caps at a full-day double; dollar allows large single-day
+ *  moves on high-priced names. */
+export const MAX_PRICE_MOVE_PERCENT_THRESHOLD = 100;
 export const MAX_PRICE_MOVE_DOLLAR_THRESHOLD = 100_000;
 
 /* =============

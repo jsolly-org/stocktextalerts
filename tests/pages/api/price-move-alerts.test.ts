@@ -131,7 +131,7 @@ describe("A signed-in user manages per-stock price-move thresholds.", () => {
 		for (const [value, unit] of [
 			[0, "percent"],
 			[-3, "percent"],
-			[1001, "percent"],
+			[101, "percent"],
 			[100_001, "dollar"],
 		] as const) {
 			const response = await postThreshold({ symbol: "AAPL", value, unit }, cookies);

@@ -1,5 +1,5 @@
 <template>
-	<div class="relative" ref="containerRef">
+	<div class="relative">
 		<button
 			ref="triggerRef"
 			type="button"
@@ -9,7 +9,7 @@
 			:aria-controls="listboxId"
 			:aria-labelledby="labelledby ? `${labelledby} ${triggerId}` : undefined"
 			:disabled="disabled"
-			class="inline-flex min-w-44 items-center justify-between gap-2 rounded-lg border border-edge-strong bg-surface px-3 py-2 text-sm text-heading transition-colors hover:bg-surface-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+			class="inline-flex min-w-44 cursor-pointer items-center justify-between gap-2 rounded-lg border border-edge-strong bg-surface px-3 py-2 text-sm text-heading transition-colors hover:bg-surface-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
 			@click="toggleOpen"
 			@keydown="handleTriggerKeydown"
 		>
@@ -46,7 +46,7 @@
 				class="flex items-center gap-2.5 px-3 py-2 text-sm"
 				:class="[
 					option.disabled
-						? 'cursor-not-allowed text-muted'
+						? 'cursor-not-allowed text-faint opacity-50'
 						: 'cursor-pointer text-label hover:bg-info-bg',
 					index === activeIndex && !option.disabled ? 'bg-info-bg' : '',
 				]"
@@ -59,9 +59,11 @@
 					:class="
 						option.selected
 							? option.disabled
-								? 'border-muted bg-muted text-white'
+								? 'border-faint bg-faint text-white'
 								: 'border-primary bg-primary text-white'
-							: 'border-edge-strong bg-surface'
+							: option.disabled
+								? 'border-faint bg-disabled-bg'
+								: 'border-edge-strong bg-surface'
 					"
 				>
 					<CheckIcon v-if="option.selected" class="size-3" />
@@ -115,7 +117,6 @@ const summaryText = computed(() =>
 );
 
 const isOpen = ref(false);
-const containerRef = ref<HTMLElement | null>(null);
 const triggerRef = ref<HTMLButtonElement | null>(null);
 const listboxRef = ref<HTMLUListElement | null>(null);
 
@@ -266,8 +267,10 @@ function handleListboxKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
-	onClickOutside(containerRef, () => {
-		close();
-	});
+	// Watch the listbox itself, not the container: the container div stretches to
+	// the full row width in flex-col layouts, which made clicks in the empty strip
+	// beside the trigger count as "inside" and never dismiss. The trigger is
+	// ignored because its own click handler already toggles open/closed.
+	onClickOutside(listboxRef, () => close(), { ignore: [triggerRef] });
 });
 </script>

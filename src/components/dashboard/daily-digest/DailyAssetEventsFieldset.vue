@@ -1,20 +1,17 @@
 <template>
-	<div class="mt-6 border-t border-edge pt-6">
-		<h3 class="text-base font-semibold text-heading mb-1">Asset events</h3>
+	<div class="!border-t-0 py-4">
+		<h3 class="text-lg sm:text-xl font-bold text-heading mb-1">Asset events</h3>
 		<p class="text-sm text-body-secondary mb-4">
 			Calendar, IPO, analyst, and insider updates bundled into the same daily message.
 		</p>
 
-		<div
-			class="space-y-3 transition-opacity duration-200"
-			:class="{ 'opacity-50': needsChannelSelection }"
-		>
+		<div class="space-y-4">
 			<div class="flex flex-col gap-2 px-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
 				<span class="text-xs font-semibold uppercase tracking-wider text-faint select-none">Select all</span>
 				<div class="flex flex-row flex-wrap items-center gap-x-4 gap-y-2 sm:gap-4 shrink-0">
 					<label
 						class="inline-flex items-center gap-1.5"
-						:class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'"
+						:class="needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer'"
 						:title="emailDisabledTitle"
 					>
 						<input
@@ -31,7 +28,13 @@
 					</label>
 					<label
 						class="inline-flex items-center gap-1.5"
-						:class="telegramConnected ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+						:class="
+							telegramConnected
+								? 'cursor-pointer'
+								: needsChannelSelection
+									? 'cursor-not-allowed'
+									: 'cursor-not-allowed opacity-50'
+						"
 						:title="telegramDisabledTitle"
 					>
 						<input
@@ -52,8 +55,6 @@
 			<div
 				v-for="eventType in ASSET_EVENT_TYPES"
 				:key="eventType.key"
-				class="rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
-				:class="{ 'opacity-50': isEventTypeBlocked(eventType.key) }"
 			>
 				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
 					<input

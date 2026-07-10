@@ -93,6 +93,23 @@ export interface IconBackfillResult {
 	writeFailed: number;
 }
 
+/** Dependencies for `ensureAssetIconChecked` (on-add / single-symbol probe). */
+export interface EnsureAssetIconCheckedDeps {
+	supabase: SupabaseAdminClient;
+	logger: Logger;
+	symbol: string;
+	/** Detail-fetch seam, injectable for tests. Defaults to `fetchTickerDetail`. */
+	getTickerDetail?: (symbol: string) => Promise<TickerDetail>;
+}
+
+/** Result of a single-symbol on-add icon probe. */
+export interface EnsureAssetIconCheckedResult {
+	/** True when this call performed a definitive Massive check + DB write. */
+	probed: boolean;
+	/** Stored icon URL after the call (null when none / skipped / failed). */
+	iconUrl: string | null;
+}
+
 // --- Delisting sweep ---
 
 /** Dependencies for `runDelistingSweep`. */

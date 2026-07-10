@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { ensureAssetIconChecked } from "../../../lib/assets/icon-backfill";
 import { createUserService } from "../../../lib/auth/user-service";
 import type { ApiJsonBody } from "../../../lib/client/types";
 import { getUserAssets } from "../../../lib/db";
@@ -8,7 +9,7 @@ import {
 	MAX_TRACKED_ASSETS,
 } from "../../../lib/db/database-errors";
 import { readEnv } from "../../../lib/db/env";
-import { createSupabaseServerClient } from "../../../lib/db/supabase";
+import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
@@ -29,7 +30,9 @@ const ASSETS_SCHEMA = {
  * {@link MAX_TRACKED_ASSETS}, and rejects delisted tickers before writing.
  * New symbols enqueue vendor-backfill warmup (daily closes + stats) when
  * `VENDOR_BACKFILL_QUEUE_URL` is configured — same path as first-time adds
- * elsewhere in the app.
+ * elsewhere in the app. Net-new symbols with no prior icon check also get an
+ * immediate Massive branding probe so dashboard badges don't wait for the
+ * nightly drip.
  */
 export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
@@ -218,6 +221,24 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 					new Error("SQS enqueue failed"),
 				);
 			}
+		}
+	}
+
+	// Probe Massive branding for net-new tracked symbols that have never been
+	// icon-checked. Best-effort: failures leave the row unchecked for the
+	// nightly tracked-first drip. Writes go through the admin client (assets
+	// UPDATE is service_role-only).
+	const admin = createSupabaseAdminClient();
+	for (const symbol of uniqueSymbols) {
+		if (previousSymbolSet.has(symbol)) continue;
+		try {
+			await ensureAssetIconChecked({ supabase: admin, logger, symbol });
+		} catch (error) {
+			logger.warn(
+				"On-add icon probe failed",
+				{ userId: user.id, symbol },
+				createErrorForLogging(error),
+			);
 		}
 	}
 
