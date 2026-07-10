@@ -213,8 +213,8 @@ describe("formatAnalystSection formats recommendation trends per ticker.", () =>
 });
 
 describe("formatInsiderSection formats insider transactions per ticker.", () => {
-	it("Formats email insider section with more transactions.", () => {
-		const transactions: InsiderTransaction[] = Array.from({ length: 5 }, (_, i) => ({
+	it("Formats email insider section and caps at 5 transactions per ticker.", () => {
+		const transactions: InsiderTransaction[] = Array.from({ length: 6 }, (_, i) => ({
 			name: `Insider ${i}`,
 			share: 1000,
 			change: i % 2 === 0 ? -1000 : 1000,
@@ -227,7 +227,10 @@ describe("formatInsiderSection formats insider transactions per ticker.", () => 
 		const result = formatInsiderSectionEmail(data);
 
 		expect(result).not.toBeNull();
-		const lines = result?.split("\n");
-		expect(lines?.length).toBe(5);
+		const lines = result?.split("\n") ?? [];
+		expect(lines).toHaveLength(5);
+		expect(lines[0]).toBe("TSLA: Insider 0 sold 1k shares (02-01)");
+		expect(lines[1]).toBe("TSLA: Insider 1 bought 1k shares (02-02)");
+		expect(result).not.toContain("Insider 5");
 	});
 });
