@@ -88,14 +88,12 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 					throw new Error(`fetchPrevClose(SPY) returned ${prev}`);
 				}
 			}),
-			await runCheck(logger, "finnhub:asset-prices", async () => {
-				// Scheduled run is 16:00 UTC (regular session) — SPY/AAPL must have live quotes.
-				// Post-deploy can land in pre/after hours: Finnhub free-tier `/quote` often
-				// leaves `t` on yesterday's regular close for liquid names, so the parser
-				// returns NO_SESSION_TRADE (narrowed to null in `prices`). That still proves
-				// the endpoint answered and recognized the symbol — only a true miss
-				// (fetch/parse null, not in noSessionTrade) is red. Assert finite positive
-				// prices when a quote is present; map size alone is not enough (pre-seeded nulls).
+			await runCheck(logger, "massive:asset-prices", async () => {
+				// Massive Starter batch snapshots: during regular hours SPY/AAPL must have
+				// finite positive prices. Outside regular hours the same liquid names still
+				// carry entitled minute bars (pre/after) or closed-session prev-day fallback —
+				// require prices either way. Do NOT treat `noSessionTrade` as a pass: the
+				// legacy stale-timestamp loophole would green a broken feed.
 				const session = await getCurrentMarketSession();
 				const { prices, noSessionTrade } = await fetchAssetPricesWithSessionState(
 					["SPY", "AAPL"],
@@ -104,9 +102,6 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				for (const symbol of ["SPY", "AAPL"]) {
 					const quote = prices.get(symbol);
 					if (quote && Number.isFinite(quote.price) && quote.price > 0) continue;
-					if ((session === "pre" || session === "after") && noSessionTrade.has(symbol)) {
-						continue;
-					}
 					throw new Error(
 						`fetchAssetPricesWithSessionState(${symbol}) returned ${JSON.stringify(quote)}` +
 							` (session=${session}, noSessionTrade=${noSessionTrade.has(symbol)})`,
@@ -125,10 +120,10 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 					throw new Error("fetchEarnings reported failed=true");
 				}
 			}),
-			await runCheck(logger, "finnhub:stock-symbols", async () => {
-				// The weekly universe reconcile's only source. Verifying the free-tier
-				// entitlement here (daily + post-deploy) means a broken listing feed fails
-				// a deploy red instead of surfacing silently at Sunday midnight.
+			await runCheck(logger, "massive:active-universe", async () => {
+				// The daily universe reconcile's source. Verifying the entitlement here
+				// (daily + post-deploy) means a broken listing feed fails a deploy red
+				// instead of surfacing at the next maintenance run.
 				const { tickers } = await fetchActiveTickers();
 				if (tickers.length < MIN_PLAUSIBLE_ACTIVE_UNIVERSE) {
 					throw new Error(
@@ -136,7 +131,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 					);
 				}
 			}),
-			await runCheck(logger, "finnhub:company-profile", async () => {
+			await runCheck(logger, "massive:ticker-branding", async () => {
 				// The icon backfill's source. AAPL definitively has a logo, so ok-with-null
 				// means the entitlement or response shape broke, not "no logo".
 				const detail = await fetchTickerDetail("AAPL");

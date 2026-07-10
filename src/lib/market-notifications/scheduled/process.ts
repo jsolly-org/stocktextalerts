@@ -277,6 +277,7 @@ export async function processMarketScheduledUser(options: {
 				scheduledMinutes,
 				userAssets,
 				priceMap,
+				noSessionTrade,
 				marketSession,
 				sessionFirstLine,
 				delayBanner: delayBannerText,

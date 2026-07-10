@@ -39,6 +39,7 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 
 		expect(result.text).toContain("LDOS");
 		expect(result.text).toContain("down 11.1% today ($173.00)");
+		expect(result.text).toContain("Prices delayed up to 15 minutes.");
 
 		// Formatting travels out-of-band as entities (no MarkdownV2/HTML escaping).
 		expect(result.entities.length).toBeGreaterThan(0);

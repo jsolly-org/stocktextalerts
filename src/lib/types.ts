@@ -120,7 +120,7 @@ export interface ScheduledSlotKey {
 }
 
 /* =============
-Finnhub extras
+Digest/provider extras
 ============= */
 
 export interface RecommendationTrend {
@@ -147,6 +147,8 @@ export interface CompanyNewsItem {
 	datetime: number;
 	url: string;
 	source: string;
+	/** Massive ticker tags; used to filter broad roundup articles. */
+	tickers?: string[];
 }
 
 /* =============

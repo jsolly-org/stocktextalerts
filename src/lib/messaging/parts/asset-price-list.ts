@@ -61,7 +61,7 @@ function formatAssetPriceText(
  * back to the generic "price unavailable" string for regular/closed sessions
  * since the distinction only matters in extended-hours windows.
  */
-function getNoSessionTradeText(
+export function getNoSessionTradeText(
 	symbol: string,
 	marketSession: ActiveMarketSession | undefined,
 ): string | null {

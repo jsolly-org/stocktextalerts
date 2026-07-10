@@ -1,13 +1,13 @@
 /**
- * Daily asset-data maintenance (EventBridge: midnight UTC). Ingests earnings
- * calendar events for this week and next, Finnhub analyst/insider enrichment,
- * reconciles the tradable-universe with Finnhub (Sundays only), runs the delisting
- * sweep (notifying affected users), and drips the icon backfill. Enqueues
+ * Daily asset-data maintenance (EventBridge: midnight UTC). Ingests Finnhub
+ * earnings/recommendation/insider data and Massive corporate actions, reconciles
+ * the Massive tradable universe, runs Massive delisting confirms (notifying
+ * affected users), and drips the Massive branding icon backfill. Enqueues
  * vendor-backfill retries on partial ingest failures.
  *
  * Steps that spend vendor budget check the Lambda's remaining time first and skip
- * WITH AN ERROR LOG when it can't fit — rate-limiter waits are silent, so without
- * the guard a budget overrun presents as an opaque timeout with a clean log tail.
+ * WITH AN ERROR LOG when they cannot fit, avoiding a partial step that ends in an
+ * opaque Lambda timeout.
  */
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { DateTime } from "luxon";
@@ -28,7 +28,6 @@ import {
 	ICON_BACKFILL_MIN_REMAINING_MS,
 	PM_DISCOVERY_MIN_REMAINING_MS,
 	RECONCILE_MIN_REMAINING_MS,
-	RECONCILE_UTC_WEEKDAY,
 	SWEEP_MIN_REMAINING_MS,
 } from "./constants";
 
@@ -205,19 +204,10 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			}
 		}
 
-		// Weekly (Sunday) universe reconcile. Independent try/catch so a reconcile
-		// failure never invalidates the calendar-events job or the delisting sweep.
-		// Ordered BEFORE the sweep so the sweep operates on a freshly reconciled
-		// universe on reconcile day; the sweep remains the authoritative path for
-		// tracked-symbol delisting and runs nightly regardless of this cadence.
-		if (DateTime.utc().weekday !== RECONCILE_UTC_WEEKDAY) {
-			logger.info("Universe reconcile skipped — runs weekly", {
-				action: "daily_universe_reconcile",
-				reconcileWeekday: RECONCILE_UTC_WEEKDAY,
-			});
-		} else if (
-			stepFitsRemainingTime(context, logger, "universe_reconcile", RECONCILE_MIN_REMAINING_MS)
-		) {
+		// Nightly universe reconcile. Independent try/catch so a reconcile failure
+		// never invalidates the calendar-events job or the delisting sweep. Ordered
+		// before the sweep so it operates on a freshly reconciled universe.
+		if (stepFitsRemainingTime(context, logger, "universe_reconcile", RECONCILE_MIN_REMAINING_MS)) {
 			try {
 				const reconcileResult = await runUniverseReconcile({ supabase, logger });
 				logger.info("Universe reconcile complete", {
@@ -248,8 +238,8 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			}
 		}
 
-		// Icon backfill drip runs LAST: it is the least important step (cosmetic
-		// logos), so it can never starve the sweep of vendor budget or Lambda time.
+		// Massive branding icon backfill runs LAST: it is the least important step
+		// (cosmetic logos), so it can never starve the sweep of vendor work or Lambda time.
 		if (stepFitsRemainingTime(context, logger, "icon_backfill", ICON_BACKFILL_MIN_REMAINING_MS)) {
 			try {
 				const iconResult = await runIconBackfill({ supabase, logger });

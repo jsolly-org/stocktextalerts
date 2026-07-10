@@ -1,9 +1,11 @@
 /**
- * Per-user total budget for Finnhub company-news fetches in one digest run. Bounds
- * total news latency via `withOptionalVendorBudget`; the underlying `finnhubFetch`
- * keeps its own per-attempt timeout/retry policy.
+ * Per-user total budget for Massive company-news fetches in one digest run. Bounds
+ * total news latency via `withOptionalVendorBudget`.
  */
 export const COMPANY_NEWS_USER_BUDGET_MS = 8_000;
+
+/** Shorter per-request timeout for optional company news (critical paths use the fetch default). */
+export const COMPANY_NEWS_REQUEST_TIMEOUT_MS = 8_000;
 
 /** Max articles kept per symbol — bounds digest size and Grok context length. */
 export const COMPANY_NEWS_MAX_ARTICLES = 10;

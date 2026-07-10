@@ -2,12 +2,10 @@
  * Fetch all US assets (stocks, ETFs) via Massive API and write
  * to scripts/data/us-assets.json.
  *
- * DELIBERATE DIVERGENCE from prod: since 2026-07 the production universe
- * reconcile sources Finnhub /stock/symbol (src/lib/assets/reference/universe.ts),
- * while this LOCAL-SEED-ONLY generator still paginates Massive (proper-case
- * names, richer branding for fixtures). It runs manually and rarely — at the
- * free tier's 5/min this regeneration takes hours; don't run it casually, and
- * don't treat its output shape as what prod reconcile produces.
+ * This LOCAL-SEED-ONLY generator uses the same Massive reference ownership as
+ * production but additionally fetches every ticker's branding during generation.
+ * It runs manually and rarely; don't treat its enriched output shape as the
+ * production reconcile payload.
  *
  * Two-pass approach:
  *   Pass 1 — List tickers: Paginate /v3/reference/tickers for each type.

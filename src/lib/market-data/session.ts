@@ -12,11 +12,10 @@ import type { MarketSession } from "../types";
  * calendar (`getUsMarketClosureInfoForInstant`); the pre/regular/after split is a pure
  * ET-clock classification against the market-notification window (4:30 AM–7:30 PM ET).
  *
- * This replaced a per-scheduler-tick Massive `/v1/marketstatus/now` call (dropped for the
- * free-tier migration): the only remaining vendor dependency is the holiday calendar's
- * 12h-cached `/v1/marketstatus/upcoming` fetch (~2 calls/day). A half-day after its early
- * close reports `half-day-after-close` from the calendar → "closed", matching the prior
- * override behavior.
+ * This replaced a per-scheduler-tick Massive `/v1/marketstatus/now` call: the only remaining
+ * vendor dependency is the holiday calendar's 12h-cached `/v1/marketstatus/upcoming` fetch
+ * (~2 calls/day). A half-day after its early close reports `half-day-after-close` from the
+ * calendar → "closed", matching the prior override behavior.
  */
 export async function getCurrentMarketSession(): Promise<MarketSession> {
 	const now = DateTime.utc();

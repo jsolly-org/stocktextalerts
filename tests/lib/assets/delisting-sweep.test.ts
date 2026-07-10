@@ -19,7 +19,7 @@ vi.mock("../../../src/lib/assets/reference/delistings", async (importOriginal) =
 	};
 });
 
-import { runDelistingSweep, selectRollingWindow } from "../../../src/lib/assets/delisting-sweep";
+import { runDelistingSweep } from "../../../src/lib/assets/delisting-sweep";
 import type { TickerReferenceStatus } from "../../../src/lib/assets/reference/delistings";
 import { rootLogger } from "../../../src/lib/logging";
 import type { EmailRequest, EmailSender } from "../../../src/lib/messaging/types";
@@ -195,6 +195,42 @@ describe("runDelistingSweep", () => {
 		expect(logRows ?? []).toHaveLength(1);
 		const emailRow = logRows?.find((r) => r.delivery_method === "email");
 		expect(emailRow?.message_delivered).toBe(true);
+	});
+
+	it("Checks every unchecked tracked symbol in one nightly sweep.", async () => {
+		const uncheckedSymbols = Array.from(
+			{ length: 16 },
+			(_, index) => `${TEST_PREFIX}C${index.toString(36).toUpperCase()}`,
+		);
+		for (const symbol of uncheckedSymbols) {
+			createdSymbols.push(symbol);
+			await insertAsset(symbol, `Test Unchecked ${symbol}`);
+		}
+
+		const user = await createTestUser({
+			email: `delist-all-unchecked-${randomUUID()}@example.com`,
+			confirmed: true,
+			emailNotificationsEnabled: true,
+		});
+		registerTestUserForCleanup(user.id);
+		for (const symbol of uncheckedSymbols) {
+			await attachUserAsset(user.id, symbol);
+		}
+
+		const fakeEmail = makeFakeEmailSender();
+		fetchTickerReferencesMock.mockImplementation(makeFakeLookup(new Map()));
+		const result = await runDelistingSweep({
+			supabase: adminClient,
+			logger: rootLogger,
+			sendEmail: fakeEmail.sender,
+		});
+
+		expect(fetchTickerReferencesMock).toHaveBeenCalledTimes(1);
+		const checkedSymbols = fetchTickerReferencesMock.mock.calls[0]![0] as string[];
+		expect(checkedSymbols).toEqual(expect.arrayContaining(uncheckedSymbols));
+		expect(uncheckedSymbols.every((symbol) => checkedSymbols.includes(symbol))).toBe(true);
+		expect(result.symbolsChecked).toBe(checkedSymbols.length);
+		expect(fakeEmail.captured).toHaveLength(0);
 	});
 
 	it("Consolidates multiple delisted holdings into a single email.", async () => {
@@ -561,31 +597,5 @@ describe("runDelistingSweep", () => {
 			.eq("user_id", user.id)
 			.eq("symbol", preFlaggedSymbol);
 		expect(ua ?? []).toHaveLength(0);
-	});
-});
-
-describe("selectRollingWindow (nightly rotation for the free-tier call budget)", () => {
-	const symbols = ["AAPL", "AMZN", "GOOG", "META", "MSFT", "NVDA", "TSLA"];
-
-	it("returns everything when the list fits the window", () => {
-		expect(selectRollingWindow(symbols, 15, 42)).toEqual(symbols);
-	});
-
-	it("visits every symbol across consecutive nights, wrapping deterministically", () => {
-		const night0 = selectRollingWindow(symbols, 3, 0); // start 0
-		const night1 = selectRollingWindow(symbols, 3, 1); // start 3
-		const night2 = selectRollingWindow(symbols, 3, 2); // start 6, wraps
-
-		expect(night0).toEqual(["AAPL", "AMZN", "GOOG"]);
-		expect(night1).toEqual(["META", "MSFT", "NVDA"]);
-		expect(night2).toEqual(["TSLA", "AAPL", "AMZN"]);
-		// Union of a full rotation covers the whole list.
-		expect(new Set([...night0, ...night1, ...night2]).size).toBe(symbols.length);
-	});
-
-	it("always returns exactly windowSize items when the list is larger", () => {
-		for (let day = 0; day < 10; day++) {
-			expect(selectRollingWindow(symbols, 3, day)).toHaveLength(3);
-		}
 	});
 });

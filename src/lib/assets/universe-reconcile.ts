@@ -1,9 +1,5 @@
 import { enqueueNewSymbolWarmup } from "../vendors/backfill/enqueue";
-import {
-	CHUNK_SIZE,
-	MAX_WARMUP_ENQUEUES_PER_RUN,
-	MIN_PLAUSIBLE_ACTIVE_UNIVERSE,
-} from "./constants";
+import { CHUNK_SIZE, MIN_PLAUSIBLE_ACTIVE_UNIVERSE } from "./constants";
 import { fetchActiveTickers } from "./reference/universe";
 import type { StoredAsset, UniverseReconcileDeps, UniverseReconcileResult } from "./types";
 
@@ -16,13 +12,13 @@ const EMPTY_RESULT: UniverseReconcileResult = {
 	activeTickersFetched: 0,
 	allActiveSymbols: 0,
 	newListingsInserted: 0,
+	namesUpdated: 0,
 	insertChunksFailed: 0,
 	delistedCleared: 0,
 	untrackedDelistedFlagged: 0,
 	delistFlagSkippedShrunkActive: false,
 	warmupEnqueued: 0,
 	warmupEnqueueFailed: 0,
-	warmupSkippedCap: 0,
 	providerFetchFailed: false,
 };
 
@@ -36,32 +32,30 @@ export function chunksOf<T>(items: T[], size: number): T[][] {
 }
 
 /**
- * Weekly ticker-universe reconcile. Intended to run inside the asset-maintenance
+ * Daily ticker-universe reconcile. Intended to run inside the asset-maintenance
  * Lambda BEFORE `runDelistingSweep`, in its own try/catch so a reconcile failure
  * never invalidates the sweep or the calendar-events job. Icon enrichment is NOT
  * part of reconcile — the nightly `runIconBackfill` drains never-checked symbols
  * on its own cadence.
  *
  * Flow:
- *   1. Fetch the active US listing from Finnhub (one call). If it comes back empty,
+ *   1. Fetch the active US listing from Massive's paginated reference API. If it
+ *      comes back empty,
  *      abort BEFORE any mutation — an empty universe is impossible in practice, so
  *      empty ⇒ provider failure, and flagging the entire stored universe delisted
  *      would be catastrophic. This is the single most important safety gate in the
  *      module.
- *   2. Load stored `assets` state, then INSERT new stock/etf listings and clear
+ *   2. Load stored `assets` state, then INSERT new stock/etf listings, refresh
+ *      existing active rows with Massive's proper-case names, and clear
  *      `delisted_at` on any stored symbol that reappeared in the active superset.
- *      Existing rows' names are never rewritten (Finnhub names are upper-case;
- *      Massive-era proper-case names are better and only new rows take the new
- *      source's spelling).
  *   3. Bulk-flag `delisted_at` on stored symbols ABSENT from the active SUPERSET
- *      (all security types, not just the stock/etf subset — a type-classification
- *      quirk must not read as "vanished") — but ONLY for UNtracked symbols. Tracked
+ *      (every valid symbol returned by the configured Massive type pages, including
+ *      rows that failed insertion filters) — but ONLY for UNtracked symbols. Tracked
  *      (user_assets) symbols are never flagged here; tracked delisting stays
  *      exclusively on the confirm-based sweep, which does not re-confirm an
  *      already-flagged row before notify+remove, so a false-positive flag there
  *      would wrongly delete a live subscription.
- *   4. Enqueue a warmup backfill for newly-inserted symbols, capped per run so a
- *      large new-listing delta can't become an SQS backfill storm.
+ *   4. Enqueue a warmup backfill for every newly-inserted symbol.
  *
  * Each of steps 2–4 runs in its own try/catch and never throws past the handler,
  * matching the sweep's per-step isolation.
@@ -70,7 +64,6 @@ export async function runUniverseReconcile(
 	deps: UniverseReconcileDeps,
 ): Promise<UniverseReconcileResult> {
 	const { supabase, logger } = deps;
-	const warmupCap = deps.warmupCap ?? MAX_WARMUP_ENQUEUES_PER_RUN;
 
 	const result: UniverseReconcileResult = { ...EMPTY_RESULT };
 
@@ -105,7 +98,7 @@ export async function runUniverseReconcile(
 	for (let from = 0; ; from += STORED_PAGE_SIZE) {
 		const { data: page, error: storedErr } = await supabase
 			.from("assets")
-			.select("symbol, delisted_at")
+			.select("symbol, name, delisted_at")
 			.order("symbol", { ascending: true })
 			.range(from, from + STORED_PAGE_SIZE - 1);
 		if (storedErr) {
@@ -121,8 +114,9 @@ export async function runUniverseReconcile(
 		if (rows.length < STORED_PAGE_SIZE) break;
 	}
 	const storedSymbols = new Set(storedRows.map((r) => r.symbol));
+	const activeBySymbol = new Map(active.map((ticker) => [ticker.symbol, ticker]));
 
-	// --- Step 2: Insert new listings + clear delisted_at on reappeared symbols. ---
+	// --- Step 2: Insert new listings, refresh names, and clear reappeared delistings. ---
 	// Symbols whose insert chunk failed are excluded from step 4 warmup, since a failed
 	// insert may mean the row is not in `assets` and warming a phantom symbol just churns.
 	const newTickers = active.filter((t) => !storedSymbols.has(t.symbol));
@@ -152,6 +146,35 @@ export async function runUniverseReconcile(
 				continue;
 			}
 			result.newListingsInserted += count ?? chunk.length;
+		}
+
+		const namesToRefresh = storedRows.flatMap((row) => {
+			if (row.delisted_at !== null) return [];
+			const activeTicker = activeBySymbol.get(row.symbol);
+			if (!activeTicker || activeTicker.name === row.name) return [];
+			return [activeTicker];
+		});
+		for (const chunk of chunksOf(namesToRefresh, CHUNK_SIZE)) {
+			// Upsert batches let a one-time provider ownership switch refresh thousands
+			// of names without issuing one PostgREST request per row. Only these
+			// already-active, name-different rows enter the batch.
+			const { error, count } = await supabase.from("assets").upsert(
+				chunk.map((ticker) => ({
+					symbol: ticker.symbol,
+					name: ticker.name,
+					type: ticker.type,
+				})),
+				{ onConflict: "symbol", count: "exact" },
+			);
+			if (error) {
+				logger.error(
+					"Universe reconcile name-refresh chunk failed",
+					{ action: "universe_reconcile", step: "refresh_names", chunkSize: chunk.length },
+					error,
+				);
+				continue;
+			}
+			result.namesUpdated += count ?? chunk.length;
 		}
 
 		// Reappeared: stored rows flagged delisted that are present in the active
@@ -212,12 +235,15 @@ export async function runUniverseReconcile(
 		// floor would deadlock the drain. Skip flagging rather than mass-delist live
 		// symbols: step 2 still ran, only the delete-class op is held back, so a false
 		// trip merely defers cleanup one run.
-		if (activeSetTooSmallToFlag(active.length)) {
+		// Floor on the membership set used for absence checks, not the insertable
+		// stock/etf subset — dotted/name-filtered symbols still prove the feed is live.
+		if (activeSetTooSmallToFlag(allActiveSymbols.size)) {
 			result.delistFlagSkippedShrunkActive = true;
 			logger.error("Universe reconcile: active set implausibly small — skipping delist flag", {
 				action: "universe_reconcile",
 				step: "flag_delisted",
-				activeCount: active.length,
+				activeCount: allActiveSymbols.size,
+				listedTickers: active.length,
 				floor: MIN_PLAUSIBLE_ACTIVE_UNIVERSE,
 			});
 		} else {
@@ -261,25 +287,12 @@ export async function runUniverseReconcile(
 		);
 	}
 
-	// --- Step 4: Warm newly-inserted symbols, capped per run. ---
+	// --- Step 4: Warm every newly-inserted symbol. ---
 	try {
 		const warmable = newTickers
 			.map((t) => t.symbol)
 			.filter((symbol) => !failedInsertSymbols.has(symbol));
-		const toWarm = warmable.slice(0, warmupCap);
-		result.warmupSkippedCap = warmable.length - toWarm.length;
-		if (result.warmupSkippedCap > 0) {
-			// Skipped symbols are already inserted, so they are never "new" again — log
-			// the (bounded) list so a manual follow-up warm remains possible.
-			logger.warn("Universe reconcile warmup capped — skipped symbols will never warm", {
-				action: "universe_reconcile",
-				step: "warmup",
-				skipped: result.warmupSkippedCap,
-				cap: warmupCap,
-				skippedSymbols: warmable.slice(warmupCap, warmupCap + 50),
-			});
-		}
-		for (const symbol of toWarm) {
+		for (const symbol of warmable) {
 			const ok = await enqueueNewSymbolWarmup({ symbol, reason: "universe_reconcile_new_listing" });
 			if (ok) result.warmupEnqueued += 1;
 			else result.warmupEnqueueFailed += 1;

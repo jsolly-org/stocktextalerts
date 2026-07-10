@@ -6,137 +6,134 @@ import {
 } from "../../../src/lib/vendors/optional-vendors";
 import { resetOptionalVendorCircuits } from "../../helpers/reset-optional-vendor-circuits";
 
-// Mock retry delays so error/retry tests don't wait real seconds
 vi.mock("node:timers/promises", () => ({
 	setTimeout: vi.fn().mockResolvedValue(undefined),
 }));
 
-/** Build a Finnhub /company-news JSON array response (Finnhub returns a bare array). */
-function finnhubResponse(items: unknown[]): Response {
-	return new Response(JSON.stringify(items), {
-		status: 200,
+function massiveNewsResponse(results: unknown, status = 200): Response {
+	return new Response(JSON.stringify({ results }), {
+		status,
 		headers: { "Content-Type": "application/json" },
 	});
 }
 
+function newsRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	return {
+		title: "Apple launches new MacBook",
+		description: "A summary of the launch event.",
+		published_utc: "2026-02-14T09:00:00Z",
+		article_url: "https://example.com/apple-macbook",
+		publisher: { name: "TechCrunch" },
+		tickers: ["AAPL"],
+		...overrides,
+	};
+}
+
 describe("fetchCompanyNews", () => {
 	beforeEach(() => {
-		vi.stubEnv("FINNHUB_API_KEY", "test-finnhub-key");
+		vi.stubEnv("MASSIVE_API_KEY", "test-massive-key");
 	});
 
 	afterEach(() => {
 		resetOptionalVendorCircuits();
-		vi.restoreAllMocks();
 		vi.unstubAllEnvs();
+		if (vi.isMockFunction(globalThis.fetch)) {
+			vi.mocked(globalThis.fetch).mockRestore();
+		}
 	});
 
-	it("returns empty array without calling fetch when circuit is open", async () => {
+	it("returns empty without fetching when the optional company-news circuit is open", async () => {
 		const fetchSpy = vi.spyOn(globalThis, "fetch");
 		recordOptionalVendorFailure("company-news");
 		recordOptionalVendorFailure("company-news");
 
-		const items = await fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14");
-
-		expect(items).toEqual([]);
+		await expect(fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14")).resolves.toEqual([]);
 		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 
-	it("requests the Finnhub company-news endpoint and maps fields to CompanyNewsItem", async () => {
-		const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			finnhubResponse([
-				{
-					headline: "Apple launches new MacBook",
-					summary: "A summary of the launch event.",
-					datetime: 1771064400,
-					url: "https://example.com/apple-macbook",
-					source: "TechCrunch",
-					category: "company",
-					id: 7412160,
-					image: "https://example.com/apple-macbook.jpg",
-					related: "AAPL",
-				},
+	it("requests Massive company news and maps its fields", async () => {
+		const fetchSpy = vi
+			.spyOn(globalThis, "fetch")
+			.mockResolvedValue(massiveNewsResponse([newsRow()]));
+
+		const items = await fetchCompanyNews("AAPL", "2026-02-07", "2026-02-14");
+
+		expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
+			"https://api.massive.com/v2/reference/news?ticker=AAPL&published_utc.gte=2026-02-07T00%3A00%3A00Z&published_utc.lte=2026-02-14T23%3A59%3A59Z&limit=10&sort=published_utc&order=desc&apiKey=test-massive-key",
+		);
+		expect(items).toEqual([
+			{
+				headline: "Apple launches new MacBook",
+				summary: "A summary of the launch event.",
+				datetime: 1771059600,
+				url: "https://example.com/apple-macbook",
+				source: "TechCrunch",
+				tickers: ["AAPL"],
+			},
+		]);
+	});
+
+	it("filters generic roundup articles tagged with more than five tickers", async () => {
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			massiveNewsResponse([
+				newsRow({ title: "Focused article", tickers: ["AAPL", "MSFT"] }),
+				newsRow({
+					title: "Ten stocks to buy now",
+					tickers: ["AAPL", "MSFT", "GOOG", "META", "AMZN", "NVDA"],
+				}),
 			]),
 		);
 
 		const items = await fetchCompanyNews("AAPL", "2026-02-07", "2026-02-14");
 
-		const fetchedUrl = String(fetchSpy.mock.calls[0]?.[0]);
-		expect(fetchedUrl).toBe(
-			"https://finnhub.io/api/v1/company-news?symbol=AAPL&from=2026-02-07&to=2026-02-14&token=test-finnhub-key",
-		);
-		expect(items).toHaveLength(1);
-		expect(items[0]).toEqual({
-			headline: "Apple launches new MacBook",
-			summary: "A summary of the launch event.",
-			datetime: 1771064400,
-			url: "https://example.com/apple-macbook",
-			source: "TechCrunch",
-		});
+		expect(items.map((item) => item.headline)).toEqual(["Focused article"]);
 	});
 
-	it("floors a fractional datetime to whole unix seconds", async () => {
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			finnhubResponse([
-				{
-					headline: "Microsoft expands AI offerings",
-					datetime: 1750000000.75,
-				},
-			]),
-		);
+	it("returns empty when Massive returns no articles without opening the circuit", async () => {
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(massiveNewsResponse([]));
 
-		const items = await fetchCompanyNews("MSFT", "2025-06-08", "2025-06-15");
-
-		expect(items[0]?.datetime).toBe(1750000000);
-	});
-
-	it("returns empty array when Finnhub returns no articles", async () => {
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(finnhubResponse([]));
-
-		const items = await fetchCompanyNews("GOOG", "2026-02-01", "2026-02-14");
-
-		expect(items).toEqual([]);
+		await expect(fetchCompanyNews("GOOG", "2026-02-01", "2026-02-14")).resolves.toEqual([]);
 		expect(isOptionalVendorUnavailable("company-news")).toBe(false);
 	});
 
-	it("records a vendor failure when the payload is not an array", async () => {
-		vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
-			return new Response(JSON.stringify({ error: "unexpected shape" }), {
+	it("throws on unexpected payload shape so digest budget can open the circuit", async () => {
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			new Response(JSON.stringify({ status: "OK" }), {
 				status: 200,
 				headers: { "Content-Type": "application/json" },
-			});
-		});
+			}),
+		);
 
-		await expect(fetchCompanyNews("TSLA", "2026-02-01", "2026-02-14")).resolves.toEqual([]);
+		await expect(fetchCompanyNews("TSLA", "2026-02-01", "2026-02-14")).rejects.toThrow(
+			/unexpected payload/,
+		);
+		// Circuit ownership lives in withOptionalVendorBudget — a bare fetch does not trip it.
 		expect(isOptionalVendorUnavailable("company-news")).toBe(false);
-
-		await expect(fetchCompanyNews("TSLA", "2026-02-01", "2026-02-14")).resolves.toEqual([]);
-		expect(isOptionalVendorUnavailable("company-news")).toBe(true);
 	});
 
-	it("filters out items missing a headline or a datetime", async () => {
+	it("filters rows missing a title or parseable publication timestamp", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			finnhubResponse([
-				{ headline: "Good headline", datetime: 1771059600 },
-				{ summary: "No headline field", datetime: 1771056000 },
-				{ headline: "", datetime: 1771052400 },
-				{ headline: "No datetime field" },
-				{ headline: "String datetime", datetime: "2026-02-14T10:00:00Z" },
+			massiveNewsResponse([
+				newsRow({ title: "Good headline" }),
+				newsRow({ title: "" }),
+				newsRow({ title: undefined }),
+				newsRow({ published_utc: "not-a-date" }),
+				newsRow({ published_utc: undefined }),
 				"not-a-record",
 			]),
 		);
 
 		const items = await fetchCompanyNews("NVDA", "2026-02-07", "2026-02-14");
 
-		expect(items).toHaveLength(1);
-		expect(items[0]?.headline).toBe("Good headline");
+		expect(items.map((item) => item.headline)).toEqual(["Good headline"]);
 	});
 
-	it("defaults summary/url/source to empty strings when missing", async () => {
+	it("defaults optional fields and ticker tags to empty values", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			finnhubResponse([
+			massiveNewsResponse([
 				{
-					headline: "Bare minimum",
-					datetime: 1771070400,
+					title: "Bare minimum",
+					published_utc: "2026-02-14T12:00:00Z",
 				},
 			]),
 		);
@@ -149,15 +146,18 @@ describe("fetchCompanyNews", () => {
 			datetime: 1771070400,
 			url: "",
 			source: "",
+			tickers: [],
 		});
 	});
 
-	it("returns at most 10 articles", async () => {
-		const articles = Array.from({ length: 14 }, (_, i) => ({
-			headline: `Article ${i + 1}`,
-			datetime: 1771064400 - i * 3600,
-		}));
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(finnhubResponse(articles));
+	it("returns at most ten articles", async () => {
+		const articles = Array.from({ length: 14 }, (_, index) =>
+			newsRow({
+				title: `Article ${index + 1}`,
+				published_utc: new Date(Date.UTC(2026, 1, 14, 12 - index)).toISOString(),
+			}),
+		);
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(massiveNewsResponse(articles));
 
 		const items = await fetchCompanyNews("AMZN", "2026-02-07", "2026-02-14");
 
@@ -166,20 +166,24 @@ describe("fetchCompanyNews", () => {
 		expect(items[9]?.headline).toBe("Article 10");
 	});
 
-	it("returns empty array on network error", async () => {
+	it("throws after transport exhaustion so digest budget can open the circuit", async () => {
 		vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Network failure"));
 
-		await expect(fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14")).resolves.toEqual([]);
+		await expect(fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14")).rejects.toThrow(
+			/unexpected payload/,
+		);
 	});
 
-	it("returns empty array on non-200 response", async () => {
-		vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
-			return new Response(JSON.stringify({ error: "Rate limited" }), {
-				status: 429,
+	it("throws after a non-200 response so digest budget can open the circuit", async () => {
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			new Response(JSON.stringify({ status: "ERROR" }), {
+				status: 500,
 				headers: { "Content-Type": "application/json" },
-			});
-		});
+			}),
+		);
 
-		await expect(fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14")).resolves.toEqual([]);
+		await expect(fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14")).rejects.toThrow(
+			/unexpected payload/,
+		);
 	});
 });

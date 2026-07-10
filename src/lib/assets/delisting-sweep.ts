@@ -5,28 +5,9 @@ import {
 	summaryText,
 } from "../messaging/email/delisting";
 import { deliveryResultToLogFields } from "../messaging/shared";
-import { DELISTING_SWEEP_MAX_SYMBOLS_PER_RUN, NOTIFICATION_DEDUPE_WINDOW_MS } from "./constants";
+import { NOTIFICATION_DEDUPE_WINDOW_MS } from "./constants";
 import { fetchTickerReferences } from "./reference/delistings";
 import type { DelistingSweepDeps, DelistingSweepResult } from "./types";
-
-/**
- * Deterministic nightly rotation over a sorted list: night N takes the window starting at
- * `(dayIndex * windowSize) % length`, wrapping, so every item is visited within
- * ceil(length / windowSize) nights with no persisted cursor. Exported for tests.
- */
-export function selectRollingWindow<T>(
-	sortedItems: T[],
-	windowSize: number,
-	dayIndex: number,
-): T[] {
-	if (sortedItems.length <= windowSize) return sortedItems;
-	const start = (dayIndex * windowSize) % sortedItems.length;
-	const window = sortedItems.slice(start, start + windowSize);
-	if (window.length < windowSize) {
-		window.push(...sortedItems.slice(0, windowSize - window.length));
-	}
-	return window;
-}
 
 const EMPTY_RESULT: DelistingSweepResult = {
 	symbolsChecked: 0,
@@ -120,24 +101,10 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 		}
 	}
 
-	// 3. Reference lookup against Massive for unchecked symbols — capped to a rolling
-	// nightly window so the sweep fits the free tier's 5/min budget (each check is one
-	// Massive call). Symbols outside tonight's window are checked on a later night.
-	const dayIndex = Math.floor(Date.now() / 86_400_000);
-	const checkWindow = selectRollingWindow(
-		[...symbolsToCheck].sort(),
-		DELISTING_SWEEP_MAX_SYMBOLS_PER_RUN,
-		dayIndex,
-	);
-	result.symbolsChecked = checkWindow.length;
-	if (checkWindow.length < symbolsToCheck.length) {
-		logger.info("Delisting sweep capped to nightly rolling window", {
-			action: "delisting_sweep",
-			totalUnchecked: symbolsToCheck.length,
-			checkedTonight: checkWindow.length,
-		});
-	}
-	const statuses = checkWindow.length > 0 ? await fetchTickerReferences(checkWindow) : [];
+	// 3. Reference lookup against Massive for every unchecked tracked symbol.
+	const uncheckedSymbols = [...symbolsToCheck].sort();
+	result.symbolsChecked = uncheckedSymbols.length;
+	const statuses = uncheckedSymbols.length > 0 ? await fetchTickerReferences(uncheckedSymbols) : [];
 	const newlyDetected: Array<{
 		symbol: string;
 		name: string;
