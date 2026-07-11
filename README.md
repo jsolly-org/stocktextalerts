@@ -115,6 +115,14 @@ Infra/template changes still need a manual `npm run deploy:infra` (admin AWS cre
 - `tests/` — Vitest + Playwright
 - `docs/` — Tooling, CI, self-hosting
 
+## Database schema
+
+Entity-relationship diagram of the Supabase (PostgreSQL) tables. Solid lines are foreign keys; dashed lines are conventions without an FK constraint (e.g. `users.id` mirrors `auth.users.id`, and high-churn price/event tables reference `assets.symbol` without a constraint so purges stay cheap).
+
+![Database schema](docs/database-schema.drawio.png)
+
+The PNG embeds the draw.io source — open it directly in [draw.io](https://app.diagrams.net/) to edit, then re-export with the diagram embedded. Regenerate after schema changes (the generated FK map lives in `src/lib/db/generated/database.types.ts`).
+
 ## Security
 
 - RLS on database tables; service role never exposed to the client
