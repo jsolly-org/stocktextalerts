@@ -119,7 +119,7 @@ Infra/template changes still need a manual `npm run deploy:infra` (admin AWS cre
 - `supabase/` — Local config + migrations
 - `aws/` — SAM template and deploy scripts
 - `tests/` — Vitest + Playwright
-- `docs/` — Tooling, CI, self-hosting
+- `docs/` — Tooling, CI, self-hosting, [database schema](docs/database-schema.md)
 
 ## Security
 
