@@ -16,6 +16,12 @@ Built with Astro 7 (SSR) on Vercel, Supabase (Auth + PostgreSQL), AWS Lambda/SAM
 - **Asset events** — Earnings/dividends/splits/IPOs plus optional insider trades and analyst consensus (per-channel toggles)
 - **Format preferences** — Live email/Telegram previews and optional sparklines
 
+## Architecture
+
+![StockTextAlerts architecture diagram](docs/architecture.drawio.svg)
+
+Two compute tiers share domain logic in `src/lib/`: Vercel (Astro SSR) owns browser sessions, dashboard CRUD, and inbound webhooks, while AWS Lambda owns the notification crons and async vendor work. The SVG embeds the draw.io diagram XML, so it can be edited directly in [draw.io](https://www.drawio.com/). Details on when code belongs on which tier: [docs/architecture-tiers.md](docs/architecture-tiers.md).
+
 ## Tech stack
 
 - **Framework**: Astro 7 with SSR (Vite 8 / Rolldown)
