@@ -34,6 +34,7 @@ See [tests/README.md](tests/README.md). Do not force-clear the cross-worktree `t
 - Keep changes focused; update docs when behavior or setup steps change.
 - Schema changes: add a migration with `supabase migration new <name>`, bump schema version as documented in the repo, and ensure grants match the privilege contract (`npm run check:migration-grants` / CI).
 - Notification options: edit `NOTIFICATION_OPTION_MATRIX` in `src/lib/constants.ts` **and** sync `notification_options` via migration.
+- SMS was removed in [#550](https://github.com/birthmilk/stocktextalerts/pull/550) / [#551](https://github.com/birthmilk/stocktextalerts/pull/551); see the README historical note before trying to reintroduce a third channel.
 
 ## Deploy
 
