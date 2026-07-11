@@ -2,13 +2,13 @@
 
 ## Summary
 
-The production CloudFormation stack `stocktextalerts-crons` was deleted at 2026-05-29 19:12 EDT (23:12 UTC), taking down all scheduled notifications. The per-minute `ScheduleFunction` is the core dispatcher, so scheduled SMS/email were fully down from 19:12 EDT until the stack was recreated at ~21:56 EDT (2026-05-30 01:56 UTC) — roughly 2h45m of downtime. No data was lost.
+The production CloudFormation stack `stocktextalerts-crons` was deleted at 2026-05-29 19:12 EDT (23:12 UTC), taking down all scheduled notifications. The per-minute `ScheduleFunction` is the core dispatcher, so scheduled email/Telegram notifications were fully down from 19:12 EDT until the stack was recreated at ~21:56 EDT (2026-05-30 01:56 UTC) — roughly 2h45m of downtime. No data was lost.
 
 ## Root cause
 
-The deletion was **manual operator error, not CI**. CloudTrail attributes the `DeleteStack` call to `jsolly-general-admin` (the SSO `AdministratorAccess` role) from `108.2.161.65` via `aws-cli/2.34.29` — not the `GitHubActionsDeploymentRole` that CI deploys with.
+The deletion was **manual operator error, not CI**. CloudTrail attributes the `DeleteStack` call to an admin SSO role (not the GitHub Actions deploy role) from a redacted operator IP via `aws-cli` — not the `GitHubActionsDeploymentRole` that CI deploys with.
 
-It was collateral in a bulk multi-stack teardown. The same burst of `DeleteStack` calls (23:02–23:14 UTC, several repeats consistent with a script looping a stack list) also targeted `CDKToolkit`, several `amplify-enterpriseticketingsystem-johnsolly-sandbox-*` stacks, and `misc-notifications`. The intent appears to have been clearing CDK/Amplify sandbox experiments; the production crons stack was swept up alongside them.
+It was collateral in a bulk multi-stack teardown. The same burst of `DeleteStack` calls also targeted unrelated sandbox/experiment stacks in the account. The intent appears to have been clearing those experiments; the production crons stack was swept up alongside them.
 
 ## Blast radius
 
@@ -23,7 +23,7 @@ Unaffected (no action needed):
 
 - **Supabase** — all user data. It is a separate managed service, not in this AWS account. No user data ever lived in the stack.
 - **Vercel website** — separate platform; stayed up the whole time.
-- `ProdBackupsBucket` (`stocktextalerts-prod-backups-730335616323`) — survived via `DeletionPolicy: Retain`, with its `20260510` dump intact.
+- `ProdBackupsBucket` (`stocktextalerts-prod-backups-<account-id>`) — survived via `DeletionPolicy: Retain`, with its `20260510` dump intact.
 - SES identity `stocktextalerts.com`, the alert-hub SNS topic, and the SSM params `/stocktextalerts/email-from` and `/alert-hub/alert-topic-arn`.
 
 ## Two failed re-deploy attempts

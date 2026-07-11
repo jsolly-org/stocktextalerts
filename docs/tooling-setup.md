@@ -54,9 +54,9 @@ Biome excludes `.claude`, `.worktrees`, and `worktrees` at the repo root only (n
 
 ## Production Supabase (read-only inspection)
 
-Production project ref: `japesagairjvvuebzpvr`. Use read-only tooling when verifying schema or row counts — never apply migrations or DDL outside the GitHub deploy workflow.
+Use your hosted project’s connection string (`DATABASE_URL_PROD` / `SUPABASE_URL_PROD` in local templates or the GitHub `Production` environment). Project ref looks like `<supabase-project-ref>`. Use read-only tooling when verifying schema or row counts — never apply migrations or DDL outside the GitHub deploy workflow.
 
-Connection details and env var names live in team runbooks / `.env.local` templates (`DATABASE_URL_PROD`, `SUPABASE_URL_PROD`). Agents must not run `supabase db push` or production writes without explicit user approval.
+Agents must not run `supabase db push` or production writes without explicit user approval. See [self-hosting.md](self-hosting.md) for bootstrap.
 
 ## Vercel CLI (optional)
 

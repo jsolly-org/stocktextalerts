@@ -30,17 +30,24 @@ done < "$_ENV_FILE"
 
 # Secrets are NO LONGER passed as SAM params — each Lambda fetches them at runtime
 # from SSM SecureString (see aws/template.yaml + src/lib/secrets.ts). The
-# SecureStrings (/stocktextalerts/<kebab-name>) are provisioned out of band:
+# SecureStrings (${SSM_PREFIX:-/stocktextalerts}/<kebab-name>) are provisioned out of band:
 #   aws ssm put-parameter --type SecureString --key-id alias/aws/ssm --overwrite \
-#     --region us-east-1 --name /stocktextalerts/<kebab> --value <secret>
-# Only the non-secret template params remain here.
+#     --region us-east-1 --name <ssm-prefix>/<kebab> --value <secret>
+# Only the non-secret template params remain here. Defaults match current production;
+# forks override via .env.local (SES_IDENTITY_DOMAIN, SSM_PREFIX, ALERT_TOPIC_SSM_PARAM, …).
 : "${ADMIN_EMAILS:?ADMIN_EMAILS not set in .env.local}"
 : "${PRODUCTION_SITE_URL:?PRODUCTION_SITE_URL not set in .env.local}"
 
+_SSM_PREFIX="${SSM_PREFIX:-/stocktextalerts}"
+
 SAM_PARAMS=(
-  "AlertTopicArn=/shared-infra/alert-topic-arn"
   "SiteUrl=$PRODUCTION_SITE_URL"
   "AdminEmails=$ADMIN_EMAILS"
   "LogMaskPii=${LOG_MASK_PII:-true}"
+  "SesIdentityDomain=${SES_IDENTITY_DOMAIN:-stocktextalerts.com}"
+  "SsmPrefix=$_SSM_PREFIX"
+  "AlertTopicArn=${ALERT_TOPIC_SSM_PARAM:-/shared-infra/alert-topic-arn}"
+  "EmailFrom=${EMAIL_FROM_SSM_PARAM:-$_SSM_PREFIX/email-from}"
+  "BackupConnectionSsmParam=${BACKUP_CONNECTION_SSM_PARAM:-$_SSM_PREFIX/backup/connection-string}"
 )
 export SAM_PARAMS

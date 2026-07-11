@@ -8,11 +8,20 @@ Parameters:
   # NoEcho, so each function reads its secrets at runtime from SSM SecureString
   # params instead: a `<NAME>_SSM_PARAM` env var names the param, src/lib/secrets.ts
   # fetches+decrypts it, and an `ssm:GetParameter` grant scopes access. The
-  # SecureStrings live at /stocktextalerts/<kebab-name> (e.g.
-  # /stocktextalerts/massive-api-key) and are provisioned out of band by a human.
-  # See shared-infra docs/specs/2026-06-22-secret-runtime-fetch-design.md.
+  # SecureStrings live at ${SsmPrefix}/<kebab-name> (default /stocktextalerts/…)
+  # and are provisioned out of band by a human. Override SesIdentityDomain,
+  # SsmPrefix, AlertTopicArn, EmailFrom, and BackupConnectionSsmParam via
+  # aws/sam-params.sh (.env.local) — forks need not edit this template.
   SiteUrl:
     Type: String
+  SesIdentityDomain:
+    Type: String
+    Default: stocktextalerts.com
+    Description: SES verified identity domain (or email) granted on Lambda send policies
+  SsmPrefix:
+    Type: String
+    Default: /stocktextalerts
+    Description: SSM parameter path prefix for this app's secrets (include leading slash)
   EmailFrom:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /stocktextalerts/email-from
@@ -27,7 +36,7 @@ Parameters:
   AlertTopicArn:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /shared-infra/alert-topic-arn
-    Description: Shared-infra SNS topic ARN
+    Description: SSM parameter whose value is the SNS topic ARN for CloudWatch alarms
   BackupConnectionSsmParam:
     Type: String
     Default: /stocktextalerts/backup/connection-string
@@ -90,23 +99,23 @@ Resources:
               Action:
                 - ses:SendEmail
                 - ses:SendRawEmail
-              Resource: !Sub "arn:aws:ses:us-east-1:${AWS::AccountId}:identity/stocktextalerts.com"
+              Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${SesIdentityDomain}"
             # Read this app's runtime secrets (SSM SecureString). One namespace
             # wildcard rather than 11 per-secret ARNs — same-app boundary. No
             # kms:Decrypt grant needed for the AWS-managed alias/aws/ssm key.
             - Effect: Allow
               Action: ssm:GetParameter
-              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/stocktextalerts/*"
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*"
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
           EMAIL_FROM: !Ref EmailFrom
-          MASSIVE_API_KEY_SSM_PARAM: /stocktextalerts/massive-api-key
-          XAI_API_KEY_SSM_PARAM: /stocktextalerts/xai-api-key
-          TELEGRAM_BOT_TOKEN_SSM_PARAM: /stocktextalerts/telegram-bot-token
-          SUPABASE_URL_SSM_PARAM: /stocktextalerts/supabase-url
-          SUPABASE_SECRET_KEY_SSM_PARAM: /stocktextalerts/supabase-secret-key
-          UNSUBSCRIBE_TOKEN_SECRET_SSM_PARAM: /stocktextalerts/unsubscribe-token-secret
+          MASSIVE_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/massive-api-key"
+          XAI_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/xai-api-key"
+          TELEGRAM_BOT_TOKEN_SSM_PARAM: !Sub "${SsmPrefix}/telegram-bot-token"
+          SUPABASE_URL_SSM_PARAM: !Sub "${SsmPrefix}/supabase-url"
+          SUPABASE_SECRET_KEY_SSM_PARAM: !Sub "${SsmPrefix}/supabase-secret-key"
+          UNSUBSCRIBE_TOKEN_SECRET_SSM_PARAM: !Sub "${SsmPrefix}/unsubscribe-token-secret"
       Events:
         EveryMinute:
           Type: ScheduleV2
@@ -146,12 +155,12 @@ Resources:
           SITE_URL: !Ref SiteUrl
           EMAIL_FROM: !Ref EmailFrom
           VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
-          MASSIVE_API_KEY_SSM_PARAM: /stocktextalerts/massive-api-key
-          FINNHUB_API_KEY_SSM_PARAM: /stocktextalerts/finnhub-api-key
-          XAI_API_KEY_SSM_PARAM: /stocktextalerts/xai-api-key
-          UNSUBSCRIBE_TOKEN_SECRET_SSM_PARAM: /stocktextalerts/unsubscribe-token-secret
-          SUPABASE_URL_SSM_PARAM: /stocktextalerts/supabase-url
-          SUPABASE_SECRET_KEY_SSM_PARAM: /stocktextalerts/supabase-secret-key
+          MASSIVE_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/massive-api-key"
+          FINNHUB_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/finnhub-api-key"
+          XAI_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/xai-api-key"
+          UNSUBSCRIBE_TOKEN_SECRET_SSM_PARAM: !Sub "${SsmPrefix}/unsubscribe-token-secret"
+          SUPABASE_URL_SSM_PARAM: !Sub "${SsmPrefix}/supabase-url"
+          SUPABASE_SECRET_KEY_SSM_PARAM: !Sub "${SsmPrefix}/supabase-secret-key"
       Policies:
         - Version: "2012-10-17"
           Statement:
@@ -159,14 +168,14 @@ Resources:
               Action:
                 - ses:SendEmail
                 - ses:SendRawEmail
-              Resource: !Sub "arn:aws:ses:us-east-1:${AWS::AccountId}:identity/stocktextalerts.com"
+              Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${SesIdentityDomain}"
             - Effect: Allow
               Action:
                 - sqs:SendMessage
               Resource: !GetAtt VendorBackfillQueue.Arn
             - Effect: Allow
               Action: ssm:GetParameter
-              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/stocktextalerts/*"
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*"
       Events:
         DailyMidnight:
           Type: ScheduleV2
@@ -204,18 +213,18 @@ Resources:
               Action:
                 - ses:SendEmail
                 - ses:SendRawEmail
-              Resource: !Sub "arn:aws:ses:us-east-1:${AWS::AccountId}:identity/stocktextalerts.com"
+              Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${SesIdentityDomain}"
             - Effect: Allow
               Action: ssm:GetParameter
-              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/stocktextalerts/*"
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*"
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
           EMAIL_FROM: !Ref EmailFrom
           ADMIN_EMAILS: !Ref AdminEmails
-          EMAIL_DISPATCH_SECRET_SSM_PARAM: /stocktextalerts/email-dispatch-secret
-          SUPABASE_URL_SSM_PARAM: /stocktextalerts/supabase-url
-          SUPABASE_SECRET_KEY_SSM_PARAM: /stocktextalerts/supabase-secret-key
+          EMAIL_DISPATCH_SECRET_SSM_PARAM: !Sub "${SsmPrefix}/email-dispatch-secret"
+          SUPABASE_URL_SSM_PARAM: !Sub "${SsmPrefix}/supabase-url"
+          SUPABASE_SECRET_KEY_SSM_PARAM: !Sub "${SsmPrefix}/supabase-secret-key"
 
   EmailDispatchFunctionUrl:
     Type: AWS::Lambda::Url
@@ -271,13 +280,13 @@ Resources:
               Resource: !GetAtt VendorBackfillQueue.Arn
             - Effect: Allow
               Action: ssm:GetParameter
-              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/stocktextalerts/*"
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*"
       Environment:
         Variables:
           VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
-          MASSIVE_API_KEY_SSM_PARAM: /stocktextalerts/massive-api-key
-          SUPABASE_URL_SSM_PARAM: /stocktextalerts/supabase-url
-          SUPABASE_SECRET_KEY_SSM_PARAM: /stocktextalerts/supabase-secret-key
+          MASSIVE_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/massive-api-key"
+          SUPABASE_URL_SSM_PARAM: !Sub "${SsmPrefix}/supabase-url"
+          SUPABASE_SECRET_KEY_SSM_PARAM: !Sub "${SsmPrefix}/supabase-secret-key"
       Events:
         WeekdayEvening:
           Type: ScheduleV2
@@ -331,14 +340,14 @@ Resources:
               Resource: !GetAtt VendorBackfillQueue.Arn
             - Effect: Allow
               Action: ssm:GetParameter
-              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/stocktextalerts/*"
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*"
       Environment:
         Variables:
           VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
-          MASSIVE_API_KEY_SSM_PARAM: /stocktextalerts/massive-api-key
-          FINNHUB_API_KEY_SSM_PARAM: /stocktextalerts/finnhub-api-key
-          SUPABASE_URL_SSM_PARAM: /stocktextalerts/supabase-url
-          SUPABASE_SECRET_KEY_SSM_PARAM: /stocktextalerts/supabase-secret-key
+          MASSIVE_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/massive-api-key"
+          FINNHUB_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/finnhub-api-key"
+          SUPABASE_URL_SSM_PARAM: !Sub "${SsmPrefix}/supabase-url"
+          SUPABASE_SECRET_KEY_SSM_PARAM: !Sub "${SsmPrefix}/supabase-secret-key"
       Events:
         VendorBackfillQueueEvent:
           Type: SQS
@@ -372,13 +381,13 @@ Resources:
           Statement:
             - Effect: Allow
               Action: ssm:GetParameter
-              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/stocktextalerts/*"
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*"
       Environment:
         Variables:
-          MASSIVE_API_KEY_SSM_PARAM: /stocktextalerts/massive-api-key
-          FINNHUB_API_KEY_SSM_PARAM: /stocktextalerts/finnhub-api-key
+          MASSIVE_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/massive-api-key"
+          FINNHUB_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/finnhub-api-key"
           # Read-only Telegram token check (getMe/getWebhookInfo) — never a send.
-          TELEGRAM_BOT_TOKEN_SSM_PARAM: /stocktextalerts/telegram-bot-token
+          TELEGRAM_BOT_TOKEN_SSM_PARAM: !Sub "${SsmPrefix}/telegram-bot-token"
       Events:
         WeekdayMidSession:
           Type: ScheduleV2
