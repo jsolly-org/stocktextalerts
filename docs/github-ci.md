@@ -4,6 +4,8 @@
 
 StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub auto-merge, and production code deploys. The local pre-commit hook runs the cheap checks only; unit tests, E2E, and deploy run in GitHub.
 
+> **Forks / public contributors:** this document describes *this* repository’s wiring. CI runners use Blacksmith labels, auto-merge is gated by the `ship-auto-merge` label, and an optional janitor workflow drains Dependabot/self PRs. Forks without Blacksmith should switch `runs-on` to `ubuntu-latest` (see [self-hosting.md](self-hosting.md) → Fork notes). Third-party PRs do not auto-merge unless a maintainer adds the label. Production bootstrap secrets live in [self-hosting.md](self-hosting.md).
+
 ## Workflows
 
 | Workflow | File | When | Purpose |
@@ -13,7 +15,7 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 | **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | Push to `main` (on merge), manual | Production Supabase migrations, Lambda code updates, live-provider check |
 | **Janitor** | [`.github/workflows/janitor.yml`](../.github/workflows/janitor.yml) | Cron noon + 5pm Eastern, manual | Provider-swappable agent pass (`scripts/janitor/`) that drains authorized Dependabot/self PRs and issues — default provider Cursor. Repo secrets: `CURSOR_API_KEY`, `JANITOR_GITHUB_TOKEN` (fine-grained PAT: Contents + PRs + Issues + Actions write on this repo; non-admin). Optional: `ANTHROPIC_API_KEY` / `CODEX_API_KEY` when swapping `JANITOR_PROVIDER` |
 
-**Integration:** the canonical path is **branch → PR → CI-gated auto-merge** — push a branch, open a PR via `/ship` (which adds `ship-auto-merge` and arms auto-merge), and GitHub merges once the required `ci` check is green. Unlabeled third-party PRs do not auto-merge. Merging is **optimistic** (branch-up-to-date/strict is off); CI (full unit/E2E/build, which the pre-commit hook skips) then re-runs post-merge on `main` as the real green-together gate (see "Concurrent merges" below). `/ship`'s direct push to `main` is **break-glass only** — it bypasses the `ci` check via admin (see AGENTS.md). After a change lands on `main`, the deploy workflow applies production migrations plus Lambda code updates and Vercel's Git integration deploys the web tier. `npm run deploy:code` remains a local break-glass path, not the default release path.
+**Integration:** the canonical path is **branch → PR → CI-gated auto-merge** — push a branch, open a PR (maintainers may add `ship-auto-merge` to arm auto-merge), and GitHub merges once the required `ci` check is green. Unlabeled third-party PRs do not auto-merge. Merging is **optimistic** (branch-up-to-date/strict is off); CI then re-runs post-merge on `main` as the real green-together gate (see "Concurrent merges" below). After a change lands on `main`, the deploy workflow applies production migrations plus Lambda code updates and Vercel's Git integration deploys the web tier. `npm run deploy:code` remains a local break-glass path, not the default release path.
 
 ## Local pre-commit gate
 
@@ -23,7 +25,7 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 - Lambda bundle build
 - Biome, YAML, actionlint (**shellcheck** + **github-actionlint** are lockfile-pinned npm deps; `npm run check:actions` points actionlint at `node_modules/.bin/shellcheck` so SC* rules can't silently skip), Astro check, Knip, markdown lint (`check:md`), lib boundaries (`check:lib-boundaries`), Squawk, deploy-function coverage, migration grants (static)
 
-**Not in pre-commit (GitHub CI only):** `db:doctor`, `check:db-privileges`, `npm test`, `npm run test:e2e`, Astro build. These need local Supabase/Docker on the runner — no Podman/Postgres required locally before commit. Bypass = `git commit -n` only; CI is the backstop. Local `npm test` / `test:e2e` are also **opt-in** in this repo (`ALLOW_LOCAL_DB_TESTS=1` or `npm run test:local`) so agents do not hit the shared stack by default — see `tests/README.md`. Fleet agent conventions live in `~/code/dotagents`.
+**Not in pre-commit (GitHub CI only):** `db:doctor`, `check:db-privileges`, `npm test`, `npm run test:e2e`, Astro build. These need local Supabase/Docker on the runner — no Podman/Postgres required locally before commit. Bypass = `git commit -n` only; CI is the backstop. Local `npm test` / `test:e2e` are also **opt-in** in this repo (`ALLOW_LOCAL_DB_TESTS=1` or `npm run test:local`) so agents do not hit the shared stack by default — see `tests/README.md`.
 
 **Pre-release (local opt-in, not CI):** `ALLOW_LOCAL_DB_TESTS=1 npm run test:e2e:preview` — production-build E2E on port 4323. Run before Astro/Vite config changes or when debugging Rolldown/CSS chunk issues.
 
