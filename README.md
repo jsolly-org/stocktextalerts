@@ -28,6 +28,17 @@ Built with Astro 7 (SSR) on Vercel, Supabase (Auth + PostgreSQL), AWS Lambda/SAM
 - **Hosting**: Vercel (web) + AWS Lambda (crons via SAM)
 - **Lint / test**: Biome, Vitest, Playwright
 
+### Historical note: SMS removed
+
+Delivery used to include **SMS via Twilio**. That channel was removed in July 2026 (email + Telegram only). If you want to restore SMS, start from these PRs and the schema migration they land:
+
+| PR | What it did |
+| --- | --- |
+| [#550](https://github.com/birthmilk/stocktextalerts/pull/550) | End-to-end removal: `messaging/sms/`, Twilio Verify/webhook, short URLs, dashboard/SMS prefs, `NOTIFICATION_OPTION_MATRIX`, migration `20260705212830_remove_sms_channel.sql` (`delivery_method` → `email` \| `telegram`) |
+| [#551](https://github.com/birthmilk/stocktextalerts/pull/551) | Follow-up infra: drop Twilio SSM env vars from `aws/template.yaml` (then `deploy:infra`) |
+
+Re-adding SMS means reversing that surface (schema + matrix + messaging module + Twilio secrets/IAM + UI), not flipping a feature flag.
+
 ## Prerequisites
 
 - Node.js (see [`.nvmrc`](.nvmrc))
