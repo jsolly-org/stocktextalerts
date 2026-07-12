@@ -66,7 +66,7 @@ npm run dev        # http://localhost:4321
 
 Mailpit (local email UI): <http://127.0.0.1:54324>. Ports and Astro 7 lock notes: [docs/tooling-setup.md](docs/tooling-setup.md).
 
-**Seed users:** copy `scripts/data/sample-users.json` → `scripts/data/users.json` (gitignored) before `db:reset` if you want seeded logins. Passwords come from `DEFAULT_PASSWORD` in `.env.local`.
+**Seed users:** copy `scripts/data/sample-users.json` → `scripts/data/users.json` (gitignored) before `db:reset` if you want seeded logins. Passwords come from `DEFAULT_PASSWORD` in `.env.local`; the primary smoke-login email is `DEFAULT_USER` (defaults to `dev@example.com`).
 
 ### Environment variables
 
@@ -79,7 +79,7 @@ Mailpit (local email UI): <http://127.0.0.1:54324>. Ports and Astro 7 lock notes
 | **Lambda** | Secrets via SSM under `SSM_PREFIX` (default `/stocktextalerts`); see [docs/self-hosting.md](docs/self-hosting.md) |
 | **GitHub `Production` env** | `DATABASE_URL_PROD`, `AWS_REGION`, `AWS_DEPLOY_ROLE_ARN`, `PRODUCTION_SITE_URL` |
 
-Do **not** put `FINNHUB_API_KEY`, `XAI_API_KEY`, `EMAIL_FROM`, `DATABASE_URL`, or `DEFAULT_PASSWORD` on Vercel.
+Do **not** put `FINNHUB_API_KEY`, `XAI_API_KEY`, `EMAIL_FROM`, `DATABASE_URL`, `DEFAULT_USER`, or `DEFAULT_PASSWORD` on Vercel.
 
 ## Testing
 
