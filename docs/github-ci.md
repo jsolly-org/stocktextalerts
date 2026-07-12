@@ -29,6 +29,14 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 
 **Pre-release (local opt-in, not CI):** `ALLOW_LOCAL_DB_TESTS=1 npm run test:e2e:preview` — production-build E2E on port 4323. Run before Astro/Vite config changes or when debugging Rolldown/CSS chunk issues.
 
+## Known CI flakes
+
+Re-run these rather than changing application code:
+
+- `docker: toomanyrequests` during Reset database / Start Supabase is Docker Hub's anonymous pull limit. `gh run rerun <id> --failed` usually lands on a runner with a different IP. A durable fix requires human-owned `DOCKERHUB_TOKEN` credentials and a login step in `ci.yml`.
+- `db:doctor` auth 502 or `auth container not inspectable; recreating stack` is usually slow GoTrue startup.
+- `tests/e2e/registration-approval.e2e.spec.ts` can flake on Mailpit/GoTrue email-redirect timing.
+
 ## Required GitHub settings
 
 After the first CI workflow run (so the check name appears):
