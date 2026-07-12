@@ -98,6 +98,7 @@ while IFS= read -r LINE; do
 	fi
 	echo "${KEY}=${VALUE}" >>"$ENV_FILE"
 done <<<"$DB_VARS"
+echo "DEFAULT_USER=${DEFAULT_USER:-dev@example.com}" >>"$ENV_FILE"
 echo "DEFAULT_PASSWORD=${DEFAULT_PASSWORD}" >>"$ENV_FILE"
 
 # --- reset (registry-throttle retry; also runs privilege + option-catalog) ---
