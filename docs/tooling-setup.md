@@ -48,7 +48,9 @@ See [tests/README.md](../tests/README.md) for the full test email policy.
 
 Manual `git worktree add` runs `.git-hooks/post-checkout`, which calls `npm run worktree:provision` (copies `.env.local`, `npm ci`, mise). It does **not** run `db:bootstrap` — use `npm run worktree:init` for a first run that also seeds the shared local Supabase stack.
 
-All worktrees share one local Supabase instance and serialize tests via `<git-common-dir>/test.lock`.
+All worktrees share one local Supabase instance and serialize tests via `<git-common-dir>/test.lock`; `.env.local` keeps the shared default ports rather than receiving worktree-specific patches. Never symlink `node_modules` between worktrees — Vite's `server.fs.allow` rejects the symlinked checkout with 403 responses.
+
+To retire an old per-worktree Supabase stack, preview `npm run db:collapse-worktree-stacks`; add `-- --apply` only after reviewing the dry run.
 
 Biome excludes `.claude`, `.worktrees`, and `worktrees` at the repo root only (not `**/.claude`) so `biome ci .` works from inside a worktree checkout.
 

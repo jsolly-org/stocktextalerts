@@ -1,67 +1,49 @@
 ## Ship
 
 Ship profile: `aws-sam`
-
-**Integration: branch → PR → CI-gated auto-merge (canonical).** Push your work on a branch (a `git worktree` keeps it off your main checkout — optional, and does nothing for CI by itself), open a PR, and let auto-merge (`gh pr merge --auto --squash`, wired in `auto-merge.yml`) land it once the required **`ci`** check is green. GitHub CI (full unit/E2E/build — which the local pre-commit hook does *not* run) then **re-runs post-merge on `main`** as the green-together gate: branch-up-to-date (`strict`) is **off**, so PRs don't prove they were green against the latest `main` before merging — the post-merge `main` run is what catches a `main` that two separately-green PRs broke. Branch protection requires a PR + the `ci` check. See the [CI](#ci-github-actions--local-pre-commit-gate) section for the full model.
-
-`/ship`'s direct push to `main` is **break-glass only** here: as repo admin (`enforce_admins` off) it *bypasses* the required `ci` check, landing code before CI runs (git prints a "Bypassed rule violations" warning). Reach for it only in an emergency that can't wait for the PR pipeline — the normal path is a PR so CI gates the merge.
-
-**Post-push (step 12):** Production deploy is **GitHub-managed** — the `push` to `main` triggers `.github/workflows/deploy.yml` directly (which runs migrations, Lambda updates, and the live-provider check) **in parallel with** the post-merge `main` CI run. Deploy is *not* gated on that CI run — the `main` battery is a green-together canary (a red `main` means fix forward), while the deploy's own refuse-stale + refuse-infra guards protect the release. Babysit both workflows; local `npm run deploy:code` is break-glass only. Vercel deploys the web tier via Git integration — verify production if web paths changed. Run `npm run deploy:infra` manually (human MFA) when `aws/template.yaml` or `aws/deploy.sh` changes — never auto-run from `/ship`.
-
-Local gate before commit: pre-commit hook steps in `.git-hooks/pre-commit` (biome, yaml/actionlint, `check:ts`, knip, markdown lint, lib boundaries, squawk SQL lint, deploy-fn coverage, static migration grants, and a fail-fast Lambda bundle build via `aws/deploy-web.sh --build`; unit tests run in GitHub CI, not the hook). Bypass = `git commit -n` only; CI is the backstop.
+Integration model: `pr-auto-merge`
+CI owner: `github-handoff`
+Production URL: <https://stocktextalerts.com>
+Deploy deltas: Vercel Git owns the web tier; `.github/workflows/deploy.yml` owns production migrations, Lambda code, and live-provider verification after merge. `npm run deploy:code` is break-glass only; changes to `aws/template.yaml` or `aws/deploy.sh` require a manual `npm run deploy:infra`.
+Repository-specific CI, branch-protection, and deploy behavior: [docs/github-ci.md](docs/github-ci.md).
 
 ## Commands
 
 ```bash
-npm run dev                # Dev server at http://localhost:4321
-npm run dev:stop           # Stop Astro 7 background dev server / clear lock
-npm run build              # Production build
-npm test                   # Vitest — blocked locally unless ALLOW_LOCAL_DB_TESTS=1 (CI is canonical)
-npm run test:local         # Local opt-in + auto preflight (Podman start, db:doctor, db:start retry)
-npm run test:e2e           # Playwright E2E — same opt-in
-npm run test:e2e:local     # E2E opt-in + auto preflight (like test:local)
-npm run check:ts           # TypeScript check
-npm run check:knip         # Find unused exports / files / dependencies
-npm run check:biome        # Biome format + lint check
-npm run check:sql          # Squawk lint on supabase/migrations/*.sql
-npm run check:md           # markdownlint (check:md:fix to auto-fix)
-npm run db:start           # Start local Supabase (Docker/Podman)
-npm run db:reset           # Reset DB: regenerate seed, apply migrations, regen types
-npm run db:bootstrap       # Canonical first-run / "reset everything": link-worktree-data + db:start + db:reset + db:doctor
-npm run worktree:provision # carry .env.local + npm ci + mise (cheap; what the post-checkout auto-runs)
-npm run worktree:init      # worktree:provision + db:bootstrap (full first-run / "reset everything")
-npm run db:doctor          # Preflight: auth reachable + seed user login probe (~300ms)
-npm run db:gen-types       # Regenerate src/lib/db/generated/database.types.ts
-supabase migration new <name>  # Create new migration (never rename timestamps)
+npm run dev
+npm run dev:stop
+npm run build
+npm run check:biome
+npm run check:ts
+npm run check:knip
+npm run check:sql
+npm run check:md
+npm run db:start
+npm run db:reset
+npm run db:bootstrap
+npm run db:doctor
+npm run db:gen-types
+npm run worktree:provision
+npm run worktree:init
+supabase migration new <name> # Never rename migration timestamps
 ```
 
-**Single test file (debugging only):** `ALLOW_LOCAL_DB_TESTS=1 npm test -- tests/lib/some-file.test.ts` (or `npm run test:local -- tests/lib/some-file.test.ts`)
-Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-if-exists`. Do **not** run local DB tests as a merge gate — wait for GitHub CI.
+DB-backed test commands are explicit local opt-ins; follow the [local-tests skill](.claude/skills/local-tests/SKILL.md) and [tests/README.md](tests/README.md).
 
-## Architecture
+## Architecture and development
 
 **StockTextAlerts** — securities notification platform sending scheduled email/Telegram updates for tracked US stocks and ETFs.
 
 **Stack:** Astro 7 (SSR, Vite 8) on Vercel, Vue 3, Tailwind CSS 4, Supabase (PostgreSQL + Auth), AWS SES (email), Telegram (Bot API), Massive (batch snapshot quotes, bars/closes, calendar/holidays, movers, reference/universe, branding/logos, company news, corporate actions, delisting confirms), Finnhub (earnings calendar, recommendation trends, insider transactions), xAI/Grok (optional AI summaries).
 
-### Key Directories
+- `src/pages/api/` owns HTTP APIs; `src/lib/` owns auth, DB, vendors, notification pipelines, messaging, scheduling, time, logging, and backups.
+- `src/handlers/` contains Lambda entry points; `src/components/dashboard/` contains Vue panels/composables; `supabase/migrations/` is the schema source of truth.
+- Local Supabase (Postgres + Auth + Mailpit at <http://127.0.0.1:54324>) should be running for dev; `predev` calls `db:doctor` non-fatally. Full repair is `npm run db:bootstrap`.
+- Manual worktrees auto-run `worktree:provision` (copy `.env.local`, `npm ci`, mise) but never the destructive shared-stack reset in `worktree:init`.
 
-- `src/pages/api/` — API endpoints (auth, assets, schedule, notifications)
-- `src/lib/` — Server logic: `db/`, `auth/`, `vendors/` (Massive/Finnhub/xAI clients), notification pipelines (`market-notifications/`, `daily-digest/`, `daily-notification/`, `asset-events/`, `price-alerts/`, `staged-notifications/`, `scheduled-notifications/`), `messaging/` (email/Telegram), `schedule/`, `time/`, `logging/`, `backup/`
-- `src/handlers/` — AWS Lambda entry points (cron, SQS, signed email dispatch)
-- `src/components/dashboard/` — Vue dashboard panels with composables
-- `supabase/migrations/` — SQL migrations (source of truth; the post-push deploy pushes to production)
-- `tests/helpers/` — `test-user.ts`, `test-env.ts`, `asset-data.ts`
+See [docs/architecture-tiers.md](docs/architecture-tiers.md), [docs/tooling-setup.md](docs/tooling-setup.md), and [tests/README.md](tests/README.md).
 
-See [docs/architecture-tiers.md](docs/architecture-tiers.md) for when code belongs on Vercel vs Lambda.
-
-## Local development
-
-- **Services for dev/test:** Local Supabase (Postgres + Auth + Mailpit at <http://127.0.0.1:54324>) must be running before `npm run dev` (`predev` calls `db:doctor`, failures are non-fatal). DB-backed tests (`npm test`, `npm run test:e2e`) are **blocked locally unless `ALLOW_LOCAL_DB_TESTS=1`** — GitHub CI is the canonical runner. Prefer `npm run test:local` / `npm run test:e2e:local` (opt-in + auto preflight: Podman start, `db:doctor`, `db:start` retry). Full repair when preflight still fails: `npm run db:bootstrap`. Astro dev server: `npm run dev` → <http://localhost:4321>. Astro 7 dev lock: `npm run dev:stop` / `astro dev stop` before opt-in E2E or when tests contend on `.astro/dev.json`.
-- **E2E:** Playwright uses port **4322** (`MODE=test npm run dev -- --port 4322`); preview E2E uses **4323** (`npm run test:e2e:preview`). See `docs/tooling-setup.md` for the full port map.
-- **Smoke checks:** `npm run check:biome`, `npm run check:ts`, `npm run build`. Full test battery runs in GitHub CI — local `npm test` / E2E require `ALLOW_LOCAL_DB_TESTS=1` (debugging only).
-
-## Project-Specific Style
+## Project-specific style
 
 - **Biome** for all formatting/linting. `noConsole` is an error — use `src/lib/logging/` instead.
 - **Astro files use the editor's built-in Astro formatter**; Biome handles everything else.
@@ -76,69 +58,36 @@ See [docs/architecture-tiers.md](docs/architecture-tiers.md) for when code belon
 - Use `src/lib/logging/` (`createLogger`, `rootLogger`) — structured JSON with `timestamp`, `level`, `message`, `context`. Always pass a named context object.
 - **Env vars:** use `requireEnv()` from `src/lib/db/env.ts` at point-of-use.
 - **Lambdas (`src/handlers/{delivery,maintenance}/*.ts`)** import `createLogger` from `src/lib/logging`. Each Lambda log group has an `AWS::Logs::MetricFilter` on `{ $.level = "error" }` feeding `stocktextalerts/ErrorLogCount` + `ErrorLogAlarm` (fires on any single error log line in a 1-minute window), alongside per-function `AWS/Lambda Errors` alarms.
-- **This logger is bespoke** (Vue browser-bundle compatibility via a `process` guard) — NOT a sync consumer of `~/code/family-memory/src/shared/logging.ts`.
-- Conventions (`LogFormat` unset, shared-infra SNS wiring): see `~/code/shared-infra/docs/adding-a-project.md`.
+- This logger is bespoke for Vue browser-bundle compatibility; it is not a sync consumer of `~/code/family-memory/src/shared/logging.ts`. Keep Lambda `LogFormat` unset; shared-infra SNS conventions: `~/code/shared-infra/docs/adding-a-project.md`.
 
-## Testing (Project-Specific)
-
-**Scope:** The local DB test opt-in (`ALLOW_LOCAL_DB_TESTS`), `test:local` preflight chain, and `.cursor/skills/local-tests` are **StockTextAlerts-only** — shared Supabase stack, Podman wiring, and CI-as-canonical model for this repo. Fleet-wide agent conventions (skills distribution, `/ship`, tool hygiene) live in `~/code/dotagents`; other repos do not copy this test guard unless they document the same pattern.
-
-- Tests share DB state — `fileParallelism: false`. Use `registerTestUserForCleanup` for test users.
-- **Use the real Supabase client** with seeded data via helpers in `tests/helpers/`.
-- **Console spies**: Tests fail on unexpected `console.warn`/`console.error`. Use `expectConsoleWarning()`/`expectConsoleError()` from `tests/setup.ts`.
-- **Schema version**: When adding migrations, update `app_metadata.schema_version` in SQL and `EXPECTED_DB_SCHEMA_VERSION` in `src/lib/db/schema-version.ts`.
-- **No local live provider tests.** Provider keys (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`, `XAI_API_KEY`, `TELEGRAM_BOT_TOKEN`) live in the Lambda runtime and are always stubbed in the local suite. `MASSIVE_API_KEY` is **also** present in the Vercel runtime — the logo endpoint (`src/pages/api/assets/logo/[symbol].ts`) reads it at request time; `TELEGRAM_BOT_TOKEN` is also on Vercel (the webhook reply); `FINNHUB_API_KEY`/`XAI_API_KEY` are Lambda-only. Real Massive/Finnhub round-trips — plus a **read-only Telegram token check** (`getMe()`/`getWebhookInfo()` only, never a send; `src/lib/messaging/telegram/health.ts`) — are validated in production by the scheduled `stocktextalerts-live-provider-check` Lambda (`src/handlers/maintenance/live-provider-check.ts`); invoke it with `aws lambda invoke` to test on demand. There is no local Telegram live-send target — the only real-message check is the one-time manual post-deploy `/start` E2E.
-- **Test concurrency lock:** When `ALLOW_LOCAL_DB_TESTS=1`, `npm test` and `npm run test:e2e` acquire a per-repo lock at `<git-common-dir>/test.lock` (cross-worktree). If another worktree is already running tests, the runner waits **2 minutes** and retries, up to **3 attempts** total, before printing the contention banner and exiting. Stale locks (dead PID) are taken over silently on the next attempt. **Agents:** do not run local DB tests unless the user explicitly opts in (`ALLOW_LOCAL_DB_TESTS=1` or `npm run test:local` / `test:e2e:local`); prefer those wrappers so preflight repairs Podman/Supabase first. Let the retry loop run if they do — do not force-clear the lock or spawn parallel test runs while waiting. If all 3 attempts fail, stop and report the contention message to the user (another worktree's suite is still running). Force-clear only when you're sure the holder PID is dead: `rm $(git rev-parse --git-common-dir)/test.lock`.
-- **Fresh worktree?** A committed `.git-hooks/post-checkout` now AUTO-provisions a manual `git worktree add` (via dotagents' shared provisioner it runs `npm run worktree:provision` — carry `.env.local` + real `npm ci` + mise; never symlink `node_modules`, Vite `server.fs.allow` 403s on a symlink). For a first run that also needs the local DB seeded, run `npm run worktree:init` (`worktree:provision` + `db:bootstrap`) — the post-checkout deliberately runs only `worktree:provision`, NOT `worktree:init`, so a routine worktree add never triggers `db:bootstrap`'s destructive reset of the shared stack. A new worktree branches from `origin/main` and lacks gitignored `.env.local` + `scripts/data/users.json` and `node_modules`. **All worktrees share ONE local Supabase stack** (default ports, project_id `stocktextalerts`); the cross-worktree `test.lock` serializes DB access (a second `npm test` waits), and `db:reset` acquires that lock so it can't reset the shared DB under another worktree's running suite. `.env.local` is copied (not port-patched) — the shared default ports are already correct. Migrating an old per-worktree-stack worktree: `npm run db:collapse-worktree-stacks` (dry-run; `-- --apply` to execute).
-
-See `tests/README.md` for the production-credential gating model and Mailpit dev/test routing.
-
-## Supabase Migrations
+## Supabase
 
 - **Local files are source of truth.** Create with `supabase migration new <name>`, write SQL, commit, merge. The GitHub production deploy workflow (`.github/workflows/deploy.yml` → `aws/deploy-web.sh --deploy-ci`) runs `supabase db push` on push to `main` (i.e. after merge).
 - **Apply migrations to production only via the GitHub deploy workflow's `supabase db push`**. Local-only paths: `supabase migration new <name>` then commit. (No MCP against prod, no manual `db push`, no dashboard DDL.)
-- After creating/modifying a migration: `npm run db:gen-types`.
-- **Regenerate `src/lib/db/generated/database.types.ts` via `npm run db:gen-types`** — it's overwritten on every run.
+- After changing a migration, run `npm run db:gen-types`; `src/lib/db/generated/database.types.ts` is generated and overwritten.
 - **Notification options have ONE authored source: `NOTIFICATION_OPTION_MATRIX` in `src/lib/constants.ts`.** Every valid `(notification_type, content, channel)` option, its facet family, and its signup default is authored there; TS unions, the flat catalog + form field names, the form schema, signup/seed defaults, and dashboard bindings all derive from it. The `notification_options` DB table (FK'd from `notification_preferences`) is its DB twin: adding/removing/renaming an option = edit the matrix **plus** a migration syncing `notification_options`. `npm run check:option-catalog` (in `db:reset` + CI) fails on any drift between the table and the matrix; a dashboard E2E (`telegram-dashboard.e2e.spec.ts`) fails if the UI is missing a control for any catalog option.
 - **Explicit grants required for functions, tables, and sequences.** `public` default privileges are empty in both local and production (parity established by `20260610182813_tighten_table_privileges`) — an object created without an explicit `GRANT` is usable by nobody but `postgres` (a missing function grant caused a duplicate-notification incident). Every migration that creates a Data-API (`.rpc(...)`) function must include `GRANT EXECUTE ON FUNCTION ... TO <role>` (server-only → `service_role`; session-scoped → `authenticated`, `service_role`) and the function must be classified in `scripts/db/privilege-contract.ts`. Every migration that creates a table or sequence must grant exactly what code needs (server-only → `service_role`; session-visible → `authenticated`/`anon`). `npm run check:db-privileges` (in `db:reset` + GitHub CI) and `npm run check:migration-grants` enforce the function side; `npm run audit:db-parity` diffs the full local permission structure against production (read-only). Test fixtures needing writes beyond prod grants use the `pg` client (`tests/helpers/asset-db.ts`), not `adminClient`. `supabase db diff` does not surface `ALTER DEFAULT PRIVILEGES`; review grants manually.
 
 ### Production DB agent block (enforced)
 
-Agents (Cursor, Claude Code, Codex) **must not** apply production Supabase schema migrations manually. Read-only production inspection is allowed when the user asks for it. Direct production data writes are not forbidden, but they require explicit user approval for the exact operation and should be narrow, auditable, and preferably reversible. Runtime guards in `.cursor/`, `.claude/`, and `.codex/` block the dangerous paths; policy text alone is not enough.
+Agents never apply production schema migrations or migration-history repairs manually. Author migration files, validate locally, and let the GitHub deploy workflow apply them after merge. Treat `DATABASE_URL_PROD`, `SUPABASE_URL_PROD`, and project ref `japesagairjvvuebzpvr` as production.
 
-**Never run or invoke:**
+The global dotagents `block-prod-db-migrations` guard is the cross-tool shell backstop; global permissions deny Supabase migration/SQL MCP tools where supported. Trusted Codex sessions also load `.codex/execpolicy.rules`. There is no repo-local Cursor runtime guard or enforced `cli.json`.
 
-- `supabase db push` (production apply happens only inside the GitHub production deploy workflow — never run it by hand)
-- `supabase migration repair` against linked/production (human runbook only — see `docs/incidents/2026-05-migration-squash.md`)
-- `psql` using production credentials for writes, DDL, migrations, repairs, or ad hoc data fixes (`DATABASE_URL_PROD`, `SUPABASE_URL_PROD`, project ref `japesagairjvvuebzpvr`, etc.)
-- Supabase MCP `apply_migration` against production
-- Supabase MCP `execute_sql` against production for writes, DDL, migrations, repairs, or ad hoc data fixes
+Read-only production inspection requires an explicit request and narrow queries without unnecessary PII. Production `UPDATE` / `INSERT` / `DELETE` requires approval for the exact operation, with a preflight read, narrow predicate, transaction when practical, and affected-row report; never use it for schema or migration-history changes. The global shell guard deliberately does not parse interactive `psql`.
 
-**Allowed production DB inspection:** read-only `SELECT` queries through approved tooling (Supabase MCP `execute_sql` or `psql`) when the user explicitly asks for production verification. Keep these queries narrow, avoid selecting secrets or unnecessary user PII, and never mutate data.
+Mark this repo trusted for Codex config loading. Migration-repair context: [docs/incidents/2026-05-migration-squash.md](docs/incidents/2026-05-migration-squash.md). Local-stack internals live in `scripts/db/`.
 
-**Allowed production data fixes:** direct `UPDATE` / `INSERT` / `DELETE` only when the user explicitly approves the exact statement or well-scoped operation in the current conversation. Prefer a transaction, include a preflight `SELECT`, report affected row counts, and avoid broad predicates. Never use this path for schema changes or migration history changes.
-
-**Allowed agent workflow:** `supabase migration new <name>` → edit `supabase/migrations/*.sql` → `npm run db:reset` / `db:gen-types` → commit → integrate via branch → PR → auto-merge (see Ship section); `/ship` direct-push is break-glass only. The merge's push to `main` triggers the post-merge `main` CI run **and** the GitHub production deploy in parallel (the deploy workflow runs `supabase db push`; it is not gated on that CI run).
-
-**Codex:** mark this repo as a **trusted** project so `.codex/config.toml` and `.codex/execpolicy.rules` load (see [Codex config basics](https://developers.openai.com/codex/config-basic)).
-
-Local-stack internals (`db:bootstrap`, seed hardening, Podman/container-engine wiring) live in `scripts/db/` — the scripts are the documentation.
-
-## Supabase Auth OTP
+### Auth OTP
 
 - `resend({ type: "signup" })` for resending confirmation.
 - `verifyOtp()` uses `type: "email"` (not `"signup"` — deprecated).
 - Whitelist only `email`, `invite`, `magiclink`, `recovery`, `email_change` in `verified.astro`.
 
-## AWS / SAM Deploy
+## AWS, providers, and CI
 
-Lambda **code** ships via the GitHub production deploy workflow (`.github/workflows/deploy.yml` → `aws/deploy-web.sh --deploy-ci`), triggered by the `push` to `main` when the merge lands. The local `npm run deploy:code` path remains break-glass only. A **full SAM deploy** is still required when changing `aws/template.yaml` or `aws/deploy.sh` (infra/config): run `npm run deploy:infra` manually with admin creds. Copy `aws/samconfig.toml.example` → gitignored `aws/samconfig.toml`; use `AWS_PROFILE` locally. Never commit personal/admin AWS profile names in tracked files (the shared fleet convention `fleet-deploy` is the documented exception).
-
-### Post-deploy live verification (no local live-test tier)
-
-Provider keys live in the Lambda runtime (and `MASSIVE_API_KEY` also in Vercel, for the logo endpoint), so the local suite stubs every external call and cannot catch a real-API regression. The GitHub production deploy workflow invokes the scheduled `stocktextalerts-live-provider-check` Lambda (`src/handlers/maintenance/live-provider-check.ts`) after every deploy and fails red on any thrown error. This Lambda also runs the **read-only Telegram token check** (`getMe()`/`getWebhookInfo()`, side-effect-free — never a send), so it doubles as the Telegram live-verification step. Manual on-demand invokes are still allowed for investigation with the scoped deploy role. Confirming a real Telegram message actually *lands* is a separate one-time manual `/start` E2E (a human-only real send, never automated).
-
-## External APIs
+- Lambda code ships through `.github/workflows/deploy.yml`; local `deploy:code` is break-glass. Full SAM changes require manual `deploy:infra` with admin credentials. Copy `aws/samconfig.toml.example` to gitignored `aws/samconfig.toml`; never commit personal/admin profile names (`fleet-deploy` is the documented shared exception). Merge before a SAM deploy that changes env vars, or a later deploy from `main` will revert them.
+- Provider calls are stubbed locally. Post-deploy, `stocktextalerts-live-provider-check` verifies Massive/Finnhub, a side-effect-free Telegram `getMe()`/`getWebhookInfo()`, and chart rendering; `agent-deploy` may invoke it manually for investigation. A real Telegram delivery remains a one-time human `/start` E2E.
 
 Vendor clients live in `src/lib/vendors/` — Massive owns batch snapshot quotes, bars/closes, calendar/holidays, movers, reference/universe, branding/logos, company news, corporate actions (dividends/splits/IPOs), and per-symbol delisting confirms. Finnhub owns only the earnings calendar, recommendation trends, and insider transactions. xAI/Grok powers optional AI summaries.
 
@@ -146,69 +95,21 @@ Vendor clients live in `src/lib/vendors/` — Massive owns batch snapshot quotes
 
 **Telegram bot:** the **fleet-shared "SollyClaw"** identity (username `@SollyClawBot`, minted 2026-07-07 — it replaced `@StockTextAlertsBot`, which was deleted the same day, revoking that token; existing account links survived the swap because a private chat's ID is the user's Telegram ID, bot-independent — users just `/start` the new bot), owned by the user's **personal** Telegram account (deliberate at current scale; bot ownership is non-transferable — formalize a dedicated owner account **before ~50–100 linked users**, while re-linking is still cheap). **Shared-bot contract:** misc-notifications sends its morning briefing via the *same bot token*; this repo owns the bot's only webhook, so `/start` pairing, the command menu, and all inbound handling live here — `/stop`/`/unlink` gate *stock alerts only* (Supabase prefs), never the morning briefing (configured out-of-band in misc-notifications). Token rotation touches **three places**: `/stocktextalerts/telegram-bot-token` (SSM), `/misc-notifications/telegram-bot-token` (SSM), and the Vercel `TELEGRAM_BOT_TOKEN` env. The transport core (`src/lib/messaging/telegram/sender.ts` `createTelegramBot`) is the fleet-canonical reference; misc-notifications carries a documented copy. For Telegram-channel work, a first-class experience outranks dependency-minimalism (user decision 2026-06-19) — deps that materially improve UX are fine, overriding the general fewer-dependencies default. Candlestick charts render on Lambda via `@resvg/resvg-wasm` (pure WASM — the `.wasm` + Roboto TTFs ship into every bundle via `aws/chart-assets.sh` on both deploy paths, verified post-deploy by the live-provider-check `chart:render-png` step; see `docs/plans/2026-07-03-beautiful-telegram-notifications.md`).
 
-## CI (GitHub Actions + local pre-commit gate)
-
-GitHub Actions runs the full test battery on PRs, on the post-merge `main` commit, and on merge-queue entries if the feature becomes available (`.github/workflows/ci.yml`); auto-merge is enabled by `.github/workflows/auto-merge.yml` once required checks pass. Native GitHub Merge Queue is currently unavailable for this private GitHub Team repository (GitHub rejects the rule through API and the UI does not expose it). CI **re-runs on `main` pushes** as the green-together gate: branch-up-to-date (`strict`) is off, so a PR is not proven green against the latest `main` before merging, and the post-merge `main` run is what catches a `main` that two separately-green PRs broke (see `docs/github-ci.md` → "Concurrent merges"). The production deploy workflow (`.github/workflows/deploy.yml`) is triggered directly by the `push` to `main` in parallel (not gated on that CI run), with a stale-commit guard that skips deploys `main` has already moved past. Vercel's GitHub integration owns the production web deploy; Actions owns Supabase migrations, Lambda code updates, and live-provider verification. See `docs/github-ci.md` for branch protection, environment secrets, and deploy setup.
-
-Because Vercel Git deployments start independently on `main` pushes, schema-affecting web changes must remain backward-compatible with the currently deployed database until the GitHub deploy workflow has applied migrations. Use the local break-glass `npm run deploy:code` path only when an explicitly ordered DB/Lambda/web release is required.
-
-The pre-commit hook (`.git-hooks/pre-commit`) runs lint/types/static checks locally — **not** unit or E2E tests, and **not** anything that needs local Supabase (Podman/Postgres). It does **not** deploy. Deploy is GitHub-managed after merge.
-
-**Known CI flakes (re-run, don't "fix"):** `docker: toomanyrequests` at the Reset-database / Start-Supabase steps (Docker Hub anonymous pull limit — `gh run rerun <id> --failed`; GitHub rotates runner IPs so re-runs usually land clean), `db:doctor` auth 502 / "auth container not inspectable; recreating stack" (GoTrue slow start), and `tests/e2e/registration-approval.e2e.spec.ts` (Mailpit/GoTrue email-redirect timing). A real fix for the pull limit would be a `DOCKERHUB_TOKEN` login step in `ci.yml` (needs human-owned Docker Hub creds).
-
-**Integration model.** Branch → PR → CI-gated auto-merge is **canonical** (see Ship section). Merging is **optimistic**: branch-up-to-date (`strict`) is off, so concurrent PRs don't re-run against each other on every merge — the post-merge `main` CI run is the green-together gate that catches two separately-green PRs breaking `main` (see [docs/github-ci.md](docs/github-ci.md) → "Concurrent merges"). `/ship`'s direct push to `main` is **break-glass only** — it bypasses the required `ci` check via admin. After merge, babysit GitHub CI/deploy plus the Vercel deployment and fix failures with a forward-fix change.
-
-## AWS IAM
+- GitHub Actions owns the full test battery. The local pre-commit hook runs lint/types/static checks and the Lambda bundle only — no unit/E2E, local Supabase, or deploy. Schema-affecting web changes must stay backward-compatible until the parallel GitHub deploy applies migrations. Details and known flakes: [docs/github-ci.md](docs/github-ci.md).
 
 - `agent-deploy` — scoped deploy role (S3, CloudFront, ECR, `lambda:UpdateFunctionCode`, `cloudformation:DescribeStackResource`, plus `lambda:InvokeFunction` on `*-live-provider-check` only — for the post-deploy live check). Used locally via the `fleet-deploy` profile for code-only deploys. Defined fleet-wide in `shared-infra/aws/template.yaml`.
 - `github-actions-deploy` — scoped GitHub OIDC role for production code deploys from `birthmilk/stocktextalerts` on `main`. It reuses the code-only deploy policy and has no CloudFormation/SAM infra mutation permissions.
 - `stocktextalerts-crons-*` — SAM-managed Lambda execution roles (auto-created; SES send via execution role, not static keys)
 
-## Tooling Setup
+## Tooling, frontend, and security
 
-See `docs/tooling-setup.md` for Production Supabase access (psql, env vars, project ref), Vercel CLI scope, and Mailpit dev email routing.
-
-## Deploy gotchas
-
-- **Merge to main before SAM deploy that changes env vars** — a deploy from an unmerged branch ships env-var drift that the next deploy from `main` silently reverts.
-
-## UI Conventions
-
+- Production inspection, Vercel CLI, Mailpit, ports, and worktrees: [docs/tooling-setup.md](docs/tooling-setup.md). Cursor Cloud bootstrap: [docs/cursor-cloud.md](docs/cursor-cloud.md).
 - **All times shown to the user must respect `use_24_hour_time`** — pass `hour12: !is24` to `toLocaleTimeString` / `Intl.DateTimeFormat`. Stored on `users.use_24_hour_time` in DB, exposed as `user.value.use_24_hour_time` in Vue composables. Helper: `formatMinutesAsLocalTime(minutes, is24)` in `src/lib/time/display.ts`.
-
-## Astro 7 notes
-
-- **Rust compiler** and default **`compressHTML: "jsx"`** can change rendered whitespace or fail on invalid HTML — run `npm run build` after `.astro` edits.
-- **Route caching:** Vercel CDN via `cacheVercel()` in `astro.config.ts`; logo proxy uses `context.cache.set()`.
-- **Env typing:** rate-limit knobs are in `env.schema` (`astro:env/server`); other secrets still use `requireEnv()` from `src/lib/db/env.ts` (shared with Lambdas).
-- **Advanced routing (`src/fetch.ts`):** not used; file-based routes + middleware remain the model.
-
-## Security
-
-- **CSRF / same-origin:** `security.checkOrigin: false` in `astro.config.ts`; proxy-aware enforcement lives in `src/middleware.ts` (webhook paths exempt). Set `ASTRO_SECURITY_CHECK_ORIGIN=true` to delegate back to Astro’s built-in check.
-- **Node 24.x** (see `.nvmrc`), **npm** (not yarn/pnpm).
-
-## Cursor Cloud specific instructions
-
-The startup script only runs `npm ci`. Everything below is service startup / non-obvious wiring that is **not** auto-run, so a fresh agent session must do it by hand before `npm run dev` / DB-backed work. Standard commands live in the `## Commands` section and the README — this section only calls out the cloud gotchas.
-
-- **Container engine is Docker, not Podman.** The repo's `scripts/db/container-engine.ts` prefers Podman, but this VM uses Docker. `~/.bashrc` exports `DOCKER_HOST=unix:///var/run/docker.sock`, which makes that script skip Podman and talk to Docker directly (it validates the socket + `docker version`). Do **not** unset `DOCKER_HOST`.
-- **`dockerd` is not managed by systemd** (PID 1 is `tini`), so it does not survive a fresh pod boot. Start it once per session before any `db:*`/dev work: `sudo dockerd > /tmp/dockerd.log 2>&1 &` (wait a few seconds; `docker info` should report `Storage Driver: fuse-overlayfs`). The `ubuntu` user is in the `docker` group; if `docker ps` is denied on a fresh socket, `sudo chmod 666 /var/run/docker.sock`.
-- **Node 24 vs the image default.** `engine-strict=true` in `.npmrc` requires Node 24.x, but the image's `/exec-daemon/node` is v22. Node 24 is installed via nvm and `~/.bashrc` prepends `$HOME/.nvm/versions/node/v24.18.0/bin` to `PATH` so it wins. If a shell ever resolves node 22, re-source `~/.bashrc`.
-- **`db:doctor` warns "auth container not inspectable (podman ENOENT)" under Docker** — harmless. It only skips the GoTrue config inspection (which shells out to `podman`); auth is still reachable and the `ok` line still prints.
-- **Local-only files (gitignored, created during setup):** `.env.local` holds the local Supabase keys (pulled from `supabase status`), `EMAIL_SMTP_HOST=localhost` (→ Mailpit), and generated `DEFAULT_USER` / `DEFAULT_PASSWORD`. `scripts/data/users.json` (copied from `scripts/data/sample-users.json`) seeds dev logins; `supabase/seed.sql` is generated by `npm run db:generate-seed`.
-- **Bring services up:** `sudo dockerd &` → `npm run db:start` → (first time / to re-seed) `npm run db:generate-seed && npm run db:reset` → `npm run dev` (<http://localhost:4321>). Mailpit UI: <http://127.0.0.1:54324>.
-- **Quick logged-in session (hello-world):** sign in at `/auth/signin` with `DEFAULT_USER` and `DEFAULT_PASSWORD` from `.env.local` (seed default user is `dev@example.com`, pre-confirmed and pre-approved) — lands straight on `/dashboard` (no Mailpit/admin-approval step, which new registrations require). Track a stock via the "My Watchlist" search to exercise `POST /api/assets/update`.
-
-### Running the test suites in the cloud VM
-
-GitHub CI is still the canonical runner (see `## Testing`), but a cloud agent **can** run the DB-backed suites locally when it wants to — the environment supports it:
-
-- **Opt-in is required** (the `tests/guard-local-db-tests.ts` guard blocks bare `npm test`). Use the wrappers: `npm run test:local` (Vitest) and `npm run test:e2e:local` (Playwright). They set `ALLOW_LOCAL_DB_TESTS=1` and run the preflight.
-- **Preflight uses Docker, not Podman.** The non-CI preflight (`scripts/db/ensure-local-test-stack.ts`) calls `ensureContainerEngineEnv()`, which reuses the reachable `DOCKER_HOST` and never shells out to Podman. So just make sure `dockerd` is running and the Supabase stack is up first (`sudo dockerd &` → `npm run db:start`).
-- **Playwright browsers** (chromium headless shell) + OS deps are installed by the startup script's `npx playwright install --only-shell` (OS deps via `sudo npx playwright install-deps chromium` are baked into the snapshot). No manual install needed for E2E.
-- **E2E stops the Astro dev lock and starts its own server on port 4322**, so running `test:e2e:local` will stop a `npm run dev` server on 4321 — restart it afterward if needed.
-- **Expected local noise (not failures):** E2E logs `Upstream icon fetch failed … status 401` because the logo proxy uses the placeholder `MASSIVE_API_KEY`; tests still pass. The `registration-approval` E2E and GoTrue email rate-limiter can flake if the suite is re-run repeatedly within an hour (`docker restart supabase_auth_stocktextalerts`).
+- Astro 7's Rust compiler and default `compressHTML: "jsx"` can change whitespace or reject invalid HTML; run `npm run build` after `.astro` edits.
+- Vercel CDN caching uses `cacheVercel()` in `astro.config.ts`; the logo proxy uses `context.cache.set()`.
+- Rate-limit env typing lives in `env.schema`; other secrets use `requireEnv()` from `src/lib/db/env.ts`. Keep file-based routes + middleware; `src/fetch.ts` is intentionally unused.
+- `security.checkOrigin: false` delegates proxy-aware same-origin enforcement to `src/middleware.ts` (webhooks exempt). Set `ASTRO_SECURITY_CHECK_ORIGIN=true` to restore Astro enforcement.
+- Runtime is Node 24.x via npm, not yarn/pnpm.
 
 ## Local UI verification
 

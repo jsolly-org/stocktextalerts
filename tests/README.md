@@ -17,7 +17,9 @@ StockTextAlerts uses Vitest for unit/integration tests and Playwright for browse
 
 Security-focused API specs keep a `.security.test.ts` suffix alongside the handler mirror path (e.g. `tests/pages/api/auth/signin.security.test.ts`).
 
-**Repo-specific:** Local opt-in guards, `test:local` preflight (Podman + `db:doctor` + auto `db:start`), and the `local-tests` Cursor skill apply only to this repository. Other repos under `~/code` follow `~/code/dotagents` for agent workflow; they use their own test and bootstrap scripts.
+**Repo-specific:** Local opt-in guards, `test:local` preflight (Podman + `db:doctor` + auto `db:start`), and the canonical [local-tests skill](../.claude/skills/local-tests/SKILL.md) apply only to this repository. Cursor reaches the same skill through `.cursor/skills/local-tests`; do not maintain a second copy. Other repos under `~/code` follow `~/code/dotagents` for agent workflow and use their own test/bootstrap scripts.
+
+When authoring tests, use the real Supabase client with seeded data and helpers in `tests/helpers/`. Register created users with `registerTestUserForCleanup`. Tests fail on unexpected `console.warn` / `console.error`; use `expectConsoleWarning()` / `expectConsoleError()` from `tests/setup.ts` for expected output.
 
 ## Local runs discouraged (CI is canonical)
 
@@ -139,4 +141,4 @@ When asserting against Postgres `NOW()` RPCs, use fixed far-past / far-future ti
 
 ## Schema version
 
-After migrations, update `app_metadata.schema_version` in SQL and `EXPECTED_DB_SCHEMA_VERSION` in `tests/helpers/constants.ts`. `tests/setup.ts` fails fast on mismatch.
+After migrations, update `app_metadata.schema_version` in SQL and `EXPECTED_DB_SCHEMA_VERSION` in `src/lib/db/schema-version.ts`. `tests/setup.ts` fails fast on mismatch.
