@@ -8,6 +8,7 @@ import { deliveryResultToLogFields, recordNotification } from "../../messaging/s
 import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/telegram/eligibility";
 import { deliverTelegramPriceAlert } from "../../messaging/telegram/price-alert";
 import type { EmailSender, TelegramSender } from "../../messaging/types";
+import { consumeNotificationBudget, releaseNotificationBudget } from "../../notification-budget";
 import { buildFlatAlertEnriched } from "../../price-alerts/compose";
 import type { ChannelDeliveryStats, ExtendedAssetQuote, IntradayBarsResult } from "../../types";
 import { buildSubject, formatFlatPriceAlertEmail, formatRelativeMinutesAgo } from "./format";
@@ -64,56 +65,76 @@ export async function deliverFlatPriceAlert(options: {
 		isFacetEnabled(user.prefs, "price_move_alerts", "email") &&
 		user.email_notifications_enabled
 	) {
-		const logoDataUri = await fetchLogoBase64(symbol, iconUrl, logoCache, iconBase64, supabase);
-		const logoHtml = logoDataUri ? renderLogoImg(logoDataUri) : undefined;
-
-		const message = formatFlatPriceAlertEmail({
-			user,
-			symbol,
-			companyName,
-			quote,
-			baseline,
-			isReTrigger,
-			lastNotificationAt,
-			nowMs,
-			intraday,
-			sevenDaySparkline,
-			logoHtml,
+		const consume = await consumeNotificationBudget(supabase, {
+			userId: user.id,
+			kind: "price_move_alerts",
 		});
+		if (consume.status === "reserved") {
+			const logoDataUri = await fetchLogoBase64(symbol, iconUrl, logoCache, iconBase64, supabase);
+			const logoHtml = logoDataUri ? renderLogoImg(logoDataUri) : undefined;
 
-		const subject = buildSubject({
-			symbol,
-			currentPrice: quote.price,
-			triggerPercent,
-			isReTrigger,
-		});
+			const message = formatFlatPriceAlertEmail({
+				user,
+				symbol,
+				companyName,
+				quote,
+				baseline,
+				isReTrigger,
+				lastNotificationAt,
+				nowMs,
+				intraday,
+				sevenDaySparkline,
+				logoHtml,
+			});
 
-		// Dedup is the flat-alert reserve/finalize CAS (reserve_flat_price_alert), not an
-		// email-level key: the direct-SES path does not honor idempotency keys, so a
-		// claim that fails open CAN double-send. The reserve CAS is the real guard.
-		const result = await sendUserEmail(user, subject, message, sendEmail);
+			const subject = buildSubject({
+				symbol,
+				currentPrice: quote.price,
+				triggerPercent,
+				isReTrigger,
+			});
 
-		if (result.success) {
-			stats.emailsSent++;
-			delivered = true;
+			// Dedup is the flat-alert reserve/finalize CAS (reserve_flat_price_alert), not an
+			// email-level key: the direct-SES path does not honor idempotency keys, so a
+			// claim that fails open CAN double-send. The reserve CAS is the real guard.
+			const result = await sendUserEmail(user, subject, message, sendEmail);
+
+			if (result.success) {
+				stats.emailsSent++;
+				delivered = true;
+			} else {
+				stats.emailsFailed++;
+				await releaseNotificationBudget(supabase, {
+					userId: user.id,
+					kind: "price_move_alerts",
+				});
+				rootLogger.error(
+					"Failed to send flat price alert email",
+					{ userId: user.id, symbol, triggerPercent, isReTrigger },
+					result.error,
+				);
+			}
+
+			const logged = await recordNotification(supabase, {
+				user_id: user.id,
+				type: "flat_price_alert",
+				delivery_method: "email",
+				message_delivered: result.success,
+				message: message.text,
+				...deliveryResultToLogFields(result),
+			});
+			if (!logged) stats.logFailures++;
+		} else if (consume.status === "denied") {
+			rootLogger.info("Skipped flat price alert email: notification budget exhausted", {
+				userId: user.id,
+				symbol,
+			});
 		} else {
-			stats.emailsFailed++;
-			rootLogger.error(
-				"Failed to send flat price alert email",
-				{ userId: user.id, symbol, triggerPercent, isReTrigger },
-				result.error,
-			);
+			rootLogger.info("Skipped flat price alert email: notification budget check failed", {
+				userId: user.id,
+				symbol,
+			});
 		}
-
-		const logged = await recordNotification(supabase, {
-			user_id: user.id,
-			type: "flat_price_alert",
-			delivery_method: "email",
-			message_delivered: result.success,
-			message: message.text,
-			...deliveryResultToLogFields(result),
-		});
-		if (!logged) stats.logFailures++;
 	}
 
 	// Telegram delivery (additive; never alters the email path above). Real-time
@@ -122,20 +143,47 @@ export async function deliverFlatPriceAlert(options: {
 	// channel is usable (linked + not opted out).
 	if (sendTelegram && isTelegramChannelUsable(user)) {
 		if (shouldSendTelegram(user, user.prefs, "price_move_alerts")) {
-			const since =
-				isReTrigger && lastNotificationAt !== null
-					? formatRelativeMinutesAgo(lastNotificationAt.getTime(), nowMs)
-					: "today";
-			const enriched = buildFlatAlertEnriched({ symbol, quote, triggerPercent, since, intraday });
-			const sent = await deliverTelegramPriceAlert({
-				alert: enriched,
-				user,
-				sendTelegram,
-				supabase,
-				stats,
+			const consume = await consumeNotificationBudget(supabase, {
+				userId: user.id,
+				kind: "price_move_alerts",
 			});
-			if (sent) {
-				delivered = true;
+			if (consume.status === "reserved") {
+				const since =
+					isReTrigger && lastNotificationAt !== null
+						? formatRelativeMinutesAgo(lastNotificationAt.getTime(), nowMs)
+						: "today";
+				const enriched = buildFlatAlertEnriched({
+					symbol,
+					quote,
+					triggerPercent,
+					since,
+					intraday,
+				});
+				const sent = await deliverTelegramPriceAlert({
+					alert: enriched,
+					user,
+					sendTelegram,
+					supabase,
+					stats,
+				});
+				if (sent) {
+					delivered = true;
+				} else {
+					await releaseNotificationBudget(supabase, {
+						userId: user.id,
+						kind: "price_move_alerts",
+					});
+				}
+			} else if (consume.status === "denied") {
+				rootLogger.info("Skipped flat price alert Telegram: notification budget exhausted", {
+					userId: user.id,
+					symbol,
+				});
+			} else {
+				rootLogger.info("Skipped flat price alert Telegram: notification budget check failed", {
+					userId: user.id,
+					symbol,
+				});
 			}
 		}
 	}

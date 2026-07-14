@@ -10,6 +10,7 @@ import type { SparklineMap } from "../messaging/parts/sparkline";
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,
+	reserveScheduledChannelBudget,
 	resolveScheduledSender,
 } from "../messaging/scheduled-channel";
 import { buildDashboardButton } from "../messaging/telegram/dashboard-button";
@@ -71,6 +72,21 @@ export async function processDailyDigestEmailDelivery(options: {
 		return;
 	}
 
+	const budgetReserved = await reserveScheduledChannelBudget({
+		supabase,
+		userId: user.id,
+		notificationType: "daily",
+		scheduledDate,
+		scheduledMinutes,
+		channel: "email",
+		logger,
+		stats,
+		attemptCount,
+	});
+	if (!budgetReserved) {
+		return;
+	}
+
 	const message = formatDailyDigestEmail({
 		user,
 		is24Hour: user.use_24_hour_time,
@@ -105,6 +121,7 @@ export async function processDailyDigestEmailDelivery(options: {
 		attemptCount,
 		result,
 		logMessage: message.text,
+		budgetReserved: true,
 	});
 }
 
@@ -177,6 +194,21 @@ export async function processDailyDigestTelegramDelivery(options: {
 		return;
 	}
 
+	const budgetReserved = await reserveScheduledChannelBudget({
+		supabase,
+		userId: user.id,
+		notificationType: "daily",
+		scheduledDate,
+		scheduledMinutes,
+		channel: "telegram",
+		logger,
+		stats,
+		attemptCount,
+	});
+	if (!budgetReserved) {
+		return;
+	}
+
 	const telegramSenderResult = await resolveScheduledSender({
 		supabase,
 		userId: user.id,
@@ -189,6 +221,7 @@ export async function processDailyDigestTelegramDelivery(options: {
 		attemptCount,
 		getSender: getTelegramSender,
 		logMessage: "Failed to resolve Telegram sender for daily digest",
+		budgetReserved: true,
 	});
 	if (telegramSenderResult === null) {
 		return;
@@ -244,5 +277,6 @@ export async function processDailyDigestTelegramDelivery(options: {
 		attemptCount,
 		result,
 		logMessage: formatted.text,
+		budgetReserved: true,
 	});
 }

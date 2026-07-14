@@ -29,6 +29,8 @@ import {
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,
+	releaseScheduledChannelBudget,
+	reserveScheduledChannelBudget,
 } from "../messaging/scheduled-channel";
 import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
@@ -322,23 +324,7 @@ async function deliverStagedDaily(options: {
 		});
 
 		if (attemptCount !== null) {
-			// Dedup here is the claimNotification CAS above, not an email-level key — the
-			// direct-SES path does not honor idempotency keys.
-			const result = await sendUserEmail(
-				user,
-				stagedData.email.subject,
-				{ text: emailContent.text, html: emailContent.html },
-				sendEmail,
-			);
-
-			// Mark as delivered immediately after a successful send so fallback doesn't
-			// reprocess if later bookkeeping fails.
-			if (result.success) {
-				localEmailDelivered = true;
-				deliveredUserTypes.add(deliveredKey);
-			}
-
-			await completeScheduledChannelFromResult({
+			const budgetReserved = await reserveScheduledChannelBudget({
 				supabase,
 				userId: user.id,
 				notificationType: "daily",
@@ -348,9 +334,41 @@ async function deliverStagedDaily(options: {
 				logger,
 				stats,
 				attemptCount,
-				result,
-				logMessage: emailContent.text,
 			});
+			if (!budgetReserved) {
+				// Slot terminal-skipped; fall through to Telegram / bookkeeping.
+			} else {
+				// Dedup here is the claimNotification CAS above, not an email-level key — the
+				// direct-SES path does not honor idempotency keys.
+				const result = await sendUserEmail(
+					user,
+					stagedData.email.subject,
+					{ text: emailContent.text, html: emailContent.html },
+					sendEmail,
+				);
+
+				// Mark as delivered immediately after a successful send so fallback doesn't
+				// reprocess if later bookkeeping fails.
+				if (result.success) {
+					localEmailDelivered = true;
+					deliveredUserTypes.add(deliveredKey);
+				}
+
+				await completeScheduledChannelFromResult({
+					supabase,
+					userId: user.id,
+					notificationType: "daily",
+					scheduledDate,
+					scheduledMinutes,
+					channel: "email",
+					logger,
+					stats,
+					attemptCount,
+					result,
+					logMessage: emailContent.text,
+					budgetReserved: true,
+				});
+			}
 		}
 	}
 
@@ -368,86 +386,109 @@ async function deliverStagedDaily(options: {
 		});
 
 		if (attemptCount !== null) {
-			try {
-				const { sender } = getTelegramSender();
-				const telegramPayload =
-					dailyDelayText && stagedData.telegram
-						? prependDelayBannerToTelegram(
-								stagedData.telegram.text,
-								stagedData.telegram.entities,
-								dailyDelayText,
-							)
-						: stagedData.telegram;
-				const result = await sender({
-					chatId: user.telegram_chat_id,
-					text: telegramPayload.text,
-					entities: telegramPayload.entities,
-					// replyMarkup rides from the staged row (prependDelayBannerToTelegram only
-					// rewrites text/entities). Legacy rows staged before this field shipped
-					// deserialize with `replyMarkup: undefined` → sent buttonless.
-					...(stagedData.telegram.replyMarkup
-						? { replyMarkup: stagedData.telegram.replyMarkup }
-						: {}),
-					// Routine scheduled digest — deliver silently like the live path.
-					disableNotification: true,
-				});
+			const budgetReserved = await reserveScheduledChannelBudget({
+				supabase,
+				userId: user.id,
+				notificationType: "daily",
+				scheduledDate,
+				scheduledMinutes,
+				channel: "telegram",
+				logger,
+				stats,
+				attemptCount,
+			});
+			if (!budgetReserved) {
+				// Slot terminal-skipped or deferred for budget-check retry.
+			} else {
+				let sendSucceeded = false;
+				try {
+					const { sender } = getTelegramSender();
+					const telegramPayload =
+						dailyDelayText && stagedData.telegram
+							? prependDelayBannerToTelegram(
+									stagedData.telegram.text,
+									stagedData.telegram.entities,
+									dailyDelayText,
+								)
+							: stagedData.telegram;
+					const result = await sender({
+						chatId: user.telegram_chat_id,
+						text: telegramPayload.text,
+						entities: telegramPayload.entities,
+						// replyMarkup rides from the staged row (prependDelayBannerToTelegram only
+						// rewrites text/entities). Legacy rows staged before this field shipped
+						// deserialize with `replyMarkup: undefined` → sent buttonless.
+						...(stagedData.telegram.replyMarkup
+							? { replyMarkup: stagedData.telegram.replyMarkup }
+							: {}),
+						// Routine scheduled digest — deliver silently like the live path.
+						disableNotification: true,
+					});
+					sendSucceeded = result.success;
 
-				if (!result.success) {
+					if (!result.success) {
+						logger.error(
+							"Failed to send staged Daily Digest Telegram message",
+							{
+								userId: user.id,
+								scheduledDate,
+								scheduledMinutes,
+								errorCode: result.errorCode ?? null,
+							},
+							new Error(result.error ?? "Staged Daily Digest Telegram send failed"),
+						);
+					}
+
+					await optOutIfBotBlocked(supabase, user.id, result, logger);
+
+					// Mark as delivered immediately after a successful send so fallback doesn't
+					// reprocess if later bookkeeping fails.
+					if (result.success) {
+						localTelegramDelivered = true;
+						deliveredUserTypes.add(deliveredKey);
+					}
+
+					await completeScheduledChannelFromResult({
+						supabase,
+						userId: user.id,
+						notificationType: "daily",
+						scheduledDate,
+						scheduledMinutes,
+						channel: "telegram",
+						logger,
+						stats,
+						attemptCount,
+						result,
+						// The logged message deliberately omits the delay banner (telegramPayload
+						// prepends it for the send only).
+						logMessage: stagedData.telegram.text,
+						budgetReserved: true,
+					});
+				} catch (error) {
+					// Only refund when the message was not delivered. A post-send bookkeeping
+					// throw must not restore budget (that would bypass the daily cap).
+					if (!sendSucceeded) {
+						await releaseScheduledChannelBudget(supabase, user.id, "daily");
+					}
+					stats.telegramFailed++;
 					logger.error(
-						"Failed to send staged Daily Digest Telegram message",
-						{
-							userId: user.id,
-							scheduledDate,
-							scheduledMinutes,
-							errorCode: result.errorCode ?? null,
-						},
-						new Error(result.error ?? "Staged Daily Digest Telegram send failed"),
+						"Failed to resolve Telegram sender for staged daily delivery",
+						{ userId: user.id, scheduledDate, scheduledMinutes },
+						error,
 					);
+					await updateScheduledNotificationRow({
+						supabase,
+						userId: user.id,
+						notificationType: "daily",
+						scheduledDate,
+						scheduledMinutes,
+						channel: "telegram",
+						status: "failed",
+						error: error instanceof Error ? error.message : String(error),
+						attemptCount,
+						logger,
+					});
 				}
-
-				await optOutIfBotBlocked(supabase, user.id, result, logger);
-
-				// Mark as delivered immediately after a successful send so fallback doesn't
-				// reprocess if later bookkeeping fails.
-				if (result.success) {
-					localTelegramDelivered = true;
-					deliveredUserTypes.add(deliveredKey);
-				}
-
-				await completeScheduledChannelFromResult({
-					supabase,
-					userId: user.id,
-					notificationType: "daily",
-					scheduledDate,
-					scheduledMinutes,
-					channel: "telegram",
-					logger,
-					stats,
-					attemptCount,
-					result,
-					// The logged message deliberately omits the delay banner (telegramPayload
-					// prepends it for the send only).
-					logMessage: stagedData.telegram.text,
-				});
-			} catch (error) {
-				stats.telegramFailed++;
-				logger.error(
-					"Failed to resolve Telegram sender for staged daily delivery",
-					{ userId: user.id, scheduledDate, scheduledMinutes },
-					error,
-				);
-				await updateScheduledNotificationRow({
-					supabase,
-					userId: user.id,
-					notificationType: "daily",
-					scheduledDate,
-					scheduledMinutes,
-					channel: "telegram",
-					status: "failed",
-					error: error instanceof Error ? error.message : String(error),
-					attemptCount,
-					logger,
-				});
 			}
 		}
 	}

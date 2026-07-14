@@ -359,6 +359,35 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_budget: {
+        Row: {
+          global_count: number
+          price_move_count: number
+          user_id: string
+          window_date: string
+        }
+        Insert: {
+          global_count?: number
+          price_move_count?: number
+          user_id: string
+          window_date: string
+        }
+        Update: {
+          global_count?: number
+          price_move_count?: number
+          user_id?: string
+          window_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_budget_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_log: {
         Row: {
           created_at: string
@@ -1056,6 +1085,10 @@ export type Database = {
         Args: { p_symbol: string; p_user_id: string }
         Returns: boolean
       }
+      release_notification_budget: {
+        Args: { p_count?: number; p_kind: string; p_user_id: string }
+        Returns: undefined
+      }
       replace_user_assets: {
         Args: { symbols: string[]; user_id: string }
         Returns: undefined
@@ -1073,6 +1106,10 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      try_consume_notification_budget: {
+        Args: { p_count?: number; p_kind: string; p_user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       asset_event_type: "earnings" | "dividend" | "split"

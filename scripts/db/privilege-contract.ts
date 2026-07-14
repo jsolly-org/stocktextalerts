@@ -100,6 +100,16 @@ export const RPC_PRIVILEGES: RpcPrivilege[] = [
 		class: "server-only",
 		reason: "Email-dispatch Lambda claims an idempotency key (with expired-key reclaim)",
 	},
+	{
+		signature: "try_consume_notification_budget(p_user_id uuid, p_kind text, p_count integer)",
+		class: "server-only",
+		reason: "Schedule Lambda reserves per-user ET-day notification volume before send",
+	},
+	{
+		signature: "release_notification_budget(p_user_id uuid, p_kind text, p_count integer)",
+		class: "server-only",
+		reason: "Schedule Lambda refunds a reserved notification-budget unit on send failure",
+	},
 	// --- Maintenance / purge RPCs (server cron only) ------------------------
 	{
 		signature: "purge_expired_email_dispatch_keys()",
