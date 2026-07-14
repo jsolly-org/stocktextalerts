@@ -6,6 +6,8 @@ import type { SparklineData } from "../../messaging/parts/sparkline";
 import {
 	claimScheduledChannel,
 	completeScheduledChannelFromResult,
+	releaseScheduledChannelBudget,
+	reserveScheduledChannelBudget,
 	resolveScheduledSender,
 } from "../../messaging/scheduled-channel";
 import { buildDashboardButton } from "../../messaging/telegram/dashboard-button";
@@ -84,48 +86,69 @@ export async function processMarketScheduledEmailDelivery(options: {
 		return;
 	}
 
-	// Dedup here is the claimNotification CAS above, not an email-level key — the
-	// direct-SES path does not honor idempotency keys.
-	const emailStats = await processEmailUpdate(
-		supabase,
-		user,
-		userAssets,
-		sendEmail,
-		priceMap,
-		marketSession,
-		{ getSparkline, marketClosureInfo, getLogoHtml },
-		options.delayBanners,
-		sessionFirstLine,
-		noSessionTrade,
-	);
-
-	// Tail stays hand-rolled: processEmailUpdate records the notification_log row
-	// internally, so completeScheduledChannelFromResult would double-insert it.
-	const { sent, logged } = emailStats;
-	const error = emailStats.sent ? undefined : emailStats.error;
-
-	if (sent) {
-		stats.emailsSent++;
-	} else {
-		stats.emailsFailed++;
-	}
-
-	if (!logged) {
-		stats.logFailures++;
-	}
-
-	await updateScheduledNotificationRow({
+	const budgetReserved = await reserveScheduledChannelBudget({
 		supabase,
 		userId: user.id,
 		notificationType: "market",
 		scheduledDate,
 		scheduledMinutes,
 		channel: "email",
-		status: sent ? "sent" : "failed",
-		error,
-		attemptCount,
 		logger,
+		stats,
+		attemptCount,
 	});
+	if (!budgetReserved) {
+		return;
+	}
+
+	try {
+		// Dedup here is the claimNotification CAS above, not an email-level key — the
+		// direct-SES path does not honor idempotency keys.
+		const emailStats = await processEmailUpdate(
+			supabase,
+			user,
+			userAssets,
+			sendEmail,
+			priceMap,
+			marketSession,
+			{ getSparkline, marketClosureInfo, getLogoHtml },
+			options.delayBanners,
+			sessionFirstLine,
+			noSessionTrade,
+		);
+
+		// Tail stays hand-rolled: processEmailUpdate records the notification_log row
+		// internally, so completeScheduledChannelFromResult would double-insert it.
+		const { sent, logged } = emailStats;
+		const error = emailStats.sent ? undefined : emailStats.error;
+
+		if (sent) {
+			stats.emailsSent++;
+		} else {
+			stats.emailsFailed++;
+			await releaseScheduledChannelBudget(supabase, user.id, "market");
+		}
+
+		if (!logged) {
+			stats.logFailures++;
+		}
+
+		await updateScheduledNotificationRow({
+			supabase,
+			userId: user.id,
+			notificationType: "market",
+			scheduledDate,
+			scheduledMinutes,
+			channel: "email",
+			status: sent ? "sent" : "failed",
+			error,
+			attemptCount,
+			logger,
+		});
+	} catch (error) {
+		await releaseScheduledChannelBudget(supabase, user.id, "market");
+		throw error;
+	}
 }
 
 /**
@@ -192,6 +215,21 @@ export async function processMarketScheduledTelegramDelivery(options: {
 		return;
 	}
 
+	const budgetReserved = await reserveScheduledChannelBudget({
+		supabase,
+		userId: user.id,
+		notificationType: "market",
+		scheduledDate,
+		scheduledMinutes,
+		channel: "telegram",
+		logger,
+		stats,
+		attemptCount,
+	});
+	if (!budgetReserved) {
+		return;
+	}
+
 	const telegramSenderResult = await resolveScheduledSender({
 		supabase,
 		userId: user.id,
@@ -204,6 +242,7 @@ export async function processMarketScheduledTelegramDelivery(options: {
 		attemptCount,
 		getSender: getTelegramSender,
 		logMessage: "Failed to resolve Telegram sender for scheduled market update",
+		budgetReserved: true,
 	});
 	if (telegramSenderResult === null) {
 		return;
@@ -250,5 +289,6 @@ export async function processMarketScheduledTelegramDelivery(options: {
 		attemptCount,
 		result,
 		logMessage: formatted.text,
+		budgetReserved: true,
 	});
 }

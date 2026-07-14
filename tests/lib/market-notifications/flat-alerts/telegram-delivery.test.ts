@@ -24,11 +24,14 @@ import { expectConsoleError } from "../../../setup";
 
 type RecordedInsert = { table: string; row: Record<string, unknown> };
 
-function makeTelegramSupabaseMock(): {
+function makeTelegramSupabaseMock(options?: { budgetOk?: boolean }): {
 	client: AppSupabaseClient;
 	inserts: RecordedInsert[];
+	rpcCalls: Array<{ fn: string; args: Record<string, unknown> }>;
 } {
 	const inserts: RecordedInsert[] = [];
+	const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
+	const budgetOk = options?.budgetOk ?? true;
 	const client = {
 		from(table: string) {
 			return {
@@ -38,8 +41,18 @@ function makeTelegramSupabaseMock(): {
 				},
 			};
 		},
+		rpc: async (fn: string, args: Record<string, unknown>) => {
+			rpcCalls.push({ fn, args });
+			if (fn === "try_consume_notification_budget") {
+				return { data: budgetOk, error: null };
+			}
+			if (fn === "release_notification_budget") {
+				return { data: null, error: null };
+			}
+			return { data: null, error: null };
+		},
 	} as unknown as AppSupabaseClient;
-	return { client, inserts };
+	return { client, inserts, rpcCalls };
 }
 
 function makeStats(): ChannelDeliveryStats {
@@ -76,8 +89,14 @@ function makeUser(overrides: Partial<FlatPriceAlertUser> = {}): FlatPriceAlertUs
 	};
 }
 
-async function deliver(options: { user: FlatPriceAlertUser; sendTelegram: TelegramSender | null }) {
-	const { client, inserts } = makeTelegramSupabaseMock();
+async function deliver(options: {
+	user: FlatPriceAlertUser;
+	sendTelegram: TelegramSender | null;
+	budgetOk?: boolean;
+}) {
+	const { client, inserts, rpcCalls } = makeTelegramSupabaseMock({
+		budgetOk: options.budgetOk,
+	});
 	const stats = makeStats();
 	const delivered = await deliverFlatPriceAlert({
 		user: options.user,
@@ -99,7 +118,7 @@ async function deliver(options: { user: FlatPriceAlertUser; sendTelegram: Telegr
 		logoCache: createLogoCache(),
 		stats,
 	});
-	return { delivered, inserts, stats };
+	return { delivered, inserts, stats, rpcCalls };
 }
 
 describe("A Telegram-linked user receives a price-move alert via Telegram", () => {
@@ -142,7 +161,7 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 			errorCode: "500",
 		}));
 
-		const { delivered, inserts, stats } = await deliver({
+		const { delivered, inserts, stats, rpcCalls } = await deliver({
 			user: makeUser({
 				telegram_chat_id: 778899,
 				prefs: makePrefRows([["price_move_alerts", "", "telegram", true]]),
@@ -153,6 +172,7 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		expect(delivered).toBe(false);
 		expect(stats.telegramSent).toBe(0);
 		expect(stats.telegramFailed).toBe(1);
+		expect(rpcCalls.some((c) => c.fn === "release_notification_budget")).toBe(true);
 
 		const tgLog = inserts.find(
 			(i) => i.table === "notification_log" && i.row.delivery_method === "telegram",
@@ -160,6 +180,28 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		expect(tgLog).toBeDefined();
 		expect(tgLog?.row.type).toBe("flat_price_alert");
 		expect(tgLog?.row.message_delivered).toBe(false);
+	});
+
+	it("skips Telegram send when notification budget is exhausted", async () => {
+		const sendTelegram = vi.fn<TelegramSender>(async () => ({ success: true }));
+
+		const { delivered, inserts, stats, rpcCalls } = await deliver({
+			user: makeUser({
+				telegram_chat_id: 778899,
+				prefs: makePrefRows([["price_move_alerts", "", "telegram", true]]),
+			}),
+			sendTelegram,
+			budgetOk: false,
+		});
+
+		expect(delivered).toBe(false);
+		expect(sendTelegram).not.toHaveBeenCalled();
+		expect(stats.telegramSent).toBe(0);
+		expect(rpcCalls.some((c) => c.fn === "try_consume_notification_budget")).toBe(true);
+		expect(rpcCalls.some((c) => c.fn === "release_notification_budget")).toBe(false);
+		expect(
+			inserts.some((i) => i.table === "notification_log" && i.row.delivery_method === "telegram"),
+		).toBe(false);
 	});
 
 	it("skips Telegram when the user has no price_move_alerts Telegram pref enabled", async () => {
