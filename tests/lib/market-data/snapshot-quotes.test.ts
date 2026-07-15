@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { rootLogger } from "../../../src/lib/logging";
 import { fetchSnapshotQuotes } from "../../../src/lib/market-data/quotes";
 import { polygonUpdatedNs } from "../../helpers/market-data";
 import { expectConsoleError } from "../../setup";
@@ -410,5 +411,39 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 
 		expect(expectQuote(quotes.get("AAA")).price).toBe(10.5);
 		expect(quotes.get("SYM249")).toBeNull();
+	});
+
+	it("does not log unexpected payload when the fetch already failed", async () => {
+		expectConsoleError("Massive snapshot-quotes exhausted retries");
+		const logError = vi.spyOn(rootLogger, "error");
+		// Fresh Response per attempt — retries must not share one body stream.
+		vi.spyOn(globalThis, "fetch").mockImplementation(
+			async () => new Response("gateway timeout", { status: 504 }),
+		);
+
+		const quotes = await fetchSnapshotQuotes(["AAPL"], "regular");
+
+		expect(quotes.get("AAPL")).toBeNull();
+		const errorMessages = logError.mock.calls.map((call) => call[0]);
+		expect(errorMessages).toContain("Massive snapshot-quotes exhausted retries");
+		expect(errorMessages).not.toContain("Snapshot quote chunk returned unexpected payload shape");
+	});
+
+	it("logs unexpected payload shape for a non-null bad response body", async () => {
+		expectConsoleError("Snapshot quote chunk returned unexpected payload shape");
+		const logError = vi.spyOn(rootLogger, "error");
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			new Response(JSON.stringify({ tickers: "not-an-array" }), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			}),
+		);
+
+		const quotes = await fetchSnapshotQuotes(["AAPL"], "regular");
+
+		expect(quotes.get("AAPL")).toBeNull();
+		expect(logError.mock.calls.map((call) => call[0])).toContain(
+			"Snapshot quote chunk returned unexpected payload shape",
+		);
 	});
 });
