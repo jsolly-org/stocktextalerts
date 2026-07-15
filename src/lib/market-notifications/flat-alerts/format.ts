@@ -257,8 +257,24 @@ export function formatFlatPriceAlertEmail(options: {
 			</div>`
 		: "";
 
+	// Identity row: logo + ticker + name sit below the title so a long company
+	// name cannot flex-shrink the logo (the old single-line h2 layout did).
+	const logoCell = logoBlock
+		? `<td style="padding: 0 10px 0 0; vertical-align: middle; width: 1%;">${logoBlock}</td>`
+		: "";
+	const identityRow = `<table role="presentation" style="border-collapse: collapse; margin: 8px 0 0 0;">
+			<tr>
+				${logoCell}
+				<td style="padding: 0; vertical-align: middle;">
+					<span style="color: #1f2937; font-size: 18px; font-weight: 600;">${escapeHtml(symbol)}</span>
+					<span style="color: #6b7280; font-size: 16px; font-weight: 400;"> — ${escapeHtml(companyName)}</span>
+				</td>
+			</tr>
+		</table>`;
+
 	const html = renderEmailShell({
-		bodyHtml: `<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600; display: flex; align-items: center; gap: 8px;">Price Move Alert: ${logoBlock}<span>${escapeHtml(symbol)} <span style="color: #6b7280; font-size: 16px; font-weight: 400;">— ${escapeHtml(companyName)}</span></span></h2>
+		bodyHtml: `<h2 style="color: #1f2937; margin: 0; font-size: 24px; font-weight: 600;">Price Move Alert</h2>
+		${identityRow}
 		<p style="color: #111827; font-size: 32px; font-weight: 700; margin: 16px 0 12px 0; font-variant-numeric: tabular-nums;">${escapeHtml(formatUsdPrice(currentPrice))}</p>
 		${buildDataRecencyHtml()}
 		<table style="width: 100%; border-collapse: collapse; margin-top: 8px;">

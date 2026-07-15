@@ -196,12 +196,21 @@ function createLogoHtmlGetter(cache: LogoCache): (symbol: string) => string | un
 	};
 }
 
+/** Default logo size for multi-asset email rows (scheduled market, digest). */
+const EMAIL_LOGO_SIZE_INLINE = 20;
+
+/** Larger logo for single-asset emails (price-move alerts) where the mark is a visual anchor. */
+export const EMAIL_LOGO_SIZE_HERO = 40;
+
 /** Render an inline `<img>` tag for a base64-encoded logo. */
-export function renderLogoImg(base64DataUri: string): string {
+export function renderLogoImg(
+	base64DataUri: string,
+	size: number = EMAIL_LOGO_SIZE_INLINE,
+): string {
 	if (!SAFE_IMAGE_DATA_URI.test(base64DataUri)) {
 		return "";
 	}
-	return `<img src="${base64DataUri}" alt="" width="20" height="20" style="vertical-align: middle; border-radius: 4px; margin-right: 4px;" />`;
+	return `<img src="${base64DataUri}" alt="" width="${size}" height="${size}" style="vertical-align: middle; border-radius: 4px; margin-right: 4px; flex-shrink: 0;" />`;
 }
 
 /**
