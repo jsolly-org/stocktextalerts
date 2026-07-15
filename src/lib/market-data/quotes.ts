@@ -167,6 +167,11 @@ async function fetchSnapshotQuotesChunk(options: {
 		{ tickerCount: totalTickerCount, chunkIndex, chunkCount },
 		policy,
 	);
+	// Fetch failures already logged in marketDataFetch (often vendor_retry_exhausted).
+	// Do not re-log as "unexpected payload" — that bypasses ErrorLogAlarm exclusions.
+	if (data === null) {
+		return chunkResult;
+	}
 	if (!isRecord(data) || !Array.isArray(data.tickers)) {
 		rootLogger.error("Snapshot quote chunk returned unexpected payload shape", {
 			chunkIndex,
