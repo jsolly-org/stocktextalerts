@@ -1,7 +1,12 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import { sendUserEmail } from "../../messaging/email/index";
-import { type createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
+import {
+	type createLogoCache,
+	EMAIL_LOGO_SIZE_HERO,
+	fetchLogoBase64,
+	renderLogoImg,
+} from "../../messaging/logo-fetcher";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
 import type { SparklineData } from "../../messaging/parts/sparkline";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
@@ -71,7 +76,7 @@ export async function deliverFlatPriceAlert(options: {
 		});
 		if (consume.status === "reserved") {
 			const logoDataUri = await fetchLogoBase64(symbol, iconUrl, logoCache, iconBase64, supabase);
-			const logoHtml = logoDataUri ? renderLogoImg(logoDataUri) : undefined;
+			const logoHtml = logoDataUri ? renderLogoImg(logoDataUri, EMAIL_LOGO_SIZE_HERO) : undefined;
 
 			const message = formatFlatPriceAlertEmail({
 				user,

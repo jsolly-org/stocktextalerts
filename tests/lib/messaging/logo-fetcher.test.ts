@@ -250,8 +250,13 @@ describe("When the app fetches or renders asset logos for email", () => {
 		it("the subscriber sees an inline 20x20 rounded logo image in the message.", () => {
 			const result = renderLogoImg("data:image/png;base64,abc123");
 			expect(result).toBe(
-				'<img src="data:image/png;base64,abc123" alt="" width="20" height="20" style="vertical-align: middle; border-radius: 4px; margin-right: 4px;" />',
+				'<img src="data:image/png;base64,abc123" alt="" width="20" height="20" style="vertical-align: middle; border-radius: 4px; margin-right: 4px; flex-shrink: 0;" />',
 			);
+		});
+
+		it("a single-asset alert can request a larger hero logo size.", () => {
+			const result = renderLogoImg("data:image/png;base64,abc123", 40);
+			expect(result).toContain('width="40" height="40"');
 		});
 
 		it("invalid or non-image data is not rendered and the subscriber sees no img tag.", () => {
