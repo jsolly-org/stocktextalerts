@@ -118,3 +118,13 @@ Auth-gated product UI. Follow `rules/frontend-verification.md` (fleet smoke: des
 - **Dev server:** `npm run dev` → <http://localhost:4321> (reuse if already up; `npm run dev:stop` to clear the Astro 7 lock). Local Supabase must be reachable (`npm run db:doctor` / `db:start`).
 - **Sign-in:** `/auth/signin` with `DEFAULT_USER` and `DEFAULT_PASSWORD` from `.env.local` (see `env.example`). Seed default user is `dev@example.com` (pre-confirmed, pre-approved → `/dashboard`).
 - **Do not** invent credentials or put `DEFAULT_USER` / `DEFAULT_PASSWORD` on Vercel.
+
+## Cursor Cloud specific instructions
+
+Full runbook: [docs/cursor-cloud.md](docs/cursor-cloud.md). The startup update script runs only `bash -lc 'npm ci'`; everything below is not automated and must be done in-session.
+
+- **Node 24 via login shell:** `~/.bashrc` prepends the nvm Node 24 bin and exports `DOCKER_HOST=unix:///var/run/docker.sock`. Non-login shells (`bash -c`, `sh -c`) still resolve `/exec-daemon/node` (v22), which trips `engine-strict`. Run npm/dev/test/db commands through a login shell (`bash -lc '…'`) or a normal interactive terminal.
+- **Docker daemon (once per fresh pod):** `sudo dockerd > /tmp/dockerd.log 2>&1 &`, then `docker info`. If the socket denies access, `sudo chmod 666 /var/run/docker.sock` (the `ubuntu` user is not always in the `docker` group on a fresh pod).
+- **Docker 29 + fuse-overlayfs:** `/etc/docker/daemon.json` must set `"storage-driver": "fuse-overlayfs"` **and** `"features": { "containerd-snapshotter": false }` — Docker 29 defaults to the containerd snapshotter, which ignores the fuse-overlayfs driver this kernel needs. `docker info` should report `Storage Driver: fuse-overlayfs`.
+- **Gitignored local files** (`.env.local`, `scripts/data/users.json`, `supabase/seed.sql`) persist via the snapshot, not the update script. If missing on a fresh pod: `cp scripts/data/sample-users.json scripts/data/users.json`, create `.env.local` from `env.example` (Supabase keys come from `supabase status -o json` after `npm run db:start` — map `ANON_KEY`→`SUPABASE_PUBLISHABLE_KEY`, `SERVICE_ROLE_KEY`→`SUPABASE_SECRET_KEY`, set `EMAIL_SMTP_HOST=localhost` and a local `DEFAULT_PASSWORD`), then `npm run db:generate-seed && npm run db:reset`.
+- **Bring the stack up:** `npm run db:start` → `npm run db:reset` (reseed) → `npm run dev` (<http://localhost:4321>). `db:doctor`'s `auth container not inspectable (podman ENOENT)` warning is benign under Docker.
