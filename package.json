@@ -120,7 +120,7 @@
 		"tailwindcss": "^4.3.2",
 		"tsx": "^4.23.0",
 		"typescript": "^6.0.2",
-		"vercel": "^55.0.0",
+		"vercel": "^56.3.1",
 		"vite": "^8.1.4",
 		"vite-svg-loader": "^5.1.1",
 		"vitest": "^4.1.10"
