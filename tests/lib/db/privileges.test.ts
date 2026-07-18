@@ -79,30 +79,31 @@ describe("Supabase function privileges match the explicit contract", () => {
 		expect(offending).toEqual([]);
 	});
 
-	it.each(
-		ENFORCED_FUNCTIONS,
-	)("$signature ($class) is executable by exactly its contracted roles", async (entry) => {
-		const { signature } = entry;
-		const { rows } = await client.query<{ oid: number }>(
-			`
+	it.each(ENFORCED_FUNCTIONS)(
+		"$signature ($class) is executable by exactly its contracted roles",
+		async (entry) => {
+			const { signature } = entry;
+			const { rows } = await client.query<{ oid: number }>(
+				`
 				SELECT p.oid::int AS oid
 				FROM pg_proc p
 				JOIN pg_namespace n ON n.oid = p.pronamespace
 				WHERE n.nspname = 'public'
 				  AND p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' = $1
 				`,
-			[signature],
-		);
-		expect(rows, `function not found: ${signature}`).toHaveLength(1);
-		const oid = rows[0]?.oid as number;
-
-		const expected = new Set<RoleName>(executeRolesFor(entry));
-		for (const role of CLIENT_ROLES) {
-			const { rows: privRows } = await client.query<{ ok: boolean }>(
-				`SELECT has_function_privilege($1, $2::oid, 'EXECUTE') AS ok`,
-				[role, oid],
+				[signature],
 			);
-			expect(privRows[0]?.ok, `${role} EXECUTE on ${signature}`).toBe(expected.has(role));
-		}
-	});
+			expect(rows, `function not found: ${signature}`).toHaveLength(1);
+			const oid = rows[0]?.oid as number;
+
+			const expected = new Set<RoleName>(executeRolesFor(entry));
+			for (const role of CLIENT_ROLES) {
+				const { rows: privRows } = await client.query<{ ok: boolean }>(
+					`SELECT has_function_privilege($1, $2::oid, 'EXECUTE') AS ok`,
+					[role, oid],
+				);
+				expect(privRows[0]?.ok, `${role} EXECUTE on ${signature}`).toBe(expected.has(role));
+			}
+		},
+	);
 });
