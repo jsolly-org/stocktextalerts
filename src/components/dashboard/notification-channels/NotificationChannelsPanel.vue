@@ -24,7 +24,6 @@
 				:id="DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID"
 			/>
 
-			<div class="card-accent card-accent-primary"></div>
 			<div class="card-body">
 
 			<NotificationChannelsFieldset
@@ -53,7 +52,6 @@
 
 	<!-- Notification Preview -->
 	<section class="card">
-		<div class="card-accent card-accent-gray"></div>
 		<div class="card-body">
 			<header class="mb-4">
 				<h2 class="text-xl sm:text-2xl font-bold text-heading">

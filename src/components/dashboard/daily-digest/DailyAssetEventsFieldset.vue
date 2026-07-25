@@ -11,7 +11,7 @@
 				<div class="flex flex-row flex-wrap items-center gap-x-4 gap-y-2 sm:gap-4 shrink-0">
 					<label
 						class="inline-flex items-center gap-1.5"
-						:class="needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer'"
+						:class="{ 'cursor-not-allowed': needsChannelSelection }"
 						:title="emailDisabledTitle"
 					>
 						<input
@@ -20,7 +20,7 @@
 							:checked="allEmailChecked"
 							:disabled="needsChannelSelection"
 							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-							:class="needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer'"
+							:class="{ 'cursor-not-allowed': needsChannelSelection }"
 							aria-label="Select all Email for asset events"
 							@change="toggleAllEmail"
 						/>
@@ -30,7 +30,7 @@
 						class="inline-flex items-center gap-1.5"
 						:class="
 							telegramConnected
-								? 'cursor-pointer'
+								? undefined
 								: needsChannelSelection
 									? 'cursor-not-allowed'
 									: 'cursor-not-allowed opacity-50'
@@ -43,7 +43,7 @@
 							:checked="allTelegramChecked"
 							:disabled="!telegramConnected"
 							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-							:class="telegramConnected ? 'cursor-pointer' : 'cursor-not-allowed'"
+							:class="{ 'cursor-not-allowed': !telegramConnected }"
 							aria-label="Select all Telegram for asset events"
 							@change="toggleAllTelegram"
 						/>

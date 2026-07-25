@@ -8,7 +8,7 @@
 			v-model="selectedValue"
 			name="timezone"
 			required
-			class="input cursor-pointer"
+			class="input"
 			:disabled="disabled"
 			@change="handleChange"
 		>

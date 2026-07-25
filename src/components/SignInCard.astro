@@ -30,10 +30,10 @@ const {
     <StatusMessage class="mb-4" tone="error">
       {errorMessage}
       {errorCode === "invalid_credentials" && REGISTRATION_ENABLED && (
-        <> You can <a href="/auth/register" class="underline hover:no-underline">create an account</a> or <a href="/auth/forgot" class="underline hover:no-underline">reset your password</a>.</>
+        <> You can <a href="/auth/register" class="link-primary">create an account</a> or <a href="/auth/forgot" class="link-primary">reset your password</a>.</>
       )}
       {errorCode === "invalid_credentials" && !REGISTRATION_ENABLED && (
-        <> You can <a href="/auth/forgot" class="underline hover:no-underline">reset your password</a>.</>
+        <> You can <a href="/auth/forgot" class="link-primary">reset your password</a>.</>
       )}
     </StatusMessage>
   )}

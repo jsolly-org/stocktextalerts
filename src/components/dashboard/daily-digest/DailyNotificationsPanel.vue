@@ -23,7 +23,6 @@
 				:is-saving="isSaving"
 			/>
 
-			<div class="card-accent card-accent-teal"></div>
 			<div class="card-body">
 			<header class="mb-4">
 				<h2
@@ -35,7 +34,7 @@
 			<p
 				class="text-sm text-body-secondary mt-1"
 			>
-				Everything you enable below is bundled into <strong class="font-semibold text-label">one daily message</strong> sent at your <a href="#daily_digest_time" class="font-medium text-primary underline rounded-sm hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1">daily notification delivery time</a>.
+				Everything you enable below is bundled into <strong class="font-semibold text-label">one daily message</strong> sent at your <a href="#daily_digest_time" class="link-primary">daily notification delivery time</a>.
 			</p>
 			</header>
 

@@ -53,8 +53,9 @@
 				:aria-selected="highlightedIndex === index"
 				:data-highlighted="highlightedIndex === index"
 				@click="selectAsset(result)"
-				class="w-full px-4 py-2 text-left hover:bg-info-bg focus:bg-info-bg focus:outline-none cursor-pointer"
-				:class="{ 'bg-info-border': highlightedIndex === index }"
+				@mousemove="highlightedIndex = index"
+				class="w-full px-4 py-2 text-left transition-colors hover:bg-surface-active focus:bg-surface-active focus:outline-none cursor-pointer"
+				:class="{ 'bg-surface-active': highlightedIndex === index }"
 			>
 				<span class="flex items-center gap-2">
 					<AssetBadge :type="result.type" :symbol="result.symbol" :icon-url="result.icon_url" size="compact" />
