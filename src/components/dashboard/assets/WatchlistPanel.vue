@@ -31,9 +31,9 @@
 			</h2>
 			<span
 				class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-active text-label"
-				:aria-label="`${draftAssets.length} ${draftAssets.length === 1 ? 'asset' : 'assets'} tracked`"
+				:aria-label="`${draftAssets.length} of ${MAX_TRACKED_ASSETS} ${draftAssets.length === 1 ? 'asset' : 'assets'} tracked`"
 			>
-				{{ draftAssets.length }}
+				{{ draftAssets.length }}/{{ MAX_TRACKED_ASSETS }}
 			</span>
 		</header>
 
