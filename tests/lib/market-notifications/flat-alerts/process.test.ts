@@ -148,7 +148,7 @@ async function getNotificationLogCount(userId: string): Promise<number> {
 async function getStateRow(userId: string, symbol: string) {
 	const { data, error } = await adminClient
 		.from("price_move_alert_state")
-		.select("last_notification_price, last_notification_at, pending_delivery")
+		.select("last_notification_price, last_notification_at, pending_delivery, last_alert_direction")
 		.eq("user_id", userId)
 		.eq("symbol", symbol)
 		.maybeSingle();
@@ -202,6 +202,7 @@ describe("processFlatPriceAlerts", () => {
 		const state = await getStateRow(testUser.id, "AAPL");
 		expect(state).not.toBeNull();
 		expect(Number(state?.last_notification_price)).toBeCloseTo(195.86, 2);
+		expect(state?.last_alert_direction).toBe(1);
 	});
 
 	it("Sub-threshold +4.99% move does not trigger an alert", async () => {
@@ -263,6 +264,126 @@ describe("processFlatPriceAlerts", () => {
 
 			const state = await getStateRow(testUser.id, "AAPL");
 			expect(Number(state?.last_notification_price)).toBeCloseTo(206.04, 2);
+			expect(state?.last_alert_direction).toBe(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("Same-direction half-step acceleration fires when last direction is known", async () => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(new Date("2026-05-09T18:00:00.000Z")); // 14:00 ET
+
+		try {
+			const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+			registerTestUserForCleanup(testUser.id);
+			await enableFlatAlerts(testUser.id);
+
+			const twentySevenMinAgo = new Date(Date.now() - 27 * 60_000).toISOString();
+			await adminClient.from("price_move_alert_state").insert({
+				user_id: testUser.id,
+				symbol: "AAPL",
+				last_notification_price: 200.0,
+				last_notification_at: twentySevenMinAgo,
+				last_alert_direction: 1,
+			});
+
+			// +2.6% from $200 — below full 5%, above half-step 2.5%
+			const quoteMap = new Map([["AAPL", makeQuote({ price: 205.2, prevClose: 186.0 })]]);
+
+			const totals = await processFlatPriceAlerts({
+				supabase: adminClient,
+				quoteMap,
+				isMarketOpen: true,
+			});
+
+			expect(totals.alertsTriggered).toBe(1);
+			expect(totals.reTriggerAlerts).toBe(1);
+			expect(totals.emailsSent).toBe(1);
+			expect(mockEmailSender.mock.calls[0]?.[0]?.subject ?? "").toContain("accelerating");
+
+			const state = await getStateRow(testUser.id, "AAPL");
+			expect(Number(state?.last_notification_price)).toBeCloseTo(205.2, 2);
+			expect(state?.last_alert_direction).toBe(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("Opposite-direction recovery still requires the full threshold", async () => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(new Date("2026-05-09T18:00:00.000Z")); // 14:00 ET
+
+		try {
+			const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+			registerTestUserForCleanup(testUser.id);
+			await enableFlatAlerts(testUser.id);
+
+			const twentySevenMinAgo = new Date(Date.now() - 27 * 60_000).toISOString();
+			await adminClient.from("price_move_alert_state").insert({
+				user_id: testUser.id,
+				symbol: "AAPL",
+				last_notification_price: 200.0,
+				last_notification_at: twentySevenMinAgo,
+				last_alert_direction: 1,
+			});
+
+			// −2.6% from $200 — enough for acceleration half-step, not for recovery
+			const quoteMap = new Map([["AAPL", makeQuote({ price: 194.8, prevClose: 186.0 })]]);
+
+			const totals = await processFlatPriceAlerts({
+				supabase: adminClient,
+				quoteMap,
+				isMarketOpen: true,
+			});
+
+			expect(totals.alertsTriggered).toBe(0);
+			expect(totals.emailsSent).toBe(0);
+			expect(mockEmailSender).not.toHaveBeenCalled();
+
+			const state = await getStateRow(testUser.id, "AAPL");
+			expect(Number(state?.last_notification_price)).toBeCloseTo(200.0, 2);
+			expect(state?.last_alert_direction).toBe(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("Full opposite-direction recovery fires and flips last_alert_direction", async () => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(new Date("2026-05-09T18:00:00.000Z")); // 14:00 ET
+
+		try {
+			const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+			registerTestUserForCleanup(testUser.id);
+			await enableFlatAlerts(testUser.id);
+
+			const twentySevenMinAgo = new Date(Date.now() - 27 * 60_000).toISOString();
+			await adminClient.from("price_move_alert_state").insert({
+				user_id: testUser.id,
+				symbol: "AAPL",
+				last_notification_price: 200.0,
+				last_notification_at: twentySevenMinAgo,
+				last_alert_direction: 1,
+			});
+
+			// −5.2% from $200 — full recovery threshold
+			const quoteMap = new Map([["AAPL", makeQuote({ price: 189.6, prevClose: 186.0 })]]);
+
+			const totals = await processFlatPriceAlerts({
+				supabase: adminClient,
+				quoteMap,
+				isMarketOpen: true,
+			});
+
+			expect(totals.alertsTriggered).toBe(1);
+			expect(totals.reTriggerAlerts).toBe(1);
+			expect(totals.emailsSent).toBe(1);
+			expect(mockEmailSender.mock.calls[0]?.[0]?.subject ?? "").not.toContain("accelerating");
+
+			const state = await getStateRow(testUser.id, "AAPL");
+			expect(Number(state?.last_notification_price)).toBeCloseTo(189.6, 2);
+			expect(state?.last_alert_direction).toBe(-1);
 		} finally {
 			vi.useRealTimers();
 		}
