@@ -80,7 +80,8 @@ If you HOLD mid-prep, still label, leave `JANITOR HOLD:` comment, and
 
 Authorized open issues → implement when clear and self-contained from the issue
 text alone. **Issues land only via `/ship` (review fleet + green)** — never a
-bare `gh pr create` + `ship-auto-merge` shortcut.
+bare `gh pr create` that skips the review fleet (same-repo PRs auto-merge when
+CI is green).
 
 **Idempotency:**
 
@@ -99,12 +100,12 @@ product call, or too large for one PR. Otherwise claim first:
 **Implement:** worktree off `main`, build only what the issue asks, run local
 gates (`npm run check:ts`, biome, affected tests if cheap). Then **invoke the
 `/ship` skill** (review fleet + PR + auto-merge). Do **not** push to `main`.
-Do **not** open/merge with a bare `gh pr create` + `ship-auto-merge` that skips
-the review fleet.
+Do **not** open/merge with a bare `gh pr create` that skips the review fleet.
 
-If `/ship` is unavailable in this environment: push the topic branch, open a PR
-with `Closes #<n>` **without** `ship-auto-merge`, comment
-`JANITOR HOLD: needs interactive /ship (review fleet)`, and do **not** merge.
+If `/ship` is unavailable in this environment: push the topic branch, open a
+**draft** PR with `Closes #<n>` (drafts are skipped by auto-merge.yml), comment
+`JANITOR HOLD: needs interactive /ship (review fleet)`, and do **not** mark
+ready or merge.
 
 ## Hard invariants
 

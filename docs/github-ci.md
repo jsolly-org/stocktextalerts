@@ -4,18 +4,18 @@
 
 StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub auto-merge, and production code deploys. The local pre-commit hook runs the cheap checks only; unit tests, E2E, and deploy run in GitHub.
 
-> **Forks / public contributors:** this document describes *this* repository’s wiring. CI runners use Blacksmith labels, auto-merge is gated by the `ship-auto-merge` label, and an optional janitor workflow drains Dependabot/self PRs. Forks without Blacksmith should switch `runs-on` to `ubuntu-latest` (see [self-hosting.md](self-hosting.md) → Fork notes). Third-party PRs do not auto-merge unless a maintainer adds the label. Production bootstrap secrets live in [self-hosting.md](self-hosting.md).
+> **Forks / public contributors:** this document describes *this* repository’s wiring. CI runners use Blacksmith labels, auto-merge arms for same-repo non-Dependabot PRs, and an optional janitor workflow drains Dependabot/self PRs. Forks without Blacksmith should switch `runs-on` to `ubuntu-latest` (see [self-hosting.md](self-hosting.md) → Fork notes). Fork PRs and Dependabot PRs do not auto-merge (janitor may arm Dependabot via `gh` after prep). Production bootstrap secrets live in [self-hosting.md](self-hosting.md).
 
 ## Workflows
 
 | Workflow | File | When | Purpose |
 | --- | --- | --- | --- |
 | **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PRs, push to `main` (post-merge gate), merge queue, manual | Lint, workflow lint, types, Knip, markdown lint, lib boundaries, SQL, migration grants, Lambda bundle build, local Supabase bootstrap, sharded unit tests, sharded E2E (dev server), Astro build — run depth decided per-event by the gate job (see "Run gating") |
-| **Auto Merge** | [`.github/workflows/auto-merge.yml`](../.github/workflows/auto-merge.yml) | PR open/sync/ready/labeled | Enables squash auto-merge **only** when the PR has label `ship-auto-merge` (added by `/ship`) |
+| **Auto Merge** | [`.github/workflows/auto-merge.yml`](../.github/workflows/auto-merge.yml) | PR open/sync/ready | Enables squash auto-merge for same-repo, non-draft, non-Dependabot PRs (agent + maintainer). Skips forks and Dependabot |
 | **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | Push to `main` (on merge), manual | Production Supabase migrations, Lambda code updates, live-provider check |
 | **Janitor** | [`.github/workflows/janitor.yml`](../.github/workflows/janitor.yml) | Cron noon + 5pm Eastern, manual | Provider-swappable agent pass (`scripts/janitor/`) that drains authorized Dependabot/self PRs and issues — default provider Cursor. Repo secrets: `CURSOR_API_KEY`, `JANITOR_GITHUB_TOKEN` (fine-grained PAT: Contents + PRs + Issues + Actions write on this repo; non-admin). Optional: `ANTHROPIC_API_KEY` / `CODEX_API_KEY` when swapping `JANITOR_PROVIDER` |
 
-**Integration:** the canonical path is **branch → PR → CI-gated auto-merge** — push a branch, open a PR (maintainers may add `ship-auto-merge` to arm auto-merge), and GitHub merges once the required `ci` check is green. Unlabeled third-party PRs do not auto-merge. Merging is **optimistic** (branch-up-to-date/strict is off); CI then re-runs post-merge on `main` as the real green-together gate (see "Concurrent merges" below). After a change lands on `main`, the deploy workflow applies production migrations plus Lambda code updates and Vercel's Git integration deploys the web tier. `npm run deploy:code` remains a local break-glass path, not the default release path.
+**Integration:** the canonical path is **branch → PR → CI-gated auto-merge** — push a branch, open a PR, and GitHub merges once the required `ci` check is green. Auto-merge arms automatically for same-repo non-Dependabot PRs (including bare `gh pr create` from agents). Fork PRs never auto-merge; Dependabot stays off until janitor arms via `gh` after prep. Drafts are skipped — open a draft (or `gh pr merge --disable-auto`) to hold a PR out of the merge path. Merging is **optimistic** (branch-up-to-date/strict is off); CI then re-runs post-merge on `main` as the real green-together gate (see "Concurrent merges" below). After a change lands on `main`, the deploy workflow applies production migrations plus Lambda code updates and Vercel's Git integration deploys the web tier. `npm run deploy:code` remains a local break-glass path, not the default release path.
 
 ## Local pre-commit gate
 
@@ -42,15 +42,14 @@ Re-run these rather than changing application code:
 After the first CI workflow run (so the check name appears):
 
 1. **Settings → General → Pull Requests** — enable **Allow auto-merge**. (No need for "Always suggest updating pull request branches": with strict off, PRs don't have to be up to date to merge, so there's no per-PR *Update branch* click.)
-2. **Settings → Labels** — ensure label **`ship-auto-merge`** exists (color optional). Restrict who can add it to maintainers if you want belt-and-suspenders beyond the workflow gate.
-3. Protect `main` (branch protection rule or ruleset) so CI gates every merge:
+2. Protect `main` (branch protection rule or ruleset) so CI gates every merge:
    - **Require a pull request before merging** (0 approvals is fine solo) — makes branch+PR the path, so `ci` actually gates `main`
    - Require status check **`CI / ci`** to pass, **non-strict** (`required_status_checks.strict: false` — do *not* require branches up to date). Optimistic merge: the post-merge `main` CI run is the green-together gate instead (see "Concurrent merges"). Strict on a repo whose CI battery *also* runs post-merge would double-charge minutes; strict is dropped precisely because the post-merge run now carries the guarantee.
    - Block force-push and deletion
    - `enforce_admins` stays **off** so the owner keeps a break-glass `/ship` direct push (it bypasses these rules — emergency use only)
    - Enable merge queue when the repository plan/UI supports the `merge_queue` rule
 
-The auto-merge workflow calls `gh pr merge --auto --squash` only when the PR has label `ship-auto-merge`; GitHub merges when all required checks pass.
+The auto-merge workflow calls `gh pr merge --auto --squash` for same-repo, non-draft, non-Dependabot PRs; GitHub merges when all required checks pass. `/ship` may still call `--auto` immediately for a faster arm — redundant here, not required.
 
 The CI workflow listens for `merge_group` events so merge queue can validate the integrated commit before landing if the feature becomes available. As of 2026-06-28, GitHub rejects `merge_queue` through both REST and GraphQL for this private GitHub Team repository, and neither legacy branch protection nor repository rulesets expose the option in the UI. **Native merge queue requires GitHub Enterprise Cloud for private repos** — unavailable on Free/Pro/Team — so the `merge_group` wiring is forward-compat, not active.
 
