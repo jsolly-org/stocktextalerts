@@ -45,7 +45,7 @@
 					:href="linkDetails.deepLink"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="mt-2 inline-flex items-center gap-1.5 rounded text-sm font-medium text-primary hover:text-primary-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+					class="link-primary mt-2 inline-flex items-center gap-1.5 text-sm"
 				>
 					Open in Telegram app
 					<ExternalLinkIcon class="size-4" aria-hidden="true" />
@@ -60,7 +60,7 @@
 						:href="linkDetails.webUrl"
 						target="_blank"
 						rel="noopener noreferrer"
-						class="rounded font-medium text-primary hover:text-primary-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+						class="link-primary"
 						>web.telegram.org</a
 					>, open <span class="font-medium">@{{ linkDetails.botUsername }}</span>, and send this
 					message:

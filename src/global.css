@@ -141,7 +141,7 @@ body {
 /* ============= Button Utilities ============= */
 
 .btn {
-	@apply inline-flex items-center justify-center font-medium rounded-lg transition-[background-color,color,border-color,box-shadow,transform,opacity] duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+	@apply inline-flex items-center justify-center font-medium rounded-lg transition-[background-color,color,border-color,box-shadow,transform,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 /* Button sizes */
@@ -175,7 +175,7 @@ body {
 	@apply bg-transparent text-body-secondary hover:bg-surface-active hover:text-heading focus-visible:ring-primary;
 }
 .btn-icon-danger {
-	@apply inline-flex items-center justify-center shrink-0 rounded-lg text-muted hover:text-error-strong transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-strong focus-visible:ring-offset-2;
+	@apply inline-flex items-center justify-center shrink-0 rounded-lg text-muted hover:text-error-strong transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-strong focus-visible:ring-offset-2;
 }
 
 @keyframes button-spinner {
@@ -211,10 +211,10 @@ body {
 /* ============= Link Utilities ============= */
 
 .link-primary {
-	@apply font-medium text-primary hover:text-primary-strong hover:underline no-underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded;
+	@apply font-medium text-primary no-underline hover:text-primary-strong cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded;
 }
 .link-action {
-	@apply text-primary hover:underline rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+	@apply text-primary no-underline hover:text-primary-strong rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
 }
 
 /* ============= Card Utilities ============= */
@@ -223,32 +223,8 @@ body {
 	@apply bg-surface rounded-xl shadow-md border border-edge;
 }
 
-.card-accent {
-	@apply h-1 rounded-t-xl;
-}
-
-.card-accent-primary {
-	@apply bg-gradient-to-r from-primary via-blue-500 to-primary-soft;
-}
-
-.card-accent-success {
-	@apply bg-gradient-to-r from-success-strong via-green-400 to-success-strong;
-}
-
-.card-accent-teal {
-	@apply bg-gradient-to-r from-teal-500 via-teal-400 to-teal-500;
-}
-
-.card-accent-purple {
-	@apply bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500;
-}
-
-.card-accent-gray {
-	@apply bg-gradient-to-r from-edge-strong via-muted to-edge-strong;
-}
-
 .card-body {
-	@apply p-6 sm:p-10;
+	@apply p-5 sm:p-6;
 }
 
 /* ============= Animation Utilities ============= */

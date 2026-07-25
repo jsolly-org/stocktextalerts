@@ -21,7 +21,6 @@
 			</div>
 		</FadeTransition>
 
-		<div class="card-accent card-accent-teal"></div>
 		<div class="card-body">
 		<header class="flex items-center gap-2 mb-4">
 			<h2
