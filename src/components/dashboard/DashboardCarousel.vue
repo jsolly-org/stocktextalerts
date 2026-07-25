@@ -393,7 +393,6 @@ onUnmounted(() => {
 	color: var(--color-faint);
 	transition: color 0.15s, background-color 0.15s;
 	position: relative;
-	cursor: pointer;
 	border: none;
 	background: none;
 }

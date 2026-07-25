@@ -1,14 +1,23 @@
 <template>
 	<div class="relative w-full sm:max-w-xs">
 		<Teleport v-if="isHydrated" to="body">
-			<div
-				v-if="isBackdropVisible"
-				class="sta-timepicker-backdrop fixed inset-0 bg-transparent"
-				aria-hidden="true"
-				@pointerdown="handleBackdropPointerDown"
-				@click="handleBackdropClick"
-				@pointercancel="handleBackdropPointerCancel"
-			/>
+			<Transition
+				enter-active-class="transition-[opacity,backdrop-filter] duration-150 ease-out"
+				enter-from-class="opacity-0"
+				enter-to-class="opacity-100"
+				leave-active-class="transition-[opacity,backdrop-filter] duration-150 ease-in"
+				leave-from-class="opacity-100"
+				leave-to-class="opacity-0"
+			>
+				<div
+					v-if="isBackdropVisible"
+					class="sta-timepicker-backdrop fixed inset-0 bg-heading/25 backdrop-blur-sm backdrop-saturate-150"
+					aria-hidden="true"
+					@pointerdown="handleBackdropPointerDown"
+					@pointerup="handleBackdropPointerUp"
+					@pointercancel="handleBackdropPointerCancel"
+				/>
+			</Transition>
 		</Teleport>
 		<input
 			type="hidden"
@@ -21,15 +30,16 @@
 			ref="datepicker"
 			v-model="selectedTime"
 			time-picker
+			centered
 			:placeholder="props.placeholder"
 			:time-config="timeConfig"
 			:config="datepickerConfig"
+			:formats="formats"
+			:floating="floatingConfig"
 			:min-time="minTime"
 			:max-time="maxTime"
 			:disabled-times="disabledTimes"
-			:minutes-grid-increment="minutesIncrement"
 			:disabled="isDisabled"
-			:format="displayFormat"
 			:input-attrs="inputAttributes"
 			@open="handleMenuOpen"
 			@closed="handleMenuClosed"
@@ -189,16 +199,27 @@ const isBackdropVisible = ref(false);
 const isBackdropPointerDown = ref(false);
 
 /* ============= Menu Close Selection ============= */
-const datepickerConfig = { setDateOnMenuClose: true } as const;
+// centered alone (do not pair with teleport — docs warn that combination can
+// mis-position). mobileBreakpoint matches Tailwind `sm` so our full-viewport
+// takeover tracks the same width as the rest of the dashboard.
+const datepickerConfig = {
+	setDateOnMenuClose: true,
+	mobileBreakpoint: 640,
+} as const;
 
-const displayFormat = computed(() => {
-	return is24Hour.value ? "HH:mm" : "hh:mm aa";
-});
+// centered already suppresses the floating arrow in the library; keep arrow
+// off explicitly so a future teleport/layout change cannot bring it back.
+const floatingConfig = { arrow: false } as const;
+
+const formats = computed(() => ({
+	input: is24Hour.value ? "HH:mm" : "hh:mm aa",
+}));
 
 const timeConfig = computed(() => {
 	return {
 		is24: is24Hour.value,
 		minutesIncrement,
+		minutesGridIncrement: minutesIncrement,
 		startTime: { hours: 9, minutes: 0, seconds: 0 },
 	};
 });
@@ -223,14 +244,23 @@ function applyDisabledTooltips(root: ParentNode) {
 	}
 }
 
+function dismissBackdrop() {
+	isBackdropPointerDown.value = false;
+	isBackdropVisible.value = false;
+}
+
+// Drive body scroll from scrim visibility so open/close paths cannot diverge.
+watch(isBackdropVisible, (visible) => {
+	document.body.style.overflow = visible ? "hidden" : "";
+});
+
 function handleMenuOpen() {
 	isBackdropPointerDown.value = false;
 	isBackdropVisible.value = true;
 	if (!props.disabledRangeTooltip) return;
-	// vue-datepicker teleports the menu to <body>, and the overlay grid is
-	// rendered after the initial open (toggling between hours/minutes). Observe
-	// body mutations briefly so disabled cells get their tooltip no matter when
-	// they appear.
+	// Overlay grid cells mount after open (and again when toggling hours/
+	// minutes). Observe the document so tooltips apply whenever they appear.
+	// Menu stays in-tree under `centered` (no teleport).
 	disabledTooltipObserver?.disconnect();
 	disabledTooltipObserver = new MutationObserver(() => {
 		applyDisabledTooltips(document.body);
@@ -243,38 +273,38 @@ function handleMenuOpen() {
 }
 
 function handleMenuClosed() {
-	if (!isBackdropPointerDown.value) {
-		isBackdropVisible.value = false;
-	}
+	// Always clear scrim + scroll lock. Do not gate on pointerdown — that flag
+	// exists only to suppress fallthrough clicks, and preventDefault on
+	// pointerdown can cancel the click that used to clear it (leaving the page
+	// frozen after ESC / Select).
+	dismissBackdrop();
 	disabledTooltipObserver?.disconnect();
 	disabledTooltipObserver = null;
 }
 
 function handleBackdropPointerDown(event: PointerEvent) {
+	if (event.button !== 0) return;
 	isBackdropPointerDown.value = true;
-	isBackdropVisible.value = true;
-
-	// Prevent fallthrough clicks. Some browsers can retarget the click to the element
-	// beneath if the picker closes before the click completes.
+	// Suppress the compatibility click that would otherwise land on content
+	// beneath once the scrim unmounts mid-gesture. Dismiss on pointerup instead.
 	event.preventDefault();
 }
 
-function handleBackdropClick(event: MouseEvent) {
-	if (!isBackdropVisible.value) {
+function handleBackdropPointerUp(event: PointerEvent) {
+	if (!isBackdropPointerDown.value || event.button !== 0) return;
+	// Ignore releases that started on the scrim but ended elsewhere.
+	if (event.target !== event.currentTarget) {
+		isBackdropPointerDown.value = false;
 		return;
 	}
 	event.preventDefault();
 	event.stopPropagation();
-
-	isBackdropPointerDown.value = false;
-	isBackdropVisible.value = false;
-
+	dismissBackdrop();
 	datepicker.value?.closeMenu();
 }
 
 function handleBackdropPointerCancel() {
-	isBackdropPointerDown.value = false;
-	isBackdropVisible.value = false;
+	dismissBackdrop();
 	datepicker.value?.closeMenu();
 }
 
@@ -286,7 +316,7 @@ const inputAttributes = computed(() => {
 			: "";
 	return {
 		id: props.inputId,
-		class: `input cursor-pointer ${paddingClass}`.trim(),
+		class: `input ${paddingClass}`.trim(),
 		"aria-label": props.inputAriaLabel,
 		...(props.inputAriaDescribedby
 			? { "aria-describedby": props.inputAriaDescribedby }
@@ -346,6 +376,7 @@ onBeforeUnmount(() => {
 	// parent v-if).
 	disabledTooltipObserver?.disconnect();
 	disabledTooltipObserver = null;
+	dismissBackdrop();
 });
 </script>
 
@@ -357,6 +388,68 @@ onBeforeUnmount(() => {
 .dp--outer-menu-wrap,
 .dp--menu {
 	z-index: 10001;
+}
+
+/*
+ * Centered modal above the scrim.
+ *
+ * Docs: use `centered` (renamed from teleport-center); do not combine with
+ * `teleport`. Library CSS sets `.dp--centered { position: fixed; … }`, but
+ * without teleport it also applies `.dp--menu-wrapper { position: absolute }`,
+ * which wins in source order and anchors to a parent instead of the viewport.
+ * Reassert fixed centering here.
+ */
+.dp--menu-wrapper.dp--outer-menu-wrap.dp--centered {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	right: auto;
+	bottom: auto;
+	transform: translate(-50%, -50%);
+	z-index: 10001;
+}
+
+.dp--outer-menu-wrap.dp--centered .dp--menu {
+	border-radius: 0.75rem;
+	min-width: min(20rem, calc(100vw - 2rem));
+	box-shadow:
+		0 10px 15px -3px rgb(0 0 0 / 0.12),
+		0 20px 40px -12px rgb(0 0 0 / 0.2);
+}
+
+/*
+ * Mobile full-viewport takeover. Hook the library's own mobile flag
+ * (`data-dp-mobile`, set when clientWidth <= config.mobileBreakpoint) so this
+ * tracks the same breakpoint as vue-datepicker's layout — not a separate
+ * media-query width.
+ */
+[data-datepicker-instance][data-dp-mobile]
+	.dp--menu-wrapper.dp--outer-menu-wrap.dp--centered {
+	inset: 0;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	transform: none;
+}
+
+[data-datepicker-instance][data-dp-mobile]
+	.dp--outer-menu-wrap.dp--centered
+	.dp--menu {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 100%;
+	border: none;
+	border-radius: 0;
+	box-shadow: none;
+	padding-top: max(1.5rem, env(safe-area-inset-top, 0px));
+	padding-right: max(1rem, env(safe-area-inset-right, 0px));
+	padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+	padding-left: max(1rem, env(safe-area-inset-left, 0px));
 }
 
 /* Prevent iOS double-tap zoom on repeated time-stepper taps. */

@@ -17,7 +17,6 @@
 				:is-saving="isSaving"
 			/>
 
-			<div class="card-accent card-accent-success"></div>
 		<div class="card-body">
 		<fieldset class="min-w-0">
 		<header class="mb-4">
@@ -209,7 +208,7 @@
 							<li
 								v-for="asset in trackedAssets"
 								:key="asset.symbol"
-								class="flex items-center gap-2"
+								class="-mx-2 flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-active"
 							>
 								<span class="min-w-0 flex-1 flex items-center gap-2 text-sm font-medium text-heading">
 									<AssetBadge
@@ -225,7 +224,7 @@
 										v-if="!thresholdIsSet(asset.symbol)"
 										:id="`price-move-set-threshold-${asset.symbol}`"
 										type="button"
-										class="w-full cursor-pointer rounded-md border border-dashed border-edge px-2.5 py-1 text-sm text-muted transition-colors hover:border-edge-strong hover:text-heading focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed"
+										class="w-full rounded-md border border-dashed border-edge px-2.5 py-1 text-sm text-muted transition-colors hover:border-edge-strong hover:text-heading focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed"
 										:disabled="!priceMoveAlertsEnabled"
 										:title="priceMoveThresholdsDisabledTitle"
 										:aria-label="`Set price-move threshold for ${asset.symbol}`"
@@ -255,7 +254,7 @@
 										<div class="inline-flex overflow-hidden rounded-md border border-edge">
 											<button
 												type="button"
-												class="cursor-pointer px-2 py-1 text-xs transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed"
+												class="px-2 py-1 text-xs transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed"
 												:class="thresholdUnitFor(asset.symbol) === 'percent' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' : 'bg-surface-alt text-muted hover:text-heading'"
 												:aria-pressed="thresholdUnitFor(asset.symbol) === 'percent'"
 												:aria-label="`Use percent threshold for ${asset.symbol}`"
@@ -265,7 +264,7 @@
 											>%</button>
 											<button
 												type="button"
-												class="cursor-pointer border-l border-edge px-2 py-1 text-xs transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed"
+												class="border-l border-edge px-2 py-1 text-xs transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed"
 												:class="thresholdUnitFor(asset.symbol) === 'dollar' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' : 'bg-surface-alt text-muted hover:text-heading'"
 												:aria-pressed="thresholdUnitFor(asset.symbol) === 'dollar'"
 												:aria-label="`Use dollar threshold for ${asset.symbol}`"
