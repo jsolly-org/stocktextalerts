@@ -14,7 +14,7 @@
 					class="sta-timepicker-backdrop fixed inset-0 bg-heading/25 backdrop-blur-sm backdrop-saturate-150"
 					aria-hidden="true"
 					@pointerdown="handleBackdropPointerDown"
-					@click="handleBackdropClick"
+					@pointerup="handleBackdropPointerUp"
 					@pointercancel="handleBackdropPointerCancel"
 				/>
 			</Transition>
@@ -244,18 +244,19 @@ function applyDisabledTooltips(root: ParentNode) {
 	}
 }
 
-function lockBodyScroll() {
-	document.body.style.overflow = "hidden";
+function dismissBackdrop() {
+	isBackdropPointerDown.value = false;
+	isBackdropVisible.value = false;
 }
 
-function unlockBodyScroll() {
-	document.body.style.overflow = "";
-}
+// Drive body scroll from scrim visibility so open/close paths cannot diverge.
+watch(isBackdropVisible, (visible) => {
+	document.body.style.overflow = visible ? "hidden" : "";
+});
 
 function handleMenuOpen() {
 	isBackdropPointerDown.value = false;
 	isBackdropVisible.value = true;
-	lockBodyScroll();
 	if (!props.disabledRangeTooltip) return;
 	// Overlay grid cells mount after open (and again when toggling hours/
 	// minutes). Observe the document so tooltips apply whenever they appear.
@@ -272,41 +273,38 @@ function handleMenuOpen() {
 }
 
 function handleMenuClosed() {
-	if (!isBackdropPointerDown.value) {
-		isBackdropVisible.value = false;
-		unlockBodyScroll();
-	}
+	// Always clear scrim + scroll lock. Do not gate on pointerdown — that flag
+	// exists only to suppress fallthrough clicks, and preventDefault on
+	// pointerdown can cancel the click that used to clear it (leaving the page
+	// frozen after ESC / Select).
+	dismissBackdrop();
 	disabledTooltipObserver?.disconnect();
 	disabledTooltipObserver = null;
 }
 
 function handleBackdropPointerDown(event: PointerEvent) {
+	if (event.button !== 0) return;
 	isBackdropPointerDown.value = true;
-	isBackdropVisible.value = true;
-
-	// Prevent fallthrough clicks. Some browsers can retarget the click to the element
-	// beneath if the picker closes before the click completes.
+	// Suppress the compatibility click that would otherwise land on content
+	// beneath once the scrim unmounts mid-gesture. Dismiss on pointerup instead.
 	event.preventDefault();
 }
 
-function handleBackdropClick(event: MouseEvent) {
-	if (!isBackdropVisible.value) {
+function handleBackdropPointerUp(event: PointerEvent) {
+	if (!isBackdropPointerDown.value || event.button !== 0) return;
+	// Ignore releases that started on the scrim but ended elsewhere.
+	if (event.target !== event.currentTarget) {
+		isBackdropPointerDown.value = false;
 		return;
 	}
 	event.preventDefault();
 	event.stopPropagation();
-
-	isBackdropPointerDown.value = false;
-	isBackdropVisible.value = false;
-	unlockBodyScroll();
-
+	dismissBackdrop();
 	datepicker.value?.closeMenu();
 }
 
 function handleBackdropPointerCancel() {
-	isBackdropPointerDown.value = false;
-	isBackdropVisible.value = false;
-	unlockBodyScroll();
+	dismissBackdrop();
 	datepicker.value?.closeMenu();
 }
 
@@ -378,7 +376,7 @@ onBeforeUnmount(() => {
 	// parent v-if).
 	disabledTooltipObserver?.disconnect();
 	disabledTooltipObserver = null;
-	unlockBodyScroll();
+	dismissBackdrop();
 });
 </script>
 
