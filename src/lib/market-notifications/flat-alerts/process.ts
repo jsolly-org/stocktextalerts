@@ -299,7 +299,6 @@ export async function processFlatPriceAlerts(options: {
 			isAcceleration: alert.isAcceleration,
 			lastNotificationAt: alert.lastNotificationAt ? alert.lastNotificationAt.toISOString() : null,
 			iconUrl: alert.iconUrl,
-			iconBase64: alert.iconBase64,
 		};
 
 		const enqueued = await enqueuePriceMoveWhy(payload);

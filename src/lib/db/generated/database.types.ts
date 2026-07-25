@@ -275,50 +275,8 @@ export type Database = {
         }
         Relationships: []
       }
-      asset_sec_filings: {
-        Row: {
-          accession_number: string
-          cik: string
-          fetched_at: string
-          filed_at: string
-          form: string
-          id: number
-          primary_document: string | null
-          symbol: string
-        }
-        Insert: {
-          accession_number: string
-          cik: string
-          fetched_at?: string
-          filed_at: string
-          form: string
-          id?: number
-          primary_document?: string | null
-          symbol: string
-        }
-        Update: {
-          accession_number?: string
-          cik?: string
-          fetched_at?: string
-          filed_at?: string
-          form?: string
-          id?: number
-          primary_document?: string | null
-          symbol?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "asset_sec_filings_symbol_fkey"
-            columns: ["symbol"]
-            isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["symbol"]
-          },
-        ]
-      }
       assets: {
         Row: {
-          cik: string | null
           delisted_at: string | null
           icon_base64: string | null
           icon_checked_at: string | null
@@ -330,7 +288,6 @@ export type Database = {
           type: Database["public"]["Enums"]["asset_type"]
         }
         Insert: {
-          cik?: string | null
           delisted_at?: string | null
           icon_base64?: string | null
           icon_checked_at?: string | null
@@ -342,7 +299,6 @@ export type Database = {
           type?: Database["public"]["Enums"]["asset_type"]
         }
         Update: {
-          cik?: string | null
           delisted_at?: string | null
           icon_base64?: string | null
           icon_checked_at?: string | null
@@ -1008,14 +964,14 @@ export type Database = {
           email: string
           email_notifications_enabled: boolean
           grok_sends_in_window: number
+          price_move_why_sends_in_window: number
+          price_move_why_window_start: string | null
           grok_window_start: string | null
           id: string
           last_grok_rumors_at: string | null
           market_scheduled_asset_price_enabled: boolean
           market_scheduled_asset_price_next_send_at: string | null
           market_scheduled_asset_price_times: number[] | null
-          price_move_why_sends_in_window: number
-          price_move_why_window_start: string | null
           telegram_chat_id: number | null
           telegram_id: number | null
           telegram_linked_at: string | null
@@ -1035,14 +991,14 @@ export type Database = {
           email: string
           email_notifications_enabled?: boolean
           grok_sends_in_window?: number
+          price_move_why_sends_in_window?: number
+          price_move_why_window_start?: string | null
           grok_window_start?: string | null
           id?: string
           last_grok_rumors_at?: string | null
           market_scheduled_asset_price_enabled?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
-          price_move_why_sends_in_window?: number
-          price_move_why_window_start?: string | null
           telegram_chat_id?: number | null
           telegram_id?: number | null
           telegram_linked_at?: string | null
@@ -1062,14 +1018,14 @@ export type Database = {
           email?: string
           email_notifications_enabled?: boolean
           grok_sends_in_window?: number
+          price_move_why_sends_in_window?: number
+          price_move_why_window_start?: string | null
           grok_window_start?: string | null
           id?: string
           last_grok_rumors_at?: string | null
           market_scheduled_asset_price_enabled?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
-          price_move_why_sends_in_window?: number
-          price_move_why_window_start?: string | null
           telegram_chat_id?: number | null
           telegram_id?: number | null
           telegram_linked_at?: string | null
@@ -1111,6 +1067,10 @@ export type Database = {
           p_threshold_percent: number
           p_user_id: string
         }
+        Returns: boolean
+      }
+      claim_price_move_why_budget: {
+        Args: { p_user_id: string }
         Returns: boolean
       }
       claim_scheduled_notification: {

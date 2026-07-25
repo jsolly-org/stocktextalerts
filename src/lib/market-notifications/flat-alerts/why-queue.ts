@@ -22,7 +22,6 @@ export type PriceMoveWhyMessage = {
 	isAcceleration: boolean;
 	lastNotificationAt: string | null;
 	iconUrl: string | null;
-	iconBase64: string | null;
 	reason?: string;
 };
 
@@ -107,16 +106,6 @@ export function parsePriceMoveWhyMessage(body: string): PriceMoveWhyMessage | nu
 		return null;
 	}
 
-	const iconBase64 =
-		parsed.iconBase64 === null
-			? null
-			: typeof parsed.iconBase64 === "string"
-				? parsed.iconBase64
-				: null;
-	if (parsed.iconBase64 !== null && parsed.iconBase64 !== undefined && iconBase64 === null) {
-		return null;
-	}
-
 	const dayOpen = parseOptionalFiniteNumber(parsed.quote.dayOpen);
 	const changePercent = parseOptionalFiniteNumber(parsed.quote.changePercent);
 
@@ -137,7 +126,6 @@ export function parsePriceMoveWhyMessage(body: string): PriceMoveWhyMessage | nu
 		isAcceleration: parsed.isAcceleration,
 		lastNotificationAt,
 		iconUrl,
-		iconBase64,
 		reason: typeof parsed.reason === "string" ? parsed.reason : undefined,
 	};
 }
@@ -163,7 +151,6 @@ export async function enqueuePriceMoveWhy(
 		isAcceleration: message.isAcceleration,
 		lastNotificationAt: message.lastNotificationAt,
 		iconUrl: message.iconUrl,
-		iconBase64: message.iconBase64,
 		reason: message.reason,
 	};
 

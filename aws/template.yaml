@@ -333,7 +333,9 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: stocktextalerts-price-move-why
-      VisibilityTimeout: 300
+      # > Lambda Timeout (300) so near-timeout kills are not redelivered while
+      # still in-flight. × maxReceiveCount (3) ≈ 18m < reserve pending TTL (20m).
+      VisibilityTimeout: 360
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt PriceMoveWhyDLQ.Arn
         maxReceiveCount: 3

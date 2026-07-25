@@ -14,7 +14,7 @@ import { finalizeFlatPriceAlert, releaseFlatPriceAlert } from "./state";
 import type { FlatPriceAlertUser } from "./users";
 import type { PriceMoveWhyVerdict } from "./why";
 import { generatePriceMoveWhyWithGrok } from "./why";
-import { canInvokePriceMoveWhy, updatePriceMoveWhySendCounter } from "./why-budget";
+import { claimPriceMoveWhyBudget } from "./why-budget";
 import type { PriceMoveWhyMessage } from "./why-queue";
 
 function emptyChannelStats(): ChannelDeliveryStats {
@@ -113,6 +113,17 @@ export async function processPriceMoveWhyAlert(options: {
 		return { delivered: false, stats: emptyChannelStats() };
 	}
 
+	// Refresh reservation clock so SQS retries stay inside the pending TTL.
+	const { error: touchError } = await supabase
+		.from("price_move_alert_state")
+		.update({ reserved_at: new Date().toISOString() })
+		.eq("user_id", userId)
+		.eq("symbol", symbol)
+		.eq("pending_delivery", true);
+	if (touchError) {
+		logger.warn("Failed to refresh reserved_at for why job", { userId, symbol }, touchError);
+	}
+
 	const user = await loadFlatPriceAlertUser(supabase, userId, logger);
 	if (!user) {
 		await releaseFlatPriceAlert(supabase, userId, symbol);
@@ -139,28 +150,30 @@ export async function processPriceMoveWhyAlert(options: {
 	let whyVerdict: PriceMoveWhyVerdict | null = null;
 	let whyUsed = false;
 
-	if (xaiAvailable && canInvokePriceMoveWhy(user, nowUtc)) {
-		const why = await generatePriceMoveWhyWithGrok({
-			symbol,
-			companyName: message.companyName,
-			triggerPercent: message.triggerPercent,
-			isAcceleration: message.isAcceleration,
-			priorWhySummary,
-			priorWhyVerdict,
-		});
-		if (why) {
-			whyText = why.text;
-			whyVerdict = why.verdict;
-			whyUsed = true;
+	if (xaiAvailable) {
+		const claimed = await claimPriceMoveWhyBudget(supabase, userId, logger);
+		if (claimed) {
+			const why = await generatePriceMoveWhyWithGrok({
+				symbol,
+				companyName: message.companyName,
+				triggerPercent: message.triggerPercent,
+				isAcceleration: message.isAcceleration,
+				priorWhySummary,
+				priorWhyVerdict,
+			});
+			if (why) {
+				whyText = why.text;
+				whyVerdict = why.verdict;
+				whyUsed = true;
+			}
+		} else {
+			logger.info("Price-move why skipped: budget exhausted or claim failed", {
+				userId,
+				symbol,
+			});
 		}
-	} else if (!xaiAvailable) {
-		logger.info("Price-move why skipped: XAI unavailable", { userId, symbol });
 	} else {
-		logger.info("Price-move why skipped: budget exhausted", {
-			userId,
-			symbol,
-			sendsInWindow: user.price_move_why_sends_in_window,
-		});
+		logger.info("Price-move why skipped: XAI unavailable", { userId, symbol });
 	}
 
 	let intraday = null;
@@ -200,7 +213,7 @@ export async function processPriceMoveWhyAlert(options: {
 		intraday,
 		sevenDaySparkline,
 		iconUrl: message.iconUrl,
-		iconBase64: message.iconBase64,
+		iconBase64: null,
 		supabase,
 		sendEmail,
 		sendTelegram,
@@ -229,7 +242,6 @@ export async function processPriceMoveWhyAlert(options: {
 					whyPersistError,
 				);
 			}
-			await updatePriceMoveWhySendCounter(supabase, userId, user, nowUtc, logger);
 		}
 		logger.info("Price-move why job delivered", {
 			userId,

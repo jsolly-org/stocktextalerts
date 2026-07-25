@@ -1,60 +1,12 @@
-import { DateTime } from "luxon";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { SupabaseAdminClient } from "../../../../src/lib/db/supabase";
 import type { Logger } from "../../../../src/lib/logging";
 import {
-	canInvokePriceMoveWhy,
+	claimPriceMoveWhyBudget,
 	PRICE_MOVE_WHY_MAX_SENDS_PER_WINDOW,
-	updatePriceMoveWhySendCounter,
 } from "../../../../src/lib/market-notifications/flat-alerts/why-budget";
 
-describe("canInvokePriceMoveWhy", () => {
-	it("allows when no window has started", () => {
-		expect(
-			canInvokePriceMoveWhy(
-				{ price_move_why_window_start: null, price_move_why_sends_in_window: 0 },
-				DateTime.fromISO("2026-07-25T12:00:00Z"),
-			),
-		).toBe(true);
-	});
-
-	it("allows when the rolling window has expired", () => {
-		expect(
-			canInvokePriceMoveWhy(
-				{
-					price_move_why_window_start: "2026-07-24T11:00:00.000Z",
-					price_move_why_sends_in_window: PRICE_MOVE_WHY_MAX_SENDS_PER_WINDOW,
-				},
-				DateTime.fromISO("2026-07-25T12:00:00Z"),
-			),
-		).toBe(true);
-	});
-
-	it("denies when the cap is reached inside the window", () => {
-		expect(
-			canInvokePriceMoveWhy(
-				{
-					price_move_why_window_start: "2026-07-25T01:00:00.000Z",
-					price_move_why_sends_in_window: PRICE_MOVE_WHY_MAX_SENDS_PER_WINDOW,
-				},
-				DateTime.fromISO("2026-07-25T12:00:00Z"),
-			),
-		).toBe(false);
-	});
-
-	it("allows when under the cap inside the window", () => {
-		expect(
-			canInvokePriceMoveWhy(
-				{
-					price_move_why_window_start: "2026-07-25T01:00:00.000Z",
-					price_move_why_sends_in_window: PRICE_MOVE_WHY_MAX_SENDS_PER_WINDOW - 1,
-				},
-				DateTime.fromISO("2026-07-25T12:00:00Z"),
-			),
-		).toBe(true);
-	});
-});
-
-describe("updatePriceMoveWhySendCounter", () => {
+describe("claimPriceMoveWhyBudget", () => {
 	const logger = {
 		error: vi.fn(),
 		info: vi.fn(),
@@ -66,49 +18,29 @@ describe("updatePriceMoveWhySendCounter", () => {
 		vi.clearAllMocks();
 	});
 
-	it("starts a new window when expired and only updates price_move_why_* columns", async () => {
-		const update = vi.fn(() => ({
-			eq: vi.fn(async () => ({ error: null })),
-		}));
-		const from = vi.fn(() => ({ update }));
-		const supabase = { from } as never;
-		const user = {
-			price_move_why_window_start: "2026-07-24T01:00:00.000Z",
-			price_move_why_sends_in_window: 19,
-		};
+	it("returns true when the RPC claims a slot", async () => {
+		const rpc = vi.fn(async () => ({ data: true, error: null }));
+		const supabase = { rpc } as unknown as SupabaseAdminClient;
 
-		const now = DateTime.fromISO("2026-07-25T12:00:00.000Z", { setZone: true });
-		await updatePriceMoveWhySendCounter(supabase, "user-1", user, now, logger);
-
-		expect(from).toHaveBeenCalledWith("users");
-		expect(update).toHaveBeenCalledWith({
-			price_move_why_window_start: now.toISO(),
-			price_move_why_sends_in_window: 1,
+		await expect(claimPriceMoveWhyBudget(supabase, "user-1", logger)).resolves.toBe(true);
+		expect(rpc).toHaveBeenCalledWith("claim_price_move_why_budget", {
+			p_user_id: "user-1",
 		});
-		expect(user.price_move_why_sends_in_window).toBe(1);
+		expect(PRICE_MOVE_WHY_MAX_SENDS_PER_WINDOW).toBe(20);
 	});
 
-	it("increments within an active window", async () => {
-		const update = vi.fn(() => ({
-			eq: vi.fn(async () => ({ error: null })),
-		}));
-		const supabase = { from: vi.fn(() => ({ update })) } as never;
-		const user = {
-			price_move_why_window_start: "2026-07-25T01:00:00.000Z",
-			price_move_why_sends_in_window: 3,
-		};
+	it("returns false when the cap is reached", async () => {
+		const rpc = vi.fn(async () => ({ data: false, error: null }));
+		const supabase = { rpc } as unknown as SupabaseAdminClient;
 
-		await updatePriceMoveWhySendCounter(
-			supabase,
-			"user-1",
-			user,
-			DateTime.fromISO("2026-07-25T12:00:00Z"),
-			logger,
-		);
+		await expect(claimPriceMoveWhyBudget(supabase, "user-1", logger)).resolves.toBe(false);
+	});
 
-		expect(update).toHaveBeenCalledWith({
-			price_move_why_window_start: "2026-07-25T01:00:00.000Z",
-			price_move_why_sends_in_window: 4,
-		});
+	it("returns false and logs on RPC error", async () => {
+		const rpc = vi.fn(async () => ({ data: null, error: { message: "boom" } }));
+		const supabase = { rpc } as unknown as SupabaseAdminClient;
+
+		await expect(claimPriceMoveWhyBudget(supabase, "user-1", logger)).resolves.toBe(false);
+		expect(logger.error).toHaveBeenCalled();
 	});
 });
