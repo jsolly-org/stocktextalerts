@@ -132,14 +132,19 @@ export function buildSubject(options: {
 	currentPrice: number;
 	triggerPercent: number;
 	isReTrigger: boolean;
+	isAcceleration?: boolean;
 }): string {
-	const { symbol, currentPrice, triggerPercent, isReTrigger } = options;
+	const { symbol, currentPrice, triggerPercent, isReTrigger, isAcceleration } = options;
 	const arrow = triggerPercent >= 0 ? "↑" : "↓";
 	// Alert SUBJECT rounds change% to 1 decimal for readability — deliberately coarser
 	// than the 2-decimal precision on multi-asset price lines (asset-formatting.ts), mirroring
 	// the price-alert headline (renderPriceAlertHeadline in parts/price-alert-sentences.ts).
 	const absPct = Math.abs(triggerPercent).toFixed(1);
-	const suffix = isReTrigger ? "since last alert" : "today";
+	const suffix = isAcceleration
+		? "accelerating since last alert"
+		: isReTrigger
+			? "since last alert"
+			: "today";
 	return `${symbol} ${arrow} ${absPct}% ${suffix} — ${formatUsdPrice(currentPrice)}`;
 }
 

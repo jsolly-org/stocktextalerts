@@ -40,4 +40,16 @@ describe("renderPriceAlertHeadline renders a single-asset headline from structur
 			}),
 		).toBe("BRK.B is up 5.0% since last alert (27 min ago) ($1,234.50)");
 	});
+
+	it("uses accelerating wording for same-direction half-step alerts", () => {
+		expect(
+			renderPriceAlertHeadline({
+				symbol: "AAPL",
+				changePercent: 2.5,
+				price: 200.0,
+				period: "since last alert (12 min ago)",
+				isAcceleration: true,
+			}),
+		).toBe("AAPL is accelerating up 2.5% since last alert (12 min ago) ($200.00)");
+	});
 });

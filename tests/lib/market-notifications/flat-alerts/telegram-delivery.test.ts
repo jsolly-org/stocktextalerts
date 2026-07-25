@@ -106,6 +106,7 @@ async function deliver(options: {
 		baseline: 194.42,
 		triggerPercent: -11.0,
 		isReTrigger: false,
+		isAcceleration: false,
 		lastNotificationAt: null,
 		nowMs: Date.now(),
 		intraday: null,
