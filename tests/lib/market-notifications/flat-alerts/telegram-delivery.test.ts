@@ -84,6 +84,8 @@ function makeUser(overrides: Partial<FlatPriceAlertUser> = {}): FlatPriceAlertUs
 		use_24_hour_time: false,
 		telegram_chat_id: null,
 		telegram_opted_out: false,
+		price_move_why_window_start: null,
+		price_move_why_sends_in_window: 0,
 		prefs: [],
 		...overrides,
 	};

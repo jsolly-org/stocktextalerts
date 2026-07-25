@@ -296,6 +296,7 @@ deploy_code AssetMaintenanceFunction stocktextalerts-asset-maintenance
 deploy_code EmailDispatchFunction stocktextalerts-email-dispatch
 deploy_code ComputeDailyStatsFunction stocktextalerts-compute-daily-stats
 deploy_code VendorBackfillFunction stocktextalerts-vendor-backfill
+deploy_code PriceMoveWhyFunction stocktextalerts-price-move-why
 deploy_code LiveProviderCheckFunction stocktextalerts-live-provider-check
 deploy_code BackupUserSettingsFunction stocktextalerts-backup-user-settings
 

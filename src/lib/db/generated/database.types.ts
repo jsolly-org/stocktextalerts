@@ -679,6 +679,9 @@ export type Database = {
           last_alert_direction: number | null
           last_notification_at: string
           last_notification_price: number
+          last_why_at: string | null
+          last_why_summary: string | null
+          last_why_verdict: string | null
           pending_alert_direction: number | null
           pending_delivery: boolean
           pending_new_price: number | null
@@ -691,6 +694,9 @@ export type Database = {
           last_alert_direction?: number | null
           last_notification_at?: string
           last_notification_price: number
+          last_why_at?: string | null
+          last_why_summary?: string | null
+          last_why_verdict?: string | null
           pending_alert_direction?: number | null
           pending_delivery?: boolean
           pending_new_price?: number | null
@@ -703,6 +709,9 @@ export type Database = {
           last_alert_direction?: number | null
           last_notification_at?: string
           last_notification_price?: number
+          last_why_at?: string | null
+          last_why_summary?: string | null
+          last_why_verdict?: string | null
           pending_alert_direction?: number | null
           pending_delivery?: boolean
           pending_new_price?: number | null
@@ -1005,6 +1014,8 @@ export type Database = {
           market_scheduled_asset_price_enabled: boolean
           market_scheduled_asset_price_next_send_at: string | null
           market_scheduled_asset_price_times: number[] | null
+          price_move_why_sends_in_window: number
+          price_move_why_window_start: string | null
           telegram_chat_id: number | null
           telegram_id: number | null
           telegram_linked_at: string | null
@@ -1030,6 +1041,8 @@ export type Database = {
           market_scheduled_asset_price_enabled?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
+          price_move_why_sends_in_window?: number
+          price_move_why_window_start?: string | null
           telegram_chat_id?: number | null
           telegram_id?: number | null
           telegram_linked_at?: string | null
@@ -1055,6 +1068,8 @@ export type Database = {
           market_scheduled_asset_price_enabled?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
+          price_move_why_sends_in_window?: number
+          price_move_why_window_start?: string | null
           telegram_chat_id?: number | null
           telegram_id?: number | null
           telegram_linked_at?: string | null
@@ -1096,6 +1111,10 @@ export type Database = {
           p_threshold_percent: number
           p_user_id: string
         }
+        Returns: boolean
+      }
+      claim_price_move_why_budget: {
+        Args: { p_user_id: string }
         Returns: boolean
       }
       claim_scheduled_notification: {

@@ -106,6 +106,11 @@ Resources:
               Action:
                 - sqs:SendMessage
               Resource: !GetAtt VendorBackfillQueue.Arn
+            # Price-move why fan-out (one job per user+symbol after claim).
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource: !GetAtt PriceMoveWhyQueue.Arn
             # Read this app's runtime secrets (SSM SecureString). One namespace
             # wildcard rather than 11 per-secret ARNs — same-app boundary. No
             # kms:Decrypt grant needed for the AWS-managed alias/aws/ssm key.
@@ -117,6 +122,7 @@ Resources:
           SITE_URL: !Ref SiteUrl
           EMAIL_FROM: !Ref EmailFrom
           VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
+          PRICE_MOVE_WHY_QUEUE_URL: !Ref PriceMoveWhyQueue
           MASSIVE_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/massive-api-key"
           XAI_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/xai-api-key"
           TELEGRAM_BOT_TOKEN_SSM_PARAM: !Sub "${SsmPrefix}/telegram-bot-token"
@@ -316,6 +322,77 @@ Resources:
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt VendorBackfillDLQ.Arn
         maxReceiveCount: 5
+
+  PriceMoveWhyDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: stocktextalerts-price-move-why-dlq
+      MessageRetentionPeriod: 1209600
+
+  PriceMoveWhyQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: stocktextalerts-price-move-why
+      # > Lambda Timeout (300) so near-timeout kills are not redelivered while
+      # still in-flight. × maxReceiveCount (3) ≈ 18m < reserve pending TTL (20m).
+      VisibilityTimeout: 360
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt PriceMoveWhyDLQ.Arn
+        maxReceiveCount: 3
+
+  PriceMoveWhyFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Format: cjs
+        Target: node24
+        Sourcemap: true
+        EntryPoints:
+          - delivery/price-move-why.ts
+        # Chart rasterization is @resvg/resvg-wasm (pure WASM); deploy-web.sh's
+        # copy_chart_assets ships the .wasm + fonts into every function bundle.
+    Properties:
+      FunctionName: stocktextalerts-price-move-why
+      Handler: price-move-why.handler
+      CodeUri: src/handlers
+      Timeout: 300
+      MemorySize: 512
+      LoggingConfig:
+        LogGroup: !Ref PriceMoveWhyLogGroup
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt PriceMoveWhyQueue.QueueName
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${SesIdentityDomain}"
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*"
+      Environment:
+        Variables:
+          SITE_URL: !Ref SiteUrl
+          EMAIL_FROM: !Ref EmailFrom
+          PRICE_MOVE_WHY_QUEUE_URL: !Ref PriceMoveWhyQueue
+          MASSIVE_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/massive-api-key"
+          XAI_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/xai-api-key"
+          TELEGRAM_BOT_TOKEN_SSM_PARAM: !Sub "${SsmPrefix}/telegram-bot-token"
+          SUPABASE_URL_SSM_PARAM: !Sub "${SsmPrefix}/supabase-url"
+          SUPABASE_SECRET_KEY_SSM_PARAM: !Sub "${SsmPrefix}/supabase-secret-key"
+          UNSUBSCRIBE_TOKEN_SECRET_SSM_PARAM: !Sub "${SsmPrefix}/unsubscribe-token-secret"
+      Events:
+        PriceMoveWhyQueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt PriceMoveWhyQueue.Arn
+            BatchSize: 1
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
 
   VendorBackfillFunction:
     Type: AWS::Serverless::Function
@@ -706,6 +783,12 @@ Resources:
       LogGroupName: /aws/lambda/stocktextalerts-vendor-backfill
       RetentionInDays: 30
 
+  PriceMoveWhyLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/stocktextalerts-price-move-why
+      RetentionInDays: 30
+
   BackupUserSettingsLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -780,6 +863,17 @@ Resources:
           MetricValue: "1"
           DefaultValue: 0
 
+  PriceMoveWhyErrorLogFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref PriceMoveWhyLogGroup
+      FilterPattern: '{ $.level = "error" }'
+      MetricTransformations:
+        - MetricNamespace: stocktextalerts
+          MetricName: ErrorLogCount
+          MetricValue: "1"
+          DefaultValue: 0
+
   BackupUserSettingsErrorLogFilter:
     Type: AWS::Logs::MetricFilter
     Properties:
@@ -842,6 +936,17 @@ Resources:
           MetricValue: "1"
           DefaultValue: 0
 
+  PriceMoveWhyVendorRetryFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref PriceMoveWhyLogGroup
+      FilterPattern: '{ $.context.category = "vendor_retry_exhausted" }'
+      MetricTransformations:
+        - MetricNamespace: stocktextalerts
+          MetricName: PriceMoveWhyVendorRetryCount
+          MetricValue: "1"
+          DefaultValue: 0
+
   # ---------- Aggregate Error Log Alarm ----------
   # Pages on any error EXCEPT upstream-vendor retry exhaustion. Uses metric
   # math to subtract the per-Lambda vendor-retry counts from the total.
@@ -853,7 +958,7 @@ Resources:
       AlarmDescription: ERROR logged in stocktextalerts Lambda functions (excluding vendor retry exhaustion)
       Metrics:
         - Id: non_vendor_errors
-          Expression: "all_errors - sched_vr - assetmaint_vr - cds_vr - vb_vr"
+          Expression: "all_errors - sched_vr - assetmaint_vr - cds_vr - vb_vr - pmw_vr"
           Label: Non-vendor-retry errors
           ReturnData: true
         - Id: all_errors
@@ -893,6 +998,14 @@ Resources:
             Metric:
               Namespace: stocktextalerts
               MetricName: VendorBackfillVendorRetryCount
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: pmw_vr
+          MetricStat:
+            Metric:
+              Namespace: stocktextalerts
+              MetricName: PriceMoveWhyVendorRetryCount
             Period: 60
             Stat: Sum
           ReturnData: false
@@ -1002,6 +1115,48 @@ Resources:
       Dimensions:
         - Name: FunctionName
           Value: !Ref VendorBackfillFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
+  PriceMoveWhyDLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-price-move-why-dlq
+      AlarmDescription: Poison messages in PriceMoveWhyDLQ require operator attention
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt PriceMoveWhyDLQ.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
+  PriceMoveWhyFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-price-move-why-lambda-errors
+      AlarmDescription: PriceMoveWhyFunction threw / timed out / OOMed
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref PriceMoveWhyFunction
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1

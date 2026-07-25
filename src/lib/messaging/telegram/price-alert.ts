@@ -14,12 +14,53 @@ import { buildDashboardButton } from "./dashboard-button";
 import { optOutIfBotBlocked } from "./opt-out";
 import { renderChartPng } from "./render-png";
 
+/** Telegram sendPhoto caption limit (UTF-16 code units; JS string length). */
+const TELEGRAM_CAPTION_MAX_UTF16 = 1024;
+/** Leave a small margin so entity formatting / edge cases do not exceed the cap. */
+const TELEGRAM_CAPTION_MARGIN = 16;
+
 /** Rendered Telegram price alert: entity-formatted caption/text + optional candlestick PNG. */
 export interface TelegramPriceAlert {
 	text: string;
 	entities: MessageEntity[];
 	/** Candlestick PNG for `sendPhoto`, or null to send text-only (too few candles / render failed). */
 	photo: Buffer | null;
+}
+
+/** Truncate plain text to at most `maxLen` UTF-16 code units, appending an ellipsis when cut. */
+function truncateUtf16(text: string, maxLen: number): string {
+	if (maxLen <= 0) return "";
+	if (text.length <= maxLen) return text;
+	if (maxLen <= 1) return "…";
+	return `${text.slice(0, maxLen - 1)}…`;
+}
+
+function fitWhyForCaption(options: {
+	prefix: string;
+	why: string;
+	footer: string;
+	hasPhoto: boolean;
+}): string | null {
+	const { prefix, why, footer, hasPhoto } = options;
+	const whyTrimmed = why.trim();
+	if (whyTrimmed === "") return null;
+
+	const withWhy = (whyPart: string) => `${prefix}\n\n${whyPart}\n\n${footer}`;
+	if (!hasPhoto) {
+		return whyTrimmed;
+	}
+
+	const budget =
+		TELEGRAM_CAPTION_MAX_UTF16 - TELEGRAM_CAPTION_MARGIN - `${prefix}\n\n\n\n${footer}`.length;
+	if (budget < 12) {
+		return null;
+	}
+
+	const truncated = truncateUtf16(whyTrimmed, budget);
+	if (withWhy(truncated).length <= TELEGRAM_CAPTION_MAX_UTF16 - TELEGRAM_CAPTION_MARGIN) {
+		return truncated;
+	}
+	return null;
 }
 
 /**
@@ -44,8 +85,6 @@ export async function formatPriceAlertTelegram(
 	let msg = fmt`${boldTicker}\n${renderPriceAlertHeadline(alert.priceMove)}`;
 	msg = fmt`${msg}\n${buildDataRecencyText()}`;
 
-	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
-
 	let photo: Buffer | null = null;
 	if (candles.length >= 2) {
 		const svg = buildCandlestickSvg(candles, {
@@ -62,6 +101,28 @@ export async function formatPriceAlertTelegram(
 				candleCount: candles.length,
 			});
 		}
+	}
+
+	const whyFit = alert.why
+		? fitWhyForCaption({
+				prefix: msg.text,
+				why: alert.why,
+				footer: TELEGRAM_FOOTER,
+				hasPhoto: photo !== null,
+			})
+		: null;
+	if (whyFit) {
+		msg = fmt`${msg}\n\n${whyFit}`;
+	}
+
+	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
+
+	// Final safety: if a photo caption still exceeds the hard limit, drop why and rebuild.
+	if (photo !== null && msg.text.length > TELEGRAM_CAPTION_MAX_UTF16) {
+		const boldTickerRetry = FormattedString.bold(`🚨 ${alert.symbol}`);
+		msg = fmt`${boldTickerRetry}\n${renderPriceAlertHeadline(alert.priceMove)}`;
+		msg = fmt`${msg}\n${buildDataRecencyText()}`;
+		msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
 	}
 
 	return { text: msg.text, entities: msg.entities, photo };

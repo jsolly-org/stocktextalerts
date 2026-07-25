@@ -30,6 +30,8 @@ export interface EnrichedAlert {
 	prevClose: number | null;
 	/** True when price moved up (changePercent >= 0). Used for subject-line direction. */
 	isPositiveMove: boolean;
+	/** Optional Grok "why" blurb for this move (fail-open; may be absent). */
+	why?: string;
 	/** Logo URL from the assets table (fetched at delivery time). */
 	iconUrl?: string | null;
 	/** Pre-cached base64 logo data URI from the assets table. */

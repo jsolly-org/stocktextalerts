@@ -91,6 +91,11 @@ export const RPC_PRIVILEGES: RpcPrivilege[] = [
 		reason: "Schedule Lambda releases a flat-price-alert slot on send failure",
 	},
 	{
+		signature: "claim_price_move_why_budget(p_user_id uuid)",
+		class: "server-only",
+		reason: "Price-move why worker atomically reserves one slot in the 20/24h Grok why budget",
+	},
+	{
 		signature: "claim_scheduled_notification(p_user_id uuid, p_notification_type scheduled_notification_type, p_scheduled_date date, p_scheduled_minutes integer, p_channel delivery_method)",
 		class: "server-only",
 		reason: "Schedule Lambda claims a digest/scheduled-notification delivery slot",

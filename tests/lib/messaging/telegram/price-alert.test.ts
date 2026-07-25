@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../../src/lib/db/supabase";
+import { TELEGRAM_FOOTER } from "../../../../src/lib/messaging/parts/footer";
 import {
 	deliverTelegramPriceAlert,
 	formatPriceAlertTelegram,
@@ -60,6 +61,30 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 		const single = await formatPriceAlertTelegram(makeAlert(), makeCandles(1));
 		expect(single.photo).toBeNull();
 		expect(single.text).toContain("LDOS");
+	});
+
+	it("inserts a why blurb after recency and before the footer", async () => {
+		const why = "Still the same story: Guidance optimism remains the driver.";
+		const result = await formatPriceAlertTelegram(makeAlert({ why }), []);
+		expect(result.text).toContain(why);
+		const whyIdx = result.text.indexOf(why);
+		const recencyIdx = result.text.indexOf("Prices delayed");
+		const footerIdx = result.text.lastIndexOf("\n\n");
+		expect(whyIdx).toBeGreaterThan(recencyIdx);
+		expect(whyIdx).toBeLessThan(footerIdx);
+		expect(result.text.endsWith(TELEGRAM_FOOTER) || result.text.includes(TELEGRAM_FOOTER)).toBe(
+			true,
+		);
+	});
+
+	it("truncates or drops why rather than exceeding the photo caption limit", async () => {
+		const hugeWhy = `Update: ${"x".repeat(1200)}`;
+		const result = await formatPriceAlertTelegram(makeAlert({ why: hugeWhy }), makeCandles(6));
+		expect(result.photo).toBeInstanceOf(Buffer);
+		expect(result.text.length).toBeLessThanOrEqual(1024);
+		// Still delivers the alert body even if why had to be dropped/truncated.
+		expect(result.text).toContain("LDOS");
+		expect(result.text).toContain("down 11.1%");
 	});
 });
 

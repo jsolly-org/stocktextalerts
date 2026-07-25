@@ -14,6 +14,8 @@ const user: FlatPriceAlertUser = {
 	use_24_hour_time: false,
 	telegram_chat_id: null,
 	telegram_opted_out: false,
+	price_move_why_window_start: null,
+	price_move_why_sends_in_window: 0,
 	prefs: [],
 };
 
@@ -63,5 +65,29 @@ describe("Price move alert email layout", () => {
 				isAcceleration: true,
 			}),
 		).toBe("AAPL ↑ 2.6% accelerating since last alert — $205.20");
+	});
+
+	it("includes a why blurb after price rows and before the dashboard CTA", () => {
+		const why =
+			"Update: Shares jumped after the company raised full-year guidance [Reuters](https://www.reuters.com/example).";
+		const { text, html } = formatFlatPriceAlertEmail({
+			user,
+			symbol: "DELL",
+			companyName: "Dell Technologies Inc.",
+			quote,
+			baseline: 421.58,
+			isReTrigger: true,
+			lastNotificationAt: new Date("2026-07-15T16:00:00Z"),
+			nowMs: Date.parse("2026-07-15T17:00:00Z"),
+			intraday: null,
+			sevenDaySparkline: null,
+			logoHtml: undefined,
+			whyText: why,
+		});
+
+		expect(text).toContain(why);
+		expect(text.indexOf(why)).toBeLessThan(text.indexOf("View Dashboard:"));
+		expect(html).toContain(why);
+		expect(html.indexOf(why)).toBeLessThan(html.indexOf("View Dashboard"));
 	});
 });
