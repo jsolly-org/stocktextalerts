@@ -378,13 +378,10 @@ export async function processDailyDigestUser(options: {
 				ipo: telegramFacets.has("ipo"),
 				insider: telegramFacets.has("insider"),
 				analyst: telegramFacets.has("analyst"),
+				filings: telegramFacets.has("filings"),
 			};
 			const wantsAssetEventsTelegram =
-				telegramEnabled &&
-				(telegramAssetEventFacets.calendar ||
-					telegramAssetEventFacets.ipo ||
-					telegramAssetEventFacets.insider ||
-					telegramAssetEventFacets.analyst);
+				telegramEnabled && anyDailyAssetEventFacetEnabled(user.prefs, "telegram");
 
 			const assetEventChannels: Array<"email"> = [];
 			if (wantsAssetEventsEmail) assetEventChannels.push("email");

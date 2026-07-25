@@ -1,5 +1,10 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
 import type { buildAssetEventsContent } from "../../asset-events/content";
+import { formatFilingsSectionTelegram } from "../../asset-events/filings-format";
+import {
+	formatFilingsSectionMarkdown,
+	formatFilingsSectionPlainText,
+} from "../../asset-events/format";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import type { TopMover } from "../../market-data/types";
 import {
@@ -231,6 +236,12 @@ export function formatDailyDigestEmail(options: {
 	const ipos = (ae?.eventsSection?.ipos ?? "").trim();
 	const analyst = (ae?.analystSection ?? "").trim();
 	const insider = (ae?.insiderSection ?? "").trim();
+	const filingsMarkdown = ae?.filingsLines?.length
+		? formatFilingsSectionMarkdown(ae.filingsLines)
+		: null;
+	const filingsPlain = ae?.filingsLines?.length
+		? formatFilingsSectionPlainText(ae.filingsLines)
+		: null;
 	const topMovers = options.extras.topMovers ? renderTopMoversBody(options.extras.topMovers) : "";
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
@@ -281,6 +292,7 @@ export function formatDailyDigestEmail(options: {
 		ipos ? `\n🆕 Upcoming IPOs\n${ipos}` : "",
 		analyst ? `\n📊 Analyst Consensus\n${analyst}` : "",
 		insider ? `\n🏦 Insider Trades\n${insider}` : "",
+		filingsPlain ? `\n📄 SEC Filings\n${filingsPlain}` : "",
 		topMovers ? `\n🚀 Top Movers\n${topMovers}` : "",
 		`\nManage your notifications: ${urls.dashboardUrl}`,
 		`Manage your delivery schedule: ${urls.scheduleUrl}`,
@@ -328,6 +340,7 @@ export function formatDailyDigestEmail(options: {
 		})}
 		${renderEmailSection("📊", "Analyst Consensus", analyst, { showFinnhubLogo: true })}
 		${renderEmailSection("🏦", "Insider Trades", insider, { showFinnhubLogo: true })}
+		${renderEmailSection("📄", "SEC Filings", filingsMarkdown ?? "")}
 		${renderEmailSection("🚀", "Top Movers", topMovers, { showMassiveLogo: true })}
 		<div style="text-align: center; margin-top: 20px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
@@ -427,6 +440,12 @@ export function formatDailyDigestTelegram(opts: {
 	}
 	if (ae?.analystSection) {
 		msg = fmt`${msg}\n\n${FormattedString.bold("📊 Analyst Consensus (published monthly on the 1st)")}\n${boldTickerPrefixesTelegram(ae.analystSection)}`;
+	}
+	const filingsTelegram = ae?.filingsLines?.length
+		? formatFilingsSectionTelegram(ae.filingsLines)
+		: null;
+	if (filingsTelegram) {
+		msg = fmt`${msg}\n\n${FormattedString.bold("📄 SEC Filings")}\n${filingsTelegram}`;
 	}
 
 	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;

@@ -275,8 +275,50 @@ export type Database = {
         }
         Relationships: []
       }
+      asset_sec_filings: {
+        Row: {
+          accession_number: string
+          cik: string
+          fetched_at: string
+          filed_at: string
+          form: string
+          id: number
+          primary_document: string | null
+          symbol: string
+        }
+        Insert: {
+          accession_number: string
+          cik: string
+          fetched_at?: string
+          filed_at: string
+          form: string
+          id?: number
+          primary_document?: string | null
+          symbol: string
+        }
+        Update: {
+          accession_number?: string
+          cik?: string
+          fetched_at?: string
+          filed_at?: string
+          form?: string
+          id?: number
+          primary_document?: string | null
+          symbol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_sec_filings_symbol_fkey"
+            columns: ["symbol"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["symbol"]
+          },
+        ]
+      }
       assets: {
         Row: {
+          cik: string | null
           delisted_at: string | null
           icon_base64: string | null
           icon_checked_at: string | null
@@ -288,6 +330,7 @@ export type Database = {
           type: Database["public"]["Enums"]["asset_type"]
         }
         Insert: {
+          cik?: string | null
           delisted_at?: string | null
           icon_base64?: string | null
           icon_checked_at?: string | null
@@ -299,6 +342,7 @@ export type Database = {
           type?: Database["public"]["Enums"]["asset_type"]
         }
         Update: {
+          cik?: string | null
           delisted_at?: string | null
           icon_base64?: string | null
           icon_checked_at?: string | null

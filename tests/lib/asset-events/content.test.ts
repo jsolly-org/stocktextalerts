@@ -113,6 +113,28 @@ function createAssetEventsSupabase(options: {
 				};
 			}
 
+			if (table === "asset_sec_filings") {
+				return {
+					select() {
+						const query = {
+							in() {
+								return query;
+							},
+							gte() {
+								return query;
+							},
+							order() {
+								return query;
+							},
+							limit() {
+								return Promise.resolve({ data: [], error: null });
+							},
+						};
+						return query;
+					},
+				};
+			}
+
 			throw new Error(`Unexpected table: ${table}`);
 		},
 	};
@@ -420,7 +442,13 @@ describe("buildAssetEventsContentForChannels Telegram facets", () => {
 			localDate: "2026-02-10",
 			tickers: ["AAPL"],
 			channels: [],
-			telegramFacets: { calendar: true, ipo: false, insider: false, analyst: false },
+			telegramFacets: {
+				calendar: true,
+				ipo: false,
+				insider: false,
+				analyst: false,
+				filings: false,
+			},
 		});
 
 		expect(result.telegram).not.toBeNull();
@@ -447,7 +475,13 @@ describe("buildAssetEventsContentForChannels Telegram facets", () => {
 			localDate: "2026-02-10",
 			tickers: ["AAPL"],
 			channels: [],
-			telegramFacets: { calendar: false, ipo: false, insider: false, analyst: false },
+			telegramFacets: {
+				calendar: false,
+				ipo: false,
+				insider: false,
+				analyst: false,
+				filings: false,
+			},
 		});
 
 		expect(result.telegram).toBeNull();

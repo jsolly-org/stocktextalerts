@@ -13,6 +13,7 @@ import type { Context, ScheduledEvent } from "aws-lambda";
 import { DateTime } from "luxon";
 import { fetchAndStoreFinnhubEnrichment } from "../../lib/asset-events/enrichment-store";
 import { fetchAndStoreAssetEvents } from "../../lib/asset-events/fetch";
+import { fetchAndStoreSecFilings } from "../../lib/asset-events/sec-filings";
 import type { AssetEventProvider } from "../../lib/asset-events/types";
 import { runDelistingSweep } from "../../lib/assets/delisting-sweep";
 import { runUniverseReconcile } from "../../lib/assets/universe-reconcile";
@@ -27,6 +28,7 @@ import {
 	PM_DISCOVERY_MIN_REMAINING_MS,
 	PM_REFRESH_MIN_REMAINING_MS,
 	RECONCILE_MIN_REMAINING_MS,
+	SEC_FILINGS_MIN_REMAINING_MS,
 	SWEEP_MIN_REMAINING_MS,
 } from "./constants";
 
@@ -138,6 +140,18 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				{ action: "fetch_finnhub_enrichment" },
 				error,
 			);
+		}
+
+		if (stepFitsRemainingTime(context, logger, "sec_filings", SEC_FILINGS_MIN_REMAINING_MS)) {
+			try {
+				await fetchAndStoreSecFilings({ supabase, logger });
+			} catch (error) {
+				logger.error(
+					"SEC filings ingest failed (continuing with prediction-market refresh)",
+					{ action: "fetch_sec_filings" },
+					error,
+				);
+			}
 		}
 
 		// Refresh all active matched prediction-market event/outcome snapshots so
