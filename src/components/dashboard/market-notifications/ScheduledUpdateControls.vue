@@ -9,7 +9,15 @@
 		<div class="py-3">
 			<fieldset class="grid gap-3">
 				<legend class="block text-base font-semibold text-heading mb-1">
-					Delivery times
+					<span class="inline-flex items-center gap-2">
+						Delivery times
+						<span
+							class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-active text-label"
+							:aria-label="`${scheduledUpdateTimes.length} of ${maxTimes} delivery times selected`"
+						>
+							{{ scheduledUpdateTimes.length }}/{{ maxTimes }}
+						</span>
+					</span>
 					<span class="block text-sm font-normal text-body-secondary mt-0.5">
 						Choose up to {{ maxTimes }} time slots. Times shown in
 						<a href="/profile#timezone-heading" class="link-primary">your local timezone</a>, anchored to
