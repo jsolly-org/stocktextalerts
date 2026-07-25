@@ -28,6 +28,19 @@ export const KALSHI_MAX_CALLS_PER_MINUTE = 60;
 export const PREDICTION_MARKET_USER_AGENT = "StockTextAlerts/1.0 (+https://stocktextalerts.com)";
 
 /**
+ * User-Agent for SEC EDGAR fair-access policy (name + contact required).
+ * @see https://www.sec.gov/os/accessing-edgar-data
+ */
+export const SEC_EDGAR_USER_AGENT =
+	"StockTextAlerts/1.0 (https://stocktextalerts.com; contact@stocktextalerts.com)";
+
+/** SEC company ticker → CIK map (JSON object keyed by row index). */
+export const SEC_COMPANY_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json";
+
+/** SEC submissions API base (append CIK##########.json). */
+export const SEC_SUBMISSIONS_BASE_URL = "https://data.sec.gov/submissions";
+
+/**
  * Proactive per-process Finnhub call budget (earnings / analyst / insider only). Free tier
  * allows 60/min per key; 55 leaves headroom for clock skew. Per-process, so maintenance
  * Lambdas and the live-check each get their own window — the 429/Retry-After handling in
