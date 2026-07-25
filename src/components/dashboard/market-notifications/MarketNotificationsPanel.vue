@@ -154,7 +154,7 @@
 							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
 						</div>
 						<p id="price_move_alerts_description" class="text-sm text-body-secondary mt-0.5">
-							Get notified when a tracked stock moves past a threshold you set — as a percent or a dollar change in a single trading day. Measured from yesterday's close on the first alert, then re-triggered on each additional move of that size.
+							Get notified when a tracked stock moves past a threshold you set — as a percent or a dollar change in a single trading day. First alert uses your full threshold from yesterday's close. If the move continues in the same direction, the next alert fires at half that threshold (e.g. 5% → 2.5%, or $4 → $2). A move the other way still needs the full threshold from the last alert.
 						</p>
 						<p class="text-xs text-muted mt-1">
 							Set a threshold per stock below. Clear a value to turn alerts off for that stock.

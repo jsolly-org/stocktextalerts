@@ -8,6 +8,8 @@ export interface PriceMoveFacts {
 	price: number;
 	/** Time-window phrase, e.g. "today" or "since last alert (27 min ago)". */
 	period: string;
+	/** True when this alert is a same-direction half-step continuation. */
+	isAcceleration?: boolean;
 }
 
 /** Price-move alert enriched with intraday closing prices for sparkline / candlestick rendering. */

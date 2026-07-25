@@ -632,8 +632,10 @@ export type Database = {
       price_move_alert_state: {
         Row: {
           first_of_day_reservation: boolean
+          last_alert_direction: number | null
           last_notification_at: string
           last_notification_price: number
+          pending_alert_direction: number | null
           pending_delivery: boolean
           pending_new_price: number | null
           reserved_at: string | null
@@ -642,8 +644,10 @@ export type Database = {
         }
         Insert: {
           first_of_day_reservation?: boolean
+          last_alert_direction?: number | null
           last_notification_at?: string
           last_notification_price: number
+          pending_alert_direction?: number | null
           pending_delivery?: boolean
           pending_new_price?: number | null
           reserved_at?: string | null
@@ -652,8 +656,10 @@ export type Database = {
         }
         Update: {
           first_of_day_reservation?: boolean
+          last_alert_direction?: number | null
           last_notification_at?: string
           last_notification_price?: number
+          pending_alert_direction?: number | null
           pending_delivery?: boolean
           pending_new_price?: number | null
           reserved_at?: string | null

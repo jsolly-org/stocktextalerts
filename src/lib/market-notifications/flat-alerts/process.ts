@@ -17,6 +17,7 @@ import {
 	reserveFlatPriceAlert,
 	stateKey,
 } from "./state";
+import { effectivePriceMoveThreshold, priceMoveDirection } from "./threshold";
 import type { PriceMoveThreshold } from "./types";
 import { type FlatPriceAlertUser, fetchFlatPriceAlertUsers } from "./users";
 
@@ -41,6 +42,7 @@ interface EligibleAlert {
 	baseline: number;
 	triggerPercent: number;
 	isReTrigger: boolean;
+	isAcceleration: boolean;
 	lastNotificationAt: Date | null;
 }
 
@@ -209,13 +211,21 @@ export async function processFlatPriceAlerts(options: {
 		}
 
 		// Unit-aware threshold check against the per-stock configured value.
-		// movePct is always computed for display, regardless of the trigger unit.
+		// Same-direction re-triggers use half (acceleration); reverse moves and
+		// first-of-day keep the full value. movePct is always computed for display.
 		const movePct = ((quote.price - baseline) / baseline) * 100;
 		const moveDollar = quote.price - baseline;
+		const moveDirection = priceMoveDirection(quote.price, baseline);
+		const { value: effectiveValue, isAcceleration } = effectivePriceMoveThreshold({
+			configuredValue: threshold.value,
+			isReTrigger,
+			lastAlertDirection: stateRow?.lastAlertDirection ?? null,
+			moveDirection,
+		});
 		const meetsThreshold =
 			threshold.unit === "percent"
-				? Math.abs(movePct) >= threshold.value
-				: Math.abs(moveDollar) >= threshold.value;
+				? Math.abs(movePct) >= effectiveValue
+				: Math.abs(moveDollar) >= effectiveValue;
 		if (!meetsThreshold) {
 			continue;
 		}
@@ -226,7 +236,7 @@ export async function processFlatPriceAlerts(options: {
 			symbol,
 			baselinePrice: baseline,
 			newPrice: quote.price,
-			thresholdValue: threshold.value,
+			thresholdValue: effectiveValue,
 			thresholdUnit: threshold.unit,
 		});
 		if (!claimed) {
@@ -249,6 +259,7 @@ export async function processFlatPriceAlerts(options: {
 			baseline,
 			triggerPercent: movePct,
 			isReTrigger,
+			isAcceleration,
 			lastNotificationAt,
 		});
 
@@ -314,6 +325,7 @@ export async function processFlatPriceAlerts(options: {
 			baseline: alert.baseline,
 			triggerPercent: alert.triggerPercent,
 			isReTrigger: alert.isReTrigger,
+			isAcceleration: alert.isAcceleration,
 			lastNotificationAt: alert.lastNotificationAt,
 			nowMs,
 			intraday: intradayMap.get(alert.symbol) ?? null,

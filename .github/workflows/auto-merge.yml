@@ -7,26 +7,25 @@ on:
       - reopened
       - synchronize
       - ready_for_review
-      - labeled
 
 permissions:
   contents: write
   pull-requests: write
-  issues: write
 
 jobs:
   auto-merge:
     # ARM: cheapest tier; this job is a single bare `gh` call — arch-irrelevant.
     runs-on: blacksmith-2vcpu-ubuntu-2404-arm
-    # Gate at the job level so events on PRs without the ship-auto-merge label skip
-    # with ZERO billed runner minutes, instead of spinning a runner just to `gh pr view`
-    # the labels and exit. The label lives in the webhook payload, so no API round-trip.
+    # Gate at the job level so Dependabot / fork / draft events skip with ZERO
+    # billed runner minutes. Same-repo maintainer + agent PRs arm immediately;
+    # Dependabot stays off (janitor arms via `gh pr merge --auto` after prep).
+    # Fork PRs never auto-merge.
     if: >-
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      contains(github.event.pull_request.labels.*.name, 'ship-auto-merge')
+      github.event.pull_request.user.login != 'dependabot[bot]'
     steps:
-      - name: Enable auto-merge when orchestrated
+      - name: Enable auto-merge for same-repo non-Dependabot PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}

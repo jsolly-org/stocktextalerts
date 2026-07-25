@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { formatFlatPriceAlertEmail } from "../../../../src/lib/market-notifications/flat-alerts/format";
+import {
+	buildSubject,
+	formatFlatPriceAlertEmail,
+} from "../../../../src/lib/market-notifications/flat-alerts/format";
 import type { FlatPriceAlertUser } from "../../../../src/lib/market-notifications/flat-alerts/users";
 import { EMAIL_LOGO_SIZE_HERO, renderLogoImg } from "../../../../src/lib/messaging/logo-fetcher";
 import type { ExtendedAssetQuote } from "../../../../src/lib/types";
@@ -48,5 +51,17 @@ describe("Price move alert email layout", () => {
 		expect(html).toContain('role="presentation"');
 		expect(html).toContain("Dell Technologies Inc.");
 		expect(html).toMatch(/\$434\.08/);
+	});
+
+	it("buildSubject marks same-direction half-steps as accelerating", () => {
+		expect(
+			buildSubject({
+				symbol: "AAPL",
+				currentPrice: 205.2,
+				triggerPercent: 2.6,
+				isReTrigger: true,
+				isAcceleration: true,
+			}),
+		).toBe("AAPL ↑ 2.6% accelerating since last alert — $205.20");
 	});
 });

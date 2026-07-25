@@ -8,11 +8,18 @@ export function buildFlatAlertEnriched(options: {
 	triggerPercent: number;
 	since: string;
 	intraday: IntradayBarsResult | null;
+	isAcceleration?: boolean;
 }): EnrichedAlert {
-	const { symbol, quote, triggerPercent, since, intraday } = options;
+	const { symbol, quote, triggerPercent, since, intraday, isAcceleration } = options;
 	return {
 		symbol,
-		priceMove: { symbol, changePercent: triggerPercent, price: quote.price, period: since },
+		priceMove: {
+			symbol,
+			changePercent: triggerPercent,
+			price: quote.price,
+			period: since,
+			isAcceleration,
+		},
 		intradayCloses: intraday?.closes ?? null,
 		intradayTimestamps: intraday?.timestamps ?? null,
 		intradayEndTimestamp: intraday?.endTimestamp ?? null,
