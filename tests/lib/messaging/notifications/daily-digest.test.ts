@@ -86,6 +86,7 @@ describe("Telegram daily digest formatting", () => {
 				},
 				analystSection: null,
 				insiderSection: null,
+				filingsLines: null,
 				hasAnyContent: true,
 			},
 			dateLabel: "Fri, Jul 10",

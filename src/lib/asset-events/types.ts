@@ -11,6 +11,13 @@ export type AssetEventsTelegramFacets = {
 	ipo: boolean;
 	insider: boolean;
 	analyst: boolean;
+	filings: boolean;
+};
+
+/** One SEC filing line for digest rendering (label is the hyperlink text). */
+export type SecFilingLine = {
+	label: string;
+	url: string;
 };
 
 export type AssetEventsContent = {
@@ -22,6 +29,8 @@ export type AssetEventsContent = {
 	} | null;
 	insiderSection: string | null;
 	analystSection: string | null;
+	/** Material 8-K / 6-K lines; each label is rendered as the hyperlink. */
+	filingsLines: SecFilingLine[] | null;
 	hasAnyContent: boolean;
 };
 
