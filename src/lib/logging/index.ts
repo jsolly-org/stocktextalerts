@@ -1,3 +1,4 @@
+import { summarizeErrorMessageForLog } from "./errors";
 import { RELEASE_ID } from "./release-id";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
@@ -102,28 +103,33 @@ function serializeError(error: unknown): LogEntry["error"] {
 	if (error instanceof Error) {
 		return {
 			name: error.name,
-			message: error.message,
+			message: summarizeErrorMessageForLog(error.message),
 			stack: error.stack,
 			cause: error.cause,
 		};
 	}
 
 	if (typeof error === "string") {
-		return { message: error };
+		return { message: summarizeErrorMessageForLog(error) };
 	}
 
 	// Library errors like Supabase's PostgrestError are plain objects, not Error
 	// instances. Preserve the whole object in `raw` so code/hint/details survive
-	// without coupling to any library's type.
+	// without coupling to any library's type. HTML gateway pages get a short
+	// message so CloudWatch / alarm emails stay readable.
 	if (
 		error !== null &&
 		typeof error === "object" &&
 		"message" in error &&
 		typeof (error as { message: unknown }).message === "string"
 	) {
+		const originalMessage = (error as { message: string }).message;
+		const message = summarizeErrorMessageForLog(originalMessage);
+		const raw =
+			message === originalMessage ? error : { ...(error as Record<string, unknown>), message };
 		return {
-			message: (error as { message: string }).message,
-			raw: error,
+			message,
+			raw,
 		};
 	}
 

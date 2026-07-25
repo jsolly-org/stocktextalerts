@@ -64,4 +64,32 @@ describe("Structured errors from library clients are logged readably.", () => {
 		expect(payload.error.message).toBe("Non-Error thrown");
 		expect(payload.error.raw).toBe(42);
 	});
+
+	it("An HTML gateway error page is summarized instead of dumping the full document.", () => {
+		expectConsoleError(/Failed to insert/);
+		errorSpy.mockClear();
+
+		const htmlPage = `<!DOCTYPE html>
+<html class="no-js" lang="en-US">
+<head><title>example.com | 520: Web server is returning an unknown error</title></head>
+<body>
+<span class="code-label">Error code 520</span>
+<p>${"x".repeat(400)}</p>
+</body>
+</html>`;
+
+		rootLogger.error(
+			"Failed to insert asset_price_history rows",
+			{ count: 13 },
+			{ message: htmlPage, code: "PGRST301", details: null, hint: null },
+		);
+
+		const [raw] = errorSpy.mock.calls[0] ?? [];
+		const payload = JSON.parse(raw as string);
+
+		expect(payload.error.message).toBe("Upstream HTML error response (HTTP 520)");
+		expect(payload.error.raw.message).toBe("Upstream HTML error response (HTTP 520)");
+		expect(payload.error.raw.code).toBe("PGRST301");
+		expect(JSON.stringify(payload)).not.toContain("<!DOCTYPE");
+	});
 });
