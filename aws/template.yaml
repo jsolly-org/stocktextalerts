@@ -100,6 +100,12 @@ Resources:
                 - ses:SendEmail
                 - ses:SendRawEmail
               Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${SesIdentityDomain}"
+            # Optional retry path when minute price-history inserts fail (same
+            # VendorBackfillQueue other producers already use — env gated).
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource: !GetAtt VendorBackfillQueue.Arn
             # Read this app's runtime secrets (SSM SecureString). One namespace
             # wildcard rather than 11 per-secret ARNs — same-app boundary. No
             # kms:Decrypt grant needed for the AWS-managed alias/aws/ssm key.
@@ -110,6 +116,7 @@ Resources:
         Variables:
           SITE_URL: !Ref SiteUrl
           EMAIL_FROM: !Ref EmailFrom
+          VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
           MASSIVE_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/massive-api-key"
           XAI_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/xai-api-key"
           TELEGRAM_BOT_TOKEN_SSM_PARAM: !Sub "${SsmPrefix}/telegram-bot-token"

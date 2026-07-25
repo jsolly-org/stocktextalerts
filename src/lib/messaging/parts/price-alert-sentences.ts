@@ -14,5 +14,6 @@ import { formatUsdPrice } from "./asset-price-list";
  */
 export function renderPriceAlertHeadline(facts: PriceMoveFacts): string {
 	const direction = facts.changePercent >= 0 ? "up" : "down";
-	return `${facts.symbol} is ${direction} ${Math.abs(facts.changePercent).toFixed(1)}% ${facts.period} (${formatUsdPrice(facts.price)})`;
+	const verb = facts.isAcceleration ? `accelerating ${direction}` : direction;
+	return `${facts.symbol} is ${verb} ${Math.abs(facts.changePercent).toFixed(1)}% ${facts.period} (${formatUsdPrice(facts.price)})`;
 }

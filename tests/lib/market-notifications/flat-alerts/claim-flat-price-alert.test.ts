@@ -121,13 +121,14 @@ describe("reserve_flat_price_alert RPC", () => {
 
 		const { data: committed } = await adminClient
 			.from("price_move_alert_state")
-			.select("last_notification_price, pending_delivery")
+			.select("last_notification_price, pending_delivery, last_alert_direction")
 			.eq("user_id", testUser.id)
 			.eq("symbol", "AAPL")
 			.single();
 
 		expect(Number(committed?.last_notification_price)).toBeCloseTo(195.86, 2);
 		expect(committed?.pending_delivery).toBe(false);
+		expect(committed?.last_alert_direction).toBe(1);
 	});
 
 	it("Re-trigger with matching baseline updates the row and returns true", async () => {
@@ -255,6 +256,98 @@ describe("reserve_flat_price_alert RPC", () => {
 		expect(Number(state?.last_notification_price)).toBeCloseTo(150.0, 2);
 		expect(state?.pending_delivery).toBe(true);
 		expect(Number(state?.pending_new_price)).toBeCloseTo(195.86, 2);
+
+		// Direction must come from baseline (prev close 186→195.86 = up), not from
+		// yesterday's fire price 150 (also up here — the gap-and-fade case below
+		// covers the sign mismatch).
+		const { data: finalized, error: finalizeError } = await adminClient.rpc(
+			"finalize_flat_price_alert",
+			{ p_user_id: testUser.id, p_symbol: "AAPL" },
+		);
+		expect(finalizeError).toBeNull();
+		expect(finalized).toBe(true);
+
+		const { data: committed } = await adminClient
+			.from("price_move_alert_state")
+			.select("last_notification_price, last_alert_direction")
+			.eq("user_id", testUser.id)
+			.eq("symbol", "AAPL")
+			.single();
+		expect(Number(committed?.last_notification_price)).toBeCloseTo(195.86, 2);
+		expect(committed?.last_alert_direction).toBe(1);
+	});
+
+	it("Cross-day first-of-day direction uses baseline, not yesterday's fire price", async () => {
+		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+		registerTestUserForCleanup(testUser.id);
+
+		// Yesterday alerted UP at $220. Today: prevClose $200 → $212 (+6%).
+		// Sign vs baseline is up; vs stale last_notification_price is down.
+		const threeDaysAgo = DateTime.now().minus({ days: 3 }).toISO();
+		await adminClient.from("price_move_alert_state").insert({
+			user_id: testUser.id,
+			symbol: "AAPL",
+			last_notification_price: 220.0,
+			last_notification_at: threeDaysAgo,
+			last_alert_direction: 1,
+		});
+
+		const { data, error } = await adminClient.rpc("reserve_flat_price_alert", {
+			p_user_id: testUser.id,
+			p_symbol: "AAPL",
+			p_baseline_price: 200.0,
+			p_new_price: 212.0,
+			p_threshold_value: 5,
+			p_threshold_unit: "percent",
+		});
+		expect(error).toBeNull();
+		expect(data).toBe(true);
+
+		await adminClient.rpc("finalize_flat_price_alert", {
+			p_user_id: testUser.id,
+			p_symbol: "AAPL",
+		});
+
+		const { data: committed } = await adminClient
+			.from("price_move_alert_state")
+			.select("last_alert_direction, last_notification_price")
+			.eq("user_id", testUser.id)
+			.eq("symbol", "AAPL")
+			.single();
+
+		// Baseline 200→212 = +1. Comparing pending 212 to stale 220 would store -1.
+		expect(committed?.last_alert_direction).toBe(1);
+		expect(Number(committed?.last_notification_price)).toBeCloseTo(212.0, 2);
+	});
+
+	it("Down-move finalize persists last_alert_direction = -1", async () => {
+		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+		registerTestUserForCleanup(testUser.id);
+
+		const { data, error } = await adminClient.rpc("reserve_flat_price_alert", {
+			p_user_id: testUser.id,
+			p_symbol: "AAPL",
+			p_baseline_price: 200.0,
+			p_new_price: 180.0,
+			p_threshold_value: 5,
+			p_threshold_unit: "percent",
+		});
+		expect(error).toBeNull();
+		expect(data).toBe(true);
+
+		await adminClient.rpc("finalize_flat_price_alert", {
+			p_user_id: testUser.id,
+			p_symbol: "AAPL",
+		});
+
+		const { data: committed } = await adminClient
+			.from("price_move_alert_state")
+			.select("last_alert_direction, last_notification_price")
+			.eq("user_id", testUser.id)
+			.eq("symbol", "AAPL")
+			.single();
+		expect(committed?.last_alert_direction).toBe(-1);
+		expect(Number(committed?.last_notification_price)).toBeCloseTo(180.0, 2);
 	});
 
 	it("Five concurrent first-of-day reserves: exactly one wins", async () => {
