@@ -29,6 +29,7 @@ export async function deliverFlatPriceAlert(options: {
 	baseline: number;
 	triggerPercent: number;
 	isReTrigger: boolean;
+	isAcceleration: boolean;
 	lastNotificationAt: Date | null;
 	nowMs: number;
 	intraday: IntradayBarsResult | null;
@@ -50,6 +51,7 @@ export async function deliverFlatPriceAlert(options: {
 		baseline,
 		triggerPercent,
 		isReTrigger,
+		isAcceleration,
 		lastNotificationAt,
 		nowMs,
 		intraday,
@@ -97,6 +99,7 @@ export async function deliverFlatPriceAlert(options: {
 				currentPrice: quote.price,
 				triggerPercent,
 				isReTrigger,
+				isAcceleration,
 			});
 
 			// Dedup is the flat-alert reserve/finalize CAS (reserve_flat_price_alert), not an
@@ -153,16 +156,18 @@ export async function deliverFlatPriceAlert(options: {
 				kind: "price_move_alerts",
 			});
 			if (consume.status === "reserved") {
-				const since =
-					isReTrigger && lastNotificationAt !== null
-						? formatRelativeMinutesAgo(lastNotificationAt.getTime(), nowMs)
-						: "today";
+				const since = !isReTrigger
+					? "today"
+					: lastNotificationAt !== null
+						? `since last alert (${formatRelativeMinutesAgo(lastNotificationAt.getTime(), nowMs)})`
+						: "since last alert";
 				const enriched = buildFlatAlertEnriched({
 					symbol,
 					quote,
 					triggerPercent,
 					since,
 					intraday,
+					isAcceleration,
 				});
 				const sent = await deliverTelegramPriceAlert({
 					alert: enriched,

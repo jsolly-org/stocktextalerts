@@ -9,6 +9,8 @@ interface FlatPriceAlertStateRow {
 	symbol: string;
 	lastNotificationPrice: number;
 	lastNotificationAt: Date;
+	/** 1 = up, -1 = down; null until the first successful finalize (legacy rows). */
+	lastAlertDirection: -1 | 1 | null;
 }
 
 /** Key used to index state rows in memory during a run. */
@@ -36,7 +38,7 @@ export async function fetchFlatPriceAlertState(
 
 	const { data, error } = await supabase
 		.from("price_move_alert_state")
-		.select("user_id, symbol, last_notification_price, last_notification_at")
+		.select("user_id, symbol, last_notification_price, last_notification_at, last_alert_direction")
 		.in("user_id", userIds);
 
 	if (error) {
@@ -49,11 +51,13 @@ export async function fetchFlatPriceAlertState(
 	}
 
 	for (const row of data ?? []) {
+		const dir = row.last_alert_direction;
 		result.set(stateKey(row.user_id, row.symbol), {
 			userId: row.user_id,
 			symbol: row.symbol,
 			lastNotificationPrice: Number(row.last_notification_price),
 			lastNotificationAt: new Date(row.last_notification_at),
+			lastAlertDirection: dir === 1 || dir === -1 ? dir : null,
 		});
 	}
 
