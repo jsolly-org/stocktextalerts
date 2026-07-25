@@ -95,12 +95,10 @@ export async function processAssetEventsUser(options: {
 			ipo: telegramFacetSet.has("ipo"),
 			insider: telegramFacetSet.has("insider"),
 			analyst: telegramFacetSet.has("analyst"),
+			filings: telegramFacetSet.has("filings"),
 		};
 		const wantsTelegram =
-			telegramFacets.calendar ||
-			telegramFacets.ipo ||
-			telegramFacets.insider ||
-			telegramFacets.analyst;
+			isTelegramChannelUsable(user) && anyDailyAssetEventFacetEnabled(user.prefs, "telegram");
 
 		const hasAnyAssetEventsOption = hasAnyDailyAssetEventFacet(user.prefs);
 
@@ -178,6 +176,7 @@ export async function processAssetEventsUser(options: {
 				iposSection: emailContent.eventsSection?.ipos ?? null,
 				analystSection: emailContent.analystSection,
 				insiderSection: emailContent.insiderSection,
+				filingsLines: emailContent.filingsLines,
 				marketClosureInfo,
 				sendEmail,
 				stats,
@@ -201,6 +200,7 @@ export async function processAssetEventsUser(options: {
 				iposSection: telegramContent.eventsSection?.ipos ?? null,
 				analystSection: telegramContent.analystSection,
 				insiderSection: telegramContent.insiderSection,
+				filingsLines: telegramContent.filingsLines,
 				delayBanner: delayBannerText,
 				marketClosureInfo,
 				getTelegramSender,

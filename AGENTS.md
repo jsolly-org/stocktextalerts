@@ -1,10 +1,13 @@
 ## Ship
 
 Ship profile: `aws-sam`
-Integration model: `pr-auto-merge`
-CI owner: `github-handoff`
+
+**Integration: branch → PR → CI-gated auto-merge (canonical).**
+
+**CI owner: github-handoff.** GitHub Actions owns the full test battery (~12 min). Local gate subset is lint/types/static only. After `/ship` opens the PR, still babysit CI until merge (watch failures and fix forward). There is no fire-and-forget path.
+
 Production URL: <https://stocktextalerts.com>
-Deploy deltas: Vercel Git owns the web tier; `.github/workflows/deploy.yml` owns production migrations, Lambda code, and live-provider verification after merge. `npm run deploy:code` is break-glass only; changes to `aws/template.yaml` or `aws/deploy.sh` require a manual `npm run deploy:infra`.
+Deploy deltas: Vercel Git owns the web tier; `.github/workflows/deploy.yml` owns production migrations, Lambda code, and live-provider verification after merge — babysit with `gh run watch`. `npm run deploy:code` is break-glass only; changes to `aws/template.yaml` or `aws/deploy.sh` require a manual `npm run deploy:infra`.
 Repository-specific CI, branch-protection, and deploy behavior: [docs/github-ci.md](docs/github-ci.md).
 
 ## Commands

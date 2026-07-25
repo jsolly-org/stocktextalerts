@@ -25,3 +25,9 @@ export const PM_DISCOVERY_MIN_REMAINING_MS = 240_000;
  * event; needs headroom for Poly/Kalshi rate limits + in-loop abort.
  */
 export const PM_REFRESH_MIN_REMAINING_MS = 300_000;
+
+/**
+ * SEC EDGAR filings ingest: company tickers map + one submissions poll per
+ * distinct tracked CIK (polite delay). Soft-fail vendor; remaining-time gate.
+ */
+export const SEC_FILINGS_MIN_REMAINING_MS = 120_000;

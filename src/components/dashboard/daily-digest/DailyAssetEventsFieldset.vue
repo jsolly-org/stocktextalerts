@@ -2,7 +2,8 @@
 	<div class="!border-t-0 py-4">
 		<h3 class="text-lg sm:text-xl font-bold text-heading mb-1">Asset events</h3>
 		<p class="text-sm text-body-secondary mb-4">
-			Calendar, IPO, analyst, and insider updates bundled into the same daily message.
+			Calendar, IPO, analyst, insider, and SEC filing updates bundled into the same daily
+			message.
 		</p>
 
 		<div class="space-y-4">
@@ -182,6 +183,14 @@ const ASSET_EVENT_TYPES = [
 		massive: false,
 		finnhub: true,
 	},
+	{
+		key: "filings" as const,
+		label: "SEC Filings",
+		description:
+			"Material 8-K and 6-K filings for your watchlist, with links to EDGAR.",
+		massive: false,
+		finnhub: false,
+	},
 ] as const;
 
 type AssetEventKey = (typeof ASSET_EVENT_TYPES)[number]["key"];
@@ -220,6 +229,10 @@ const assetEventRefs: Record<
 	insider: {
 		email: ref(user.value.asset_events_include_insider_email),
 		telegram: ref(props.telegramPrefs.insider === true),
+	},
+	filings: {
+		email: ref(user.value.asset_events_include_filings_email),
+		telegram: ref(props.telegramPrefs.filings === true),
 	},
 };
 

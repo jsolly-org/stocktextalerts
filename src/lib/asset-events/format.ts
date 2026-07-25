@@ -1,4 +1,5 @@
 import type { InsiderTransaction, RecommendationTrend } from "../types";
+import type { SecFilingLine } from "./types";
 
 /**
  * Format a revenue estimate compactly for display.
@@ -178,4 +179,19 @@ export function formatInsiderSectionTelegram(
 	data: Map<string, InsiderTransaction[]>,
 ): string | null {
 	return formatInsiderSectionWithCap(data, 5);
+}
+
+/** Plain-text filings block (label + URL per line) for email text parts. */
+export function formatFilingsSectionPlainText(lines: SecFilingLine[]): string | null {
+	if (lines.length === 0) return null;
+	return lines.map((line) => `${line.label}\n${line.url}`).join("\n");
+}
+
+/**
+ * Markdown filings block for email HTML via `renderEmailSection` /
+ * `markdownLinksToHtml` — the entire label is the link text.
+ */
+export function formatFilingsSectionMarkdown(lines: SecFilingLine[]): string | null {
+	if (lines.length === 0) return null;
+	return lines.map((line) => `[${line.label}](${line.url})`).join("\n");
 }

@@ -18,6 +18,7 @@ import type { EmailSender } from "../messaging/types";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../time/types";
 import type { IsoDateString, MinuteOfDay, UserRecord } from "../types";
+import type { SecFilingLine } from "./types";
 
 /* =============
 Delivery: Email
@@ -36,6 +37,7 @@ export async function processAssetEventsEmailDelivery(options: {
 	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
+	filingsLines?: SecFilingLine[] | null;
 	marketClosureInfo?: MarketClosureInfo | null;
 	sendEmail: EmailSender;
 	stats: ScheduledNotificationTotals;
@@ -54,6 +56,7 @@ export async function processAssetEventsEmailDelivery(options: {
 		iposSection,
 		analystSection,
 		insiderSection,
+		filingsLines,
 		sendEmail,
 		stats,
 	} = options;
@@ -95,6 +98,7 @@ export async function processAssetEventsEmailDelivery(options: {
 		iposSection,
 		analystSection,
 		insiderSection,
+		filingsLines,
 		marketClosureInfo: options.marketClosureInfo,
 		delayBannerText: options.delayBannerText,
 		delayBannerHtml: options.delayBannerHtml,
@@ -146,6 +150,7 @@ export async function processAssetEventsTelegramDelivery(options: {
 	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
+	filingsLines?: SecFilingLine[] | null;
 	delayBanner?: string | null;
 	marketClosureInfo?: MarketClosureInfo | null;
 	getTelegramSender: TelegramSenderFactory;
@@ -163,6 +168,7 @@ export async function processAssetEventsTelegramDelivery(options: {
 		iposSection,
 		analystSection,
 		insiderSection,
+		filingsLines,
 		delayBanner,
 		getTelegramSender,
 		stats,
@@ -226,6 +232,7 @@ export async function processAssetEventsTelegramDelivery(options: {
 		iposSection,
 		analystSection,
 		insiderSection,
+		filingsLines,
 		delayBanner,
 		marketClosureInfo: options.marketClosureInfo,
 	});

@@ -12,7 +12,8 @@ import {
 	formatInsiderSectionEmail,
 	formatInsiderSectionTelegram,
 } from "./format";
-import type { AssetEventsContent, AssetEventsTelegramFacets } from "./types";
+import { loadStoredSecFilings } from "./sec-filings";
+import type { AssetEventsContent, AssetEventsTelegramFacets, SecFilingLine } from "./types";
 
 type DeliveryChannel = "email";
 
@@ -20,6 +21,7 @@ const emptyContent = (): AssetEventsContent => ({
 	eventsSection: null,
 	insiderSection: null,
 	analystSection: null,
+	filingsLines: null,
 	hasAnyContent: false,
 });
 
@@ -44,6 +46,10 @@ function channelWantsAnalyst(
 		isDailyNotificationFacetEnabled(user.prefs, channel, "analyst") &&
 		user.asset_events_last_analyst_sent_month !== currentMonth
 	);
+}
+
+function channelWantsFilings(user: UserRecord, channel: DeliveryChannel): boolean {
+	return isDailyNotificationFacetEnabled(user.prefs, channel, "filings");
 }
 
 type RawEvent = {
@@ -76,12 +82,22 @@ type FormatContentOptions = {
 		daysUntil: number;
 	}>;
 	finnhubData: Awaited<ReturnType<typeof loadStoredFinnhubExtras>>;
+	filingsLines: SecFilingLine[];
 	includeInsider: boolean;
 	includeAnalyst: boolean;
+	includeFilings: boolean;
 };
 
 function buildEmailAssetEventsContent(options: FormatContentOptions): AssetEventsContent {
-	const { user, eventsWithDaysUntil, finnhubData, includeInsider, includeAnalyst } = options;
+	const {
+		user,
+		eventsWithDaysUntil,
+		finnhubData,
+		filingsLines,
+		includeInsider,
+		includeAnalyst,
+		includeFilings,
+	} = options;
 
 	const channelEvents = filterEventsForChannel(eventsWithDaysUntil, user, "email");
 	const eventsSection =
@@ -89,14 +105,19 @@ function buildEmailAssetEventsContent(options: FormatContentOptions): AssetEvent
 
 	const insiderSection = includeInsider ? formatInsiderSectionEmail(finnhubData.insider) : null;
 	const analystSection = includeAnalyst ? formatAnalystSectionEmail(finnhubData.analyst) : null;
+	const emailFilings = includeFilings && filingsLines.length > 0 ? filingsLines : null;
 
 	const hasAnyContent =
-		eventsSection !== null || insiderSection !== null || analystSection !== null;
+		eventsSection !== null ||
+		insiderSection !== null ||
+		analystSection !== null ||
+		emailFilings !== null;
 
 	return {
 		eventsSection,
 		insiderSection,
 		analystSection,
+		filingsLines: emailFilings,
 		hasAnyContent,
 	};
 }
@@ -131,8 +152,13 @@ export async function buildAssetEventsContentForChannels(options: {
 	const telegramWantsIpos = Boolean(telegramFacets?.ipo);
 	const telegramWantsInsider = Boolean(telegramFacets?.insider);
 	const telegramWantsAnalyst = Boolean(telegramFacets?.analyst);
+	const telegramWantsFilings = Boolean(telegramFacets?.filings);
 	const hasTelegramRequest =
-		telegramWantsCalendar || telegramWantsIpos || telegramWantsInsider || telegramWantsAnalyst;
+		telegramWantsCalendar ||
+		telegramWantsIpos ||
+		telegramWantsInsider ||
+		telegramWantsAnalyst ||
+		telegramWantsFilings;
 
 	if (channels.length === 0 && !hasTelegramRequest) {
 		return noChannels;
@@ -170,6 +196,8 @@ export async function buildAssetEventsContentForChannels(options: {
 		channels.some((ch) => channelWantsInsider(user, ch)) || telegramWantsInsider;
 	const includeAnalystUnion =
 		channels.some((ch) => channelWantsAnalyst(user, ch, currentMonth)) || telegramAnalystDue;
+	const includeFilingsUnion =
+		channels.some((ch) => channelWantsFilings(user, ch)) || telegramWantsFilings;
 
 	const calendarPromise =
 		includeCalendar && tickers.length > 0
@@ -241,16 +269,28 @@ export async function buildAssetEventsContentForChannels(options: {
 		analystFetchSucceeded: false,
 	};
 
-	if ((includeInsiderUnion || includeAnalystUnion) && tickers.length > 0) {
-		finnhubData = await loadStoredFinnhubExtras({
-			supabase,
-			logger,
-			tickers,
-			localDate,
-			includeAnalyst: includeAnalystUnion,
-			includeInsider: includeInsiderUnion,
-		});
-	}
+	const [finnhubLoaded, filingsLoaded] = await Promise.all([
+		(includeInsiderUnion || includeAnalystUnion) && tickers.length > 0
+			? loadStoredFinnhubExtras({
+					supabase,
+					logger,
+					tickers,
+					localDate,
+					includeAnalyst: includeAnalystUnion,
+					includeInsider: includeInsiderUnion,
+				})
+			: Promise.resolve(finnhubData),
+		includeFilingsUnion && tickers.length > 0
+			? loadStoredSecFilings({
+					supabase,
+					logger,
+					tickers,
+					localDate,
+				})
+			: Promise.resolve([] as SecFilingLine[]),
+	]);
+	finnhubData = finnhubLoaded;
+	const filingsLines = filingsLoaded;
 
 	const analystFetchAttempted = includeAnalystUnion && tickers.length > 0;
 	const shouldUpdateAnalystMonth = analystFetchAttempted && finnhubData.analystFetchSucceeded;
@@ -262,8 +302,10 @@ export async function buildAssetEventsContentForChannels(options: {
 			user,
 			eventsWithDaysUntil,
 			finnhubData,
+			filingsLines,
 			includeInsider: channelWantsInsider(user, "email"),
 			includeAnalyst: channelWantsAnalyst(user, "email", currentMonth),
+			includeFilings: channelWantsFilings(user, "email"),
 		});
 	}
 
@@ -282,11 +324,17 @@ export async function buildAssetEventsContentForChannels(options: {
 		const analystSection = telegramAnalystDue
 			? formatAnalystSectionTelegram(finnhubData.analyst)
 			: null;
+		const telegramFilings = telegramWantsFilings && filingsLines.length > 0 ? filingsLines : null;
 		telegram = {
 			eventsSection,
 			insiderSection,
 			analystSection,
-			hasAnyContent: eventsSection !== null || insiderSection !== null || analystSection !== null,
+			filingsLines: telegramFilings,
+			hasAnyContent:
+				eventsSection !== null ||
+				insiderSection !== null ||
+				analystSection !== null ||
+				telegramFilings !== null,
 		};
 	}
 

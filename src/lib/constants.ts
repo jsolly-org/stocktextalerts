@@ -57,6 +57,7 @@ export const NOTIFICATION_OPTION_MATRIX = {
 		ipo: { family: "asset_events", channels: { email: false, telegram: false } },
 		analyst: { family: "asset_events", channels: { email: false, telegram: false } },
 		insider: { family: "asset_events", channels: { email: false, telegram: false } },
+		filings: { family: "asset_events", channels: { email: false, telegram: false } },
 	},
 	market_scheduled_asset_price: { "": { channels: { email: false, telegram: false } } },
 	price_move_alerts: { "": { channels: { email: false, telegram: false } } },
