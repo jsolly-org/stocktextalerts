@@ -1008,14 +1008,14 @@ export type Database = {
           email: string
           email_notifications_enabled: boolean
           grok_sends_in_window: number
-          price_move_why_sends_in_window: number
-          price_move_why_window_start: string | null
           grok_window_start: string | null
           id: string
           last_grok_rumors_at: string | null
           market_scheduled_asset_price_enabled: boolean
           market_scheduled_asset_price_next_send_at: string | null
           market_scheduled_asset_price_times: number[] | null
+          price_move_why_sends_in_window: number
+          price_move_why_window_start: string | null
           telegram_chat_id: number | null
           telegram_id: number | null
           telegram_linked_at: string | null
@@ -1035,14 +1035,14 @@ export type Database = {
           email: string
           email_notifications_enabled?: boolean
           grok_sends_in_window?: number
-          price_move_why_sends_in_window?: number
-          price_move_why_window_start?: string | null
           grok_window_start?: string | null
           id?: string
           last_grok_rumors_at?: string | null
           market_scheduled_asset_price_enabled?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
+          price_move_why_sends_in_window?: number
+          price_move_why_window_start?: string | null
           telegram_chat_id?: number | null
           telegram_id?: number | null
           telegram_linked_at?: string | null
@@ -1062,14 +1062,14 @@ export type Database = {
           email?: string
           email_notifications_enabled?: boolean
           grok_sends_in_window?: number
-          price_move_why_sends_in_window?: number
-          price_move_why_window_start?: string | null
           grok_window_start?: string | null
           id?: string
           last_grok_rumors_at?: string | null
           market_scheduled_asset_price_enabled?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
+          price_move_why_sends_in_window?: number
+          price_move_why_window_start?: string | null
           telegram_chat_id?: number | null
           telegram_id?: number | null
           telegram_linked_at?: string | null
