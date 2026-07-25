@@ -9,8 +9,9 @@ export function buildFlatAlertEnriched(options: {
 	since: string;
 	intraday: IntradayBarsResult | null;
 	isAcceleration?: boolean;
+	why?: string | null;
 }): EnrichedAlert {
-	const { symbol, quote, triggerPercent, since, intraday, isAcceleration } = options;
+	const { symbol, quote, triggerPercent, since, intraday, isAcceleration, why } = options;
 	return {
 		symbol,
 		priceMove: {
@@ -26,5 +27,6 @@ export function buildFlatAlertEnriched(options: {
 		intradayCandles: intraday?.candles ?? null,
 		prevClose: quote.prevClose,
 		isPositiveMove: triggerPercent >= 0,
+		...(why ? { why } : {}),
 	};
 }

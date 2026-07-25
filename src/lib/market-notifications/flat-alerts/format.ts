@@ -161,6 +161,7 @@ export function formatFlatPriceAlertEmail(options: {
 	intraday: IntradayBarsResult | null;
 	sevenDaySparkline: SparklineData | null;
 	logoHtml: string | undefined;
+	whyText?: string | null;
 }): { text: string; html: string } {
 	const {
 		user,
@@ -173,6 +174,7 @@ export function formatFlatPriceAlertEmail(options: {
 		intraday,
 		sevenDaySparkline,
 		logoHtml,
+		whyText,
 	} = options;
 
 	const currentPrice = quote.price;
@@ -208,6 +210,11 @@ export function formatFlatPriceAlertEmail(options: {
 	textLines.push("");
 	for (const row of rows) {
 		textLines.push(formatPriceRowTextLine(row));
+	}
+	const whyTrimmed = whyText?.trim() ?? "";
+	if (whyTrimmed !== "") {
+		textLines.push("");
+		textLines.push(whyTrimmed);
 	}
 	textLines.push("");
 	textLines.push(`View Dashboard: ${urls.dashboardUrl}`);
@@ -262,6 +269,12 @@ export function formatFlatPriceAlertEmail(options: {
 			</div>`
 		: "";
 
+	const whyBlock =
+		whyTrimmed !== ""
+			? `
+		<p style="color: #374151; font-size: 14px; line-height: 1.5; margin: 16px 0 0 0;">${escapeHtml(whyTrimmed)}</p>`
+			: "";
+
 	// Identity row: logo + ticker + name sit below the title so a long company
 	// name cannot flex-shrink the logo (the old single-line h2 layout did).
 	const logoCell = logoBlock
@@ -285,7 +298,7 @@ export function formatFlatPriceAlertEmail(options: {
 		<table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
 			<tbody>${rowsHtml}
 			</tbody>
-		</table>${intradayBlock}
+		</table>${intradayBlock}${whyBlock}
 		<div style="text-align: center; margin-top: 28px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">View Dashboard →</a>
 		</div>`,

@@ -42,6 +42,8 @@ export async function deliverFlatPriceAlert(options: {
 	sendTelegram?: TelegramSender | null;
 	logoCache: ReturnType<typeof createLogoCache>;
 	stats: ChannelDeliveryStats;
+	/** Optional Grok why blurb; omit/null when budget/XAI/Grok fail open. */
+	whyText?: string | null;
 }): Promise<boolean> {
 	const {
 		user,
@@ -63,6 +65,7 @@ export async function deliverFlatPriceAlert(options: {
 		sendTelegram,
 		logoCache,
 		stats,
+		whyText,
 	} = options;
 
 	let delivered = false;
@@ -92,6 +95,7 @@ export async function deliverFlatPriceAlert(options: {
 				intraday,
 				sevenDaySparkline,
 				logoHtml,
+				whyText,
 			});
 
 			const subject = buildSubject({
@@ -168,6 +172,7 @@ export async function deliverFlatPriceAlert(options: {
 					since,
 					intraday,
 					isAcceleration,
+					why: whyText,
 				});
 				const sent = await deliverTelegramPriceAlert({
 					alert: enriched,

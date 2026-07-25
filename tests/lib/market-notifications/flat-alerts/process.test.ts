@@ -67,6 +67,21 @@ vi.mock("../../../../src/lib/messaging/logo-fetcher", () => ({
 	renderLogoImg: vi.fn(() => ""),
 }));
 
+const enqueuePriceMoveWhy = vi.hoisted(() => vi.fn(async () => false));
+vi.mock("../../../../src/lib/market-notifications/flat-alerts/why-queue", async () => {
+	const actual = await vi.importActual<
+		typeof import("../../../../src/lib/market-notifications/flat-alerts/why-queue")
+	>("../../../../src/lib/market-notifications/flat-alerts/why-queue");
+	return {
+		...actual,
+		enqueuePriceMoveWhy,
+	};
+});
+
+vi.mock("../../../../src/lib/market-notifications/flat-alerts/why", () => ({
+	generatePriceMoveWhyWithGrok: vi.fn(async () => null),
+}));
+
 import { processFlatPriceAlerts } from "../../../../src/lib/market-notifications/flat-alerts/process";
 
 function makeQuote(overrides: Partial<ExtendedAssetQuote>): ExtendedAssetQuote {
@@ -159,6 +174,7 @@ async function getStateRow(userId: string, symbol: string) {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockEmailSender.mockResolvedValue({ success: true });
+	enqueuePriceMoveWhy.mockResolvedValue(false);
 });
 
 describe("processFlatPriceAlerts", () => {
@@ -203,6 +219,35 @@ describe("processFlatPriceAlerts", () => {
 		expect(state).not.toBeNull();
 		expect(Number(state?.last_notification_price)).toBeCloseTo(195.86, 2);
 		expect(state?.last_alert_direction).toBe(1);
+		expect(totals.whyInline).toBe(1);
+		expect(totals.whyEnqueued).toBe(0);
+	});
+
+	it("when why enqueue succeeds, schedule does not deliver or finalize", async () => {
+		enqueuePriceMoveWhy.mockResolvedValue(true);
+		const testUser = await createTestUser({
+			trackedAssets: ["AAPL"],
+			timezone: "America/Los_Angeles",
+		});
+		registerTestUserForCleanup(testUser.id);
+		await enableFlatAlerts(testUser.id);
+
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			isMarketOpen: true,
+		});
+
+		expect(totals.alertsTriggered).toBe(1);
+		expect(totals.whyEnqueued).toBe(1);
+		expect(totals.whyInline).toBe(0);
+		expect(totals.emailsSent).toBe(0);
+		expect(mockEmailSender).not.toHaveBeenCalled();
+		expect(await getNotificationLogCount(testUser.id)).toBe(0);
+
+		const state = await getStateRow(testUser.id, "AAPL");
+		expect(state?.pending_delivery).toBe(true);
 	});
 
 	it("Sub-threshold +4.99% move does not trigger an alert", async () => {

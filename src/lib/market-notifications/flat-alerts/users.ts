@@ -13,6 +13,10 @@ export interface FlatPriceAlertUser {
 	telegram_chat_id: number | null;
 	/** True after a verified outbound 403 ("bot blocked"); suppresses Telegram delivery. */
 	telegram_opted_out: boolean;
+	/** Start of the rolling window for price-move why Grok sends. */
+	price_move_why_window_start: string | null;
+	/** Successful why Grok sends in the current rolling window. */
+	price_move_why_sends_in_window: number;
 	/** Per-option channel preferences (single source of truth for all channels). */
 	prefs: PrefRow[];
 }
@@ -33,7 +37,7 @@ export async function fetchFlatPriceAlertUsers(
 	const { data, error } = await supabase
 		.from("users")
 		.select(
-			"id, email, email_notifications_enabled, use_24_hour_time, telegram_chat_id, telegram_opted_out",
+			"id, email, email_notifications_enabled, use_24_hour_time, telegram_chat_id, telegram_opted_out, price_move_why_window_start, price_move_why_sends_in_window",
 		)
 		// Candidate pre-filter on channel-level columns only: a usable email channel
 		// or a linked Telegram chat. The per-option price_move_alerts facet is checked
