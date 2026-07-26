@@ -46,6 +46,14 @@ vi.mock("../../../src/lib/vendors/polymarket", () => ({
 vi.mock("../../../src/lib/vendors/kalshi", () => ({
 	kalshiFetch: vi.fn(),
 }));
+// Distinct from the committed stub ("dev") so the success payload proves the handler
+// echoes the build-stamped RELEASE_ID used by deploy.yml's freshness assert.
+const { STAMPED_RELEASE_ID } = vi.hoisted(() => ({
+	STAMPED_RELEASE_ID: "abc123def456",
+}));
+vi.mock("../../../src/lib/logging/release-id", () => ({
+	RELEASE_ID: STAMPED_RELEASE_ID,
+}));
 
 import { handler } from "../../../src/handlers/maintenance/live-provider-check";
 import { fetchEarnings } from "../../../src/lib/asset-events/earnings";
@@ -120,8 +128,18 @@ describe("live-provider-check Lambda", () => {
 		stubHealthyProviders();
 	});
 
+	it("returns stamped releaseId for post-deploy freshness verification", async () => {
+		await expect(handler(event, context)).resolves.toEqual({
+			ok: true,
+			releaseId: STAMPED_RELEASE_ID,
+		});
+	});
+
 	it("A weekday mid-session check passes when Massive and Finnhub return fresh data", async () => {
-		await expect(handler(event, context)).resolves.toBeUndefined();
+		await expect(handler(event, context)).resolves.toEqual({
+			ok: true,
+			releaseId: STAMPED_RELEASE_ID,
+		});
 	});
 
 	it("A stale/empty Massive prev-close fails the check and pages via a thrown error", async () => {
@@ -182,7 +200,10 @@ describe("live-provider-check Lambda", () => {
 			]) as Awaited<ReturnType<typeof fetchAssetPricesWithSessionState>>["prices"],
 			noSessionTrade: new Set(),
 		});
-		await expect(handler(event, context)).resolves.toBeUndefined();
+		await expect(handler(event, context)).resolves.toEqual({
+			ok: true,
+			releaseId: STAMPED_RELEASE_ID,
+		});
 	});
 
 	it("A truncated Massive active universe (below the plausibility floor) fails the check", async () => {

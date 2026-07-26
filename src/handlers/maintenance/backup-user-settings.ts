@@ -9,6 +9,7 @@ import { emitHeartbeat, getConnectionString, putBackup } from "../../lib/backup/
 import { requireEnv } from "../../lib/db/env";
 import { createLogger } from "../../lib/logging";
 import { createErrorForLogging } from "../../lib/logging/errors";
+import { RELEASE_ID } from "../../lib/logging/release-id";
 import { runLambda } from "../../lib/logging/request-context";
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
@@ -21,6 +22,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			action: "lambda_invoke",
 			eventId: event.id,
 			eventTime: event.time,
+			releaseId: RELEASE_ID,
 		});
 
 		try {

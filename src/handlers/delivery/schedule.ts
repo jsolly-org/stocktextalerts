@@ -7,6 +7,7 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";
 import { createLogger } from "../../lib/logging";
+import { RELEASE_ID } from "../../lib/logging/release-id";
 import { runLambda } from "../../lib/logging/request-context";
 import { runScheduledNotifications } from "../../lib/schedule/run";
 import { getAndResetOptionalVendorSkipCount } from "../../lib/vendors/optional-vendors";
@@ -21,6 +22,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			action: "lambda_invoke",
 			eventId: event.id,
 			eventTime: event.time,
+			releaseId: RELEASE_ID,
 		});
 		const supabase = createSupabaseAdminClient();
 
