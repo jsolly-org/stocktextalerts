@@ -33,7 +33,7 @@ function card(
 describe("selectAssetEventCards", () => {
 	const nowMs = Date.parse("2026-07-10T12:00:00.000Z");
 
-	it("picks the two soonest future closes and rejects expired", () => {
+	it("picks only the soonest future close and rejects expired", () => {
 		const selected = selectAssetEventCards(
 			[
 				card({
@@ -59,7 +59,7 @@ describe("selectAssetEventCards", () => {
 			],
 			{ nowMs },
 		);
-		expect(selected.map((c) => c.key)).toEqual(["sooner", "soon"]);
+		expect(selected.map((c) => c.key)).toEqual(["sooner"]);
 	});
 
 	it("omits stale snapshots older than 48h", () => {
@@ -77,7 +77,7 @@ describe("selectAssetEventCards", () => {
 		expect(selected).toEqual([]);
 	});
 
-	it("adds undated ongoing cards when volume beats same-venue dated median", () => {
+	it("prefers a dated close over higher-volume ongoing for the same ticker", () => {
 		const selected = selectAssetEventCards(
 			[
 				card({
@@ -92,6 +92,40 @@ describe("selectAssetEventCards", () => {
 					title: "Dated high",
 					closesAt: "2026-07-25T00:00:00.000Z",
 					volume: 300,
+					symbol: "GOOGL",
+				}),
+				card({
+					key: "ongoing",
+					title: "Next Google Gemini Pro Model",
+					closesAt: null,
+					volume: 2500,
+					symbol: "GOOGL",
+					outcomes: [
+						{
+							venueContractId: "yes",
+							label: "Yes",
+							probabilityPercent: 40,
+							sortOrder: 0,
+							strikeValue: null,
+							volume: 2500,
+							highlighted: true,
+						},
+					],
+				}),
+			],
+			{ nowMs },
+		);
+		expect(selected.map((c) => c.key)).toEqual(["d1"]);
+	});
+
+	it("falls back to the highest-volume title-salient ongoing when no dated close", () => {
+		const selected = selectAssetEventCards(
+			[
+				card({
+					key: "quiet",
+					title: "Quiet Google rumor",
+					closesAt: null,
+					volume: 50,
 					symbol: "GOOGL",
 				}),
 				card({
@@ -113,16 +147,16 @@ describe("selectAssetEventCards", () => {
 					],
 				}),
 				card({
-					key: "quiet",
-					title: "Quiet Google rumor",
+					key: "zero",
+					title: "Zero volume GOOGL",
 					closesAt: null,
-					volume: 50,
+					volume: 0,
 					symbol: "GOOGL",
 				}),
 			],
 			{ nowMs },
 		);
-		expect(selected.map((c) => c.key)).toEqual(["d1", "d2", "ongoing"]);
+		expect(selected.map((c) => c.key)).toEqual(["ongoing"]);
 	});
 });
 
