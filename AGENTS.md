@@ -8,6 +8,12 @@ Ship profile: `aws-sam`
 
 Production URL: <https://stocktextalerts.com>
 Deploy deltas: Vercel Git owns the web tier; `.github/workflows/deploy.yml` owns production migrations, Lambda code, and live-provider verification after merge — babysit with `gh run watch`. `npm run deploy:code` is break-glass only; changes to `aws/template.yaml` or `aws/deploy.sh` require a manual `npm run deploy:infra`.
+**Prod verify:** `/ship` requires `x-release-id` on the production URL to match `origin/main` (12-char SHA). HTTP 200 alone is insufficient.
+
+```bash
+curl -sSIL https://stocktextalerts.com/ | rg -i '^x-release-id:'
+```
+
 Repository-specific CI, branch-protection, and deploy behavior: [docs/github-ci.md](docs/github-ci.md).
 
 ## Commands

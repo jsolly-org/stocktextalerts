@@ -7,8 +7,9 @@
  *
  * SHA resolution order:
  *   1. VERCEL_GIT_COMMIT_SHA (set automatically on Vercel build infra)
- *   2. git rev-parse HEAD (works locally and in the Lambda deploy script)
- *   3. "dev" (fallback — no git or env var available)
+ *   2. GITHUB_SHA (GitHub Actions)
+ *   3. git rev-parse HEAD (works locally and in the Lambda deploy script)
+ *   4. "dev" (fallback — no git or env var available)
  *
  * Dirty detection uses `git status --porcelain -uno` (tracked files only) to
  * avoid false positives from gitignored files like .env.local.
@@ -27,14 +28,15 @@ function run(cmd: string): string {
 
 const repoRoot = resolve(import.meta.dirname, "..");
 
-const fromVercel = process.env.VERCEL_GIT_COMMIT_SHA ?? "";
-let sha = fromVercel || run("git rev-parse HEAD");
+const fromEnv =
+	process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA ?? "";
+let sha = fromEnv || run("git rev-parse HEAD");
 
 let releaseId = sha ? sha.slice(0, 12) : "dev";
 
-// Skip dirty detection on Vercel (always a clean checkout from a fixed commit ref)
+// Skip dirty detection on Vercel/CI (always a clean checkout from a fixed commit ref)
 // and when SHA came from env var (canonical, not from working-tree state).
-if (sha && !fromVercel) {
+if (sha && !fromEnv) {
 	const dirty = run("git status --porcelain -uno");
 	if (dirty) {
 		releaseId += "-dirty";

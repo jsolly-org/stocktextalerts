@@ -2,6 +2,7 @@
 import { Icon } from "astro-icon/components";
 import "../global.css";
 import { REGISTRATION_ENABLED } from "../lib/constants";
+import { RELEASE_ID } from "../lib/logging/release-id";
 interface Props {
 	title: string;
 	description: string;
@@ -50,6 +51,8 @@ const omitManifestOnVercel =
     <!-- Private app: every page stays out of search indexes. Static pages bypass
          middleware on Vercel, so this build-baked meta is what covers them. -->
     <meta name="robots" content="noindex, nofollow" />
+    <!-- Optional human-readable twin of the x-release-id response header (header is canonical). -->
+    <meta name="release-id" content={RELEASE_ID} />
     <title>{title}</title>
     <link rel="canonical" href={canonicalURL} />
 
