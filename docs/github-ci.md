@@ -11,7 +11,7 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 | Workflow | File | When | Purpose |
 | --- | --- | --- | --- |
 | **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PRs, push to `main` (post-merge gate), merge queue, manual | Lint, workflow lint, types, Knip, markdown lint, lib boundaries, SQL, migration grants, Lambda bundle build, local Supabase bootstrap, sharded unit tests, sharded E2E (dev server), Astro build — run depth decided per-event by the gate job (see "Run gating") |
-| **Auto Merge** | [`.github/workflows/auto-merge.yml`](../.github/workflows/auto-merge.yml) | PR open/sync/ready | Enables squash auto-merge for same-repo, non-draft, non-Dependabot PRs (agent + maintainer). Skips forks and Dependabot |
+| **Auto Merge** | [`.github/workflows/auto-merge.yml`](../.github/workflows/auto-merge.yml) | PR open/sync/ready | Enables squash auto-merge for same-repo, non-draft, non-Dependabot PRs (agent + maintainer). Uses `JANITOR_GITHUB_TOKEN` when set so the merge re-triggers push workflows (CI + Deploy); plain `GITHUB_TOKEN` merges are ignored by Actions. Skips forks and Dependabot |
 | **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | Push to `main` (on merge), manual | Production Supabase migrations, Lambda code updates, live-provider check |
 | **Janitor** | [`.github/workflows/janitor.yml`](../.github/workflows/janitor.yml) | Cron noon + 5pm Eastern, manual | Provider-swappable agent pass (`scripts/janitor/`) that drains authorized Dependabot/self PRs and issues — default provider Cursor. Repo secrets: `CURSOR_API_KEY`, `JANITOR_GITHUB_TOKEN` (fine-grained PAT: Contents + PRs + Issues + Actions write on this repo; non-admin). Optional: `ANTHROPIC_API_KEY` / `CODEX_API_KEY` when swapping `JANITOR_PROVIDER` |
 
@@ -49,7 +49,7 @@ After the first CI workflow run (so the check name appears):
    - `enforce_admins` stays **off** so the owner keeps a break-glass `/ship` direct push (it bypasses these rules — emergency use only)
    - Enable merge queue when the repository plan/UI supports the `merge_queue` rule
 
-The auto-merge workflow calls `gh pr merge --auto --squash` for same-repo, non-draft, non-Dependabot PRs; GitHub merges when all required checks pass. `/ship` may still call `--auto` immediately for a faster arm — redundant here, not required.
+The auto-merge workflow calls `gh pr merge --auto --squash` for same-repo, non-draft, non-Dependabot PRs (via `JANITOR_GITHUB_TOKEN` when present, else `GITHUB_TOKEN`); GitHub merges when all required checks pass. Prefer the PAT: merges performed with `GITHUB_TOKEN` do not fire other workflows, so post-merge CI and Deploy would never run. `/ship` may still call `--auto` immediately for a faster arm — redundant here, not required.
 
 The CI workflow listens for `merge_group` events so merge queue can validate the integrated commit before landing if the feature becomes available. As of 2026-06-28, GitHub rejects `merge_queue` through both REST and GraphQL for this private GitHub Team repository, and neither legacy branch protection nor repository rulesets expose the option in the UI. **Native merge queue requires GitHub Enterprise Cloud for private repos** — unavailable on Free/Pro/Team — so the `merge_group` wiring is forward-compat, not active.
 

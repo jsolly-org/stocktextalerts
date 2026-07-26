@@ -18,7 +18,7 @@ jobs:
     runs-on: blacksmith-2vcpu-ubuntu-2404-arm
     # Gate at the job level so Dependabot / fork / draft events skip with ZERO
     # billed runner minutes. Same-repo maintainer + agent PRs arm immediately;
-    # Dependabot stays off (janitor arms via `gh pr merge --auto` after prep).
+    # Dependabot stays off (janitor arms via `gh` after prep).
     # Fork PRs never auto-merge.
     if: >-
       github.event.pull_request.draft == false &&
@@ -27,6 +27,12 @@ jobs:
     steps:
       - name: Enable auto-merge for same-repo non-Dependabot PRs
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Prefer JANITOR_GITHUB_TOKEN so the eventual squash merge is attributed
+          # to the PAT owner and re-triggers push workflows (CI + Deploy).
+          # GITHUB_TOKEN merges are ignored by Actions to prevent recursion — that
+          # silently skipped post-merge Deploy for #639/#640.
+          # Fine-grained PAT: Contents + PRs + Issues + Actions (write) + Metadata
+          # on this repo; non-admin (enforce_admins is off).
+          GH_TOKEN: ${{ secrets.JANITOR_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: gh pr merge --auto --squash --repo "$GITHUB_REPOSITORY" "$PR_NUMBER"
