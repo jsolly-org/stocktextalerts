@@ -3,7 +3,7 @@ import type { PrefRow } from "../../types";
 import { anyFacetEnabled } from "../notification-prefs";
 
 /** Minimal user fields needed to decide Telegram deliverability. */
-interface TelegramEligibilityUser {
+export interface TelegramEligibilityUser {
 	telegram_chat_id: number | null;
 	telegram_opted_out: boolean;
 }
@@ -19,6 +19,17 @@ interface TelegramEligibilityUser {
  */
 export function isTelegramChannelUsable(user: TelegramEligibilityUser): boolean {
 	return user.telegram_chat_id != null && !user.telegram_opted_out;
+}
+
+/**
+ * True when the dashboard should show "Enable at least one notification channel".
+ * Global email on OR a usable Telegram link counts as a configured channel.
+ */
+export function needsNotificationChannelSelection(
+	emailEnabled: boolean,
+	telegram: TelegramEligibilityUser,
+): boolean {
+	return !emailEnabled && !isTelegramChannelUsable(telegram);
 }
 
 /**

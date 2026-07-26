@@ -12,16 +12,16 @@
 				<div class="flex flex-row flex-wrap items-center gap-x-4 gap-y-2 sm:gap-4 shrink-0">
 					<label
 						class="inline-flex items-center gap-1.5"
-						:class="{ 'cursor-not-allowed': needsChannelSelection }"
+						:class="{ 'cursor-not-allowed': !emailEnabled }"
 						:title="emailDisabledTitle"
 					>
 						<input
 							ref="selectAllEmailRef"
 							type="checkbox"
 							:checked="allEmailChecked"
-							:disabled="needsChannelSelection"
+							:disabled="!emailEnabled"
 							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-							:class="{ 'cursor-not-allowed': needsChannelSelection }"
+							:class="{ 'cursor-not-allowed': !emailEnabled }"
 							aria-label="Select all Email for asset events"
 							@change="toggleAllEmail"
 						/>
@@ -30,11 +30,9 @@
 					<label
 						class="inline-flex items-center gap-1.5"
 						:class="
-							telegramConnected
+							telegramUsable
 								? undefined
-								: needsChannelSelection
-									? 'cursor-not-allowed'
-									: 'cursor-not-allowed opacity-50'
+								: 'cursor-not-allowed opacity-50'
 						"
 						:title="telegramDisabledTitle"
 					>
@@ -42,9 +40,9 @@
 							ref="selectAllTelegramRef"
 							type="checkbox"
 							:checked="allTelegramChecked"
-							:disabled="!telegramConnected"
+							:disabled="!telegramUsable"
 							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-							:class="{ 'cursor-not-allowed': !telegramConnected }"
+							:class="{ 'cursor-not-allowed': !telegramUsable }"
 							aria-label="Select all Telegram for asset events"
 							@change="toggleAllTelegram"
 						/>
@@ -120,15 +118,18 @@
 import { computed, ref, toRefs, watch, watchEffect } from "vue";
 import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
+import { isTelegramChannelUsable } from "../../../lib/messaging/telegram/eligibility";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
-import { getEmailChannelDisabledTitle } from "../shared/channel-options";
+import {
+	getEmailChannelDisabledTitle,
+	getTelegramChannelDisabledTitle,
+} from "../shared/channel-options";
 import type { ChannelOption } from "../types";
 
 interface Props {
 	emailEnabled: boolean;
 	hasTrackedAssets: boolean;
-	needsChannelSelection: boolean;
 	telegramPrefs?: Record<string, boolean>;
 	notifyChange: () => void;
 }
@@ -136,19 +137,15 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
 	telegramPrefs: () => ({}),
 });
-const { emailEnabled, hasTrackedAssets, needsChannelSelection, notifyChange } = toRefs(props);
+const { emailEnabled, hasTrackedAssets, notifyChange } = toRefs(props);
 
 const user = useDashboardUser();
 
 const emailDisabledTitle = computed(() =>
 	getEmailChannelDisabledTitle(emailEnabled.value),
 );
-const telegramConnected = computed(() => user.value.telegram_chat_id != null);
-const telegramDisabledTitle = computed(() =>
-	telegramConnected.value
-		? undefined
-		: "Connect Telegram in your notification channels to select this option.",
-);
+const telegramUsable = computed(() => isTelegramChannelUsable(user.value));
+const telegramDisabledTitle = computed(() => getTelegramChannelDisabledTitle(user.value));
 
 const ASSET_EVENT_TYPES = [
 	{
@@ -197,10 +194,6 @@ type AssetEventKey = (typeof ASSET_EVENT_TYPES)[number]["key"];
 
 function isEventTypeBlockedByAssets(key: AssetEventKey): boolean {
 	return !hasTrackedAssets.value && key !== "ipo";
-}
-
-function isEventTypeBlocked(key: AssetEventKey): boolean {
-	return needsChannelSelection.value || isEventTypeBlockedByAssets(key);
 }
 
 const selectableEventTypes = computed(() =>
@@ -283,21 +276,21 @@ function toggleAllTelegram() {
 }
 
 function channelOptionsFor(key: AssetEventKey): ChannelOption[] {
-	const blocked = isEventTypeBlocked(key);
+	const blockedByAssets = isEventTypeBlockedByAssets(key);
 	const refs = assetEventRefs[key];
 	return [
 		{
 			value: "email",
 			label: "Email",
 			selected: refs.email.value === true,
-			disabled: blocked,
+			disabled: !emailEnabled.value || blockedByAssets,
 			disabledTitle: emailDisabledTitle.value,
 		},
 		{
 			value: "telegram",
 			label: "Telegram",
 			selected: refs.telegram.value === true,
-			disabled: !telegramConnected.value,
+			disabled: !telegramUsable.value || blockedByAssets,
 			disabledTitle: telegramDisabledTitle.value,
 		},
 	];

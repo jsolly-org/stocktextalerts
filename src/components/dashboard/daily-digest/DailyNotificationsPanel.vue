@@ -257,7 +257,6 @@
 				<DailyAssetEventsFieldset
 					:email-enabled="emailEnabled"
 					:has-tracked-assets="hasTrackedAssets"
-					:needs-channel-selection="needsChannelSelection"
 					:telegram-prefs="assetEventTelegramPrefs"
 					:notify-change="notifyChange"
 				/>
@@ -286,6 +285,10 @@ import KalshiLogoIcon from "../../../icons/kalshi.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import PolymarketLogoIcon from "../../../icons/polymarket.svg?component";
 import { DASHBOARD_SECTION_IDS } from "../../../lib/constants";
+import {
+	isTelegramChannelUsable,
+	needsNotificationChannelSelection,
+} from "../../../lib/messaging/telegram/eligibility";
 import { etMinuteToUserLocal } from "../../../lib/time/conversion";
 import {
 	formatCountdownWithSeconds,
@@ -297,7 +300,11 @@ import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferenc
 import { useDashboardUser } from "../composables/useDashboardUser";
 import { DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID } from "../constants";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
-import { createChannelOptionBuilders, getEmailChannelDisabledTitle } from "../shared/channel-options";
+import {
+	createChannelOptionBuilders,
+	getEmailChannelDisabledTitle,
+	getTelegramChannelDisabledTitle,
+} from "../shared/channel-options";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import type { ChannelOption, NotificationPreferencesData } from "../types";
@@ -326,7 +333,9 @@ const { emailEnabled, hasTrackedAssets, assetEventTelegramPrefs } = toRefs(props
 
 const user = useDashboardUser();
 
-const needsChannelSelection = computed(() => !emailEnabled.value);
+const needsChannelSelection = computed(() =>
+	needsNotificationChannelSelection(emailEnabled.value, user.value),
+);
 const needsTrackedAssets = computed(() => !hasTrackedAssets.value);
 const notificationSetupBlocked = computed(
 	() => needsChannelSelection.value || needsTrackedAssets.value,
@@ -401,13 +410,9 @@ const includePredictionMarketsTelegram = ref(
 	props.telegramPrefs.prediction_markets === true,
 );
 
-/** Telegram is selectable only once the account is linked (chat id present). */
-const telegramConnected = computed(() => user.value.telegram_chat_id != null);
-const telegramDisabledTitle = computed(() =>
-	telegramConnected.value
-		? undefined
-		: "Connect Telegram in your notification channels to select this option.",
-);
+/** Telegram is selectable only when linked and not opted out (bot blocked). */
+const telegramUsable = computed(() => isTelegramChannelUsable(user.value));
+const telegramDisabledTitle = computed(() => getTelegramChannelDisabledTitle(user.value));
 
 const dailyEnabled = computed(() =>
 	includePricesEmail.value ||
@@ -431,7 +436,7 @@ checkboxes.
 const { emailOption, telegramOption } = createChannelOptionBuilders({
 	emailDisabled: () => emailOnlyDisabled.value,
 	emailDisabledTitle: () => emailDisabledTitle.value,
-	telegramDisabled: () => !telegramConnected.value,
+	telegramDisabled: () => !telegramUsable.value,
 	telegramDisabledTitle: () => telegramDisabledTitle.value,
 });
 

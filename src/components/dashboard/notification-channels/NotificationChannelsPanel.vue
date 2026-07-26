@@ -86,6 +86,7 @@
 import { DateTime } from "luxon";
 import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
+import { needsNotificationChannelSelection } from "../../../lib/messaging/telegram/eligibility";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import { etMinuteToUserLocal, getUsBeforeOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
@@ -277,7 +278,9 @@ const nextDailyDeliveryText = computed(() => {
 
 /* ============= Notification Preview ============= */
 const needsTrackedAssets = computed(() => !props.hasTrackedAssets);
-const needsChannelSelection = computed(() => !emailEnabledProp.value);
+const needsChannelSelection = computed(() =>
+	needsNotificationChannelSelection(emailEnabledProp.value, user.value),
+);
 const notificationSetupBlocked = computed(
 	() => needsChannelSelection.value || needsTrackedAssets.value,
 );
