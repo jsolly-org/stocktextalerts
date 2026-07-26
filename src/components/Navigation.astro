@@ -65,6 +65,18 @@ const isApprovalAdmin = user ? isApprovalAdminEmail(user.email) : false;
                   </a>
                 </li>
               )}
+              <li>
+                <a
+                  href="/profile"
+                  aria-current={currentPage === "/profile" ? "page" : undefined}
+                  class:list={[
+                    "text-sm font-medium transition-colors px-3 py-1.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                    currentPage === "/profile" ? "text-primary bg-primary/10" : "text-body-secondary hover:text-heading hover:bg-surface-active"
+                  ]}
+                >
+                  Profile
+                </a>
+              </li>
             </>
           )}
         </ul>
