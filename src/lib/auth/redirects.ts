@@ -1,5 +1,16 @@
 const DEFAULT_SIGNIN_REDIRECT = "/dashboard";
 
+/** True when `value` contains C0 controls or DEL (TAB before `//` enables WHATWG open redirects). */
+function hasUnsafeRedirectControlChars(value: string): boolean {
+	for (let i = 0; i < value.length; i++) {
+		const code = value.charCodeAt(i);
+		if (code <= 0x1f || code === 0x7f) {
+			return true;
+		}
+	}
+	return false;
+}
+
 function isSafeRedirectPath(value: string): boolean {
 	if (!value.startsWith("/")) {
 		return false;
@@ -14,8 +25,8 @@ function isSafeRedirectPath(value: string): boolean {
 	if (value.includes("\\")) {
 		return false;
 	}
-	// Reject CRLF to prevent HTTP response splitting (Location header injection)
-	if (value.includes("\n") || value.includes("\r")) {
+	// Reject C0/DEL (includes CR/LF) — prevents Location splitting and TAB-smuggled `//host` open redirects
+	if (hasUnsafeRedirectControlChars(value)) {
 		return false;
 	}
 
@@ -35,8 +46,8 @@ export function getSafeRedirectPath(value: string | null): string | null {
 	if (!value) {
 		return null;
 	}
-	// Reject CRLF before trim; trim() would remove trailing \r/\n and bypass the safety check
-	if (value.includes("\n") || value.includes("\r")) {
+	// Reject controls before trim; trim() would strip trailing CR/LF/TAB and bypass the safety check
+	if (hasUnsafeRedirectControlChars(value)) {
 		return null;
 	}
 

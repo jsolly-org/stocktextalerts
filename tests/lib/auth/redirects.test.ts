@@ -49,6 +49,13 @@ describe("getSafeRedirectPath open-redirect protection", () => {
 		expect(getSafeRedirectPath("/dashboard#section\nX-Injected: 1")).toBeNull();
 	});
 
+	it("rejects TAB-smuggled protocol-relative paths (WHATWG open redirect)", () => {
+		// `new URL("/\t//evil.com", origin)` resolves to https://evil.com/
+		expect(getSafeRedirectPath("/\t//evil.com")).toBeNull();
+		expect(getSafeRedirectPath("/\t//evil.com#section")).toBeNull();
+		expect(getSafeRedirectPath("/\u0000//evil.com")).toBeNull();
+	});
+
 	it("rejects null, empty string, and whitespace-only", () => {
 		expect(getSafeRedirectPath(null)).toBeNull();
 		expect(getSafeRedirectPath("")).toBeNull();
@@ -121,6 +128,10 @@ describe("mergeLocationHashIntoRedirectValue", () => {
 
 	it("rejects unsafe merged targets", () => {
 		expect(mergeLocationHashIntoRedirectValue("//evil.com", "#section")).toBe("");
+	});
+
+	it("keeps a safe redirect when the hash is contaminated", () => {
+		expect(mergeLocationHashIntoRedirectValue("/dashboard", "#x\nY")).toBe("/dashboard");
 	});
 });
 
