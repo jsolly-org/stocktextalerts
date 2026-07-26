@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { GET as getCurrentNotificationPreferences } from "../../../../src/pages/api/notification-preferences/current";
 import { createApiContext } from "../../../helpers/api-context";
 import { TEST_PASSWORD } from "../../../helpers/constants";
-import { createAuthenticatedCookies } from "../../../helpers/test-env";
+import { adminClient, createAuthenticatedCookies } from "../../../helpers/test-env";
 import { createTestUser } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 
@@ -46,8 +46,52 @@ describe("A signed-in user loads their current notification settings.", () => {
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("ok");
 		expect(payload.notificationPreferences.email_notifications_enabled).toBe(true);
+		expect(
+			(payload.notificationPreferences as { telegram_notifications_enabled?: boolean })
+				.telegram_notifications_enabled,
+		).toBe(true);
 		expect(payload.notificationPreferences.timezone).toBe("America/Chicago");
 		expect(payload.notificationPreferences.market_scheduled_asset_price_times).toEqual([615, 960]);
+	});
+
+	it("Returns telegram_notifications_enabled false when the user is opted out.", async () => {
+		const testUser = await createTestUser({
+			email: `pref-current-tg-muted-${randomUUID()}@example.com`,
+			password: TEST_PASSWORD,
+			confirmed: true,
+			emailNotificationsEnabled: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const { error: muteError } = await adminClient
+			.from("users")
+			.update({
+				telegram_chat_id: 8675309,
+				telegram_linked_at: new Date().toISOString(),
+				telegram_opted_out: true,
+			})
+			.eq("id", testUser.id);
+		if (muteError) {
+			throw new Error(`Failed to mute telegram: ${muteError.message}`);
+		}
+
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
+		const response = await getCurrentNotificationPreferences(
+			createApiContext({
+				request: new Request("http://localhost/api/notification-preferences/current", {
+					method: "GET",
+				}),
+				cookies,
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as {
+			ok: boolean;
+			notificationPreferences: { telegram_notifications_enabled: boolean };
+		};
+		expect(payload.ok).toBe(true);
+		expect(payload.notificationPreferences.telegram_notifications_enabled).toBe(false);
 	});
 
 	it("Rejects a logged-out request.", async () => {

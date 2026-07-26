@@ -28,7 +28,10 @@
 
 			<NotificationChannelsFieldset
 				v-model:email-enabled="emailEnabledModel"
+				v-model:telegram-enabled="telegramEnabledModel"
+				:submit-telegram-toggle="telegramToggleDirty"
 				:email-notifications-enabled-id="emailNotificationsEnabledId"
+				:telegram-notifications-enabled-id="telegramNotificationsEnabledId"
 				:notification-channels-desc-id="notificationChannelsDescId"
 				:daily-delivery-time-input="dailyDeliveryTimeInput"
 				:daily-delivery-time-minutes="dailyDeliveryTimeMinutes"
@@ -86,7 +89,11 @@
 import { DateTime } from "luxon";
 import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
-import { needsNotificationChannelSelection } from "../../../lib/messaging/telegram/eligibility";
+import {
+	needsNotificationChannelSelection,
+	toTelegramNotificationsEnabled,
+	toTelegramOptedOut,
+} from "../../../lib/messaging/telegram/eligibility";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import { etMinuteToUserLocal, getUsBeforeOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
@@ -158,6 +165,7 @@ const {
 
 /* ============= Channel state ============= */
 const emailNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-email_notifications_enabled`;
+const telegramNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-telegram_notifications_enabled`;
 const notificationChannelsDescId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-notification-channels-desc`;
 
 const emailEnabledModel = computed({
@@ -165,7 +173,26 @@ const emailEnabledModel = computed({
 	set: (value: boolean) => emit("update:emailEnabled", value),
 });
 
+/** Positive UI polarity mirrored from `!users.telegram_opted_out`. */
+const telegramEnabledModel = computed({
+	get: () => toTelegramNotificationsEnabled(user.value.telegram_opted_out),
+	set: (value: boolean) => {
+		user.value = { ...user.value, telegram_opted_out: toTelegramOptedOut(value) };
+		telegramToggleDirty.value = true;
+	},
+});
+
+/**
+ * Only include the Telegram global field after the user flips the switch so
+ * unrelated autosaves (email, delivery time) cannot clear an out-of-band mute.
+ */
+const telegramToggleDirty = ref(false);
+
 watch(emailEnabledModel, () => {
+	notifyChange();
+});
+
+watch(telegramEnabledModel, () => {
 	notifyChange();
 });
 
@@ -178,10 +205,12 @@ watch(
 			user.value = {
 				...user.value,
 				email_notifications_enabled: newData.email_notifications_enabled,
+				telegram_opted_out: toTelegramOptedOut(newData.telegram_notifications_enabled),
 				daily_notification_time: newData.daily_notification_time,
 				daily_notification_next_send_at: newData.daily_notification_next_send_at,
 				market_scheduled_asset_price_next_send_at: newData.market_scheduled_asset_price_next_send_at,
 			};
+			telegramToggleDirty.value = false;
 			// Sync channel state with parent
 			emit("update:emailEnabled", newData.email_notifications_enabled);
 		}

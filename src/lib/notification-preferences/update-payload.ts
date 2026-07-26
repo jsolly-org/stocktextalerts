@@ -4,6 +4,7 @@ import { applyDailyNotificationNextSendAtToUserUpdate } from "../daily-notificat
 import { omitUndefined } from "../db";
 import type { User, UserUpdateInput } from "../db/types";
 import type { Logger } from "../logging";
+import { toTelegramOptedOut } from "../messaging/telegram/eligibility";
 import { userLocalToEtMinute } from "../time/conversion";
 import {
 	computeNextSendAtIso,
@@ -20,6 +21,8 @@ type ParsedNotificationPreferencesForm = {
 	market_scheduled_asset_price_enabled?: boolean;
 	timezone?: string;
 	email_notifications_enabled?: boolean;
+	/** Positive form polarity; mapped to `users.telegram_opted_out` (inverted). */
+	telegram_notifications_enabled?: boolean;
 	market_scheduled_asset_price_times?: string[];
 	daily_digest_time?: number;
 } & Partial<Record<NotificationOptionFieldName, boolean>>;
@@ -150,6 +153,18 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		if (formData.has(field) && val !== undefined) {
 			boolUpdates[field] = val;
 		}
+	}
+
+	/* =============
+	Telegram's global mute is `users.telegram_opted_out` (ONE-FLAG model — no
+	`telegram_notifications_enabled` column). The form uses positive polarity to
+	mirror email's toggle; invert at the users-table boundary.
+	============= */
+	if (
+		formData.has("telegram_notifications_enabled") &&
+		parsedData.telegram_notifications_enabled !== undefined
+	) {
+		boolUpdates.telegram_opted_out = toTelegramOptedOut(parsedData.telegram_notifications_enabled);
 	}
 
 	const safeNotificationPreferenceUpdates: UserUpdateInput = omitUndefined({

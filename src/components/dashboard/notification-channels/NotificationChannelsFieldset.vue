@@ -32,7 +32,28 @@
 				/>
 			</div>
 
-			<div class="pb-4">
+			<div v-if="telegramConnected" class="flex items-center justify-between gap-3 py-4 border-t border-edge">
+				<input
+					v-if="props.submitTelegramToggle"
+					type="hidden"
+					name="telegram_notifications_enabled"
+					:value="telegramEnabled ? 'on' : 'off'"
+				/>
+				<div>
+					<span :id="`${props.telegramNotificationsEnabledId}_label`" class="text-sm font-medium text-heading">Telegram Notifications</span>
+					<span :id="`${props.telegramNotificationsEnabledId}_desc`" class="block text-sm text-muted">
+						Global Telegram toggle. Your account stays linked; individual notification types are configured in each section.
+					</span>
+				</div>
+				<ToggleSwitch
+					v-model="telegramEnabledModel"
+					sr-label="Telegram notifications"
+					:aria-labelledby="`${props.telegramNotificationsEnabledId}_label`"
+					:aria-describedby="`${props.telegramNotificationsEnabledId}_desc`"
+				/>
+			</div>
+
+			<div class="pb-4" :class="{ 'border-t border-edge pt-4': telegramConnected }">
 				<ConnectTelegramCard />
 			</div>
 		</fieldset>
@@ -88,12 +109,21 @@ import { computed } from "vue";
 import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
 import { DASHBOARD_SECTION_HASHES, DASHBOARD_SECTION_IDS } from "../../../lib/constants";
 import ToggleSwitch from "../../ToggleSwitch.vue";
+import { useDashboardUser } from "../composables/useDashboardUser";
 import TimePicker from "../shared/TimePicker.vue";
 import ConnectTelegramCard from "./ConnectTelegramCard.vue";
 
 interface Props {
 	emailEnabled: boolean;
+	telegramEnabled: boolean;
+	/**
+	 * When true, include `telegram_notifications_enabled` in the form submission.
+	 * Only set after the user flips the toggle so unrelated autosaves cannot
+	 * overwrite an out-of-band mute (`/stop`, bot-blocked 403).
+	 */
+	submitTelegramToggle: boolean;
 	emailNotificationsEnabledId: string;
+	telegramNotificationsEnabledId: string;
 	notificationChannelsDescId: string;
 	/** Current daily delivery time as an HH:MM string, or null. */
 	dailyDeliveryTimeInput: string | null;
@@ -111,14 +141,23 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<{
 	(event: "update:emailEnabled", value: boolean): void;
+	(event: "update:telegramEnabled", value: boolean): void;
 	(event: "dailyTimeChange", value: string): void;
 	(event: "clearDeliveryTime"): void;
 	(event: "setBeforeOpen"): void;
 }>();
 
+const user = useDashboardUser();
+const telegramConnected = computed(() => user.value.telegram_chat_id != null);
+
 const emailEnabledModel = computed({
 	get: () => props.emailEnabled,
 	set: (value: boolean) => emit("update:emailEnabled", value),
+});
+
+const telegramEnabledModel = computed({
+	get: () => props.telegramEnabled,
+	set: (value: boolean) => emit("update:telegramEnabled", value),
 });
 
 const canSetBeforeOpen = computed(

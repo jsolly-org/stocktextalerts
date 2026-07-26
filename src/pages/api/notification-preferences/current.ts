@@ -3,6 +3,7 @@ import { createUserService } from "../../../lib/auth/user-service";
 import type { ApiJsonBody } from "../../../lib/client/types";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
+import { toTelegramNotificationsEnabled } from "../../../lib/messaging/telegram/eligibility";
 import {
 	buildChannelPreferenceSnapshot,
 	loadUserPreferenceRows,
@@ -54,6 +55,7 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 				notificationPreferences: {
 					market_scheduled_asset_price_enabled: dbUser.market_scheduled_asset_price_enabled,
 					email_notifications_enabled: dbUser.email_notifications_enabled,
+					telegram_notifications_enabled: toTelegramNotificationsEnabled(dbUser.telegram_opted_out),
 					timezone: dbUser.timezone,
 					market_scheduled_asset_price_times: dbUser.market_scheduled_asset_price_times,
 					daily_notification_time: dbUser.daily_notification_time,

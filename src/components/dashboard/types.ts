@@ -24,6 +24,8 @@ export interface ChannelOption {
 export type NotificationPreferencesData = {
 	market_scheduled_asset_price_enabled: boolean;
 	email_notifications_enabled: boolean;
+	/** Positive polarity derived from `!users.telegram_opted_out`. */
+	telegram_notifications_enabled: boolean;
 	timezone: string;
 	market_scheduled_asset_price_times: number[] | null;
 	daily_notification_time: number | null;

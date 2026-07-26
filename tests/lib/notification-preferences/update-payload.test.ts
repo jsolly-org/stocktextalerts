@@ -84,6 +84,63 @@ describe("Notification preference update payloads stay aligned with user schedul
 		expect(payload.market_scheduled_asset_price_enabled).toBeUndefined();
 	});
 
+	it("Maps telegram_notifications_enabled on to telegram_opted_out false.", () => {
+		const user = makeUser({ telegram_opted_out: true });
+		const formData = new FormData();
+		formData.set("telegram_notifications_enabled", "on");
+
+		const payload = buildNotificationPreferencesUpdatePayload({
+			parsedData: { telegram_notifications_enabled: true },
+			formData,
+			rawTimesValue: null,
+			dbUser: user,
+			dailyNotificationEnabledAfterUpdate: false,
+			dailyNotificationOptionsChanged: false,
+		});
+
+		expect(payload.telegram_opted_out).toBe(false);
+		expect(
+			(payload as { telegram_notifications_enabled?: boolean }).telegram_notifications_enabled,
+		).toBeUndefined();
+	});
+
+	it("Maps telegram_notifications_enabled off to telegram_opted_out true.", () => {
+		const user = makeUser({ telegram_opted_out: false });
+		const formData = new FormData();
+		formData.set("telegram_notifications_enabled", "off");
+
+		const payload = buildNotificationPreferencesUpdatePayload({
+			parsedData: { telegram_notifications_enabled: false },
+			formData,
+			rawTimesValue: null,
+			dbUser: user,
+			dailyNotificationEnabledAfterUpdate: false,
+			dailyNotificationOptionsChanged: false,
+		});
+
+		expect(payload.telegram_opted_out).toBe(true);
+	});
+
+	it("Omits telegram_opted_out when telegram_notifications_enabled was not submitted.", () => {
+		const user = makeUser({ telegram_opted_out: true });
+		const formData = new FormData();
+		formData.set("email_notifications_enabled", "on");
+
+		const payload = buildNotificationPreferencesUpdatePayload({
+			parsedData: {
+				email_notifications_enabled: true,
+				telegram_notifications_enabled: false,
+			},
+			formData,
+			rawTimesValue: null,
+			dbUser: user,
+			dailyNotificationEnabledAfterUpdate: false,
+			dailyNotificationOptionsChanged: false,
+		});
+
+		expect(payload.telegram_opted_out).toBeUndefined();
+	});
+
 	it("Schedules daily_notification_next_send_at when a daily facet becomes enabled.", () => {
 		const user = makeUser();
 		const formData = new FormData();
