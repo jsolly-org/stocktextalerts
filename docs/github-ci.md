@@ -12,11 +12,11 @@ StockTextAlerts uses **GitHub Actions** for the full test battery, native GitHub
 | --- | --- | --- | --- |
 | **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PRs, push to `main` (post-merge gate), merge queue, manual | Lint, workflow lint, types, Knip, markdown lint, lib boundaries, SQL, migration grants, Lambda bundle build, local Supabase bootstrap, sharded unit tests, sharded E2E (dev server), Astro build — run depth decided per-event by the gate job (see "Run gating") |
 | **Auto Merge** | [`.github/workflows/auto-merge.yml`](../.github/workflows/auto-merge.yml) | PR open/sync/ready | Enables squash auto-merge for same-repo, non-draft, non-Dependabot PRs (agent + maintainer). Skips forks and Dependabot |
-| **Post-merge bot dispatch** | [`.github/workflows/post-merge-bot.yml`](../.github/workflows/post-merge-bot.yml) | PR closed on `main` (bot merges only) | `GITHUB_TOKEN` merges suppress push workflows; this dispatches CI + Deploy via `workflow_dispatch` so agent auto-merges still deploy |
-| **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | Push to `main` (on merge), manual, bot post-merge dispatch | Production Supabase migrations, Lambda code updates, live-provider check |
+| **Post-merge bot dispatch** | [`.github/workflows/post-merge-bot.yml`](../.github/workflows/post-merge-bot.yml) | PR closed on `main` (bot merges only) | `GITHUB_TOKEN` merges suppress push workflows; this dispatches **CI** via `workflow_dispatch` so agent auto-merges still get a main CI run (Deploy then follows via `workflow_run`) |
+| **Deploy** | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | After green CI on `main` (`workflow_run`), or manual `workflow_dispatch` | Production Supabase migrations, Lambda code updates, live-provider check — gated on green main CI |
 | **Janitor** | [`.github/workflows/janitor.yml`](../.github/workflows/janitor.yml) | Cron noon + 5pm Eastern, manual | Provider-swappable agent pass (`scripts/janitor/`) that drains authorized Dependabot/self PRs and issues — default provider Cursor. Repo secrets: `CURSOR_API_KEY`, `JANITOR_GITHUB_TOKEN` (fine-grained PAT: Contents + PRs + Issues + Actions write on this repo; non-admin). Optional: `ANTHROPIC_API_KEY` / `CODEX_API_KEY` when swapping `JANITOR_PROVIDER` |
 
-**Integration:** the canonical path is **branch → PR → CI-gated auto-merge** — push a branch, open a PR, and GitHub merges once the required `ci` check is green. Auto-merge arms automatically for same-repo non-Dependabot PRs (including bare `gh pr create` from agents). Fork PRs never auto-merge; Dependabot stays off until janitor arms via `gh` after prep. Drafts are skipped — open a draft (or `gh pr merge --disable-auto`) to hold a PR out of the merge path. Merging is **optimistic** (branch-up-to-date/strict is off); CI then re-runs post-merge on `main` as the real green-together gate (see "Concurrent merges" below). After a change lands on `main`, the deploy workflow applies production migrations plus Lambda code updates and Vercel's Git integration deploys the web tier. `npm run deploy:code` remains a local break-glass path, not the default release path.
+**Integration:** the canonical path is **branch → PR → CI-gated auto-merge** — push a branch, open a PR, and GitHub merges once the required `ci` check is green. Auto-merge arms automatically for same-repo non-Dependabot PRs (including bare `gh pr create` from agents). Fork PRs never auto-merge; Dependabot stays off until janitor arms via `gh` after prep. Drafts are skipped — open a draft (or `gh pr merge --disable-auto`) to hold a PR out of the merge path. Merging is **optimistic** (branch-up-to-date/strict is off); CI then re-runs post-merge on `main` as the real green-together gate (see "Concurrent merges" below). After a change lands on `main` and **main CI is green**, the Deploy workflow applies production migrations plus Lambda code updates; Vercel's Git integration deploys the web tier on the push. `npm run deploy:code` remains a local break-glass path, not the default release path.
 
 ## Local pre-commit gate
 
@@ -50,7 +50,7 @@ After the first CI workflow run (so the check name appears):
    - `enforce_admins` stays **off** so the owner keeps a break-glass `/ship` direct push (it bypasses these rules — emergency use only)
    - Enable merge queue when the repository plan/UI supports the `merge_queue` rule
 
-The auto-merge workflow calls `gh pr merge --auto --squash` for same-repo, non-draft, non-Dependabot PRs; GitHub merges when all required checks pass. Those merges use `GITHUB_TOKEN`, which does **not** create push workflow runs (recursion guard) — [`.github/workflows/post-merge-bot.yml`](../.github/workflows/post-merge-bot.yml) catches bot merges and `workflow_dispatch`es CI + Deploy on `main` instead. Human merges still rely on the normal `push` trigger. `/ship` may still call `--auto` immediately for a faster arm — redundant here, not required.
+The auto-merge workflow calls `gh pr merge --auto --squash` for same-repo, non-draft, non-Dependabot PRs; GitHub merges when all required checks pass. Those merges use `GITHUB_TOKEN`, which does **not** create push workflow runs (recursion guard) — [`.github/workflows/post-merge-bot.yml`](../.github/workflows/post-merge-bot.yml) catches bot merges and `workflow_dispatch`es **CI** on `main` instead (Deploy then follows via `workflow_run` after that CI is green). Human merges still rely on the normal `push` → CI path. `/ship` may still call `--auto` immediately for a faster arm — redundant here, not required.
 
 The CI workflow listens for `merge_group` events so merge queue can validate the integrated commit before landing if the feature becomes available. As of 2026-06-28, GitHub rejects `merge_queue` through both REST and GraphQL for this private GitHub Team repository, and neither legacy branch protection nor repository rulesets expose the option in the UI. **Native merge queue requires GitHub Enterprise Cloud for private repos** — unavailable on Free/Pro/Team — so the `merge_group` wiring is forward-compat, not active.
 
@@ -64,9 +64,9 @@ The risk with two PRs in flight is a **semantic (logical) conflict**: each passe
 
 1. PR #1 and PR #2 each auto-merge as soon as their **own** `ci` is green — no *Update branch* click, no cross-PR re-run.
 2. On each merge, `ci` runs on the new `main` commit. If the combination broke, that run goes **red**.
-3. A red `main` is fixed forward (a follow-up commit/PR); the deploy workflow's own guards (refuse-stale, refuse-infra) limit blast radius meanwhile.
+3. A red `main` is fixed forward (a follow-up commit/PR). **Deploy does not run** until main CI is green (`workflow_run`), so a broken tip cannot ship Lambdas/migrations.
 
-This trades strict's **pre-merge** guarantee (a broken combination can't land) for a **post-merge** one (it lands, then is caught and fixed forward within one CI cycle) — the standard trunk-based optimistic-merge posture, matching this repo's fire-and-forward model. Cost is O(k) (one `main` run per merge) instead of strict's O(k²) rebase churn, so it scales as concurrency grows. Note: post-merge CI is a **canary**, not a deploy gate — `deploy.yml` fires in parallel on the same push, so a broken `main` can still deploy (the same posture Vercel's push-triggered web deploy already has); gate deploy on the `main` CI run only if that becomes a real problem.
+This trades strict's **pre-merge** guarantee (a broken combination can't land) for a **post-merge** one (it lands, then is caught and fixed forward within one CI cycle) — the standard trunk-based optimistic-merge posture, matching this repo's fire-and-forward model. Cost is O(k) (one `main` run per merge) instead of strict's O(k²) rebase churn, so it scales as concurrency grows. **Deploy is gated on green main CI** (same trigger shape as the jsolly aws-sam fleet). Vercel's push-triggered web deploy can still race ahead of that gate — keep schema-affecting web changes backward-compatible until migrations land.
 
 **Upgrade path** when concurrent PRs become routine:
 
@@ -106,13 +106,14 @@ Because Vercel Git deployments start independently on `main` pushes, schema-affe
 
 ## Deploy after merge
 
-The deploy workflow is triggered directly by a `push` to `main` (i.e. on merge), **in parallel with** the post-merge `main` CI run — deploy is not gated on it (CI is the green-together canary; the deploy's own guards protect the release). A deploy for a **stale** commit (one `main` has already moved past via a newer push) is blocked by a main-tip check in the deploy workflow (`git ls-remote` tip vs the pushed `github.sha`); its `deploy-production` concurrency group (`cancel-in-progress: false`) serializes queued deploys.
+The Deploy workflow runs via `workflow_run` after **successful CI on `main`** (triggering event `push`, or `workflow_dispatch` from post-merge-bot after a `GITHUB_TOKEN` merge), plus human `workflow_dispatch` break-glass. It does **not** fire in parallel with a still-running/red main CI. A deploy for a **stale** commit (one `main` has already moved past) is blocked by a main-tip check (`git ls-remote` tip vs the CI `head_sha`); its `deploy-production` concurrency group (`cancel-in-progress: false`) serializes queued deploys.
 
 When a merge lands on the current `main` tip:
 
-1. Vercel's GitHub integration deploys the web tier from the landed `main` commit.
-2. `aws/deploy-web.sh --deploy-ci` builds Lambda code, applies Supabase migrations, and updates existing Lambda code.
-3. The workflow invokes `stocktextalerts-live-provider-check`.
-4. A red deploy means production needs a forward-fix change; do not rerun manual production DDL outside the deploy workflow.
+1. Vercel's GitHub integration deploys the web tier from the landed `main` commit (independent of Actions Deploy).
+2. Main CI runs (push or bot-dispatched). On green, Deploy starts.
+3. `aws/deploy-web.sh --deploy-ci` builds Lambda code, applies Supabase migrations, and updates existing Lambda code.
+4. The workflow invokes `stocktextalerts-live-provider-check`.
+5. A red Deploy means production needs a forward-fix change; do not rerun manual production DDL outside the deploy workflow. `/ship` babysits Deploy and fails the ship if Deploy stays red.
 
 Infra changes (`aws/template.yaml`, `aws/deploy.sh`) still need `npm run deploy:infra` (full SAM, admin creds) for new resources and config (timeout/memory/env/IAM). Pure infra-only commits are refused by the deploy workflow; mixed commits that also change app code still run migrations + Lambda code updates. The infra-drift check only fail-closes on Timeout/MemorySize drift — env/IAM/schedule still need the manual infra deploy. After every successful code deploy, the live-provider-check Lambda must return `{ ok: true, releaseId }` matching the deployed commit SHA (12 chars) — that assert is what proves the uploaded bundle is live (proxy for the shared stamp across all functions).
