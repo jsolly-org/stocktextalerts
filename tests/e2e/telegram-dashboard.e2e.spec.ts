@@ -188,6 +188,55 @@ test.describe("Telegram dashboard UI", () => {
 		await expect(topMoversListbox).toBeHidden();
 	});
 
+	test("global Telegram notifications toggle mutes delivery without unlinking", async () => {
+		await page.goto("/dashboard");
+		await page
+			.locator('form[aria-label="Notification preferences"][data-hydrated]')
+			.waitFor({ timeout: 15_000 });
+
+		const telegramSwitch = page.getByRole("switch", { name: "Telegram notifications" });
+		await expect(telegramSwitch).toBeVisible();
+		await expect(telegramSwitch).toHaveAttribute("aria-checked", "true");
+
+		await waitForAutosave(page, async () => {
+			await telegramSwitch.click();
+		});
+
+		const { data: muted } = await adminClient
+			.from("users")
+			.select("telegram_opted_out,telegram_chat_id")
+			.eq("id", userId as string)
+			.single();
+		expect(muted?.telegram_opted_out).toBe(true);
+		expect(muted?.telegram_chat_id).toBe(TELEGRAM_CHAT_ID);
+		await expect(telegramSwitch).toHaveAttribute("aria-checked", "false");
+
+		// Per-option Telegram channels become disabled while globally muted.
+		const topMoversListbox = await openChannelMultiselect(page, "daily_digest_include_top_movers");
+		const telegramOption = topMoversListbox.getByRole("option", { name: "Telegram" });
+		await expect(telegramOption).toHaveAttribute("aria-disabled", "true");
+		await page.keyboard.press("Escape");
+
+		await waitForAutosave(page, async () => {
+			await telegramSwitch.click();
+		});
+
+		const { data: unmuted } = await adminClient
+			.from("users")
+			.select("telegram_opted_out")
+			.eq("id", userId as string)
+			.single();
+		expect(unmuted?.telegram_opted_out).toBe(false);
+		await expect(telegramSwitch).toHaveAttribute("aria-checked", "true");
+
+		const unmutedListbox = await openChannelMultiselect(page, "daily_digest_include_top_movers");
+		await expect(unmutedListbox.getByRole("option", { name: "Telegram" })).not.toHaveAttribute(
+			"aria-disabled",
+			"true",
+		);
+		await page.keyboard.press("Escape");
+	});
+
 	test("toggling Telegram on a Market panel option and a daily asset-event option each persist a DB row", async () => {
 		await page.goto("/dashboard", { waitUntil: "networkidle" });
 		await page.locator("[data-hydrated]").first().waitFor({ state: "attached", timeout: 15_000 });

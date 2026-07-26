@@ -30,7 +30,9 @@
 			</button>
 
 			<p v-else class="text-sm text-body-secondary">
-				Your account is linked. Telegram appears as a channel option on every notification below.
+				Your account is linked. Use the Telegram Notifications toggle above to mute or unmute
+				delivery without unlinking; Telegram also appears as a channel option on every
+				notification below.
 			</p>
 		</div>
 

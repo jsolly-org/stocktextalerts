@@ -13,6 +13,8 @@ const OPTION_BOOLEAN_FIELDS = Object.fromEntries(
 export const NOTIFICATION_PREFERENCES_SCHEMA = {
 	market_scheduled_asset_price_enabled: { type: "boolean" },
 	email_notifications_enabled: { type: "boolean" },
+	/** Positive UI/form polarity; persisted inverted as `users.telegram_opted_out`. */
+	telegram_notifications_enabled: { type: "boolean" },
 	timezone: { type: "timezone" },
 	market_scheduled_asset_price_times: { type: "json_string_array" },
 	daily_digest_time: { type: "time" },

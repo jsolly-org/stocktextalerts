@@ -1,9 +1,22 @@
+import {
+	isTelegramChannelUsable,
+	type TelegramEligibilityUser,
+} from "../../../lib/messaging/telegram/eligibility";
 import type { ChannelOption } from "../types";
 
 /** Hover title for a disabled email channel option; undefined when email is enabled. */
 export function getEmailChannelDisabledTitle(emailEnabled: boolean): string | undefined {
 	if (emailEnabled) return undefined;
 	return "Enable email in your notification channels to select this option.";
+}
+
+/** Hover title for a disabled Telegram channel option; undefined when Telegram is usable. */
+export function getTelegramChannelDisabledTitle(user: TelegramEligibilityUser): string | undefined {
+	if (isTelegramChannelUsable(user)) return undefined;
+	if (user.telegram_chat_id == null) {
+		return "Connect Telegram in your notification channels to select this option.";
+	}
+	return "Enable Telegram in your notification channels to select this option.";
 }
 
 /**

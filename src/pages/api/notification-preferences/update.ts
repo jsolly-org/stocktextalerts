@@ -11,6 +11,7 @@ import type { User } from "../../../lib/db/types";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
+import { toTelegramNotificationsEnabled } from "../../../lib/messaging/telegram/eligibility";
 import {
 	buildChannelPreferenceSnapshot,
 	loadUserPreferenceRows,
@@ -239,6 +240,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				notificationPreferences: {
 					market_scheduled_asset_price_enabled: updatedUser.market_scheduled_asset_price_enabled,
 					email_notifications_enabled: updatedUser.email_notifications_enabled,
+					telegram_notifications_enabled: toTelegramNotificationsEnabled(
+						updatedUser.telegram_opted_out,
+					),
 					timezone: updatedUser.timezone,
 					market_scheduled_asset_price_times: updatedUser.market_scheduled_asset_price_times,
 					daily_notification_time: updatedUser.daily_notification_time,

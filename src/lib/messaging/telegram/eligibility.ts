@@ -10,15 +10,26 @@ export interface TelegramEligibilityUser {
 
 /**
  * True when the user can receive Telegram messages at all: a chat is linked and
- * they haven't been opted out (set only by a verified outbound 403 — "bot blocked").
- * Independent of any per-option preference.
+ * they haven't been opted out (dashboard global toggle, `/stop`, or a verified
+ * outbound 403 — "bot blocked"). Independent of any per-option preference.
  *
  * `telegram_opted_out` is the SOLE channel-disable signal — there is no
- * `telegram_notifications_enabled` peer flag (see opt-out.ts).
+ * `telegram_notifications_enabled` peer column (the form field of that name is
+ * positive UI polarity that inverts to this flag; see update-payload.ts).
  * Every send path must funnel through this helper (or `shouldSendTelegram`).
  */
 export function isTelegramChannelUsable(user: TelegramEligibilityUser): boolean {
 	return user.telegram_chat_id != null && !user.telegram_opted_out;
+}
+
+/** Positive UI/API polarity for the global Telegram toggle (`!telegram_opted_out`). */
+export function toTelegramNotificationsEnabled(telegramOptedOut: boolean): boolean {
+	return !telegramOptedOut;
+}
+
+/** Persist positive form polarity back to `users.telegram_opted_out`. */
+export function toTelegramOptedOut(telegramNotificationsEnabled: boolean): boolean {
+	return !telegramNotificationsEnabled;
 }
 
 /**

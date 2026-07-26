@@ -4,6 +4,8 @@ import {
 	isTelegramChannelUsable,
 	needsNotificationChannelSelection,
 	shouldSendTelegram,
+	toTelegramNotificationsEnabled,
+	toTelegramOptedOut,
 } from "../../../../src/lib/messaging/telegram/eligibility";
 import { createTelegramSenderFactory } from "../../../../src/lib/messaging/telegram/sender-factory";
 import type { PrefRow } from "../../../../src/lib/types";
@@ -35,6 +37,13 @@ describe("Telegram delivery eligibility", () => {
 		expect(isTelegramChannelUsable({ telegram_chat_id: 8675309, telegram_opted_out: false })).toBe(
 			true,
 		);
+	});
+
+	it("maps opted-out polarity to the positive notifications-enabled form field", () => {
+		expect(toTelegramNotificationsEnabled(false)).toBe(true);
+		expect(toTelegramNotificationsEnabled(true)).toBe(false);
+		expect(toTelegramOptedOut(true)).toBe(false);
+		expect(toTelegramOptedOut(false)).toBe(true);
 	});
 
 	it("an unlinked user (no chat id) cannot receive Telegram messages", () => {
