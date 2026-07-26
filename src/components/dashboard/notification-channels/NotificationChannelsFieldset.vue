@@ -40,20 +40,29 @@
 					:value="telegramEnabled ? 'on' : 'off'"
 				/>
 				<div>
-					<span :id="`${props.telegramNotificationsEnabledId}_label`" class="text-sm font-medium text-heading">Telegram Notifications</span>
+					<div class="flex items-center gap-2">
+						<span :id="`${props.telegramNotificationsEnabledId}_label`" class="text-sm font-medium text-heading">Telegram Notifications</span>
+						<span
+							:id="`${props.telegramNotificationsEnabledId}_status`"
+							class="inline-flex items-center gap-1 rounded-full bg-success-bg px-2 py-0.5 text-xs font-medium text-success-text"
+						>
+							<CheckCircleIcon class="size-3.5" aria-hidden="true" />
+							Connected
+						</span>
+					</div>
 					<span :id="`${props.telegramNotificationsEnabledId}_desc`" class="block text-sm text-muted">
-						Global Telegram toggle. Your account stays linked; individual notification types are configured in each section.
+						Global Telegram toggle. Individual notification types are configured in each section.
 					</span>
 				</div>
 				<ToggleSwitch
 					v-model="telegramEnabledModel"
 					sr-label="Telegram notifications"
 					:aria-labelledby="`${props.telegramNotificationsEnabledId}_label`"
-					:aria-describedby="`${props.telegramNotificationsEnabledId}_desc`"
+					:aria-describedby="`${props.telegramNotificationsEnabledId}_desc ${props.telegramNotificationsEnabledId}_status`"
 				/>
 			</div>
 
-			<div class="pb-4" :class="{ 'border-t border-edge pt-4': telegramConnected }">
+			<div v-if="!telegramConnected" class="border-t border-edge pt-4 pb-4">
 				<ConnectTelegramCard />
 			</div>
 		</fieldset>
@@ -106,6 +115,7 @@
 
 <script lang="ts" setup>
 import { computed } from "vue";
+import CheckCircleIcon from "../../../icons/check-circle-20.svg?component";
 import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
 import { DASHBOARD_SECTION_HASHES, DASHBOARD_SECTION_IDS } from "../../../lib/constants";
 import ToggleSwitch from "../../ToggleSwitch.vue";
