@@ -10,9 +10,9 @@ export type DashboardSection = keyof typeof DASHBOARD_SECTION_HASHES;
  * dashboard section, so a Telegram notification carries the same reach-your-dashboard
  * affordance the email already does (via its footer links).
  *
- * The `#section` hash is client-side only — a signed-out tap lands on signin and then
- * the /dashboard root (the section anchor is lost across the auth redirect). This is the
- * same accepted limitation as the email section deep-links.
+ * The `#section` hash is browser-only (servers never see it). Signed-out taps hit
+ * `/auth/signin?redirect=/dashboard` and the sign-in page folds the preserved
+ * location hash into the post-auth redirect so the section deep link survives.
  */
 export function buildDashboardButton(section: DashboardSection): InlineKeyboardMarkup {
 	const url = `${new URL("/dashboard", getSiteUrl())}${DASHBOARD_SECTION_HASHES[section]}`;

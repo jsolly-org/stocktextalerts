@@ -35,6 +35,111 @@ describe("Auth form posts over HTTP", () => {
 		expect(cookies.get("sb-refresh-token")).toBeTruthy();
 	});
 
+	it("sign-in with a safe redirect path returns to that path", async () => {
+		const testUser = await createTestUser({
+			email: createTestEmail("http-signin-redirect"),
+			password: TEST_PASSWORD,
+			confirmed: true,
+			approved: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const { response } = await postForm(baseUrl, {
+			path: "/api/auth/signin",
+			fields: {
+				email: testUser.email,
+				password: TEST_PASSWORD,
+				redirect: "/profile",
+			},
+		});
+
+		expect(response.status).toBe(302);
+		expect(locationPath(response)).toBe("/profile");
+	});
+
+	it("sign-in preserves dashboard hash deep links after auth", async () => {
+		const testUser = await createTestUser({
+			email: createTestEmail("http-signin-hash"),
+			password: TEST_PASSWORD,
+			confirmed: true,
+			approved: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const { response } = await postForm(baseUrl, {
+			path: "/api/auth/signin",
+			fields: {
+				email: testUser.email,
+				password: TEST_PASSWORD,
+				redirect: "/dashboard#market-notifications",
+			},
+		});
+
+		expect(response.status).toBe(302);
+		expect(locationPath(response)).toBe("/dashboard#market-notifications");
+	});
+
+	it("sign-in preserves query strings and hash fragments together", async () => {
+		const testUser = await createTestUser({
+			email: createTestEmail("http-signin-query-hash"),
+			password: TEST_PASSWORD,
+			confirmed: true,
+			approved: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const { response } = await postForm(baseUrl, {
+			path: "/api/auth/signin",
+			fields: {
+				email: testUser.email,
+				password: TEST_PASSWORD,
+				redirect: "/dashboard?src=telegram#daily-notifications",
+			},
+		});
+
+		expect(response.status).toBe(302);
+		expect(locationPath(response)).toBe("/dashboard?src=telegram#daily-notifications");
+	});
+
+	it("sign-in ignores unsafe redirect targets and falls back to the dashboard", async () => {
+		const testUser = await createTestUser({
+			email: createTestEmail("http-signin-unsafe"),
+			password: TEST_PASSWORD,
+			confirmed: true,
+			approved: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const { response } = await postForm(baseUrl, {
+			path: "/api/auth/signin",
+			fields: {
+				email: testUser.email,
+				password: TEST_PASSWORD,
+				redirect: "//evil.com#market-notifications",
+			},
+		});
+
+		expect(response.status).toBe(302);
+		expect(locationPath(response)).toBe("/dashboard");
+	});
+
+	it("failed sign-in keeps a safe redirect on the error return URL", async () => {
+		const { response } = await postForm(baseUrl, {
+			path: "/api/auth/signin",
+			fields: {
+				email: createTestEmail("http-signin-bad"),
+				password: "definitely-not-the-password",
+				redirect: "/dashboard#watchlist",
+			},
+		});
+
+		expect(response.status).toBe(302);
+		const location = locationPath(response);
+		expect(location).toContain("/auth/signin?");
+		expect(location).toContain("error=invalid_credentials");
+		expect(location).toContain("redirect=%2Fdashboard%23watchlist");
+	});
+
 	it("register with a weak password redirects with a validation error", async () => {
 		const email = createTestEmail("http-register-weak");
 
