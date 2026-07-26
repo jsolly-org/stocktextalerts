@@ -24,7 +24,7 @@ export function selectDigestAssetMarkets<T extends { symbol: string }>(
 	bySymbol: ReadonlyMap<string, readonly T[]>,
 	options: { perAsset?: number; globalCap?: number } = {},
 ): T[] {
-	const perAsset = options.perAsset ?? 2;
+	const perAsset = options.perAsset ?? 1;
 	const globalCap = options.globalCap ?? Number.POSITIVE_INFINITY;
 	const symbols = [...bySymbol.keys()].sort();
 	const queues = new Map(
