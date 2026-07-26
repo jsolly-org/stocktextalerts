@@ -30,7 +30,7 @@
 					<label
 						class="inline-flex items-center gap-1.5"
 						:class="
-							telegramUsable
+							telegramConnected
 								? undefined
 								: 'cursor-not-allowed opacity-50'
 						"
@@ -40,9 +40,9 @@
 							ref="selectAllTelegramRef"
 							type="checkbox"
 							:checked="allTelegramChecked"
-							:disabled="!telegramUsable"
+							:disabled="!telegramConnected"
 							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-							:class="{ 'cursor-not-allowed': !telegramUsable }"
+							:class="{ 'cursor-not-allowed': !telegramConnected }"
 							aria-label="Select all Telegram for asset events"
 							@change="toggleAllTelegram"
 						/>
@@ -118,13 +118,9 @@
 import { computed, ref, toRefs, watch, watchEffect } from "vue";
 import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
-import { isTelegramChannelUsable } from "../../../lib/messaging/telegram/eligibility";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
-import {
-	getEmailChannelDisabledTitle,
-	getTelegramChannelDisabledTitle,
-} from "../shared/channel-options";
+import { getEmailChannelDisabledTitle } from "../shared/channel-options";
 import type { ChannelOption } from "../types";
 
 interface Props {
@@ -144,8 +140,12 @@ const user = useDashboardUser();
 const emailDisabledTitle = computed(() =>
 	getEmailChannelDisabledTitle(emailEnabled.value),
 );
-const telegramUsable = computed(() => isTelegramChannelUsable(user.value));
-const telegramDisabledTitle = computed(() => getTelegramChannelDisabledTitle(user.value));
+const telegramConnected = computed(() => user.value.telegram_chat_id != null);
+const telegramDisabledTitle = computed(() =>
+	telegramConnected.value
+		? undefined
+		: "Connect Telegram in your notification channels to select this option.",
+);
 
 const ASSET_EVENT_TYPES = [
 	{
@@ -290,7 +290,7 @@ function channelOptionsFor(key: AssetEventKey): ChannelOption[] {
 			value: "telegram",
 			label: "Telegram",
 			selected: refs.telegram.value === true,
-			disabled: !telegramUsable.value || blockedByAssets,
+			disabled: !telegramConnected.value || blockedByAssets,
 			disabledTitle: telegramDisabledTitle.value,
 		},
 	];
