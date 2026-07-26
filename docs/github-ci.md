@@ -115,4 +115,4 @@ When a merge lands on the current `main` tip:
 3. The workflow invokes `stocktextalerts-live-provider-check`.
 4. A red deploy means production needs a forward-fix change; do not rerun manual production DDL outside the deploy workflow.
 
-Infra changes (`aws/template.yaml`, `aws/deploy.sh`) still need `npm run deploy:infra` (full SAM, admin creds).
+Infra changes (`aws/template.yaml`, `aws/deploy.sh`) still need `npm run deploy:infra` (full SAM, admin creds) for new resources and config (timeout/memory/env/IAM). Pure infra-only commits are refused by the deploy workflow; mixed commits that also change app code still run migrations + Lambda code updates. The infra-drift check only fail-closes on Timeout/MemorySize drift — env/IAM/schedule still need the manual infra deploy. After every successful code deploy, the live-provider-check Lambda must return `{ ok: true, releaseId }` matching the deployed commit SHA (12 chars) — that assert is what proves the uploaded bundle is live (proxy for the shared stamp across all functions).
