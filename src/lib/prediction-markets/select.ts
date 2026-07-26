@@ -23,7 +23,7 @@ function titleSalient(card: PredictionMarketEventCard): boolean {
 }
 
 /**
- * Per-asset selection — at most one prediction-market card:
+ * Per-asset selection — at most one prediction-market card per ticker:
  * - Prefer the soonest future close (reject expired / stale)
  * - Else the highest-volume undated ongoing card when title-salient and volume > 0
  * - Macro/curated markets are selected separately and are unaffected
