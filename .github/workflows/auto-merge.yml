@@ -18,7 +18,7 @@ jobs:
     runs-on: blacksmith-2vcpu-ubuntu-2404-arm
     # Gate at the job level so Dependabot / fork / draft events skip with ZERO
     # billed runner minutes. Same-repo maintainer + agent PRs arm immediately;
-    # Dependabot stays off (janitor arms via `gh pr merge --auto` after prep).
+    # Dependabot stays off (janitor arms via `gh` after prep).
     # Fork PRs never auto-merge.
     if: >-
       github.event.pull_request.draft == false &&
