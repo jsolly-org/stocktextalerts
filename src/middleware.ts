@@ -1,6 +1,7 @@
 import { defineMiddleware } from "astro:middleware";
 
 import { readEnv } from "./lib/db/env";
+import { RELEASE_ID } from "./lib/logging/release-id";
 
 const ORIGIN_CHECK_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"]);
 const FORM_CONTENT_TYPES = [
@@ -160,6 +161,7 @@ function collectExpectedOrigins(request: Request, requestUrl: URL): Set<string> 
  */
 const applySecurityHeaders = (headers: Headers, requestId: string, request?: Request) => {
 	headers.set("x-request-id", requestId);
+	headers.set("x-release-id", RELEASE_ID);
 	headers.set(
 		"content-security-policy",
 		buildCsp(request?.url ? new URL(request.url).host : undefined),
