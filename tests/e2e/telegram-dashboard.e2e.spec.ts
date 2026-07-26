@@ -260,3 +260,77 @@ test.describe("Telegram dashboard UI", () => {
 		expect(stale, "dashboard controls for options no longer in the catalog").toEqual([]);
 	});
 });
+
+test.describe("Telegram-only notification channel (email global off)", () => {
+	test("does not show the 'enable a channel' warning when Telegram is linked", async ({
+		browser,
+	}) => {
+		test.setTimeout(90_000);
+		const context = await browser.newContext();
+		const page = await context.newPage();
+		let userId: string | null = null;
+
+		try {
+			await page.goto("/", { waitUntil: "networkidle" });
+
+			const user = await createTestUser({
+				confirmed: true,
+				approved: true,
+				// Reproduce the bug: global email off, Telegram linked + usable.
+				emailNotificationsEnabled: false,
+				trackedAssets: ["AAPL"],
+			});
+			userId = user.id;
+
+			const { error: linkError } = await adminClient
+				.from("users")
+				.update({
+					telegram_chat_id: TELEGRAM_CHAT_ID,
+					telegram_linked_at: new Date().toISOString(),
+					telegram_opted_out: false,
+				})
+				.eq("id", userId);
+			if (linkError) {
+				throw new Error(`Failed to link telegram chat id: ${linkError.message}`);
+			}
+
+			await signIn(page, user.email, TEST_PASSWORD);
+			await page.goto("/dashboard", { waitUntil: "networkidle" });
+			await page.locator("[data-hydrated]").first().waitFor({ state: "attached", timeout: 15_000 });
+
+			const channelWarning = page.getByText("Enable at least one notification channel", {
+				exact: false,
+			});
+			await expect(channelWarning).toHaveCount(0);
+
+			// Telegram must remain selectable — the setup notice used to opacity-block
+			// the whole daily panel when only email was considered a channel.
+			const digestForm = page.locator('form[aria-label="Daily Notification"]');
+			await expect(digestForm).toBeVisible();
+			await expect(digestForm.locator("fieldset").first()).not.toHaveAttribute(
+				"aria-disabled",
+				"true",
+			);
+
+			const pricesListbox = await openChannelMultiselect(page, "daily_digest_include_prices");
+			const telegramOption = pricesListbox.getByRole("option", { name: "Telegram" });
+			await expect(telegramOption).toBeVisible();
+			await expect(telegramOption).not.toHaveAttribute("aria-disabled", "true");
+
+			const emailOption = pricesListbox.getByRole("option", { name: "Email" });
+			await expect(emailOption).toHaveAttribute("aria-disabled", "true");
+		} finally {
+			if (userId) {
+				try {
+					await cleanupTestUser(userId);
+				} catch (error) {
+					rootLogger.warn("Failed to cleanup telegram-only channel test user", {
+						context: { error },
+					});
+				}
+			}
+			await page.close();
+			await context.close();
+		}
+	});
+});

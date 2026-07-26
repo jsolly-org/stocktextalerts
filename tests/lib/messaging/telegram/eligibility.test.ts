@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { enabledFacets } from "../../../../src/lib/messaging/notification-prefs";
 import {
 	isTelegramChannelUsable,
+	needsNotificationChannelSelection,
 	shouldSendTelegram,
 } from "../../../../src/lib/messaging/telegram/eligibility";
 import { createTelegramSenderFactory } from "../../../../src/lib/messaging/telegram/sender-factory";
@@ -62,6 +63,44 @@ describe("Telegram delivery eligibility", () => {
 		const user = { telegram_chat_id: 8675309, telegram_opted_out: false };
 		const allOff = digestPrefs.map((p) => ({ ...p, enabled: false }));
 		expect(shouldSendTelegram(user, allOff, "daily_notification")).toBe(false);
+	});
+});
+
+describe("needsNotificationChannelSelection (dashboard setup gate)", () => {
+	it("does not warn when global email is enabled", () => {
+		expect(
+			needsNotificationChannelSelection(true, {
+				telegram_chat_id: null,
+				telegram_opted_out: false,
+			}),
+		).toBe(false);
+	});
+
+	it("does not warn when email is off but Telegram is linked and usable", () => {
+		expect(
+			needsNotificationChannelSelection(false, {
+				telegram_chat_id: 8675309,
+				telegram_opted_out: false,
+			}),
+		).toBe(false);
+	});
+
+	it("warns when email is off and Telegram is not linked", () => {
+		expect(
+			needsNotificationChannelSelection(false, {
+				telegram_chat_id: null,
+				telegram_opted_out: false,
+			}),
+		).toBe(true);
+	});
+
+	it("warns when email is off and Telegram is opted out (bot blocked)", () => {
+		expect(
+			needsNotificationChannelSelection(false, {
+				telegram_chat_id: 8675309,
+				telegram_opted_out: true,
+			}),
+		).toBe(true);
 	});
 });
 

@@ -1,3 +1,7 @@
+import {
+	isTelegramChannelUsable,
+	type TelegramEligibilityUser,
+} from "../../../lib/messaging/telegram/eligibility";
 import type { ChannelOption } from "../types";
 
 /** Hover title for a disabled email channel option; undefined when email is enabled. */
@@ -6,12 +10,23 @@ export function getEmailChannelDisabledTitle(emailEnabled: boolean): string | un
 	return "Enable email in your notification channels to select this option.";
 }
 
+/** Hover title for a disabled Telegram channel option; undefined when the channel is usable. */
+export function getTelegramChannelDisabledTitle(
+	telegram: TelegramEligibilityUser,
+): string | undefined {
+	if (isTelegramChannelUsable(telegram)) return undefined;
+	if (telegram.telegram_chat_id != null) {
+		return "Unblock the Telegram bot to select this option.";
+	}
+	return "Connect Telegram in your notification channels to select this option.";
+}
+
 /**
  * Build the email/Telegram `ChannelOption` factories shared by the daily
  * and market panels. Disabled state and hover titles come in as getters and
  * are read inside the callers' `computed()`s, so reactivity tracking is
- * preserved. (DailyAssetEventsFieldset keeps its own builder — its email
- * option's disabled logic deliberately omits the email-channel term.)
+ * preserved. (DailyAssetEventsFieldset keeps its own builder and disables
+ * email via `!emailEnabled` / Telegram via `isTelegramChannelUsable`.)
  */
 export function createChannelOptionBuilders(deps: {
 	emailDisabled: () => boolean;
