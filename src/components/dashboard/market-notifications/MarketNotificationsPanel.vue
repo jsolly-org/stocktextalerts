@@ -302,10 +302,7 @@ import { DASHBOARD_SECTION_IDS,
 	US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,} from "../../../lib/constants";
 import type { PriceMoveThresholdUnit } from "../../../lib/db/types";
-import {
-	isTelegramChannelUsable,
-	needsNotificationChannelSelection,
-} from "../../../lib/messaging/telegram/eligibility";
+import { needsNotificationChannelSelection } from "../../../lib/messaging/telegram/eligibility";
 import { etMinuteToUserLocal, getUsAfterOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
 	formatMinutesAsLocalTime,
@@ -319,11 +316,7 @@ import { useDashboardUser } from "../composables/useDashboardUser";
 import { useScheduledUpdateTiming } from "../composables/useScheduledUpdateTiming";
 import { DASHBOARD_MARKET_FORM_ID } from "../constants";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
-import {
-	createChannelOptionBuilders,
-	getEmailChannelDisabledTitle,
-	getTelegramChannelDisabledTitle,
-} from "../shared/channel-options";
+import { createChannelOptionBuilders, getEmailChannelDisabledTitle } from "../shared/channel-options";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import type { ChannelOption, InitialAsset, NotificationPreferencesData, PriceMoveThresholdMap } from "../types";
@@ -387,9 +380,13 @@ const priceMoveAlertsIncludeTelegram = ref(
 	props.telegramPrefs.price_move_alerts === true,
 );
 
-/** Telegram is selectable only when linked and not opted out (bot blocked). */
-const telegramUsable = computed(() => isTelegramChannelUsable(user.value));
-const telegramDisabledTitle = computed(() => getTelegramChannelDisabledTitle(user.value));
+/** Telegram is selectable only once the account is linked (chat id present). */
+const telegramConnected = computed(() => user.value.telegram_chat_id != null);
+const telegramDisabledTitle = computed(() =>
+	telegramConnected.value
+		? undefined
+		: "Connect Telegram in your notification channels to select this option.",
+);
 
 /* =============
 Master-flag coupling: the hidden `*_enabled` fields drive whether the notification
@@ -536,7 +533,7 @@ Email disabled logic mirrors the prior per-option checkboxes verbatim.
 const { emailOption, telegramOption } = createChannelOptionBuilders({
 	emailDisabled: () => notificationSetupBlocked.value || !emailEnabled.value,
 	emailDisabledTitle: () => emailDisabledTitle.value,
-	telegramDisabled: () => !telegramUsable.value,
+	telegramDisabled: () => !telegramConnected.value,
 	telegramDisabledTitle: () => telegramDisabledTitle.value,
 });
 
