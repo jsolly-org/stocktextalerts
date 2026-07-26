@@ -19,8 +19,9 @@ const SCREENSHOT_PANEL = path.join(SCREENSHOT_DIR, "_ui-panel.png");
 const SCREENSHOT_DROPDOWN = path.join(SCREENSHOT_DIR, "_ui-dropdown.png");
 
 // A linked Telegram chat id (set by the bot /start webhook in production). Its
-// presence flips the Connect card to "Connected" and enables the Telegram option
-// in every channel multiselect.
+// presence shows the Connected pill on the Telegram Notifications toggle row
+// (and hides the connect card) and enables the Telegram option in every channel
+// multiselect.
 const TELEGRAM_CHAT_ID = 8675309;
 
 /**
@@ -78,8 +79,8 @@ test.describe("Telegram dashboard UI", () => {
 		userId = user.id;
 		email = user.email;
 
-		// Link Telegram: chat id + linked timestamp ⇒ Connect card shows "Connected"
-		// and the Telegram channel option becomes selectable.
+		// Link Telegram: chat id + linked timestamp ⇒ Connected pill on the
+		// Telegram Notifications row; connect card hidden; channel option selectable.
 		const { error: linkError } = await adminClient
 			.from("users")
 			.update({
@@ -120,22 +121,21 @@ test.describe("Telegram dashboard UI", () => {
 		}
 	});
 
-	test("renders Connect card + channel multiselects, captures screenshots, persists a Telegram toggle", async () => {
+	test("renders Connected pill + channel multiselects, captures screenshots, persists a Telegram toggle", async () => {
 		await page.goto("/dashboard");
 
-		// --- Connect Telegram card ---------------------------------------------
-		// The card root is the nearest `rounded-lg border` div ancestor of the
-		// <h3>Telegram</h3> heading. That root also holds the "Connected" pill,
-		// which a tighter ancestor (the inner min-w-0 div) would exclude.
-		const connectHeading = page.getByRole("heading", { name: "Telegram", exact: true });
-		await expect(connectHeading).toBeVisible();
-		const connectCard = connectHeading.locator(
-			"xpath=ancestor::div[contains(concat(' ', normalize-space(@class), ' '), ' rounded-lg ')][1]",
+		// --- Telegram channel (linked) ----------------------------------------
+		// Connected accounts hide the connect card and show the global toggle
+		// with a Connected pill next to the label.
+		const telegramToggleLabel = page.getByText("Telegram Notifications", { exact: true });
+		await expect(telegramToggleLabel).toBeVisible();
+		const telegramToggleRow = telegramToggleLabel.locator(
+			"xpath=ancestor::div[contains(@class, 'justify-between')][1]",
 		);
-		// Linked state shows the "Connected" pill + the linked-account copy.
-		await expect(connectCard.getByText("Connected", { exact: true })).toBeVisible();
-		await connectCard.scrollIntoViewIfNeeded();
-		await connectCard.screenshot({ path: SCREENSHOT_CONNECT });
+		await expect(telegramToggleRow.getByText("Connected", { exact: true })).toBeVisible();
+		await telegramToggleRow.scrollIntoViewIfNeeded();
+		await telegramToggleRow.screenshot({ path: SCREENSHOT_CONNECT });
+		await expect(page.getByRole("heading", { name: "Telegram", exact: true })).toHaveCount(0);
 
 		// --- Daily Notification panel (multiselect triggers) -------------------
 		const digestForm = page.locator('form[aria-label="Daily Notification"]');
