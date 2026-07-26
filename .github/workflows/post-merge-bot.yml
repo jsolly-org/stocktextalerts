@@ -1,0 +1,37 @@
+name: Post-merge bot dispatch
+
+# GITHUB_TOKEN merges (Actions auto-merge) do not create push workflow runs —
+# GitHub suppresses those events to prevent recursion. Human merges still fire
+# push → CI + Deploy normally. For bot merges, this workflow catches
+# pull_request closed and explicitly workflow_dispatches CI + Deploy on main
+# (workflow_dispatch / repository_dispatch are the documented exceptions to
+# the GITHUB_TOKEN recursion guard).
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    name: dispatch CI + Deploy
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.merged_by.login == 'github-actions[bot]'
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    timeout-minutes: 5
+    steps:
+      - name: Workflow-dispatch CI and Deploy on main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          echo "Bot-merged PR #${{ github.event.pull_request.number }} → $MERGE_SHA"
+          echo "Dispatching CI + Deploy on main (push events were suppressed)."
+          gh workflow run CI --repo "$GITHUB_REPOSITORY" --ref main
+          gh workflow run Deploy --repo "$GITHUB_REPOSITORY" --ref main
