@@ -11,6 +11,7 @@ import { MIN_PLAUSIBLE_ACTIVE_UNIVERSE } from "../../lib/assets/constants";
 import { fetchTickerDetail } from "../../lib/assets/reference/ticker-detail";
 import { fetchActiveTickers } from "../../lib/assets/reference/universe";
 import { createLogger, type Logger } from "../../lib/logging";
+import { RELEASE_ID } from "../../lib/logging/release-id";
 import { runLambda } from "../../lib/logging/request-context";
 import { fetchDailyCloses, fetchPrevClose } from "../../lib/market-data/bars";
 import { fetchAssetPricesWithSessionState } from "../../lib/market-data/prices";
@@ -69,7 +70,15 @@ async function runCheck(
 	}
 }
 
-export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
+export type LiveProviderCheckResult = {
+	ok: true;
+	releaseId: string;
+};
+
+export async function handler(
+	event: ScheduledEvent,
+	context: Context,
+): Promise<LiveProviderCheckResult> {
 	return runLambda(context, async () => {
 		const logger = createLogger({
 			source: "lambda",
@@ -79,6 +88,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			action: "lambda_invoke",
 			eventId: event.id,
 			eventTime: event.time,
+			releaseId: RELEASE_ID,
 		});
 
 		const checks: CheckResult[] = [
@@ -242,6 +252,8 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			action: "live_provider_check",
 			totalCount: checks.length,
 			checks: checks.map((c) => c.name),
+			releaseId: RELEASE_ID,
 		});
+		return { ok: true as const, releaseId: RELEASE_ID };
 	});
 }

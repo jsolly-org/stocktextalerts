@@ -87,10 +87,23 @@ jobs:
             echo "git diff-tree returned no files (shallow checkout?) — cannot verify the landed commit; refusing deploy."
             exit 1
           fi
+          # Refuse ONLY when the commit is pure infra (template/deploy.sh and nothing
+          # else). A mixed commit that also lands app/handler/migration changes must
+          # still run code+migration deploy — blocking those left Lambdas stale until
+          # a later tip deploy (and blocked migrations entirely for that commit).
+          # CloudFormation still needs a manual `npm run deploy:infra`; the infra-drift
+          # check below + update-function-code failures on brand-new functions catch that.
           if grep -Eq '^aws/(template\.yaml|deploy\.sh)$' <<<"$changed"; then
-            echo "aws/template.yaml or aws/deploy.sh changed in the landed commit."
-            echo "Run npm run deploy:infra manually with admin credentials, then re-run this workflow."
-            exit 1
+            non_infra="$(grep -Ev '^aws/(template\.yaml|deploy\.sh)$' <<<"$changed" || true)"
+            if [ -z "$non_infra" ]; then
+              echo "Commit only changes aws/template.yaml and/or aws/deploy.sh."
+              echo "Run npm run deploy:infra manually with admin credentials."
+              exit 1
+            fi
+            echo "::warning::aws/template.yaml or aws/deploy.sh changed alongside app code."
+            echo "Proceeding with migrations + Lambda code update. Still run npm run deploy:infra"
+            echo "for new resources / env / IAM / schedule changes. Infra-drift check only"
+            echo "enforces Timeout/MemorySize parity — it will not catch env or IAM drift."
           fi
 
       - name: Deploy migrations and Lambdas
@@ -122,3 +135,26 @@ jobs:
             python3 -m json.tool /tmp/live-provider-check.json || true
             exit 1
           fi
+          # Fail closed if the just-uploaded bundle's stamped RELEASE_ID does not match
+          # this deploy's commit — catches a silent no-op update or wrong artifact.
+          expected_release="$(printf '%s' '${{ github.sha }}' | cut -c1-12)"
+          EXPECTED_RELEASE="$expected_release" python3 - <<'PY'
+          import json, os, sys
+          body = json.load(open("/tmp/live-provider-check.json"))
+          if body.get("ok") is not True:
+              print(
+                  f"Deploy freshness mismatch: expected ok=true, got {body!r}",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+          release = body.get("releaseId") or ""
+          expected = os.environ["EXPECTED_RELEASE"]
+          if release != expected:
+              print(
+                  f"Deploy freshness mismatch: Lambda releaseId={release!r} expected {expected!r}",
+                  file=sys.stderr,
+              )
+              print(json.dumps(body, indent=2), file=sys.stderr)
+              sys.exit(1)
+          print(f"✓ live-provider-check releaseId={release} matches deploy SHA")
+          PY

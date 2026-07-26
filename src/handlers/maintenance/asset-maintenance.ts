@@ -19,6 +19,7 @@ import { runDelistingSweep } from "../../lib/assets/delisting-sweep";
 import { runUniverseReconcile } from "../../lib/assets/universe-reconcile";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";
 import { createLogger, type Logger } from "../../lib/logging";
+import { RELEASE_ID } from "../../lib/logging/release-id";
 import { runLambda } from "../../lib/logging/request-context";
 import { createEmailSender } from "../../lib/messaging/email/utils";
 import { runPredictionMarketDiscoveryDrip } from "../../lib/prediction-markets/pipeline";
@@ -63,6 +64,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			action: "lambda_invoke",
 			eventId: event.id,
 			eventTime: event.time,
+			releaseId: RELEASE_ID,
 		});
 		const supabase = createSupabaseAdminClient();
 
