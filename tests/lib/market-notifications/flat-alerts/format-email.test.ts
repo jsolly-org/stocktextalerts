@@ -87,8 +87,14 @@ describe("Price move alert email layout", () => {
 		});
 
 		expect(text).toContain("Update: Shares jumped");
+		expect(text).toContain("Reuters (https://www.reuters.com/example)");
+		expect(hasUnrenderedMarkdownLink(text)).toBe(false);
 		expect(text.indexOf("Update:")).toBeLessThan(text.indexOf("View Dashboard:"));
 		expect(html).toContain("Update: Shares jumped");
+		expect(html).toContain('href="https://www.reuters.com/example"');
+		expect(html).toContain(">Reuters</a>");
+		expect(html).not.toContain(">[Reuters]</a>");
+		expect(hasUnrenderedMarkdownLink(html)).toBe(false);
 		expect(html.indexOf("Update:")).toBeLessThan(html.indexOf("View Dashboard"));
 	});
 
@@ -112,8 +118,11 @@ describe("Price move alert email layout", () => {
 
 		expect(hasUnrenderedMarkdownLink(text)).toBe(false);
 		expect(hasUnrenderedMarkdownLink(html)).toBe(false);
-		expect(text).toContain("Yahoo Finance");
-		expect(html).toContain("Yahoo Finance");
+		expect(text).toContain(
+			"Yahoo Finance (https://finance.yahoo.com/news/why-shares-palantir-soaring-hours-231057869.html)",
+		);
+		expect(html).toContain(">Yahoo Finance</a>");
+		expect(html).not.toContain(">[Yahoo Finance]</a>");
 		expect(html).toContain(
 			'href="https://finance.yahoo.com/news/why-shares-palantir-soaring-hours-231057869.html"',
 		);

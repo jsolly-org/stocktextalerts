@@ -87,6 +87,7 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 
 		expect(hasUnrenderedMarkdownLink(result.text)).toBe(false);
 		expect(result.text).toContain("Yahoo Finance");
+		expect(result.text).not.toContain("[Yahoo Finance]");
 		expect(result.text).not.toContain("[[Yahoo Finance]]");
 		expect(result.text).not.toContain("](https://");
 		expect(result.entities.some((e) => e.type === "text_link")).toBe(true);
@@ -104,6 +105,16 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 		// Still delivers the alert body even if why had to be dropped/truncated.
 		expect(result.text).toContain("LDOS");
 		expect(result.text).toContain("down 11.1%");
+	});
+
+	it("never leaves unrendered markdown when a long why with a trailing citation is truncated", async () => {
+		const why = `${"x".repeat(900)} growth.[[Yahoo Finance]](https://finance.yahoo.com/news/why-shares-palantir-soaring-hours-231057869.html)`;
+		const result = await formatPriceAlertTelegram(makeAlert({ why }), makeCandles(6));
+		expect(result.photo).toBeInstanceOf(Buffer);
+		expect(result.text.length).toBeLessThanOrEqual(1024);
+		expect(hasUnrenderedMarkdownLink(result.text)).toBe(false);
+		expect(result.text).not.toContain("](https://");
+		expect(result.text).toContain(buildTelegramPriceFooter());
 	});
 });
 

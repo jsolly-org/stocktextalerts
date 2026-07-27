@@ -191,9 +191,9 @@ export function applyAnnotationsInline(text: string, annotations: XaiAnnotation[
 	// Phase 6: Normalize any remaining double-bracket named links to single brackets.
 	// Defense in depth — Grok or earlier phases must never leak `[[Label]](url)` into
 	// channel renderers (Telegram shows that as raw unrendered copy).
-	result = result.replace(/\[\[([^\]]+)\]\]\((https?:\/\/[^)]+)\)/g, (_match, label, url) => {
-		return `[${label}](${url})`;
-	});
+	// Strip one outer bracket layer only — do not re-parse the URL (paren-bearing
+	// links like Wikipedia would truncate on a naive `[^)]+` capture).
+	result = result.replace(/\[\[([^\]]+)\]\]\(/g, "[$1](");
 
 	return result;
 }

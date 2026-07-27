@@ -47,7 +47,9 @@ export function boldTickerPrefixesHtml(content: string): string {
 		.join("\n");
 }
 
-/** Bold line-leading tickers as Telegram FormattedString entities. */
+/** Bold line-leading tickers as Telegram FormattedString entities.
+ * Also converts markdown citation links in each line (FormattedString forces a
+ * combined walk — the HTML twin stays bold-only and composes links separately). */
 export function boldTickerPrefixesTelegram(content: string): FormattedString {
 	const lines = content.split("\n");
 	let result: FormattedString | null = null;

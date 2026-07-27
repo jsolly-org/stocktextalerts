@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { hasUnrenderedMarkdownLink } from "../../../src/lib/messaging/parts/markdown-links";
 import { applyAnnotationsInline } from "../../../src/lib/vendors/grok-citations";
 
 describe("applyAnnotationsInline citation links", () => {
@@ -32,16 +31,26 @@ describe("applyAnnotationsInline citation links", () => {
 		expect(result).not.toContain("[[Yahoo Finance]]");
 	});
 
-	it("never leaves double-bracket markdown that would show as unrendered copy", () => {
+	it("emits single-bracket named markdown for channel renderers", () => {
 		const result = applyAnnotationsInline(
 			"Guidance projecting over 60% revenue growth.[[1]](https://www.cnbc.com/2026/02/01/pltr.html)",
 			[],
 		);
 
-		// Named citations must be proper `[Label](url)` — Telegram entities and email HTML
-		// both treat double-bracket forms as broken / half-rendered copy.
-		expect(hasUnrenderedMarkdownLink(result)).toBe(true); // still markdown until channel render
 		expect(result).toMatch(/\[CNBC\]\(https:\/\/www\.cnbc\.com/);
 		expect(result).not.toMatch(/\[\[CNBC\]\]/);
+	});
+
+	it("normalizes named double-bracket citations via Phase 6 (no URL reparse)", () => {
+		const result = applyAnnotationsInline(
+			"Growth.[[Yahoo Finance]](https://finance.yahoo.com/news/x) and wiki [[Wiki]](https://en.wikipedia.org/wiki/JavaScript_(programming_language))",
+			[],
+		);
+
+		expect(result).toContain("[Yahoo Finance](https://finance.yahoo.com/news/x)");
+		expect(result).toContain(
+			"[Wiki](https://en.wikipedia.org/wiki/JavaScript_(programming_language))",
+		);
+		expect(result).not.toMatch(/\[\[[^\]]+\]\]\(https?:\/\//);
 	});
 });

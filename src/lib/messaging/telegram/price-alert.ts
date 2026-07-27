@@ -63,6 +63,28 @@ function fitWhyForCaption(options: {
 	return null;
 }
 
+/** Fit a already-rendered why FormattedString into a photo caption budget. */
+function fitWhyFormattedForCaption(options: {
+	prefix: string;
+	why: FormattedString;
+	footer: string;
+	hasPhoto: boolean;
+}): FormattedString | null {
+	const fittedText = fitWhyForCaption({
+		prefix: options.prefix,
+		why: options.why.text,
+		footer: options.footer,
+		hasPhoto: options.hasPhoto,
+	});
+	if (fittedText === null) return null;
+	if (fittedText === options.why.text) return options.why;
+
+	// Truncated with an ellipsis — slice entities to the kept prefix, then re-append "…".
+	const keepLen = fittedText.endsWith("…") ? fittedText.length - 1 : fittedText.length;
+	const sliced = options.why.slice(0, keepLen);
+	return fittedText.endsWith("…") ? fmt`${sliced}…` : sliced;
+}
+
 /**
  * Render a price-move alert as a Telegram message.
  *
@@ -103,16 +125,20 @@ export async function formatPriceAlertTelegram(
 		}
 	}
 
-	const whyFit = alert.why
-		? fitWhyForCaption({
+	// Convert markdown citations before caption fitting so truncation cannot bisect
+	// `[[Label]](https://…)` into raw unrendered copy.
+	const whyFormatted =
+		alert.why && alert.why.trim() !== "" ? markdownLinksToTelegram(alert.why.trim()) : null;
+	const whyFit = whyFormatted
+		? fitWhyFormattedForCaption({
 				prefix: msg.text,
-				why: alert.why,
+				why: whyFormatted,
 				footer,
 				hasPhoto: photo !== null,
 			})
 		: null;
 	if (whyFit) {
-		msg = fmt`${msg}\n\n${markdownLinksToTelegram(whyFit)}`;
+		msg = fmt`${msg}\n\n${whyFit}`;
 	}
 
 	msg = fmt`${msg}\n\n${footer}`;

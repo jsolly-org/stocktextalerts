@@ -25,6 +25,7 @@ describe("markdownLinksToTelegram", () => {
 
 		expect(hasUnrenderedMarkdownLink(formatted.text)).toBe(false);
 		expect(formatted.text).toContain("Yahoo Finance");
+		expect(formatted.text).not.toContain("[Yahoo Finance]");
 		expect(formatted.text).not.toContain("[[Yahoo Finance]]");
 		expect(formatted.text).not.toContain("](https://");
 		expect(formatted.entities.some((e) => e.type === "text_link")).toBe(true);
@@ -32,6 +33,7 @@ describe("markdownLinksToTelegram", () => {
 		expect(link && "url" in link ? link.url : null).toBe(
 			"https://finance.yahoo.com/news/why-shares-palantir-soaring-hours-231057869.html",
 		);
+		expect(formatted.text.slice(link!.offset, link!.offset + link!.length)).toBe("Yahoo Finance");
 	});
 
 	it("converts single-bracket citations the same way", () => {
