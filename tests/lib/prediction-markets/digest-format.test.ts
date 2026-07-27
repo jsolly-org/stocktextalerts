@@ -93,6 +93,26 @@ describe("formatPredictionMarketsDigest*", () => {
 		expect(formatted?.text.indexOf("Your Assets")).toBeLessThan(
 			formatted?.text.indexOf("Macro Weather") ?? 0,
 		);
+		expect(formatted?.text).toContain("█");
+	});
+
+	it("omits probability rows for keys in telegramOmitBarKeys only", () => {
+		const omitKeys = new Set([content.assetCards[0]?.key ?? ""]);
+		const formatted = formatPredictionMarketsDigestTelegram(content, {
+			...formatOpts,
+			telegramOmitBarKeys: omitKeys,
+		});
+		expect(formatted?.text).toContain("Will NVDA hit $200 in July?");
+		expect(formatted?.text).toContain("View full market");
+		// Asset card (omitted): no outcome rows / unicode bars in its block.
+		expect(formatted?.text).not.toMatch(/\bYes\b[\s\S]*?55%/);
+		const assetsIdx = formatted?.text.indexOf("Your Assets") ?? -1;
+		const macroIdx = formatted?.text.indexOf("Macro Weather") ?? -1;
+		const assetsSection = formatted?.text.slice(assetsIdx, macroIdx) ?? "";
+		expect(assetsSection).not.toContain("█");
+		// Macro card (not omitted): still has unicode bars.
+		expect(formatted?.text).toContain("Recession '26");
+		expect(formatted?.text).toMatch(/Yes\s+11%\s+█/);
 	});
 
 	it("puts Your Assets before Macro Weather in email HTML", () => {
