@@ -61,6 +61,11 @@ function highlightAliasFor(card: PredictionMarketEventCard): string | null {
 export type FormatCardOptions = {
 	timeZone?: string;
 	use24Hour?: boolean;
+	/**
+	 * Telegram only. Market keys whose probability rows are omitted from text
+	 * because a PNG card owns the visualization. Cards not in this set keep Unicode bars.
+	 */
+	telegramOmitBarKeys?: ReadonlySet<string>;
 };
 
 /** Plain-text body for one event card. */
@@ -102,6 +107,7 @@ function formatEventCardTelegram(
 ): FormattedString {
 	const timeZone = options.timeZone ?? "America/New_York";
 	const use24Hour = options.use24Hour ?? false;
+	const omitBars = options.telegramOmitBarKeys?.has(card.key) === true;
 	const body = compressCard(card, highlightAliasFor(card));
 	const meta = [
 		card.symbol ? `${card.symbol} · ${venueLabel(card.venue)}` : venueLabel(card.venue),
@@ -110,15 +116,17 @@ function formatEventCardTelegram(
 	].join(" · ");
 
 	let msg = fmt`${FormattedString.bold(meta)}\n${card.title}`;
-	for (const row of body.rows) {
-		if (row.kind === "outcome") {
-			const mark = row.highlighted ? "★ " : "";
-			const odds = formatProbability(row.probabilityPercent).padStart(4, " ");
-			msg = fmt`${msg}\n  ${mark}${row.label}  ${odds}  ${unicodeBar(row.probabilityPercent)}`;
-		} else if (row.kind === "others") {
-			msg = fmt`${msg}\n  Others (${row.omittedCount}) · ${formatProbability(row.probabilityPercent)}`;
-		} else {
-			msg = fmt`${msg}\n  ${row.omittedCount} more options`;
+	if (!omitBars) {
+		for (const row of body.rows) {
+			if (row.kind === "outcome") {
+				const mark = row.highlighted ? "★ " : "";
+				const odds = formatProbability(row.probabilityPercent).padStart(4, " ");
+				msg = fmt`${msg}\n  ${mark}${row.label}  ${odds}  ${unicodeBar(row.probabilityPercent)}`;
+			} else if (row.kind === "others") {
+				msg = fmt`${msg}\n  Others (${row.omittedCount}) · ${formatProbability(row.probabilityPercent)}`;
+			} else {
+				msg = fmt`${msg}\n  ${row.omittedCount} more options`;
+			}
 		}
 	}
 	if (body.footnote) {
@@ -127,6 +135,22 @@ function formatEventCardTelegram(
 	const safeUrl = getSafeHrefUrl(card.url);
 	if (safeUrl) {
 		msg = fmt`${msg}\n  ${FormattedString.link(body.linkLabel, safeUrl)}`;
+	}
+	return msg;
+}
+
+/** Short Telegram caption for a prediction-market PNG card (`sendPhoto`). */
+export function formatPredictionMarketCardCaption(
+	card: PredictionMarketEventCard,
+): FormattedString {
+	const venue = venueLabel(card.venue);
+	const header = card.symbol ? `${card.symbol} · ${venue}` : venue;
+	const title = card.title.length > 120 ? `${card.title.slice(0, 119)}…` : card.title;
+	let msg = fmt`${FormattedString.bold(header)}\n${title}`;
+	const body = compressCard(card, highlightAliasFor(card));
+	const safeUrl = getSafeHrefUrl(card.url);
+	if (safeUrl) {
+		msg = fmt`${msg}\n${FormattedString.link(body.linkLabel, safeUrl)}`;
 	}
 	return msg;
 }
