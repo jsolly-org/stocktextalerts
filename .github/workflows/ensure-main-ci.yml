@@ -1,11 +1,11 @@
 name: Ensure main CI
 
-# GITHUB_TOKEN auto-merges (github-actions[bot]) do not create push or
-# pull_request-closed workflow runs — GitHub's recursion guard. Deploy is gated
-# on green main CI, so a bot land would otherwise stall forever (observed on
-# #647). workflow_dispatch is a documented exception: this job polls main's tip
-# and dispatches CI when no successful/in-flight CI run exists for that SHA.
-# Human merges still get push → CI normally; this is a no-op then.
+# Safety net when a land still happens as github-actions[bot] (REPO_AUTOMATION_TOKEN
+# unset, or merge-pr failed). Those merges do not create push workflow runs —
+# GitHub's recursion guard (observed on #647). workflow_dispatch is an allowed
+# exception: poll main's tip and dispatch CI when no green/in-flight run exists.
+# Preferred path is CI merge-pr with REPO_AUTOMATION_TOKEN (normal push). Human
+# merges and PAT merges already get push → CI; this job is then a no-op.
 
 on:
   schedule:

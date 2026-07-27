@@ -25,12 +25,23 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login != 'dependabot[bot]'
     steps:
-      - name: Enable auto-merge for same-repo non-Dependabot PRs
+      - name: Arm merge path for same-repo non-Dependabot PRs
         env:
-          # Must use GITHUB_TOKEN: fine-grained PATs cannot call
-          # enablePullRequestAutoMerge or mergePullRequest (observed on #648).
-          # github-actions[bot] merges suppress push/closed workflow events;
-          # ensure-main-ci.yml workflow_dispatches CI on main when that happens.
+          # Prefer REPO_AUTOMATION_TOKEN (shared with janitor). When set, skip
+          # GitHub --auto — CI's merge-pr job squash-merges with that PAT after
+          # green `ci`, which creates a normal push → main CI → Deploy.
+          # Use a classic PAT with `repo` (non-admin); fine-grained tokens often
+          # cannot mergePullRequest (observed on #648 with JANITOR_GITHUB_TOKEN).
+          # Do not fall back to JANITOR_GITHUB_TOKEN for the merge gate — that
+          # FG token cannot merge and would skip --auto while leaving PRs stuck.
+          HAS_AUTOMATION_TOKEN: ${{ secrets.REPO_AUTOMATION_TOKEN != '' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: gh pr merge --auto --squash --repo "$GITHUB_REPOSITORY" "$PR_NUMBER"
+        run: |
+          set -euo pipefail
+          if [ "$HAS_AUTOMATION_TOKEN" = "true" ]; then
+            echo "REPO_AUTOMATION_TOKEN set — CI merge-pr will squash-merge after green ci (PAT merge creates push → Deploy)."
+            exit 0
+          fi
+          echo "::warning::REPO_AUTOMATION_TOKEN unset — arming GitHub auto-merge with GITHUB_TOKEN; main push workflows will be suppressed (ensure-main-ci.yml is the recovery path)."
+          gh pr merge --auto --squash --repo "$GITHUB_REPOSITORY" "$PR_NUMBER"
