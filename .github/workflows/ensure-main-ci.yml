@@ -1,0 +1,54 @@
+name: Ensure main CI
+
+# GITHUB_TOKEN auto-merges (github-actions[bot]) do not create push or
+# pull_request-closed workflow runs — GitHub's recursion guard. Deploy is gated
+# on green main CI, so a bot land would otherwise stall forever (observed on
+# #647). workflow_dispatch is a documented exception: this job polls main's tip
+# and dispatches CI when no successful/in-flight CI run exists for that SHA.
+# Human merges still get push → CI normally; this is a no-op then.
+
+on:
+  schedule:
+    # ~10 min worst-case lag after a bot merge before Deploy can start.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+  # Also run when any workflow completes on main? Too noisy. Schedule is enough.
+
+permissions:
+  actions: write
+  contents: read
+  checks: read
+
+jobs:
+  ensure:
+    name: ensure CI on main tip
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch CI if main tip has none
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tip="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          echo "main tip: ${tip}"
+
+          runs_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?per_page=30")"
+          green="$(printf '%s' "$runs_json" | jq --arg tip "$tip" \
+            '[.workflow_runs[] | select(.head_sha == $tip and .conclusion == "success")] | length')"
+          inflight="$(printf '%s' "$runs_json" | jq --arg tip "$tip" \
+            '[.workflow_runs[] | select(.head_sha == $tip and (.status == "queued" or .status == "in_progress"))] | length')"
+
+          echo "green CI runs for tip: ${green}; in-flight: ${inflight}"
+          if [ "$green" -gt 0 ]; then
+            echo "Main tip already has green CI — nothing to do."
+            exit 0
+          fi
+          if [ "$inflight" -gt 0 ]; then
+            echo "CI already in flight for tip — nothing to do."
+            exit 0
+          fi
+
+          echo "No CI for main tip — workflow_dispatching CI on main."
+          gh workflow run CI --repo "$GITHUB_REPOSITORY" --ref main
+          echo "Dispatched. Deploy follows via workflow_run after green CI."

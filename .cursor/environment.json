@@ -1,3 +1,4 @@
 {
-	"install": "bash .cursor/install-cloud-skills.sh"
+	"install": "bash .cursor/install-cloud-skills.sh && bash .cursor/cloud-agent-install.sh",
+	"start": "bash .cursor/cloud-agent-start.sh"
 }

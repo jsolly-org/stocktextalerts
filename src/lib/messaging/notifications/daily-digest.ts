@@ -369,6 +369,11 @@ export function formatDailyDigestTelegram(opts: {
 	is24Hour?: boolean;
 	/** IANA timezone for prediction-market Updated/Closes labels. */
 	timeZone?: string;
+	/**
+	 * Market keys whose probability rows are omitted from Telegram text because a
+	 * PNG card owns the visualization. Defaults to none (Unicode bars for every card).
+	 */
+	telegramOmitBarKeys?: ReadonlySet<string>;
 	sparklines?: SparklineMap;
 	marketOpen?: boolean;
 }): FormattedString {
@@ -412,6 +417,7 @@ export function formatDailyDigestTelegram(opts: {
 	const pmFormatOpts = {
 		timeZone: opts.timeZone ?? US_MARKET_TIMEZONE,
 		use24Hour: opts.is24Hour ?? false,
+		telegramOmitBarKeys: opts.telegramOmitBarKeys,
 	};
 	const predictionMarketsTelegram = opts.extras.predictionMarketsDigest
 		? formatPredictionMarketsDigestTelegram(opts.extras.predictionMarketsDigest, pmFormatOpts)
