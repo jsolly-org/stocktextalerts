@@ -51,12 +51,13 @@ jobs:
         with:
           # Full history so the agent can update-branch / merge-tree cleanly.
           fetch-depth: 0
-          # Prefer a PAT so pushes from the agent re-trigger CI (GITHUB_TOKEN
-          # pushes are ignored by Actions to prevent recursion). Fine-grained
-          # PAT: Contents + PRs + Issues + Actions (write) + Metadata on this
-          # repo (Actions needed for `gh run rerun`). Use a non-admin token —
+          # Prefer REPO_AUTOMATION_TOKEN so pushes from the agent re-trigger CI
+          # (GITHUB_TOKEN pushes are ignored by Actions to prevent recursion).
+          # Shared with CI merge-pr / auto-merge. Classic PAT with `repo` (and
+          # Actions API as needed for `gh run rerun`); non-admin —
           # enforce_admins is off, so an admin PAT can bypass required checks.
-          token: ${{ secrets.JANITOR_GITHUB_TOKEN || github.token }}
+          # JANITOR_GITHUB_TOKEN is a temporary alias during secret rename.
+          token: ${{ secrets.REPO_AUTOMATION_TOKEN || secrets.JANITOR_GITHUB_TOKEN || github.token }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -78,11 +79,11 @@ jobs:
           JANITOR_PROVIDER: ${{ inputs.provider || 'cursor' }}
           JANITOR_MODEL: ${{ inputs.model || '' }}
           JANITOR_TIMEOUT_SECONDS: "2700"
-          # Prefer a PAT so agent pushes re-trigger CI (GITHUB_TOKEN pushes are
-          # ignored by Actions). Set repo secret JANITOR_GITHUB_TOKEN.
-          GH_TOKEN: ${{ secrets.JANITOR_GITHUB_TOKEN || github.token }}
-          GITHUB_TOKEN: ${{ secrets.JANITOR_GITHUB_TOKEN || github.token }}
-          HAS_JANITOR_PAT: ${{ secrets.JANITOR_GITHUB_TOKEN != '' }}
+          # Prefer REPO_AUTOMATION_TOKEN so agent pushes re-trigger CI.
+          # JANITOR_GITHUB_TOKEN is a temporary alias during secret rename.
+          GH_TOKEN: ${{ secrets.REPO_AUTOMATION_TOKEN || secrets.JANITOR_GITHUB_TOKEN || github.token }}
+          GITHUB_TOKEN: ${{ secrets.REPO_AUTOMATION_TOKEN || secrets.JANITOR_GITHUB_TOKEN || github.token }}
+          HAS_AUTOMATION_TOKEN: ${{ secrets.REPO_AUTOMATION_TOKEN != '' || secrets.JANITOR_GITHUB_TOKEN != '' }}
           # Inject only the active provider key (least privilege — unused
           # provider secrets stay out of the agent process env).
           CURSOR_API_KEY: ${{ (inputs.provider || 'cursor') == 'cursor' && secrets.CURSOR_API_KEY || '' }}
@@ -90,7 +91,7 @@ jobs:
           CODEX_API_KEY: ${{ (inputs.provider || 'cursor') == 'openai' && secrets.CODEX_API_KEY || '' }}
           OPENAI_API_KEY: ${{ (inputs.provider || 'cursor') == 'openai' && secrets.OPENAI_API_KEY || '' }}
         run: |
-          if [ "$HAS_JANITOR_PAT" != "true" ]; then
-            echo "::warning::JANITOR_GITHUB_TOKEN is unset — agent pushes will not re-trigger CI. Set a PAT secret for full janitor behavior."
+          if [ "$HAS_AUTOMATION_TOKEN" != "true" ]; then
+            echo "::warning::REPO_AUTOMATION_TOKEN unset — agent pushes will not re-trigger CI. Set a classic PAT secret for full janitor + merge behavior."
           fi
           npm run janitor

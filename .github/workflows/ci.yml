@@ -593,3 +593,48 @@ jobs:
           fi
 
           echo "CI fan-out results accepted."
+
+  # Squash-merge green same-repo PRs with REPO_AUTOMATION_TOKEN so the land
+  # creates a normal `push` to main (CI → Deploy). GITHUB_TOKEN /
+  # github-actions[bot] merges suppress workflow runs (observed on #647).
+  # Not a required check; failure leaves the PR open for a human.
+  # Prefer a classic PAT with `repo` (non-admin) — fine-grained tokens often
+  # cannot call mergePullRequest (observed on #648).
+  merge-pr:
+    name: merge pr
+    needs: [ci]
+    if: >-
+      always() &&
+      needs.ci.result == 'success' &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    timeout-minutes: 5
+    steps:
+      - name: Squash-merge with REPO_AUTOMATION_TOKEN
+        env:
+          # Merge path uses REPO_AUTOMATION_TOKEN only (classic PAT). Do not fall
+          # back to JANITOR_GITHUB_TOKEN — that FG token cannot mergePullRequest.
+          GH_TOKEN: ${{ secrets.REPO_AUTOMATION_TOKEN }}
+          HAS_AUTOMATION_TOKEN: ${{ secrets.REPO_AUTOMATION_TOKEN != '' }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if [ "$HAS_AUTOMATION_TOKEN" != "true" ]; then
+            echo "REPO_AUTOMATION_TOKEN unset — skip PAT merge (auto-merge.yml may have armed GITHUB_TOKEN --auto)."
+            exit 0
+          fi
+          if gh pr merge --squash --repo "$GITHUB_REPOSITORY" "$PR_NUMBER"; then
+            echo "Merged PR #${PR_NUMBER} with REPO_AUTOMATION_TOKEN (push → main CI → Deploy)."
+            exit 0
+          fi
+          state="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json state --jq .state)"
+          if [ "$state" = "MERGED" ]; then
+            echo "PR #${PR_NUMBER} already merged."
+            exit 0
+          fi
+          echo "::error::gh pr merge failed and PR state is ${state} — confirm REPO_AUTOMATION_TOKEN can merge (classic PAT with repo scope recommended)."
+          gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
+          exit 1
