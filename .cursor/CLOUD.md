@@ -3,6 +3,15 @@
 This file is read by Cloud / Background Agents only (local IDE chat ignores it).
 Repo `AGENTS.md` still applies first; this file overlays cloud-specific facts.
 
+## Environment hooks
+
+`.cursor/environment.json`:
+
+- `install` — `.cursor/install-cloud-skills.sh` then `.cursor/cloud-agent-install.sh` (skills + Docker/Node/`npm ci`/local files)
+- `start` — `.cursor/cloud-agent-start.sh` (`dockerd` + local Supabase)
+
+See [docs/cursor-cloud.md](../docs/cursor-cloud.md) for the full runbook. Do not assume Docker is preinstalled on the base image.
+
 ## Public agent-skills package (mirror)
 
 `.cursor/install-cloud-skills.sh` (via `.cursor/environment.json` `install`) shallow-clones

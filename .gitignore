@@ -69,6 +69,10 @@ scripts/data/users.json
 !.cursor/CLOUD.md
 !.cursor/environment.json
 !.cursor/install-cloud-skills.sh
+!.cursor/cloud-agent-install.sh
+!.cursor/cloud-agent-start.sh
+!.cursor/settings.json
+!.cursor/install-cloud-skills.sh
 
 
 # Materialized agent config (fetched by .dotagents/bootstrap.sh; not committed)
