@@ -1,15 +1,8 @@
 name: Post-merge bot dispatch
 
-# Belt-and-suspenders for GITHUB_TOKEN merges.
-#
-# Preferred path: auto-merge.yml arms with JANITOR_GITHUB_TOKEN so the squash
-# merge creates a normal `push` → CI → Deploy chain (see docs/github-ci.md).
-#
-# Fallback: when a merge is still attributed to github-actions[bot] (PAT unset
-# or stale arm), GitHub suppresses the `push` workflow event. This workflow
-# listens for `pull_request` closed and workflow_dispatches CI on main.
-# Note: GITHUB_TOKEN-authored merges may also suppress this closed trigger
-# (observed on #647) — do not rely on it alone; keep the PAT on auto-merge.
+# Best-effort only. GITHUB_TOKEN merges often suppress this `closed` trigger as
+# well as `push` (observed on #647). The reliable recovery path is
+# ensure-main-ci.yml (scheduled workflow_dispatch of CI on main).
 
 on:
   pull_request:
