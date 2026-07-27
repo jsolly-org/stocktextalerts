@@ -25,20 +25,21 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login != 'dependabot[bot]'
     steps:
-      - name: Enable auto-merge for same-repo non-Dependabot PRs
+      - name: Arm merge path for same-repo non-Dependabot PRs
         env:
-          # Prefer a PAT so the eventual squash merge is attributed to that
-          # identity and creates a normal `push` to main (CI → Deploy).
-          # `GITHUB_TOKEN` merges are performed as github-actions[bot] and
-          # GitHub suppresses *all* workflow runs from that token's events —
-          # including `pull_request` closed — so post-merge-bot never sees
-          # them (observed on #647, the first Actions-bot auto-merge).
-          GH_TOKEN: ${{ secrets.JANITOR_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          # Fine-grained PATs cannot call enablePullRequestAutoMerge (observed on
+          # #648). When JANITOR_GITHUB_TOKEN is set, skip --auto and let CI's
+          # merge-pr job squash-merge with the PAT after green `ci` — that merge
+          # creates a normal push → main CI → Deploy. Fall back to GITHUB_TOKEN
+          # --auto only when the PAT is unset (Deploy will not follow; warn).
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HAS_JANITOR_PAT: ${{ secrets.JANITOR_GITHUB_TOKEN != '' }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          if [ "$HAS_JANITOR_PAT" != "true" ]; then
-            echo "::warning::JANITOR_GITHUB_TOKEN unset — auto-merge will use GITHUB_TOKEN; main push workflows will be suppressed and Deploy will not follow. Set the janitor PAT (Contents + PRs + Actions write)."
+          if [ "$HAS_JANITOR_PAT" = "true" ]; then
+            echo "JANITOR_GITHUB_TOKEN set — CI merge-pr will squash-merge after green ci (PAT merge creates push → Deploy)."
+            exit 0
           fi
+          echo "::warning::JANITOR_GITHUB_TOKEN unset — arming GitHub auto-merge with GITHUB_TOKEN; main push workflows will be suppressed and Deploy will not follow."
           gh pr merge --auto --squash --repo "$GITHUB_REPOSITORY" "$PR_NUMBER"
