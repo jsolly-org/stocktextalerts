@@ -1,4 +1,5 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
+import { markdownLinksToTelegram } from "./markdown-links";
 
 /**
  * Line-leading ticker prefix: base symbol, optional space + class/unit suffix
@@ -56,10 +57,10 @@ export function boldTickerPrefixesTelegram(content: string): FormattedString {
 		if (m) {
 			lineFmt =
 				m.separator === ":"
-					? fmt`${FormattedString.bold(`${m.ticker}:`)}${m.rest}`
-					: fmt`${FormattedString.bold(m.ticker)}${m.separator}${m.rest}`;
+					? fmt`${FormattedString.bold(`${m.ticker}:`)}${markdownLinksToTelegram(m.rest)}`
+					: fmt`${FormattedString.bold(m.ticker)}${m.separator}${markdownLinksToTelegram(m.rest)}`;
 		} else {
-			lineFmt = fmt`${line}`;
+			lineFmt = markdownLinksToTelegram(line);
 		}
 		result = result === null ? lineFmt : fmt`${result}\n${lineFmt}`;
 	}

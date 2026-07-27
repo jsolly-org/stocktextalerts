@@ -4,8 +4,8 @@ import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import type { EnrichedAlert } from "../../price-alerts/types";
 import type { ChannelDeliveryStats, IntradayCandle } from "../../types";
-import { buildDataRecencyText } from "../parts/data-recency";
-import { TELEGRAM_FOOTER } from "../parts/footer";
+import { buildTelegramPriceFooter } from "../parts/footer";
+import { markdownLinksToTelegram } from "../parts/markdown-links";
 import { renderPriceAlertHeadline } from "../parts/price-alert-sentences";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { TelegramSender } from "../types";
@@ -83,7 +83,7 @@ export async function formatPriceAlertTelegram(
 	// "AAPL is up 2.5% today ($228.50)" — the same sentence the email produces.
 	const boldTicker = FormattedString.bold(`🚨 ${alert.symbol}`);
 	let msg = fmt`${boldTicker}\n${renderPriceAlertHeadline(alert.priceMove)}`;
-	msg = fmt`${msg}\n${buildDataRecencyText()}`;
+	const footer = buildTelegramPriceFooter();
 
 	let photo: Buffer | null = null;
 	if (candles.length >= 2) {
@@ -107,22 +107,21 @@ export async function formatPriceAlertTelegram(
 		? fitWhyForCaption({
 				prefix: msg.text,
 				why: alert.why,
-				footer: TELEGRAM_FOOTER,
+				footer,
 				hasPhoto: photo !== null,
 			})
 		: null;
 	if (whyFit) {
-		msg = fmt`${msg}\n\n${whyFit}`;
+		msg = fmt`${msg}\n\n${markdownLinksToTelegram(whyFit)}`;
 	}
 
-	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
+	msg = fmt`${msg}\n\n${footer}`;
 
 	// Final safety: if a photo caption still exceeds the hard limit, drop why and rebuild.
 	if (photo !== null && msg.text.length > TELEGRAM_CAPTION_MAX_UTF16) {
 		const boldTickerRetry = FormattedString.bold(`🚨 ${alert.symbol}`);
 		msg = fmt`${boldTickerRetry}\n${renderPriceAlertHeadline(alert.priceMove)}`;
-		msg = fmt`${msg}\n${buildDataRecencyText()}`;
-		msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
+		msg = fmt`${msg}\n\n${footer}`;
 	}
 
 	return { text: msg.text, entities: msg.entities, photo };

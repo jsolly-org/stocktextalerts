@@ -129,8 +129,8 @@ export function applyAnnotationsInline(text: string, annotations: XaiAnnotation[
 		if (ann && typeof ann.url === "string" && ann.url.trim() !== "") {
 			linkCounter++;
 			const url = ann.url.trim();
-			const linkText = linkLabelFromUrl(url) ?? `[${linkCounter}]`;
-			return `[[${linkText}]](${url})`;
+			const linkText = linkLabelFromUrl(url) ?? `${linkCounter}`;
+			return `[${linkText}](${url})`;
 		}
 		return "";
 	});
@@ -140,20 +140,22 @@ export function applyAnnotationsInline(text: string, annotations: XaiAnnotation[
 	// Replace with a readable @handle label, or "post" for anonymous /i/ links.
 	result = result.replace(
 		/\[https?:\/\/(?:x|twitter)\.com\/([^/\]]+)\/status\/[^\]]+\]/g,
-		(_, handle) => (handle === "i" ? "[[post]]" : `[[@${handle}]]`),
+		(_, handle) => (handle === "i" ? "[post]" : `[@${handle}]`),
 	);
 
 	// Phase 4: Rewrite numeric citation text (e.g. `[[1]](url)`) to readable labels.
 	// Grok's web_search embeds `[[N]](url)` natively — Phase 1 preserves these.
 	// Replace the opaque `[N]` text with the source name derived from the URL.
+	// Named labels use single-bracket markdown so Telegram/email renderers can turn
+	// them into real links; double brackets would leak as unrendered copy.
 	result = result.replace(/\[\[(\d+)\]\]\((https?:\/\/[^)]+)\)/g, (_match, _num, url) => {
 		const label = linkLabelFromUrl(url as string);
-		return label ? `[[${label}]](${url})` : _match;
+		return label ? `[${label}](${url})` : `[${_num}](${url})`;
 	});
 
 	// Phase 5: Link inline @handle mentions to anonymous x_search citation URLs.
 	// Grok's x_search often produces anonymous /i/ URLs that lack the poster's
-	// handle. When @handles appear as plain text alongside [[N]](url) citations,
+	// handle. When @handles appear as plain text alongside [N](url) citations,
 	// pair them positionally and make the @handle the clickable link text.
 	// Process per-line so URLs from one ticker bullet don't bleed into another.
 	const lines = result.split("\n");
@@ -163,21 +165,21 @@ export function applyAnnotationsInline(text: string, annotations: XaiAnnotation[
 		let line = original;
 		const anonXUrls: string[] = [];
 		for (const m of line.matchAll(
-			/\[\[\d+\]\]\((https?:\/\/(?:x|twitter)\.com\/i\/status\/\d+)\)/g,
+			/\[\[?\d+\]\]?\((https?:\/\/(?:x|twitter)\.com\/i\/status\/\d+)\)/g,
 		)) {
 			const [, captured] = m;
 			if (captured) anonXUrls.push(captured);
 		}
 		if (anonXUrls.length > 0) {
-			// Remove the [[N]](anonymous-url) citation markers
-			line = line.replace(/\[\[\d+\]\]\(https?:\/\/(?:x|twitter)\.com\/i\/status\/\d+\)/g, "");
+			// Remove the numeric anonymous-url citation markers (`[1](…)` or `[[1]](…)`)
+			line = line.replace(/\[\[?\d+\]\]?\(https?:\/\/(?:x|twitter)\.com\/i\/status\/\d+\)/g, "");
 			// Link unlinked @handle mentions with the anonymous URLs, in order
 			let anonIdx = 0;
 			line = line.replace(/(?<!\[)@([A-Za-z0-9_]+)/g, (match) => {
 				const anonUrl = anonXUrls[anonIdx];
 				if (anonUrl !== undefined) {
 					anonIdx++;
-					return `[[${match}]](${anonUrl})`;
+					return `[${match}](${anonUrl})`;
 				}
 				return match;
 			});
@@ -185,6 +187,13 @@ export function applyAnnotationsInline(text: string, annotations: XaiAnnotation[
 		lines[i] = line;
 	}
 	result = lines.join("\n");
+
+	// Phase 6: Normalize any remaining double-bracket named links to single brackets.
+	// Defense in depth — Grok or earlier phases must never leak `[[Label]](url)` into
+	// channel renderers (Telegram shows that as raw unrendered copy).
+	result = result.replace(/\[\[([^\]]+)\]\]\((https?:\/\/[^)]+)\)/g, (_match, label, url) => {
+		return `[${label}](${url})`;
+	});
 
 	return result;
 }

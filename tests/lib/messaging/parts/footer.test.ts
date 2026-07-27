@@ -1,11 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { buildEmailUrls, renderEmailFooter } from "../../../../src/lib/messaging/email/layout";
-import { TELEGRAM_FOOTER } from "../../../../src/lib/messaging/parts/footer";
+import {
+	buildTelegramPriceFooter,
+	TELEGRAM_FOOTER,
+} from "../../../../src/lib/messaging/parts/footer";
 
 describe("Personal-app notification footers: opt-out paths only, no disclaimer", () => {
 	it("The Telegram footer is just the actionable /stop hint — no disclaimer", () => {
 		expect(TELEGRAM_FOOTER).toContain("/stop");
 		expect(TELEGRAM_FOOTER.toLowerCase()).not.toContain("financial advice");
+	});
+
+	it("Price-bearing Telegram footers put delay disclosure with the /stop hint", () => {
+		expect(buildTelegramPriceFooter()).toBe(
+			"Prices delayed up to 15 minutes. Send /stop to pause alerts.",
+		);
 	});
 
 	it("The shared email footer keeps the unsubscribe link and drops the disclaimer", () => {

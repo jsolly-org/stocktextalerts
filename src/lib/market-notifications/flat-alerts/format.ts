@@ -1,9 +1,11 @@
+import { markdownLinksToHtml } from "../../messaging/email/html-section";
 import { renderIntradaySparklineImg } from "../../messaging/email/intraday-sparkline";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
 import { toSvgSparklineImg } from "../../messaging/email/svg-sparkline";
 import { formatUsdPrice, getChangeColor } from "../../messaging/parts/asset-price-list";
 import { buildDataRecencyHtml, buildDataRecencyText } from "../../messaging/parts/data-recency";
 import { escapeHtml } from "../../messaging/parts/html-utils";
+import { markdownLinksToPlainText } from "../../messaging/parts/markdown-links";
 import { EMAIL_SPARKLINE_LABEL, type SparklineData } from "../../messaging/parts/sparkline";
 import type { ExtendedAssetQuote, IntradayBarsResult } from "../../types";
 import type { FlatPriceAlertUser } from "./users";
@@ -214,7 +216,7 @@ export function formatFlatPriceAlertEmail(options: {
 	const whyTrimmed = whyText?.trim() ?? "";
 	if (whyTrimmed !== "") {
 		textLines.push("");
-		textLines.push(whyTrimmed);
+		textLines.push(markdownLinksToPlainText(whyTrimmed));
 	}
 	textLines.push("");
 	textLines.push(`View Dashboard: ${urls.dashboardUrl}`);
@@ -272,7 +274,7 @@ export function formatFlatPriceAlertEmail(options: {
 	const whyBlock =
 		whyTrimmed !== ""
 			? `
-		<p style="color: #374151; font-size: 14px; line-height: 1.5; margin: 16px 0 0 0;">${escapeHtml(whyTrimmed)}</p>`
+		<p style="color: #374151; font-size: 14px; line-height: 1.5; margin: 16px 0 0 0;">${markdownLinksToHtml(whyTrimmed)}</p>`
 			: "";
 
 	// Identity row: logo + ticker + name sit below the title so a long company

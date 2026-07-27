@@ -29,12 +29,12 @@ describe("markdownLinksToHtml", () => {
 		const html = markdownLinksToHtml(input);
 
 		expect(html).toContain(
-			'<a href="https://x.com/i/status/123" style="color: #667eea; text-decoration: underline;" target="_blank" rel="noopener noreferrer">[1]</a>',
+			'<a href="https://x.com/i/status/123" style="color: #667eea; text-decoration: underline;" target="_blank" rel="noopener noreferrer">1</a>',
 		);
 		// Adjacent links get a space separator so underlines don't merge
 		expect(html).toContain("</a> <a");
 		expect(html).toContain(
-			'<a href="https://x.com/i/status/456" style="color: #667eea; text-decoration: underline;" target="_blank" rel="noopener noreferrer">[2]</a>',
+			'<a href="https://x.com/i/status/456" style="color: #667eea; text-decoration: underline;" target="_blank" rel="noopener noreferrer">2</a>',
 		);
 	});
 
@@ -46,10 +46,10 @@ describe("markdownLinksToHtml", () => {
 		const html = markdownLinksToHtml(input);
 
 		expect(html).toContain(
-			'<a href="https://x.com/i/status/111" style="color: #667eea; text-decoration: underline;" target="_blank" rel="noopener noreferrer">[1]</a>',
+			'<a href="https://x.com/i/status/111" style="color: #667eea; text-decoration: underline;" target="_blank" rel="noopener noreferrer">1</a>',
 		);
 		expect(html).toContain(
-			'<a href="https://x.com/i/status/222" style="color: #667eea; text-decoration: underline;" target="_blank" rel="noopener noreferrer">[2]</a>',
+			'<a href="https://x.com/i/status/222" style="color: #667eea; text-decoration: underline;" target="_blank" rel="noopener noreferrer">2</a>',
 		);
 		// No raw markdown remains
 		expect(html).not.toContain("[post:");

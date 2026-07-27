@@ -5,6 +5,7 @@ import {
 } from "../../../../src/lib/market-notifications/flat-alerts/format";
 import type { FlatPriceAlertUser } from "../../../../src/lib/market-notifications/flat-alerts/users";
 import { EMAIL_LOGO_SIZE_HERO, renderLogoImg } from "../../../../src/lib/messaging/logo-fetcher";
+import { hasUnrenderedMarkdownLink } from "../../../../src/lib/messaging/parts/markdown-links";
 import type { ExtendedAssetQuote } from "../../../../src/lib/types";
 
 const user: FlatPriceAlertUser = {
@@ -85,9 +86,37 @@ describe("Price move alert email layout", () => {
 			whyText: why,
 		});
 
-		expect(text).toContain(why);
-		expect(text.indexOf(why)).toBeLessThan(text.indexOf("View Dashboard:"));
-		expect(html).toContain(why);
-		expect(html.indexOf(why)).toBeLessThan(html.indexOf("View Dashboard"));
+		expect(text).toContain("Update: Shares jumped");
+		expect(text.indexOf("Update:")).toBeLessThan(text.indexOf("View Dashboard:"));
+		expect(html).toContain("Update: Shares jumped");
+		expect(html.indexOf("Update:")).toBeLessThan(html.indexOf("View Dashboard"));
+	});
+
+	it("never shows unrendered markdown links in final email copy", () => {
+		const why =
+			"PLTR shares rose 5.1% in after-hours trading after Q4 results.[[Yahoo Finance]](https://finance.yahoo.com/news/why-shares-palantir-soaring-hours-231057869.html)";
+		const { text, html } = formatFlatPriceAlertEmail({
+			user,
+			symbol: "PLTR",
+			companyName: "Palantir Technologies Inc.",
+			quote,
+			baseline: 421.58,
+			isReTrigger: false,
+			lastNotificationAt: null,
+			nowMs: Date.parse("2026-07-15T17:00:00Z"),
+			intraday: null,
+			sevenDaySparkline: null,
+			logoHtml: undefined,
+			whyText: why,
+		});
+
+		expect(hasUnrenderedMarkdownLink(text)).toBe(false);
+		expect(hasUnrenderedMarkdownLink(html)).toBe(false);
+		expect(text).toContain("Yahoo Finance");
+		expect(html).toContain("Yahoo Finance");
+		expect(html).toContain(
+			'href="https://finance.yahoo.com/news/why-shares-palantir-soaring-hours-231057869.html"',
+		);
+		expect(html).not.toContain("[[Yahoo Finance]]");
 	});
 });
