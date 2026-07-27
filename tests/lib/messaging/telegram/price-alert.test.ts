@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../../src/lib/db/supabase";
-import { TELEGRAM_FOOTER } from "../../../../src/lib/messaging/parts/footer";
+import { buildTelegramPriceFooter } from "../../../../src/lib/messaging/parts/footer";
+import { hasUnrenderedMarkdownLink } from "../../../../src/lib/messaging/parts/markdown-links";
 import {
 	deliverTelegramPriceAlert,
 	formatPriceAlertTelegram,
@@ -40,7 +41,11 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 
 		expect(result.text).toContain("LDOS");
 		expect(result.text).toContain("down 11.1% today ($173.00)");
-		expect(result.text).toContain("Prices delayed up to 15 minutes.");
+		expect(result.text).toContain(buildTelegramPriceFooter());
+		// Delay disclosure is footer fine-print, not under the headline.
+		expect(result.text.indexOf("down 11.1%")).toBeLessThan(
+			result.text.indexOf("Prices delayed up to 15 minutes."),
+		);
 
 		// Formatting travels out-of-band as entities (no MarkdownV2/HTML escaping).
 		expect(result.entities.length).toBeGreaterThan(0);
@@ -63,17 +68,32 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 		expect(single.text).toContain("LDOS");
 	});
 
-	it("inserts a why blurb after recency and before the footer", async () => {
+	it("inserts a why blurb after the headline and before the footer", async () => {
 		const why = "Still the same story: Guidance optimism remains the driver.";
 		const result = await formatPriceAlertTelegram(makeAlert({ why }), []);
 		expect(result.text).toContain(why);
 		const whyIdx = result.text.indexOf(why);
-		const recencyIdx = result.text.indexOf("Prices delayed");
-		const footerIdx = result.text.lastIndexOf("\n\n");
-		expect(whyIdx).toBeGreaterThan(recencyIdx);
+		const headlineIdx = result.text.indexOf("down 11.1%");
+		const footerIdx = result.text.indexOf(buildTelegramPriceFooter());
+		expect(whyIdx).toBeGreaterThan(headlineIdx);
 		expect(whyIdx).toBeLessThan(footerIdx);
-		expect(result.text.endsWith(TELEGRAM_FOOTER) || result.text.includes(TELEGRAM_FOOTER)).toBe(
-			true,
+		expect(result.text.endsWith(buildTelegramPriceFooter())).toBe(true);
+	});
+
+	it("never shows unrendered markdown links in final Telegram copy", async () => {
+		const why =
+			"PLTR shares rose 5.1% in after-hours trading after the company reported Q4 2025 results that beat estimates on revenue ($1.41B vs. $1.34B expected) and adjusted EPS ($0.25 vs. $0.23), alongside strong 2026 guidance projecting over 60% revenue growth.[[Yahoo Finance]](https://finance.yahoo.com/news/why-shares-palantir-soaring-hours-231057869.html)";
+		const result = await formatPriceAlertTelegram(makeAlert({ symbol: "PLTR", why }), []);
+
+		expect(hasUnrenderedMarkdownLink(result.text)).toBe(false);
+		expect(result.text).toContain("Yahoo Finance");
+		expect(result.text).not.toContain("[Yahoo Finance]");
+		expect(result.text).not.toContain("[[Yahoo Finance]]");
+		expect(result.text).not.toContain("](https://");
+		expect(result.entities.some((e) => e.type === "text_link")).toBe(true);
+		const link = result.entities.find((e) => e.type === "text_link");
+		expect(link && "url" in link ? link.url : null).toBe(
+			"https://finance.yahoo.com/news/why-shares-palantir-soaring-hours-231057869.html",
 		);
 	});
 
@@ -85,6 +105,16 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 		// Still delivers the alert body even if why had to be dropped/truncated.
 		expect(result.text).toContain("LDOS");
 		expect(result.text).toContain("down 11.1%");
+	});
+
+	it("never leaves unrendered markdown when a long why with a trailing citation is truncated", async () => {
+		const why = `${"x".repeat(900)} growth.[[Yahoo Finance]](https://finance.yahoo.com/news/why-shares-palantir-soaring-hours-231057869.html)`;
+		const result = await formatPriceAlertTelegram(makeAlert({ why }), makeCandles(6));
+		expect(result.photo).toBeInstanceOf(Buffer);
+		expect(result.text.length).toBeLessThanOrEqual(1024);
+		expect(hasUnrenderedMarkdownLink(result.text)).toBe(false);
+		expect(result.text).not.toContain("](https://");
+		expect(result.text).toContain(buildTelegramPriceFooter());
 	});
 });
 

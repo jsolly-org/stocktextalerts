@@ -1,4 +1,5 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
+import { markdownLinksToTelegram } from "./markdown-links";
 
 /**
  * Line-leading ticker prefix: base symbol, optional space + class/unit suffix
@@ -46,7 +47,9 @@ export function boldTickerPrefixesHtml(content: string): string {
 		.join("\n");
 }
 
-/** Bold line-leading tickers as Telegram FormattedString entities. */
+/** Bold line-leading tickers as Telegram FormattedString entities.
+ * Also converts markdown citation links in each line (FormattedString forces a
+ * combined walk — the HTML twin stays bold-only and composes links separately). */
 export function boldTickerPrefixesTelegram(content: string): FormattedString {
 	const lines = content.split("\n");
 	let result: FormattedString | null = null;
@@ -56,10 +59,10 @@ export function boldTickerPrefixesTelegram(content: string): FormattedString {
 		if (m) {
 			lineFmt =
 				m.separator === ":"
-					? fmt`${FormattedString.bold(`${m.ticker}:`)}${m.rest}`
-					: fmt`${FormattedString.bold(m.ticker)}${m.separator}${m.rest}`;
+					? fmt`${FormattedString.bold(`${m.ticker}:`)}${markdownLinksToTelegram(m.rest)}`
+					: fmt`${FormattedString.bold(m.ticker)}${m.separator}${markdownLinksToTelegram(m.rest)}`;
 		} else {
-			lineFmt = fmt`${line}`;
+			lineFmt = markdownLinksToTelegram(line);
 		}
 		result = result === null ? lineFmt : fmt`${result}\n${lineFmt}`;
 	}

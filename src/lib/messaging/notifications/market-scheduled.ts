@@ -6,7 +6,7 @@ import { formatAssetsHtmlList } from "../email/asset-price-list";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
 import { formatAssetsTextList } from "../parts/asset-price-list";
 import { buildDataRecencyHtml, buildDataRecencyText } from "../parts/data-recency";
-import { TELEGRAM_FOOTER } from "../parts/footer";
+import { buildTelegramPriceFooter } from "../parts/footer";
 import {
 	buildMarketClosedBannerEmailHtml,
 	buildMarketClosedBannerEmailText,
@@ -187,7 +187,6 @@ export function formatMarketScheduledTelegram(
 	if (opts.delayBanner) {
 		msg = fmt`${msg}\n${opts.delayBanner}`;
 	}
-	msg = fmt`${msg}\n${buildDataRecencyText()}`;
 	if (marketClosedBanner) {
 		msg = fmt`${msg}\n${marketClosedBanner}`;
 	}
@@ -200,6 +199,6 @@ export function formatMarketScheduledTelegram(
 		marketSession: opts.marketSession,
 	});
 
-	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
+	msg = fmt`${msg}\n\n${buildTelegramPriceFooter()}`;
 	return msg;
 }

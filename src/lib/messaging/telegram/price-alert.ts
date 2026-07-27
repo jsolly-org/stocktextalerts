@@ -4,8 +4,8 @@ import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import type { EnrichedAlert } from "../../price-alerts/types";
 import type { ChannelDeliveryStats, IntradayCandle } from "../../types";
-import { buildDataRecencyText } from "../parts/data-recency";
-import { TELEGRAM_FOOTER } from "../parts/footer";
+import { buildTelegramPriceFooter } from "../parts/footer";
+import { markdownLinksToTelegram } from "../parts/markdown-links";
 import { renderPriceAlertHeadline } from "../parts/price-alert-sentences";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { TelegramSender } from "../types";
@@ -63,6 +63,28 @@ function fitWhyForCaption(options: {
 	return null;
 }
 
+/** Fit a already-rendered why FormattedString into a photo caption budget. */
+function fitWhyFormattedForCaption(options: {
+	prefix: string;
+	why: FormattedString;
+	footer: string;
+	hasPhoto: boolean;
+}): FormattedString | null {
+	const fittedText = fitWhyForCaption({
+		prefix: options.prefix,
+		why: options.why.text,
+		footer: options.footer,
+		hasPhoto: options.hasPhoto,
+	});
+	if (fittedText === null) return null;
+	if (fittedText === options.why.text) return options.why;
+
+	// Truncated with an ellipsis — slice entities to the kept prefix, then re-append "…".
+	const keepLen = fittedText.endsWith("…") ? fittedText.length - 1 : fittedText.length;
+	const sliced = options.why.slice(0, keepLen);
+	return fittedText.endsWith("…") ? fmt`${sliced}…` : sliced;
+}
+
 /**
  * Render a price-move alert as a Telegram message.
  *
@@ -83,7 +105,7 @@ export async function formatPriceAlertTelegram(
 	// "AAPL is up 2.5% today ($228.50)" — the same sentence the email produces.
 	const boldTicker = FormattedString.bold(`🚨 ${alert.symbol}`);
 	let msg = fmt`${boldTicker}\n${renderPriceAlertHeadline(alert.priceMove)}`;
-	msg = fmt`${msg}\n${buildDataRecencyText()}`;
+	const footer = buildTelegramPriceFooter();
 
 	let photo: Buffer | null = null;
 	if (candles.length >= 2) {
@@ -103,11 +125,15 @@ export async function formatPriceAlertTelegram(
 		}
 	}
 
-	const whyFit = alert.why
-		? fitWhyForCaption({
+	// Convert markdown citations before caption fitting so truncation cannot bisect
+	// `[[Label]](https://…)` into raw unrendered copy.
+	const whyFormatted =
+		alert.why && alert.why.trim() !== "" ? markdownLinksToTelegram(alert.why.trim()) : null;
+	const whyFit = whyFormatted
+		? fitWhyFormattedForCaption({
 				prefix: msg.text,
-				why: alert.why,
-				footer: TELEGRAM_FOOTER,
+				why: whyFormatted,
+				footer,
 				hasPhoto: photo !== null,
 			})
 		: null;
@@ -115,14 +141,13 @@ export async function formatPriceAlertTelegram(
 		msg = fmt`${msg}\n\n${whyFit}`;
 	}
 
-	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
+	msg = fmt`${msg}\n\n${footer}`;
 
 	// Final safety: if a photo caption still exceeds the hard limit, drop why and rebuild.
 	if (photo !== null && msg.text.length > TELEGRAM_CAPTION_MAX_UTF16) {
 		const boldTickerRetry = FormattedString.bold(`🚨 ${alert.symbol}`);
 		msg = fmt`${boldTickerRetry}\n${renderPriceAlertHeadline(alert.priceMove)}`;
-		msg = fmt`${msg}\n${buildDataRecencyText()}`;
-		msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
+		msg = fmt`${msg}\n\n${footer}`;
 	}
 
 	return { text: msg.text, entities: msg.entities, photo };

@@ -1,4 +1,5 @@
 import { escapeHtml } from "../parts/html-utils";
+import { MARKDOWN_LINK_RE, unwrapCitationLinkText } from "../parts/markdown-links";
 import { boldTickerPrefixesHtml } from "../parts/ticker-prefix";
 
 /** Finnhub cloud logo as a base64 data-URI, sized to match inline heading text. */
@@ -11,20 +12,6 @@ const MASSIVE_LOGO_IMG = `<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaH
 const GROK_LOGO_IMG = `<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NzggMTYzLjUzIiBzaGFwZS1yZW5kZXJpbmc9Imdlb21ldHJpY1ByZWNpc2lvbiI+PHJlY3Qgd2lkdGg9IjE2My41MyIgaGVpZ2h0PSIxNjMuNTMiIHN0eWxlPSJmaWxsOiMwYTBhMGEiLz48cG9seWdvbiBwb2ludHM9IjEwNS4wMiAzNC41MSAzOC43MiAxMjkuMTkgNTguNjggMTI5LjE5IDEyNC45OCAzNC41MSAxMDUuMDIgMzQuNTEiIHN0eWxlPSJmaWxsOiNmZmYiLz48cGF0aCBkPSJNNDIzLDQyOS4zMWE1Ni43Nyw1Ni43NywwLDAsMS0xNi44MSwyLjgzcS0xNC41NiwwLTI1LjYzLTZhNDIuNDksNDIuNDksMCwwLDEtMTcuMDctMTYuNDIsNDYuMjIsNDYuMjIsMCwwLDEtNi0yMy40NHEwLTE1LjIsNi40NC0yNi4zNGE0NCw0NCwwLDAsMSwxNy4zOS0xNy4wNyw0OS41Myw0OS41MywwLDAsMSwyNC01LjkyLDU3LDU3LDAsMCwxLDE0LjgxLDEuODcsNTQuNjUsNTQuNjUsMCwwLDEsMTIuNDksNWwtNC4xMiwxMS40NmE0Ny4wOCw0Ny4wOCwwLDAsMC0xMC4zNy00LjA2LDQyLjQ2LDQyLjQ2LDAsMCwwLTExLjI3LTEuNzQsNDAuNDQsNDAuNDQsMCwwLDAtMTkuMTMsNC4zOCwzMC43MywzMC43MywwLDAsMC0xMi44MiwxMi40OSwzOC4zNCwzOC4zNCwwLDAsMC00LjUxLDE4Ljk0LDM1LjMsMzUuMywwLDAsMCw0LjUxLDE3LjksMzAuODMsMzAuODMsMCwwLDAsMTIuNzUsMTIuMTcsMzkuOTMsMzkuOTMsMCwwLDAsMTguODEsNC4zMiw0Ni42MSw0Ni42MSwwLDAsMCw5LjUzLTEsMjUuNzQsMjUuNzQsMCwwLDAsNy43My0yLjc3VjM5Ny40OUg0MDUuMTh2LTEyaDMxLjE3djM3LjYxcS00LjI1LDMuMzUtMTMuMzMsNi4xOFoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0xNDUgLTMwMi4yMykiIHN0eWxlPSJmaWxsOiMwYTBhMGEiLz48cGF0aCBkPSJNNDc0LjY4LDM4Mi42OGEyOS43NiwyOS43NiwwLDAsMSw4LjA1LTUuMTUsMjEuODUsMjEuODUsMCwwLDEsNy40Ny0xLjkzbC0uNTIsMTJhMTkuNjEsMTkuNjEsMCwwLDAtMTAuNSwyLjMyLDE4LjY3LDE4LjY3LDAsMCwwLTcuMzQsNy4xNSwxOS4xNCwxOS4xNCwwLDAsMC0yLjY0LDkuNzN2MjQuMzVoLTEyVjM3Ny43OWgxMC42OWwuOSwxMi42MmEyMy42NCwyMy42NCwwLDAsMSw1Ljg2LTcuNzNaIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMTQ1IC0zMDIuMjMpIiBzdHlsZT0iZmlsbDojMGEwYTBhIi8+PHBhdGggZD0iTTUwMi41LDM4OS41N2EyNy4yMywyNy4yMywwLDAsMSwxMC41Ni0xMC4yNCwzMSwzMSwwLDAsMSwxNS4yNi0zLjc0LDMwLjMyLDMwLjMyLDAsMCwxLDE1LjEzLDMuNzQsMjYuNjgsMjYuNjgsMCwwLDEsMTAuMywxMC4xOCwyOC42MiwyOC42MiwwLDAsMSwzLjY3LDE0LjQzLDI5LDI5LDAsMCwxLTMuNjcsMTQuNDksMjYuNDMsMjYuNDMsMCwwLDEtMTAuMzcsMTAuMjQsMzMuNTcsMzMuNTcsMCwwLDEtMzAuNC4xOSwyNi4xLDI2LjEsMCwwLDEtMTAuNS0xMCwyOC44NSwyOC44NSwwLDAsMS0zLjgtMTQuOTQsMjcuOTQsMjcuOTQsMCwwLDEsMy44LTE0LjM2Wm0xMC41NiwyMy43NmExNy4yLDE3LjIsMCwwLDAsNi4xOCw2LjcsMTYuOTQsMTYuOTQsMCwwLDAsMjEuMDYtMi44MywxOC41OSwxOC41OSwwLDAsMCw0Ljg5LTEzLjE0LDE4LjgzLDE4LjgzLDAsMCwwLTQuODktMTMuMiwxNi4wNiwxNi4wNiwwLDAsMC0xMi4zNy01LjM1LDE1LjcxLDE1LjcxLDAsMCwwLTguNzYsMi41MSwxNy45LDE3LjksMCwwLDAtNi4xMiw2Ljc2LDIwLjIxLDIwLjIxLDAsMCwwLDAsMTguNTVaIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMTQ1IC0zMDIuMjMpIiBzdHlsZT0iZmlsbDojMGEwYTBhIi8+PHBvbHlnb24gcG9pbnRzPSI0NTUuNzIgOTYuNTUgNDc1LjQyIDgwLjcgNDY4LjA4IDc0LjI3IDQ0MC41MiA5Ni40MiA0NDAuNTIgMzQuNzIgNDI4LjU0IDM0LjcyIDQyOC41NCAxMjguODggNDQwLjUyIDEyOC44OCA0NDAuNTIgMTA4LjkxIDQ0Ny40NyAxMDMuMjUgNDYzLjk2IDEyOC44OCA0NzggMTI4Ljg4IDQ1NS43MiA5Ni41NSIgc3R5bGU9ImZpbGw6IzBhMGEwYSIvPjwvc3ZnPgo=" alt="Powered by Grok" style="height: 16px; width: auto; vertical-align: middle; margin-left: 4px;" />`;
 
 const LINK_STYLE = "color: #667eea; text-decoration: underline;";
-
-/**
- * Match markdown links `[text](url)` where the URL is http(s) and may contain
- * balanced parentheses (common in Wikipedia URLs like `JavaScript_(programming_language)`).
- *
- * Notes:
- * - The link text allows one level of nested brackets so citation-style links
- *   like `[[1]](url)` are matched (Grok outputs these for numbered references).
- * - We keep the URL "no whitespace" rule to avoid swallowing following text.
- * - This supports nested parentheses up to 2 levels, which is sufficient for
- *   common real-world links while remaining regex-friendly in JS.
- */
-const MARKDOWN_LINK_RE =
-	/\[((?:[^[\]]+|\[[^\]]*\])+)\]\(((?:https?:\/\/)(?:[^\s()]+|\((?:[^\s()]+|\([^\s()]*\))*\))*)\)/g;
 
 /** Convert markdown links (`[text](https://...)`) into safe HTML `<a>` tags. */
 export function markdownLinksToHtml(content: string): string {
@@ -44,7 +31,9 @@ export function markdownLinksToHtml(content: string): string {
 		}
 		const [, captureText, captureUrl] = match;
 		if (!captureText || !captureUrl) continue;
-		const linkText = escapeHtml(captureText);
+		// Citation-style `[[Label]](url)` captures `[Label]` — unwrap so the visible
+		// anchor text is `Label` (not `[Label]`). Numeric `[[1]]` becomes `1`.
+		const linkText = escapeHtml(unwrapCitationLinkText(captureText));
 		const url = escapeHtml(captureUrl);
 		parts.push(
 			`<a href="${url}" style="${LINK_STYLE}" target="_blank" rel="noopener noreferrer">${linkText}</a>`,

@@ -84,4 +84,17 @@ describe("boldTickerPrefixesTelegram", () => {
 			"JLHL",
 		);
 	});
+
+	it("converts markdown citations on ticker lines (digest news/rumors path)", () => {
+		const msg = boldTickerPrefixesTelegram(
+			"AAPL: Apple fell after an inquiry [[Yahoo Finance]](https://finance.yahoo.com/news/x)\nGainers:",
+		);
+		expect(msg.text).not.toContain("](https://");
+		expect(msg.text).not.toContain("[Yahoo Finance]");
+		expect(msg.text).toContain("Yahoo Finance");
+		expect(msg.entities.some((e) => e.type === "text_link")).toBe(true);
+		expect(msg.entities.some((e) => e.type === "bold")).toBe(true);
+		const link = msg.entities.find((e) => e.type === "text_link");
+		expect(link && "url" in link ? link.url : null).toBe("https://finance.yahoo.com/news/x");
+	});
 });
