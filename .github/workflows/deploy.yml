@@ -2,8 +2,9 @@ name: Deploy
 
 # After green CI on main (workflow_run) — same trigger shape as the jsolly aws-sam fleet.
 # Body stays STA-specific (migrations, live-provider, Blacksmith, Production env).
-# post-merge-bot may workflow_dispatch CI when GITHUB_TOKEN merges suppress push; the
-# job if allows that CI event so Deploy still follows. Human workflow_dispatch is
+# Auto-merge should arm with JANITOR_GITHUB_TOKEN so merges create a normal push → CI.
+# post-merge-bot may still workflow_dispatch CI if a GITHUB_TOKEN bot merge slips through;
+# the job if allows that CI event so Deploy still follows. Human workflow_dispatch is
 # break-glass. No Deploy `push` trigger — that would race ahead of (or parallel) main CI.
 # Deploy SHA: workflow_run → CI head_sha; workflow_dispatch → github.sha.
 

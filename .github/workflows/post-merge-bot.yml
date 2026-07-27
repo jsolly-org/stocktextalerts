@@ -1,11 +1,15 @@
 name: Post-merge bot dispatch
 
-# GITHUB_TOKEN merges (Actions auto-merge) do not create push workflow runs —
-# GitHub suppresses those events to prevent recursion. Human merges still fire
-# push → CI normally; Deploy then follows via workflow_run after green CI.
-# For bot merges, this workflow catches pull_request closed and workflow_dispatches
-# CI on main only (workflow_dispatch is a documented exception to the GITHUB_TOKEN
-# recursion guard). Do not dispatch Deploy here — Deploy is gated on green CI.
+# Belt-and-suspenders for GITHUB_TOKEN merges.
+#
+# Preferred path: auto-merge.yml arms with JANITOR_GITHUB_TOKEN so the squash
+# merge creates a normal `push` → CI → Deploy chain (see docs/github-ci.md).
+#
+# Fallback: when a merge is still attributed to github-actions[bot] (PAT unset
+# or stale arm), GitHub suppresses the `push` workflow event. This workflow
+# listens for `pull_request` closed and workflow_dispatches CI on main.
+# Note: GITHUB_TOKEN-authored merges may also suppress this closed trigger
+# (observed on #647) — do not rely on it alone; keep the PAT on auto-merge.
 
 on:
   pull_request:
