@@ -158,6 +158,60 @@ describe("selectAssetEventCards", () => {
 		);
 		expect(selected.map((c) => c.key)).toEqual(["ongoing"]);
 	});
+
+	it("never returns more than one card even when many NVDA markets match", () => {
+		const flood = [
+			card({
+				key: "nvda-dated-a",
+				title: "Will NVDA close above $140?",
+				closesAt: "2026-07-18T00:00:00.000Z",
+				volume: 900,
+				symbol: "NVDA",
+			}),
+			card({
+				key: "nvda-dated-b",
+				title: "Will NVDA close above $150?",
+				closesAt: "2026-07-14T00:00:00.000Z",
+				volume: 800,
+				symbol: "NVDA",
+			}),
+			card({
+				key: "nvda-dated-c",
+				title: "NVDA earnings beat?",
+				closesAt: "2026-08-01T00:00:00.000Z",
+				volume: 2000,
+				symbol: "NVDA",
+			}),
+			card({
+				key: "nvda-ongoing-a",
+				title: "Next NVIDIA GPU architecture",
+				closesAt: null,
+				volume: 5000,
+				symbol: "NVDA",
+				outcomes: [
+					{
+						venueContractId: "yes",
+						label: "Yes",
+						probabilityPercent: 55,
+						sortOrder: 0,
+						strikeValue: null,
+						volume: 5000,
+						highlighted: true,
+					},
+				],
+			}),
+			card({
+				key: "nvda-ongoing-b",
+				title: "NVIDIA market share in AI chips",
+				closesAt: null,
+				volume: 4000,
+				symbol: "NVDA",
+			}),
+		];
+		const selected = selectAssetEventCards(flood, { nowMs });
+		expect(selected).toHaveLength(1);
+		expect(selected[0]?.key).toBe("nvda-dated-b");
+	});
 });
 
 describe("orderCardsByWatchlist", () => {
