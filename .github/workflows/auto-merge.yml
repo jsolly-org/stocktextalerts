@@ -30,10 +30,7 @@ jobs:
           # Prefer REPO_AUTOMATION_TOKEN (shared with janitor). When set, skip
           # GitHub --auto — CI's merge-pr job squash-merges with that PAT after
           # green `ci`, which creates a normal push → main CI → Deploy.
-          # Use a classic PAT with `repo` (non-admin); fine-grained tokens often
-          # cannot mergePullRequest (observed on #648 with JANITOR_GITHUB_TOKEN).
-          # Do not fall back to JANITOR_GITHUB_TOKEN for the merge gate — that
-          # FG token cannot merge and would skip --auto while leaving PRs stuck.
+          # Token needs Contents + Pull requests write (merge is Contents-gated).
           HAS_AUTOMATION_TOKEN: ${{ secrets.REPO_AUTOMATION_TOKEN != '' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}

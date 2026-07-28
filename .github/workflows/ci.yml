@@ -615,8 +615,6 @@ jobs:
     steps:
       - name: Squash-merge with REPO_AUTOMATION_TOKEN
         env:
-          # Merge path uses REPO_AUTOMATION_TOKEN only (classic PAT). Do not fall
-          # back to JANITOR_GITHUB_TOKEN — that FG token cannot mergePullRequest.
           GH_TOKEN: ${{ secrets.REPO_AUTOMATION_TOKEN }}
           HAS_AUTOMATION_TOKEN: ${{ secrets.REPO_AUTOMATION_TOKEN != '' }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -635,6 +633,6 @@ jobs:
             echo "PR #${PR_NUMBER} already merged."
             exit 0
           fi
-          echo "::error::gh pr merge failed and PR state is ${state} — confirm REPO_AUTOMATION_TOKEN can merge (classic PAT with repo scope recommended)."
+          echo "::error::gh pr merge failed and PR state is ${state} — confirm REPO_AUTOMATION_TOKEN has Contents + Pull requests write."
           gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
           exit 1
