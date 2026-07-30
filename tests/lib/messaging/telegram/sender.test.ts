@@ -143,47 +143,4 @@ describe("sendViaBot exercises the real grammY API construction (transformer-moc
 		const result = await sendViaBot(bot, { kind: "text", chatId: 5550004, text: "id check" });
 		expect(result).toEqual({ success: true, messageSid: "123456" });
 	});
-
-	it("mediaGroup → sendMediaGroup with InputFiles and first-item caption only", async () => {
-		const bot = createTelegramBot(FAKE_TOKEN);
-		const capture: { value: Captured | null } = { value: null };
-		const transformer: Transformer = (_prev, method, payload) => {
-			capture.value = { method, payload: payload as Record<string, unknown> };
-			return asApiResponse({
-				ok: true,
-				result: [
-					{ message_id: 10, date: 0, chat: { id: 0, type: "private" } },
-					{ message_id: 11, date: 0, chat: { id: 0, type: "private" } },
-				],
-			});
-		};
-		bot.api.config.use(transformer);
-
-		const result = await sendViaBot(bot, {
-			kind: "mediaGroup",
-			chatId: 5550005,
-			disableNotification: true,
-			mediaGroup: [
-				{
-					photo: Buffer.from([0x89, 0x50]),
-					text: "PLTR caption",
-					entities: [{ type: "bold", offset: 0, length: 4 }],
-				},
-				{ photo: Buffer.from([0x89, 0x51]) },
-			],
-		});
-
-		expect(result).toEqual({ success: true, messageSid: "10" });
-		expect(capture.value?.method).toBe("sendMediaGroup");
-		const p = capture.value?.payload as Record<string, unknown>;
-		expect(p.chat_id).toBe(5550005);
-		expect(p.disable_notification).toBe(true);
-		const media = p.media as Array<Record<string, unknown>>;
-		expect(media).toHaveLength(2);
-		expect(media[0]?.media).toBeInstanceOf(InputFile);
-		expect(media[0]?.caption).toBe("PLTR caption");
-		expect(media[0]?.caption_entities).toEqual([{ type: "bold", offset: 0, length: 4 }]);
-		expect(media[1]?.media).toBeInstanceOf(InputFile);
-		expect(media[1]?.caption).toBeUndefined();
-	});
 });

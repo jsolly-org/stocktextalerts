@@ -27,21 +27,6 @@ export interface EmailRequest {
 
 export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 
-/** One photo in a Telegram media-group album (`sendMediaGroup`, 2–10 items). */
-export type TelegramMediaGroupItem = {
-	photo: Buffer;
-	/** Caption for this item; Telegram only displays the first item's caption. */
-	text?: string;
-	entities?: MessageEntity[];
-};
-
-/** At least two items — Telegram rejects shorter media groups. */
-export type TelegramMediaGroup = readonly [
-	TelegramMediaGroupItem,
-	TelegramMediaGroupItem,
-	...TelegramMediaGroupItem[],
-];
-
 type TelegramMessageBase = {
 	chatId: number | string;
 	/** Silent delivery (e.g. routine digest) — maps to Telegram's disable_notification. */
@@ -65,17 +50,8 @@ type TelegramPhotoMessage = TelegramMessageBase & {
 	replyMarkup?: InlineKeyboardMarkup;
 };
 
-/** `sendMediaGroup` album — no `reply_markup` (Telegram API limitation). */
-type TelegramMediaGroupMessage = TelegramMessageBase & {
-	kind: "mediaGroup";
-	mediaGroup: TelegramMediaGroup;
-};
-
 /** Fully-rendered outbound Telegram message — mutually exclusive send modes. */
-export type TelegramMessage =
-	| TelegramTextMessage
-	| TelegramPhotoMessage
-	| TelegramMediaGroupMessage;
+export type TelegramMessage = TelegramTextMessage | TelegramPhotoMessage;
 
 export type TelegramSender = (message: TelegramMessage) => Promise<DeliveryResult>;
 
