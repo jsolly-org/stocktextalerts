@@ -8,8 +8,7 @@ import type { TelegramMessage, TelegramSender } from "../types";
 /**
  * Perform the real Telegram send for a single message via grammY's `bot.api`.
  *
- * Dispatches on `message.kind`: `mediaGroup` → `sendMediaGroup`, `photo` →
- * `sendPhoto`, `text` → `sendMessage`. Media groups do not support `reply_markup`.
+ * Dispatches on `message.kind`: `photo` → `sendPhoto`, `text` → `sendMessage`.
  *
  * grammY maps a Bot-API error response to a thrown `GrammyError` (see
  * `core/client.ts#callApi`), which we translate to a `{ success: false, errorCode }`
@@ -19,23 +18,6 @@ import type { TelegramMessage, TelegramSender } from "../types";
 export async function sendViaBot(bot: Bot, message: TelegramMessage): Promise<DeliveryResult> {
 	try {
 		switch (message.kind) {
-			case "mediaGroup": {
-				const media = message.mediaGroup.map((item, index) => ({
-					type: "photo" as const,
-					media: new InputFile(item.photo, `chart-${index}.png`),
-					...(item.text !== undefined
-						? { caption: item.text, caption_entities: item.entities }
-						: {}),
-				}));
-				const sent = await bot.api.sendMediaGroup(message.chatId, media, {
-					disable_notification: message.disableNotification,
-				});
-				const firstId = sent[0]?.message_id;
-				return {
-					success: true,
-					messageSid: firstId !== undefined ? String(firstId) : undefined,
-				};
-			}
 			case "photo": {
 				const sent = await bot.api.sendPhoto(
 					message.chatId,

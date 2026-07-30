@@ -18,7 +18,6 @@ import { fetchAssetPricesWithSessionState } from "../../lib/market-data/prices";
 import { getCurrentMarketSession } from "../../lib/market-data/session";
 import { buildCandlestickSvg } from "../../lib/messaging/telegram/candlestick";
 import { checkTelegramLive } from "../../lib/messaging/telegram/health";
-import { buildPredictionMarketCardSvg } from "../../lib/messaging/telegram/prediction-market-card";
 import { renderChartPng } from "../../lib/messaging/telegram/render-png";
 import { createTelegramBot, readTelegramBotToken } from "../../lib/messaging/telegram/sender";
 import { type IntradayCandle, isRecord } from "../../lib/types";
@@ -202,60 +201,6 @@ export async function handler(
 				if (!png?.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))) {
 					throw new Error(
 						"candlestick PNG render failed — chart wasm/font assets missing from the bundle?",
-					);
-				}
-			}),
-			await runCheck(logger, "chart:render-pm-card", async () => {
-				const svg = buildPredictionMarketCardSvg({
-					key: "live-check:probe",
-					title: "Will probe close above $100?",
-					venue: "polymarket",
-					url: "https://polymarket.com/event/probe",
-					shape: "threshold",
-					shapeValidated: true,
-					closesAt: "2026-12-31T20:00:00.000Z",
-					refreshedAt: new Date().toISOString(),
-					volume: 1,
-					symbol: "PROBE",
-					outcomes: [
-						{
-							venueContractId: "90",
-							label: "$90",
-							probabilityPercent: 80,
-							sortOrder: 0,
-							strikeValue: 90,
-							volume: 1,
-						},
-						{
-							venueContractId: "100",
-							label: "$100",
-							probabilityPercent: 55,
-							sortOrder: 1,
-							strikeValue: 100,
-							volume: 1,
-						},
-						{
-							venueContractId: "110",
-							label: "$110",
-							probabilityPercent: 40,
-							sortOrder: 2,
-							strikeValue: 110,
-							volume: 1,
-						},
-						{
-							venueContractId: "120",
-							label: "$120",
-							probabilityPercent: 25,
-							sortOrder: 3,
-							strikeValue: 120,
-							volume: 1,
-						},
-					],
-				});
-				const png = await renderChartPng(svg);
-				if (!png?.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))) {
-					throw new Error(
-						"prediction-market card PNG render failed — chart wasm/font assets missing?",
 					);
 				}
 			}),

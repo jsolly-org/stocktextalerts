@@ -9,19 +9,17 @@ import type { DeliveryResult } from "../../src/lib/types";
 /**
  * Extract the deep-link URL of the first inline-keyboard button on a Telegram
  * message, narrowing the `InlineKeyboardButton` union (only the URL variant has
- * `url`). Returns undefined when there's no button (e.g. a buttonless legacy row
- * or a media-group album, which cannot carry `reply_markup`).
+ * `url`). Returns undefined when there's no button.
  */
 export function dashboardButtonUrl(message: TelegramMessage | undefined): string | undefined {
-	if (message === undefined || message.kind === "mediaGroup") return undefined;
+	if (message === undefined) return undefined;
 	const button = message.replyMarkup?.inline_keyboard[0]?.[0];
 	return button && "url" in button ? button.url : undefined;
 }
 
-/** Body/caption text for text and photo messages; undefined for media-group albums. */
+/** Body/caption text for text and photo messages. */
 export function telegramMessageText(message: TelegramMessage | undefined): string | undefined {
-	if (message === undefined || message.kind === "mediaGroup") return undefined;
-	return message.text;
+	return message?.text;
 }
 
 /** Deterministic email sender for tests without Mailpit. */
@@ -43,7 +41,7 @@ export function createTestTelegramSender(): TelegramSender {
 		if (message.chatId === "" || message.chatId === undefined) {
 			return { success: false, error: "Test mock: missing required field(s): chatId" };
 		}
-		if (message.kind !== "mediaGroup" && message.text === "") {
+		if (message.text === "") {
 			return { success: false, error: "Test mock: missing required field(s): text" };
 		}
 		if (behavior === "fail") {

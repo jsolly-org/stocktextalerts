@@ -253,14 +253,6 @@ describe("live-provider-check Lambda", () => {
 		await expect(handler(event, context)).rejects.toThrow(/chart:render-png/);
 	});
 
-	it("A prediction-market card render failure fails the check and pages", async () => {
-		vi.mocked(renderChartPng)
-			.mockResolvedValueOnce(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
-			.mockResolvedValueOnce(null);
-		expectConsoleError(/Live provider checks failed/);
-		await expect(handler(event, context)).rejects.toThrow(/chart:render-pm-card/);
-	});
-
 	it("A Polymarket public-search outage fails the check and pages", async () => {
 		vi.mocked(polymarketFetch).mockResolvedValue({ events: [] });
 		expectConsoleError(/Live provider checks failed/);

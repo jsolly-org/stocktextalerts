@@ -82,15 +82,5 @@ describe("messaging test doubles — no real SES/Telegram in tests", () => {
 				errorCode: "403",
 			});
 		});
-
-		it("accepts mediaGroup messages without a top-level text field", async () => {
-			const send = createTelegramSender(createTelegramBot(STUB_TELEGRAM_TOKEN));
-			const result = await send({
-				kind: "mediaGroup",
-				chatId: 5550002,
-				mediaGroup: [{ photo: Buffer.from([1]) }, { photo: Buffer.from([2]) }],
-			});
-			expect(result).toMatchObject({ success: true, messageSid: "mock" });
-		});
 	});
 });

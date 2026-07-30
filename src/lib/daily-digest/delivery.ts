@@ -20,18 +20,7 @@ import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory
 import type { EmailSender, NotificationExtras } from "../messaging/types";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../time/types";
-import type {
-	AssetPriceMap,
-	DeliveryResult,
-	IsoDateString,
-	MinuteOfDay,
-	UserAssetRow,
-	UserRecord,
-} from "../types";
-import {
-	renderPredictionMarketPhotos,
-	sendPredictionMarketPhotos,
-} from "./prediction-market-photos";
+import type { AssetPriceMap, IsoDateString, MinuteOfDay, UserAssetRow, UserRecord } from "../types";
 
 type AssetEventsResult = Awaited<ReturnType<typeof buildAssetEventsContent>> | null;
 
@@ -139,11 +128,10 @@ export async function processDailyDigestEmailDelivery(options: {
 /**
  * Deliver a daily digest via Telegram and record the result.
  *
- * Renders the Telegram-native digest (parse-mode entities) and sends a silent
- * message via the Telegram sender. When prediction-market cards rasterize to
- * PNGs, Unicode bars are omitted from the text and cards follow as one silent
- * `sendPhoto` (single card) or one `sendMediaGroup` album (2+). Grok news/rumors
- * are intentionally omitted from `extras` by the caller. Claims the `telegram`
+ * Renders the Telegram-native digest (parse-mode entities), including prediction
+ * markets as Unicode probability bars inline in the text (same structure as email
+ * cards — Telegram cannot embed HTML/images mid-message). Grok news/rumors are
+ * intentionally omitted from `extras` by the caller. Claims the `telegram`
  * channel of the daily slot so it retries and advances independently of email.
  */
 export async function processDailyDigestTelegramDelivery(options: {
@@ -241,18 +229,6 @@ export async function processDailyDigestTelegramDelivery(options: {
 
 	const timeZone = user.timezone;
 	const use24Hour = is24Hour ?? user.use_24_hour_time;
-	const digest = extras.predictionMarketsDigest;
-	const pmCards = digest ? [...digest.assetCards, ...digest.macroCards] : [];
-	const pmPhotos =
-		pmCards.length > 0
-			? await renderPredictionMarketPhotos({
-					cards: pmCards,
-					timeZone,
-					use24Hour,
-					logger,
-					userId: user.id,
-				})
-			: [];
 
 	const formatted = formatDailyDigestTelegram({
 		userAssets,
@@ -264,7 +240,6 @@ export async function processDailyDigestTelegramDelivery(options: {
 		marketClosureInfo,
 		is24Hour: use24Hour,
 		timeZone,
-		telegramOmitBarKeys: new Set(pmPhotos.map((p) => p.card.key)),
 		sparklines,
 		marketOpen,
 	});
@@ -279,7 +254,6 @@ export async function processDailyDigestTelegramDelivery(options: {
 		disableNotification: true,
 	});
 
-	let photoBlocked: DeliveryResult | null = null;
 	if (!result.success) {
 		logger.error(
 			"Failed to send Daily Digest Telegram message",
@@ -291,20 +265,9 @@ export async function processDailyDigestTelegramDelivery(options: {
 			},
 			new Error(result.error ?? "Daily Digest Telegram send failed"),
 		);
-	} else if (pmPhotos.length > 0) {
-		// Photos are best-effort follow-ups; digest completion still tracks the text send.
-		photoBlocked = await sendPredictionMarketPhotos({
-			sender: telegramSenderResult.sender,
-			chatId: user.telegram_chat_id,
-			photos: pmPhotos,
-			logger,
-			userId: user.id,
-			scheduledDate,
-			scheduledMinutes,
-		});
 	}
 
-	await optOutIfBotBlocked(supabase, user.id, photoBlocked ?? result, logger);
+	await optOutIfBotBlocked(supabase, user.id, result, logger);
 
 	await completeScheduledChannelFromResult({
 		supabase,
