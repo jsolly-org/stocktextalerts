@@ -46,7 +46,7 @@
 			<div v-if="isHydrated && nextDailyDeliveryText" class="mt-4">
 				<p class="inline-flex items-center gap-2 text-sm text-body-secondary">
 					<BellAlertIcon class="size-4 shrink-0 text-success-strong" aria-hidden="true" />
-					<span>Next delivery <span class="font-medium text-heading">{{ nextDailyDeliveryText }}</span>.</span>
+					<span>Next delivery <span class="font-medium text-heading">{{ nextDailyDeliveryText }}</span>. It can take a minute or two for the notification to arrive.</span>
 				</p>
 			</div>
 			</div>
