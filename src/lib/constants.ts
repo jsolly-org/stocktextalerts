@@ -310,7 +310,7 @@ export const DEFAULT_TIMEZONE = "America/New_York";
 Scheduler tuning
 ============= */
 
-/** Daily fan-out batch size for digest dispatch/precompute. Override via SCHEDULE_DAILY_DISPATCH_BATCH_SIZE. */
+/** Daily fan-out batch size for digest dispatch. Override via SCHEDULE_DAILY_DISPATCH_BATCH_SIZE. */
 export const DAILY_DISPATCH_BATCH_SIZE = (() => {
 	// Guard `process` so this shared module stays browser-safe: it's imported by
 	// client Vue islands (e.g. DEFAULT_TIMEZONE) where `process` is undefined, and

@@ -13,7 +13,7 @@ attaches each user's preference rows here in a single batched IN query.
 ============= */
 
 /** Load all preference rows for the given user ids, grouped by user_id. */
-export async function loadPrefsByUser(
+async function loadPrefsByUser(
 	supabase: AppSupabaseClient,
 	userIds: readonly string[],
 ): Promise<Map<string, PrefRow[]>> {

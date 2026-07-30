@@ -104,7 +104,7 @@ export function buildChannelPreferenceSnapshot(
 
 /** Load a single user's preference rows from notification_preferences.
  *
- * Throws on a failed read (unlike the Lambda fan-out's `loadPrefsByUser`, which
+ * Throws on a failed read (unlike the Lambda fan-out attach path, which
  * deliberately fails open with empty rows): every web caller renders or writes
  * from these rows, and an empty result on error would show all 31 options as
  * OFF — one autosave later, `persistChannelPreferences` would durably persist

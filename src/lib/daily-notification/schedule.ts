@@ -8,11 +8,6 @@ import type { UserRecord } from "../types";
 import { DEFAULT_DAILY_NOTIFICATION_DELIVERY_MINUTES } from "./constants";
 import { hasAnyDailyNotificationFacet } from "./eligibility";
 
-/** Read the daily notification next-send cursor. */
-export function readDailyNotificationNextSendAt(user: UserRecord): string | null {
-	return user.daily_notification_next_send_at;
-}
-
 /** Compute the next UTC ISO for the daily notification slot. */
 function calculateDailyNotificationNextSendAtIso(options: {
 	dailyNotificationTime: number | null;
