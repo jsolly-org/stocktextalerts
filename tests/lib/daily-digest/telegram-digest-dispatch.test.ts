@@ -187,9 +187,7 @@ describe("Telegram daily digest dispatch", () => {
 		expect(scheduled?.status).toBe("sent");
 	});
 
-	it("Precompute stages the Telegram digest content so the deliver phase can send it.", async () => {
-		// Regression guard: the precompute/stage path historically persisted only
-		// email, silently dropping Telegram from every staged daily digest.
+	it("Sends the Telegram digest with NVDA prices and the manage-notifications button.", async () => {
 		const now = DateTime.utc();
 		const nowIso = now.toISO();
 		expect(nowIso).toBeTruthy();
@@ -227,7 +225,6 @@ describe("Telegram daily digest dispatch", () => {
 
 		const telegramSender = vi.fn<TelegramSender>(async () => ({ success: true }));
 
-		// stageOnly = precompute: render + persist content, send nothing.
 		await processDailyDigestUser({
 			user: userWithPrefs as unknown as UserRecord,
 			supabase: adminClient,
@@ -235,32 +232,12 @@ describe("Telegram daily digest dispatch", () => {
 			currentTime: now,
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
 			getTelegramSender: () => ({ sender: telegramSender }),
-			stageOnly: true,
 		});
 
-		// Nothing is sent during precompute.
-		expect(telegramSender).not.toHaveBeenCalled();
-
-		// The staged row carries fully-rendered Telegram content (text + entities).
-		const { data: stagedRow } = await adminClient
-			.from("staged_notifications")
-			.select("staged_data")
-			.eq("user_id", id)
-			.eq("notification_type", "daily")
-			.single();
-		const staged = stagedRow?.staged_data as {
-			telegram: {
-				text: string;
-				entities: unknown[];
-				replyMarkup?: { inline_keyboard: { url?: string }[][] };
-			} | null;
-		} | null;
-		expect(staged?.telegram).not.toBeNull();
-		expect(staged?.telegram?.text).toContain("NVDA");
-		expect(Array.isArray(staged?.telegram?.entities)).toBe(true);
-		// The staged row persists the deep-linked "Manage notifications" button.
-		expect(staged?.telegram?.replyMarkup?.inline_keyboard[0]?.[0]?.url).toContain(
-			"#daily-notifications",
-		);
+		expect(telegramSender).toHaveBeenCalled();
+		const sent = telegramSender.mock.calls[0]?.[0];
+		expect(sent?.text).toContain("NVDA");
+		const button = sent?.replyMarkup?.inline_keyboard[0]?.[0];
+		expect(button && "url" in button ? button.url : undefined).toContain("#daily-notifications");
 	});
 });

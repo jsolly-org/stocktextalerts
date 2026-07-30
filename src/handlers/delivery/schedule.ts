@@ -1,6 +1,6 @@
 /**
  * Primary notification scheduler (EventBridge: every minute). Finds users due for
- * delivery and runs the two-pass pipeline: price alerts, then scheduled email/Telegram
+ * delivery and runs the live pipeline: price alerts, then scheduled email/Telegram
  * (daily digest, market notifications, asset events). Also purges expired
  * email-dispatch idempotency keys.
  */

@@ -39,9 +39,8 @@ import {
 	recordDailyDigestProcessingFailure,
 	shouldAdvanceDailyDigestSchedule,
 } from "./schedule-state";
-import { stageDailyDigestContent } from "./stage";
 
-/** Process one user's daily digest notification (deliver now or stage for later). */
+/** Process one user's daily digest notification (build and send live). */
 export async function processDailyDigestUser(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
@@ -49,13 +48,11 @@ export async function processDailyDigestUser(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getTelegramSender: TelegramSenderFactory;
-	/** When true, stage content for later delivery instead of sending now. */
-	stageOnly?: boolean;
 	/** Pre-fetched market open status (avoids per-user API calls in fan-out). */
 	marketOpen?: boolean;
 	/** Pre-fetched market closure info (avoids per-user API calls in fan-out). */
 	marketClosureInfo?: MarketClosureInfo | null;
-	/** Shared per-pass logo cache so a symbol's logo is resolved once per pass, not per user. */
+	/** Shared per-invocation logo cache so a symbol's logo is resolved once per tick, not per user. */
 	logoCache?: LogoCache;
 }): Promise<ScheduledNotificationTotals> {
 	const stats: ScheduledNotificationTotals = {
@@ -73,7 +70,6 @@ export async function processDailyDigestUser(options: {
 		currentTime,
 		sendEmail,
 		getTelegramSender,
-		stageOnly,
 		marketOpen: marketOpenParam,
 		marketClosureInfo: marketClosureInfoParam,
 	} = options;
@@ -101,8 +97,8 @@ export async function processDailyDigestUser(options: {
 			userTimezone: user.timezone,
 			use24Hour: user.use_24_hour_time,
 		};
-		const delayBannerText = stageOnly ? null : buildDelayBannerText(delayBannerOpts);
-		const delayBannerHtml = stageOnly ? null : buildDelayBannerHtml(delayBannerOpts);
+		const delayBannerText = buildDelayBannerText(delayBannerOpts);
+		const delayBannerHtml = buildDelayBannerHtml(delayBannerOpts);
 
 		const hasAnyAssetEventsOption = hasAnyDailyAssetEventFacet(user.prefs);
 
@@ -145,14 +141,12 @@ export async function processDailyDigestUser(options: {
 
 		if (!emailEnabled && !telegramEnabled) {
 			stats.skipped++;
-			if (!stageOnly) {
-				await updateUserDailyNotificationNextSendAt({
-					user,
-					supabase,
-					logger,
-					currentTime,
-				});
-			}
+			await updateUserDailyNotificationNextSendAt({
+				user,
+				supabase,
+				logger,
+				currentTime,
+			});
 			return stats;
 		}
 
@@ -289,7 +283,7 @@ export async function processDailyDigestUser(options: {
 
 		// Check whether the US market is closed today (weekend / holiday).
 		// Use the user's scheduled send instant (not job execution time) so digests
-		// near US midnight classify the correct market day during precompute.
+		// near US midnight classify the correct market day.
 		const closureRefInstant = dueAt;
 		const marketClosureInfo =
 			marketClosureInfoParam !== undefined
@@ -453,10 +447,8 @@ export async function processDailyDigestUser(options: {
 			telegramAssetEvents?.hasAnyContent
 		);
 
-		// Shared Telegram date label for both the stage-only render and the live delivery
-		// below — defined once so the date format can't drift between the two paths. The
-		// market-closed banner is now rendered by formatDailyDigestTelegram itself from raw
-		// data (marketClosureInfo + is24 + the Telegram price map).
+		// Telegram date label for live delivery. The market-closed banner is rendered by
+		// formatDailyDigestTelegram from raw data (marketClosureInfo + is24 + price map).
 		const telegramDateLabel = dueAtLocal.isValid
 			? dueAtLocal.toFormat("ccc, LLL d")
 			: (scheduledDate ?? "");
@@ -470,53 +462,11 @@ export async function processDailyDigestUser(options: {
 				scheduledMinutes,
 			});
 			stats.skipped++;
-			if (!stageOnly) {
-				await updateUserDailyNotificationNextSendAt({
-					user,
-					supabase,
-					logger,
-					currentTime,
-				});
-			}
-			return stats;
-		}
-
-		/* ============= Stage-only: write to staging table and return ============= */
-		// Pre-compute path: render the full digest (prices, Grok, asset events) now
-		// and store it in staged_notifications for near-instant delivery later.
-		// We do NOT advance next_send_at, update Grok counters, or update the
-		// analyst month here — the delivery phase (staged-notifications/deliver.ts)
-		// handles all post-delivery side-effects using metadata captured below
-		// (grokAllowed, hasAnyAssetEventsOption, shouldUpdateAnalyst, analystMonth).
-		if (stageOnly) {
-			await stageDailyDigestContent({
+			await updateUserDailyNotificationNextSendAt({
 				user,
 				supabase,
 				logger,
 				currentTime,
-				stats,
-				scheduledDate,
-				scheduledMinutes,
-				dueAtLocal,
-				hasEmailContent,
-				hasTelegramContent,
-				emailExtras,
-				telegramExtras,
-				emailPriceAssets,
-				emailPriceMap,
-				telegramPriceAssets,
-				telegramPriceMap,
-				emailAssetEvents,
-				telegramAssetEvents,
-				sparklines,
-				marketOpen,
-				marketClosureInfo,
-				getLogoHtml,
-				telegramDateLabel,
-				delayBannerText,
-				grokAllowed,
-				hasAnyAssetEventsOption,
-				shouldUpdateAnalystMonth,
 			});
 			return stats;
 		}
@@ -636,7 +586,7 @@ export async function processDailyDigestUser(options: {
 			logLabel: " (daily)",
 			action: "daily_run",
 		});
-		if (!stageOnly && scheduleCtxOnError) {
+		if (scheduleCtxOnError) {
 			await recordDailyDigestProcessingFailure({
 				supabase,
 				user,

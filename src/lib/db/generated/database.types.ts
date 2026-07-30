@@ -860,41 +860,6 @@ export type Database = {
           },
         ]
       }
-      staged_notifications: {
-        Row: {
-          id: string
-          notification_type: Database["public"]["Enums"]["staged_notification_type"]
-          scheduled_for: string
-          staged_at: string
-          staged_data: Json
-          user_id: string
-        }
-        Insert: {
-          id?: string
-          notification_type: Database["public"]["Enums"]["staged_notification_type"]
-          scheduled_for: string
-          staged_at?: string
-          staged_data: Json
-          user_id: string
-        }
-        Update: {
-          id?: string
-          notification_type?: Database["public"]["Enums"]["staged_notification_type"]
-          scheduled_for?: string
-          staged_at?: string
-          staged_data?: Json
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staged_notifications_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       telegram_link_tokens: {
         Row: {
           consumed_at: string | null
@@ -1187,7 +1152,6 @@ export type Database = {
       price_move_threshold_unit: "percent" | "dollar"
       scheduled_notification_status: "sending" | "sent" | "failed"
       scheduled_notification_type: "market" | "daily" | "asset_events"
-      staged_notification_type: "daily"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1321,7 +1285,6 @@ export const Constants = {
       price_move_threshold_unit: ["percent", "dollar"],
       scheduled_notification_status: ["sending", "sent", "failed"],
       scheduled_notification_type: ["market", "daily", "asset_events"],
-      staged_notification_type: ["daily"],
     },
   },
 } as const

@@ -6,8 +6,6 @@ import { Constants, type Database } from "./generated/database.types";
 Enum aliases (Postgres enums)
 ============= */
 
-export type StagedNotificationType = Database["public"]["Enums"]["staged_notification_type"];
-
 /** Unit a per-stock price-move threshold is expressed in (percent vs absolute dollars). */
 export type PriceMoveThresholdUnit = Database["public"]["Enums"]["price_move_threshold_unit"];
 

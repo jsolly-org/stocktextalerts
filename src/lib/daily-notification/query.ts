@@ -6,7 +6,7 @@ import type { UserRecord, UserRecordWithoutPrefs } from "../types";
 import { hasAnyDailyNotificationFacet } from "./eligibility";
 
 /** Channel-level user columns for the daily notification pipeline. */
-export const DAILY_NOTIFICATION_USER_SELECT = `
+const DAILY_NOTIFICATION_USER_SELECT = `
 	id,
 	email,
 	timezone,
@@ -25,8 +25,7 @@ export const DAILY_NOTIFICATION_USER_SELECT = `
 	grok_sends_in_window
 `;
 
-export const HAS_DELIVERY_CHANNEL_OR =
-	"email_notifications_enabled.eq.true,telegram_chat_id.not.is.null";
+const HAS_DELIVERY_CHANNEL_OR = "email_notifications_enabled.eq.true,telegram_chat_id.not.is.null";
 
 /**
  * Fetch users due for the unified daily notification pipeline.
