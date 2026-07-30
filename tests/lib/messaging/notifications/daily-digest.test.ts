@@ -115,4 +115,49 @@ describe("Telegram daily digest formatting", () => {
 			.map((e) => msg.text.slice(e.offset, e.offset + e.length));
 		expect(boldTexts).toContain("AAPL:");
 	});
+
+	it("places Upcoming IPOs above Prediction Markets, with Prediction Markets last", () => {
+		const msg = formatDailyDigestTelegram({
+			userAssets: [{ symbol: "AAPL", name: "Apple Inc." }],
+			assetPrices: new Map([["AAPL", { price: 228.5, changePercent: 2.5 }]]),
+			extras: {
+				news: "AAPL: chip news",
+				predictionMarkets: [
+					{
+						key: "fed",
+						label: "Fed cut odds",
+						venue: "kalshi",
+						probabilityPercent: 42,
+						deltaPoints: null,
+						url: "https://example.com/fed",
+					},
+				],
+			},
+			assetEvents: {
+				eventsSection: {
+					earnings: "AAPL: earnings tomorrow",
+					dividends: null,
+					splits: null,
+					ipos: "FOO: IPO Friday",
+				},
+				analystSection: null,
+				insiderSection: null,
+				filingsLines: null,
+				hasAnyContent: true,
+			},
+			dateLabel: "Thu, Jul 30",
+		});
+
+		const newsIdx = msg.text.indexOf("News");
+		const earningsIdx = msg.text.indexOf("Earnings");
+		const iposIdx = msg.text.indexOf("Upcoming IPOs");
+		const pmIdx = msg.text.indexOf("Prediction Markets");
+		const footerIdx = msg.text.indexOf("/stop");
+
+		expect(newsIdx).toBeGreaterThanOrEqual(0);
+		expect(earningsIdx).toBeGreaterThan(newsIdx);
+		expect(iposIdx).toBeGreaterThan(earningsIdx);
+		expect(pmIdx).toBeGreaterThan(iposIdx);
+		expect(footerIdx).toBeGreaterThan(pmIdx);
+	});
 });
