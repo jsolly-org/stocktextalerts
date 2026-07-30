@@ -20,14 +20,10 @@ function unicodeBar(probabilityPercent: number, width = BAR_WIDTH): string {
 	return `${"█".repeat(filled)}${"░".repeat(width - filled)}`;
 }
 
-function venueLabel(venue: PredictionMarketEventCard["venue"]): string {
-	if (venue === "kalshi") return "Kalshi";
-	if (venue === "polymarket") return "Polymarket";
-	return venue;
-}
-
-function cardMetaHeader(card: PredictionMarketEventCard): string {
-	return card.symbol ? `${card.symbol} · ${venueLabel(card.venue)}` : venueLabel(card.venue);
+/** Asset ticker only — venue (Kalshi/Polymarket) is omitted; the link is enough. */
+function cardMetaHeader(card: PredictionMarketEventCard): string | null {
+	const symbol = card.symbol?.trim();
+	return symbol ? symbol : null;
 }
 
 function compressCard(
@@ -62,7 +58,7 @@ export function formatEventCardText(
 	const body = compressCard(card, highlightAliasFor(card));
 	const header = cardMetaHeader(card);
 
-	const lines = [header, card.title];
+	const lines = header ? [header, card.title] : [card.title];
 	for (const row of body.rows) {
 		if (row.kind === "outcome") {
 			const mark = row.highlighted ? "★ " : "";
@@ -86,9 +82,11 @@ function formatEventCardTelegram(
 	_options: FormatCardOptions = {},
 ): FormattedString {
 	const body = compressCard(card, highlightAliasFor(card));
-	const meta = cardMetaHeader(card);
+	const header = cardMetaHeader(card);
 
-	let msg = fmt`${FormattedString.bold(meta)}\n${card.title}`;
+	let msg = header
+		? fmt`${FormattedString.bold(header)}\n${card.title}`
+		: fmt`${FormattedString.bold(card.title)}`;
 	for (const row of body.rows) {
 		if (row.kind === "outcome") {
 			const mark = row.highlighted ? "★ " : "";
@@ -116,7 +114,10 @@ export function formatEventCardEmailHtml(
 	_options: FormatCardOptions = {},
 ): string {
 	const body = compressCard(card, highlightAliasFor(card));
-	const meta = escapeHtml(cardMetaHeader(card));
+	const header = cardMetaHeader(card);
+	const metaHtml = header
+		? `<div style="font-size: 11px; color: #6b7280; margin: 0 0 4px;">${escapeHtml(header)}</div>`
+		: "";
 
 	const rowHtml = body.rows
 		.map((row) => {
@@ -160,7 +161,7 @@ export function formatEventCardEmailHtml(
 		: "";
 
 	return `<div style="border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; margin: 0 0 12px; background: #ffffff;">
-  <div style="font-size: 11px; color: #6b7280; margin: 0 0 4px;">${meta}</div>
+  ${metaHtml}
   <div style="font-size: 15px; font-weight: 700; color: #111827; line-height: 1.35; margin: 0 0 10px;">${escapeHtml(card.title)}</div>
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">${rowHtml}</table>
   ${footnote}

@@ -109,15 +109,25 @@ const exclusiveCard: PredictionMarketEventCard = {
 const formatOpts = { timeZone: "UTC", use24Hour: true };
 
 describe("formatEventCardText", () => {
-	it("renders binary Yes/No without deltas or open/close timestamps", () => {
+	it("renders binary Yes/No without deltas, timestamps, or venue names", () => {
 		const text = formatEventCardText(binaryCard, formatOpts);
 		expect(text).toContain("Yes");
 		expect(text).toContain("No");
 		expect(text).toContain("11%");
+		expect(text).toContain("Recession '26");
+		expect(text).not.toContain("Kalshi");
+		expect(text).not.toContain("Polymarket");
 		expect(text).not.toContain("Updated");
 		expect(text).not.toContain("Closes");
 		expect(text).not.toContain("▲");
 		expect(text).not.toContain("▼");
+	});
+
+	it("shows ticker only for asset cards (no venue name)", () => {
+		const text = formatEventCardText(exclusiveCard, formatOpts);
+		expect(text.startsWith("GOOGL\n")).toBe(true);
+		expect(text).not.toContain("Polymarket");
+		expect(text).not.toContain("Kalshi");
 	});
 
 	it("renders exclusive fields with all ≤6 outcomes", () => {
@@ -130,13 +140,15 @@ describe("formatEventCardText", () => {
 });
 
 describe("formatEventCardEmailHtml", () => {
-	it("renders card shell with venue link", () => {
+	it("renders card shell with venue link but without Kalshi/Polymarket labels", () => {
 		const html = formatEventCardEmailHtml(binaryCard, formatOpts);
 		expect(html).toContain("Recession &#39;26");
 		expect(html).toContain('href="https://kalshi.com/markets/kxrecssnber/kxrecssnber-26"');
 		expect(html).toContain("View full market");
 		expect(html).toContain("Yes");
 		expect(html).toContain("No");
+		expect(html).not.toContain("Kalshi");
+		expect(html).not.toContain("Polymarket");
 	});
 });
 
