@@ -33,6 +33,31 @@ function card(
 describe("selectAssetEventCards", () => {
 	const nowMs = Date.parse("2026-07-10T12:00:00.000Z");
 
+	it("returns empty when only price-target markets remain", () => {
+		const selected = selectAssetEventCards(
+			[
+				card({
+					key: "price-a",
+					title: "Will NVDA close above $140?",
+					closesAt: "2026-07-31T00:00:00.000Z",
+					volume: 900,
+					symbol: "NVDA",
+					matchKind: "direct_price",
+				}),
+				card({
+					key: "price-b",
+					title: "Will NVDA hit $200 in July?",
+					closesAt: "2026-07-20T00:00:00.000Z",
+					volume: 500,
+					symbol: "NVDA",
+					matchKind: "direct_price",
+				}),
+			],
+			{ nowMs },
+		);
+		expect(selected).toEqual([]);
+	});
+
 	it("prefers daily up/down over sooner end-of-month price targets", () => {
 		const selected = selectAssetEventCards(
 			[

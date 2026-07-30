@@ -145,10 +145,10 @@ describe("polymarketSearchQueries", () => {
 	it("uses strict SPY queries including up/down", () => {
 		const spy = buildAssetIdentity({ symbol: "SPY", name: "SPDR S&P 500 ETF Trust" });
 		expect(polymarketSearchQueries(spy)).toEqual([
+			"SPY up or down",
 			"SPY stock",
 			"(SPY)",
 			"SPDR S&P 500",
-			"SPY up or down",
 		]);
 	});
 

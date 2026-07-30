@@ -81,7 +81,7 @@ export function buildAssetIdentity(options: {
 export function polymarketSearchQueries(identity: AssetIdentity): string[] {
 	const sym = identity.symbol;
 	if (sym === "SPY") {
-		return ["SPY stock", "(SPY)", "SPDR S&P 500", "SPY up or down"];
+		return ["SPY up or down", "SPY stock", "(SPY)", "SPDR S&P 500"];
 	}
 	const queries = new Set<string>();
 	// Daily direction markets first — preferred digest card for matched tickers.

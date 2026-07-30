@@ -23,20 +23,18 @@ function titleSalient(card: PredictionMarketEventCard): boolean {
 }
 
 /** Next-day / session direction markets (e.g. "AAPL Up or Down on July 31?"). */
-export function isDailyDirectionMarket(card: PredictionMarketEventCard): boolean {
+function isDailyDirectionMarket(card: PredictionMarketEventCard): boolean {
 	return /\bup or down\b/i.test(card.title);
 }
 
 /**
  * End-of-month / strike price targets — deprioritized vs daily up/down.
  * Daily direction titles are never treated as price targets.
+ * Relies on matchKind from discovery (not a second title lexicon).
  */
-export function isPriceTargetMarket(card: PredictionMarketEventCard): boolean {
+function isPriceTargetMarket(card: PredictionMarketEventCard): boolean {
 	if (isDailyDirectionMarket(card)) return false;
-	if (card.matchKind === "direct_price") return true;
-	return /\b(close above|closes?(?:\s+\w+){0,4}\s+(?:above|at|below)|hit\s+\$?\d|price will|finish\b.{0,30}\babove|end of (?:the )?month)\b/i.test(
-		card.title,
-	);
+	return card.matchKind === "direct_price";
 }
 
 function soonestCloseFirst(a: PredictionMarketEventCard, b: PredictionMarketEventCard): number {
@@ -72,9 +70,7 @@ export function selectAssetEventCards(
 
 	const nonPrice = freshOpen.filter((c) => !isPriceTargetMarket(c));
 
-	const soonestDated = nonPrice
-		.filter((c) => c.closesAt !== null)
-		.sort((a, b) => Date.parse(a.closesAt ?? "") - Date.parse(b.closesAt ?? ""))[0];
+	const soonestDated = nonPrice.filter((c) => c.closesAt !== null).sort(soonestCloseFirst)[0];
 	if (soonestDated) return [soonestDated];
 
 	const bestOngoing = nonPrice
