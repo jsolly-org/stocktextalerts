@@ -359,4 +359,60 @@ describe("Daily digest email prices", () => {
 		expect(finnhubAlts.length).toBe(1);
 		expect(massiveAlts.length).toBe(3);
 	});
+
+	it("places Upcoming IPOs above Prediction Markets, with Prediction Markets last in email", () => {
+		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
+
+		const message = formatDailyDigestEmail({
+			user,
+			userAssets: [userAssets[0]],
+			assetPrices,
+			extras: {
+				...extras,
+				news: "AAPL: chip news",
+				predictionMarkets: [
+					{
+						key: "fed",
+						label: "Fed cut odds",
+						venue: "kalshi",
+						probabilityPercent: 42,
+						deltaPoints: null,
+						url: "https://example.com/fed",
+					},
+				],
+				topMovers: {
+					gainers: [{ ticker: "SKYQ", price: 12.59, changePercent: 74.49 }],
+					losers: [],
+				},
+			},
+			assetEvents: {
+				eventsSection: {
+					earnings: "AAPL: earnings tomorrow",
+					dividends: null,
+					splits: null,
+					ipos: "FOO: IPO Friday",
+				},
+				insiderSection: null,
+				analystSection: null,
+				filingsLines: null,
+				hasAnyContent: true,
+			},
+		});
+
+		for (const body of [message.text, message.html]) {
+			const newsIdx = body.indexOf("News");
+			const earningsIdx = body.indexOf("Earnings");
+			const iposIdx = body.indexOf("Upcoming IPOs");
+			const topMoversIdx = body.indexOf("Top Movers");
+			const pmIdx = body.indexOf("Prediction Markets");
+			const manageIdx = body.indexOf("Manage your notifications");
+
+			expect(newsIdx).toBeGreaterThanOrEqual(0);
+			expect(earningsIdx).toBeGreaterThan(newsIdx);
+			expect(iposIdx).toBeGreaterThan(earningsIdx);
+			expect(topMoversIdx).toBeGreaterThan(iposIdx);
+			expect(pmIdx).toBeGreaterThan(topMoversIdx);
+			expect(manageIdx).toBeGreaterThan(pmIdx);
+		}
+	});
 });

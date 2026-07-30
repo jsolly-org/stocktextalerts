@@ -205,6 +205,13 @@
 				</div>
 				</div>
 
+				<DailyAssetEventsFieldset
+					:email-enabled="emailEnabled"
+					:has-tracked-assets="hasTrackedAssets"
+					:telegram-prefs="assetEventTelegramPrefs"
+					:notify-change="notifyChange"
+				/>
+
 				<div class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
 					<input
 						type="hidden"
@@ -253,13 +260,6 @@
 						/>
 					</div>
 				</div>
-
-				<DailyAssetEventsFieldset
-					:email-enabled="emailEnabled"
-					:has-tracked-assets="hasTrackedAssets"
-					:telegram-prefs="assetEventTelegramPrefs"
-					:notify-change="notifyChange"
-				/>
 
 				</fieldset>
 
