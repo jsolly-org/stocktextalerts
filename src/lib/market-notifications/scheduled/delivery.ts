@@ -259,6 +259,7 @@ export async function processMarketScheduledTelegramDelivery(options: {
 	});
 
 	const result = await telegramSenderResult.sender({
+		kind: "text",
 		chatId: user.telegram_chat_id,
 		text: formatted.text,
 		entities: formatted.entities,

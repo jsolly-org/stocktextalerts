@@ -238,6 +238,7 @@ export async function processAssetEventsTelegramDelivery(options: {
 	});
 
 	const result = await telegramSenderResult.sender({
+		kind: "text",
 		chatId: user.telegram_chat_id,
 		text: formatted.text,
 		entities: formatted.entities,

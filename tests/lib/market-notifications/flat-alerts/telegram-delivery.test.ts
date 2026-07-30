@@ -18,7 +18,7 @@ import type {
 	TelegramSender,
 } from "../../../../src/lib/messaging/types";
 import type { ChannelDeliveryStats, ExtendedAssetQuote } from "../../../../src/lib/types";
-import { dashboardButtonUrl } from "../../../helpers/messaging-doubles";
+import { dashboardButtonUrl, telegramMessageText } from "../../../helpers/messaging-doubles";
 import { makePrefRows } from "../../../helpers/user-record-fixture";
 import { expectConsoleError } from "../../../setup";
 
@@ -143,7 +143,8 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		expect(sendTelegram).toHaveBeenCalledOnce();
 		const sent = sendTelegram.mock.calls[0]![0] as TelegramMessage;
 		expect(sent.chatId).toBe(778899);
-		expect(sent.text).toContain("LDOS");
+		expect(sent.kind).toBe("text");
+		expect(telegramMessageText(sent)).toContain("LDOS");
 		// Price alerts deep-link to the Market Notifications section.
 		expect(dashboardButtonUrl(sent)).toContain("#market-notifications");
 		expect(stats.telegramSent).toBe(1);

@@ -116,7 +116,11 @@ describe("needsNotificationChannelSelection (dashboard setup gate)", () => {
 describe("Telegram sender factory gate", () => {
 	it("in test mode the factory returns the deterministic mock, never the real bot", async () => {
 		const { sender } = createTelegramSenderFactory()();
-		const result = await sender({ chatId: 8675309, text: "AAPL daily digest: up 1.2%" });
+		const result = await sender({
+			kind: "text",
+			chatId: 8675309,
+			text: "AAPL daily digest: up 1.2%",
+		});
 		expect(result).toMatchObject({ success: true, messageSid: "mock" });
 	});
 });

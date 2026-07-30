@@ -19,7 +19,7 @@ import { rootLogger } from "../../../src/lib/logging";
 import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
 import type { EmailSender, TelegramSender } from "../../../src/lib/messaging/types";
 import type { UserRecord } from "../../../src/lib/types";
-import { dashboardButtonUrl } from "../../helpers/messaging-doubles";
+import { dashboardButtonUrl, telegramMessageText } from "../../helpers/messaging-doubles";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser, setTestUserPrefs } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -159,7 +159,7 @@ describe("Telegram daily digest dispatch", () => {
 		// The sender received the linked chat id and a non-empty rendered body.
 		const sentMessage = telegramSender.mock.calls[0]?.[0];
 		expect(sentMessage?.chatId).toBe(telegramChatId);
-		expect(sentMessage?.text).toContain("NVDA");
+		expect(telegramMessageText(sentMessage)).toContain("NVDA");
 		// The "Manage notifications" button deep-links to the Daily Notifications section.
 		expect(dashboardButtonUrl(sentMessage)).toContain("#daily-notifications");
 
@@ -236,8 +236,7 @@ describe("Telegram daily digest dispatch", () => {
 
 		expect(telegramSender).toHaveBeenCalled();
 		const sent = telegramSender.mock.calls[0]?.[0];
-		expect(sent?.text).toContain("NVDA");
-		const button = sent?.replyMarkup?.inline_keyboard[0]?.[0];
-		expect(button && "url" in button ? button.url : undefined).toContain("#daily-notifications");
+		expect(telegramMessageText(sent)).toContain("NVDA");
+		expect(dashboardButtonUrl(sent)).toContain("#daily-notifications");
 	});
 });

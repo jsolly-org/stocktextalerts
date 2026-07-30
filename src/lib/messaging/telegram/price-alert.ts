@@ -19,13 +19,10 @@ const TELEGRAM_CAPTION_MAX_UTF16 = 1024;
 /** Leave a small margin so entity formatting / edge cases do not exceed the cap. */
 const TELEGRAM_CAPTION_MARGIN = 16;
 
-/** Rendered Telegram price alert: entity-formatted caption/text + optional candlestick PNG. */
-export interface TelegramPriceAlert {
-	text: string;
-	entities: MessageEntity[];
-	/** Candlestick PNG for `sendPhoto`, or null to send text-only (too few candles / render failed). */
-	photo: Buffer | null;
-}
+/** Rendered Telegram price alert — same discriminant as transport `TelegramMessage`. */
+export type TelegramPriceAlert =
+	| { kind: "photo"; text: string; entities: MessageEntity[]; photo: Buffer }
+	| { kind: "text"; text: string; entities: MessageEntity[] };
 
 /** Truncate plain text to at most `maxLen` UTF-16 code units, appending an ellipsis when cut. */
 function truncateUtf16(text: string, maxLen: number): string {
@@ -150,7 +147,9 @@ export async function formatPriceAlertTelegram(
 		msg = fmt`${msg}\n\n${footer}`;
 	}
 
-	return { text: msg.text, entities: msg.entities, photo };
+	return photo !== null
+		? { kind: "photo", text: msg.text, entities: msg.entities, photo }
+		: { kind: "text", text: msg.text, entities: msg.entities };
 }
 
 /**
@@ -171,19 +170,13 @@ export async function deliverTelegramPriceAlert(options: {
 }): Promise<boolean> {
 	const { alert, user, sendTelegram, supabase, stats } = options;
 
-	const { text, entities, photo } = await formatPriceAlertTelegram(
-		alert,
-		alert.intradayCandles ?? [],
-	);
+	const content = await formatPriceAlertTelegram(alert, alert.intradayCandles ?? []);
+	const chatId = user.telegram_chat_id as number;
+	const replyMarkup = buildDashboardButton("marketNotifications");
 	const result = await sendTelegram({
-		// telegram_chat_id is non-null here: every caller gates on isTelegramChannelUsable.
-		chatId: user.telegram_chat_id as number,
-		text,
-		entities,
-		// Rides both the candlestick sendPhoto path and the text fallback (sendViaBot
-		// forwards reply_markup on both). Price alerts live under Market Notifications.
-		replyMarkup: buildDashboardButton("marketNotifications"),
-		...(photo ? { photo } : {}),
+		...content,
+		chatId,
+		replyMarkup,
 	});
 
 	if (result.success) {
@@ -209,7 +202,7 @@ export async function deliverTelegramPriceAlert(options: {
 		type: "flat_price_alert",
 		delivery_method: "telegram",
 		message_delivered: result.success,
-		message: text,
+		message: content.text,
 		...deliveryResultToLogFields(result),
 	});
 	if (!logged) stats.logFailures++;

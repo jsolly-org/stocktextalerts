@@ -35,25 +35,47 @@ export type TelegramMediaGroupItem = {
 	entities?: MessageEntity[];
 };
 
-/** A fully-rendered outbound Telegram message (text carries out-of-band entities). */
-export interface TelegramMessage {
+/** At least two items — Telegram rejects shorter media groups. */
+export type TelegramMediaGroup = readonly [
+	TelegramMediaGroupItem,
+	TelegramMediaGroupItem,
+	...TelegramMediaGroupItem[],
+];
+
+type TelegramMessageBase = {
 	chatId: number | string;
-	/** Plain text; formatting travels via `entities`, not parse_mode. */
-	text: string;
-	/** Entity markers (offset/length) from the parse-mode `fmt` builder. */
-	entities?: MessageEntity[];
-	/** When present, send as a photo with `text` as the caption (≤1024 chars). */
-	photo?: Buffer;
-	/**
-	 * When present (2–10 items), send as a media-group album via `sendMediaGroup`.
-	 * Mutually exclusive with `photo` in the send path. No `reply_markup` support.
-	 */
-	mediaGroup?: readonly TelegramMediaGroupItem[];
-	/** Inline keyboard for actionable alerts. */
-	replyMarkup?: InlineKeyboardMarkup;
 	/** Silent delivery (e.g. routine digest) — maps to Telegram's disable_notification. */
 	disableNotification?: boolean;
-}
+};
+
+/** Plain-text `sendMessage` (formatting via out-of-band entities). */
+type TelegramTextMessage = TelegramMessageBase & {
+	kind: "text";
+	text: string;
+	entities?: MessageEntity[];
+	replyMarkup?: InlineKeyboardMarkup;
+};
+
+/** Single `sendPhoto` with `text` as the caption (≤1024 chars). */
+type TelegramPhotoMessage = TelegramMessageBase & {
+	kind: "photo";
+	photo: Buffer;
+	text: string;
+	entities?: MessageEntity[];
+	replyMarkup?: InlineKeyboardMarkup;
+};
+
+/** `sendMediaGroup` album — no `reply_markup` (Telegram API limitation). */
+type TelegramMediaGroupMessage = TelegramMessageBase & {
+	kind: "mediaGroup";
+	mediaGroup: TelegramMediaGroup;
+};
+
+/** Fully-rendered outbound Telegram message — mutually exclusive send modes. */
+export type TelegramMessage =
+	| TelegramTextMessage
+	| TelegramPhotoMessage
+	| TelegramMediaGroupMessage;
 
 export type TelegramSender = (message: TelegramMessage) => Promise<DeliveryResult>;
 

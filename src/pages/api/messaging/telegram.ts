@@ -308,7 +308,7 @@ async function reply(
 ): Promise<void> {
 	try {
 		const sender = createTelegramSender(createTelegramBot(readTelegramBotToken()));
-		await sender({ chatId, text, ...(replyMarkup ? { replyMarkup } : {}) });
+		await sender({ kind: "text", chatId, text, ...(replyMarkup ? { replyMarkup } : {}) });
 	} catch {
 		// Swallow: the link state is already persisted; the user can re-open the bot.
 	}

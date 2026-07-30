@@ -52,19 +52,21 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 		expect(result.entities.some((e) => e.type === "bold")).toBe(true);
 
 		// A real PNG buffer is rasterized from the candlestick SVG.
+		expect(result.kind).toBe("photo");
+		if (result.kind !== "photo") throw new Error("expected photo");
 		expect(result.photo).toBeInstanceOf(Buffer);
-		expect((result.photo as Buffer).length).toBeGreaterThan(0);
+		expect(result.photo.length).toBeGreaterThan(0);
 		// PNG magic number: 0x89 'P' 'N' 'G'.
-		expect((result.photo as Buffer).subarray(0, 4)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+		expect(result.photo.subarray(0, 4)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
 	});
 
 	it("degrades to a text-only message (no photo, no throw) when there are too few candles", async () => {
 		const empty = await formatPriceAlertTelegram(makeAlert(), []);
-		expect(empty.photo).toBeNull();
+		expect(empty.kind).toBe("text");
 		expect(empty.text).toContain("LDOS");
 
 		const single = await formatPriceAlertTelegram(makeAlert(), makeCandles(1));
-		expect(single.photo).toBeNull();
+		expect(single.kind).toBe("text");
 		expect(single.text).toContain("LDOS");
 	});
 
@@ -100,7 +102,7 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 	it("truncates or drops why rather than exceeding the photo caption limit", async () => {
 		const hugeWhy = `Update: ${"x".repeat(1200)}`;
 		const result = await formatPriceAlertTelegram(makeAlert({ why: hugeWhy }), makeCandles(6));
-		expect(result.photo).toBeInstanceOf(Buffer);
+		expect(result.kind).toBe("photo");
 		expect(result.text.length).toBeLessThanOrEqual(1024);
 		// Still delivers the alert body even if why had to be dropped/truncated.
 		expect(result.text).toContain("LDOS");
@@ -110,7 +112,7 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 	it("never leaves unrendered markdown when a long why with a trailing citation is truncated", async () => {
 		const why = `${"x".repeat(900)} growth.[[Yahoo Finance]](https://finance.yahoo.com/news/why-shares-palantir-soaring-hours-231057869.html)`;
 		const result = await formatPriceAlertTelegram(makeAlert({ why }), makeCandles(6));
-		expect(result.photo).toBeInstanceOf(Buffer);
+		expect(result.kind).toBe("photo");
 		expect(result.text.length).toBeLessThanOrEqual(1024);
 		expect(hasUnrenderedMarkdownLink(result.text)).toBe(false);
 		expect(result.text).not.toContain("](https://");
@@ -156,6 +158,8 @@ describe("deliverTelegramPriceAlert attaches the 'Manage notifications' dashboar
 		expect(delivered).toBe(true);
 		const sent = sendTelegram.mock.calls[0]?.[0] as TelegramMessage;
 		// A candlestick PNG is present, so the button rides the sendPhoto path.
+		expect(sent.kind).toBe("photo");
+		if (sent.kind !== "photo") throw new Error("expected photo");
 		expect(sent.photo).toBeInstanceOf(Buffer);
 		expect(dashboardButtonUrl(sent)).toContain("#market-notifications");
 	});
@@ -172,7 +176,7 @@ describe("deliverTelegramPriceAlert attaches the 'Manage notifications' dashboar
 		});
 
 		const sent = sendTelegram.mock.calls[0]?.[0] as TelegramMessage;
-		expect(sent.photo).toBeUndefined();
+		expect(sent.kind).toBe("text");
 		expect(dashboardButtonUrl(sent)).toContain("#market-notifications");
 	});
 });

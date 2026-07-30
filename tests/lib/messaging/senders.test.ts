@@ -63,6 +63,7 @@ describe("messaging test doubles — no real SES/Telegram in tests", () => {
 			const bot = createTelegramBot(STUB_TELEGRAM_TOKEN);
 			const send = createTelegramSender(bot);
 			const result = await send({
+				kind: "text",
 				chatId: 5550001,
 				text: "AAPL up 5.3% to $195.86",
 			});
@@ -74,12 +75,22 @@ describe("messaging test doubles — no real SES/Telegram in tests", () => {
 			vi.stubEnv("TELEGRAM_TEST_ERROR", "Simulated Telegram failure");
 			vi.stubEnv("TELEGRAM_TEST_ERROR_CODE", "403");
 			const send = createTelegramSender(createTelegramBot(STUB_TELEGRAM_TOKEN));
-			const result = await send({ chatId: 5550001, text: "AAPL update" });
+			const result = await send({ kind: "text", chatId: 5550001, text: "AAPL update" });
 			expect(result).toMatchObject({
 				success: false,
 				error: "Simulated Telegram failure",
 				errorCode: "403",
 			});
+		});
+
+		it("accepts mediaGroup messages without a top-level text field", async () => {
+			const send = createTelegramSender(createTelegramBot(STUB_TELEGRAM_TOKEN));
+			const result = await send({
+				kind: "mediaGroup",
+				chatId: 5550002,
+				mediaGroup: [{ photo: Buffer.from([1]) }, { photo: Buffer.from([2]) }],
+			});
+			expect(result).toMatchObject({ success: true, messageSid: "mock" });
 		});
 	});
 });

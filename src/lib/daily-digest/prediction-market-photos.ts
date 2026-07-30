@@ -1,7 +1,12 @@
 import type { Logger } from "../logging";
 import { buildPredictionMarketCardSvg } from "../messaging/telegram/prediction-market-card";
 import { renderChartPng } from "../messaging/telegram/render-png";
-import type { TelegramMediaGroupItem, TelegramMessage, TelegramSender } from "../messaging/types";
+import type {
+	TelegramMediaGroup,
+	TelegramMediaGroupItem,
+	TelegramMessage,
+	TelegramSender,
+} from "../messaging/types";
 import { formatPredictionMarketCardCaption } from "../prediction-markets/format";
 import type { PredictionMarketEventCard } from "../prediction-markets/types";
 import type { DeliveryResult, IsoDateString, MinuteOfDay } from "../types";
@@ -49,6 +54,7 @@ function buildPredictionMarketPhotoMessage(
 		const { card, photo } = photos[0]!;
 		const caption = formatPredictionMarketCardCaption(card);
 		return {
+			kind: "photo",
 			chatId,
 			text: caption.text,
 			entities: caption.entities,
@@ -56,14 +62,26 @@ function buildPredictionMarketPhotoMessage(
 			disableNotification: true,
 		};
 	}
-	const mediaGroup: TelegramMediaGroupItem[] = photos.map(({ card, photo }, index) => {
+	const [first, second, ...rest] = photos;
+	if (first === undefined || second === undefined) {
+		throw new Error("Expected at least two prediction-market photos for mediaGroup");
+	}
+	const toItem = (
+		{ card, photo }: PredictionMarketPhoto,
+		index: number,
+	): TelegramMediaGroupItem => {
 		if (index !== 0) return { photo };
 		const caption = formatPredictionMarketCardCaption(card);
 		return { photo, text: caption.text, entities: caption.entities };
-	});
+	};
+	const mediaGroup: TelegramMediaGroup = [
+		toItem(first, 0),
+		toItem(second, 1),
+		...rest.map((p, i) => toItem(p, i + 2)),
+	];
 	return {
+		kind: "mediaGroup",
 		chatId,
-		text: "",
 		mediaGroup,
 		disableNotification: true,
 	};
