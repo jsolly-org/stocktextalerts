@@ -12,9 +12,29 @@ function isFresh(refreshedAt: string, nowMs: number): boolean {
 	return Number.isFinite(ts) && nowMs - ts <= PREDICTION_MARKET_STALE_MS;
 }
 
+function titleSalient(card: PredictionMarketEventCard): boolean {
+	// Ongoing lane requires a title-level identity match (not outcome-only).
+	// Callers set matchKind/confidence; we approximate via symbol appearing in title
+	// or an explicit highlight on any outcome.
+	if (!card.symbol) return true;
+	const sym = card.symbol.toLowerCase();
+	if (card.title.toLowerCase().includes(sym)) return true;
+	return card.outcomes.some((o) => o.highlighted === true);
+}
+
 /** Next-day / session direction markets (e.g. "AAPL Up or Down on July 31?"). */
 function isDailyDirectionMarket(card: PredictionMarketEventCard): boolean {
 	return /\bup or down\b/i.test(card.title);
+}
+
+/**
+ * End-of-month / strike price targets — deprioritized vs daily up/down.
+ * Daily direction titles are never treated as price targets.
+ * Relies on matchKind from discovery (not a second title lexicon).
+ */
+function isPriceTargetMarket(card: PredictionMarketEventCard): boolean {
+	if (isDailyDirectionMarket(card)) return false;
+	return card.matchKind === "direct_price";
 }
 
 function soonestCloseFirst(a: PredictionMarketEventCard, b: PredictionMarketEventCard): number {
@@ -25,9 +45,11 @@ function soonestCloseFirst(a: PredictionMarketEventCard, b: PredictionMarketEven
 }
 
 /**
- * Per-asset selection — at most one card per ticker, and only daily up/down.
- * Price targets, KPIs, and company-subject markets are never shown.
- * Macro/curated markets are selected separately and are unaffected.
+ * Per-asset selection — at most one prediction-market card per ticker:
+ * - Prefer the soonest daily up/down market (reject expired / stale)
+ * - Else soonest non-price-target future close
+ * - Else the highest-volume undated ongoing card when title-salient and volume > 0
+ * - Macro/curated markets are selected separately and are unaffected
  */
 export function selectAssetEventCards(
 	cards: readonly PredictionMarketEventCard[],
@@ -35,17 +57,29 @@ export function selectAssetEventCards(
 ): PredictionMarketEventCard[] {
 	const nowMs = options.nowMs ?? Date.now();
 
-	const bestDirection = cards
-		.filter(
-			(c) =>
-				isDailyDirectionMarket(c) &&
-				c.outcomes.length > 0 &&
-				isFresh(c.refreshedAt, nowMs) &&
-				(c.closesAt === null || isFutureClose(c.closesAt, nowMs)),
-		)
-		.sort(soonestCloseFirst)[0];
+	const freshOpen = cards.filter(
+		(c) =>
+			c.outcomes.length > 0 &&
+			isFresh(c.refreshedAt, nowMs) &&
+			// Reject expired dated markets; undated stay eligible for ongoing lane.
+			(c.closesAt === null || isFutureClose(c.closesAt, nowMs)),
+	);
 
-	return bestDirection ? [bestDirection] : [];
+	const bestDirection = [...freshOpen.filter(isDailyDirectionMarket)].sort(soonestCloseFirst)[0];
+	if (bestDirection) return [bestDirection];
+
+	const nonPrice = freshOpen.filter((c) => !isPriceTargetMarket(c));
+
+	const soonestDated = nonPrice.filter((c) => c.closesAt !== null).sort(soonestCloseFirst)[0];
+	if (soonestDated) return [soonestDated];
+
+	const bestOngoing = nonPrice
+		.filter((c) => c.closesAt === null)
+		.filter((c) => titleSalient(c))
+		.filter((c) => c.volume > 0)
+		.sort((a, b) => b.volume - a.volume)[0];
+
+	return bestOngoing ? [bestOngoing] : [];
 }
 
 /**
