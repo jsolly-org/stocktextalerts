@@ -27,6 +27,14 @@ export interface EmailRequest {
 
 export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 
+/** One photo in a Telegram media-group album (`sendMediaGroup`, 2–10 items). */
+export type TelegramMediaGroupItem = {
+	photo: Buffer;
+	/** Caption for this item; Telegram only displays the first item's caption. */
+	text?: string;
+	entities?: MessageEntity[];
+};
+
 /** A fully-rendered outbound Telegram message (text carries out-of-band entities). */
 export interface TelegramMessage {
 	chatId: number | string;
@@ -36,6 +44,11 @@ export interface TelegramMessage {
 	entities?: MessageEntity[];
 	/** When present, send as a photo with `text` as the caption (≤1024 chars). */
 	photo?: Buffer;
+	/**
+	 * When present (2–10 items), send as a media-group album via `sendMediaGroup`.
+	 * Mutually exclusive with `photo` in the send path. No `reply_markup` support.
+	 */
+	mediaGroup?: readonly TelegramMediaGroupItem[];
 	/** Inline keyboard for actionable alerts. */
 	replyMarkup?: InlineKeyboardMarkup;
 	/** Silent delivery (e.g. routine digest) — maps to Telegram's disable_notification. */

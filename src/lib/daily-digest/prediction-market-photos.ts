@@ -1,7 +1,7 @@
 import type { Logger } from "../logging";
 import { buildPredictionMarketCardSvg } from "../messaging/telegram/prediction-market-card";
 import { renderChartPng } from "../messaging/telegram/render-png";
-import type { TelegramSender } from "../messaging/types";
+import type { TelegramMediaGroupItem, TelegramMessage, TelegramSender } from "../messaging/types";
 import { formatPredictionMarketCardCaption } from "../prediction-markets/format";
 import type { PredictionMarketEventCard } from "../prediction-markets/types";
 import type { DeliveryResult, IsoDateString, MinuteOfDay } from "../types";
@@ -41,6 +41,38 @@ export async function renderPredictionMarketPhotos(options: {
 	return out;
 }
 
+function buildPredictionMarketPhotoMessage(
+	chatId: number,
+	photos: readonly PredictionMarketPhoto[],
+): TelegramMessage {
+	if (photos.length === 1) {
+		const { card, photo } = photos[0]!;
+		const caption = formatPredictionMarketCardCaption(card);
+		return {
+			chatId,
+			text: caption.text,
+			entities: caption.entities,
+			photo,
+			disableNotification: true,
+		};
+	}
+	const mediaGroup: TelegramMediaGroupItem[] = photos.map(({ card, photo }, index) => {
+		if (index !== 0) return { photo };
+		const caption = formatPredictionMarketCardCaption(card);
+		return { photo, text: caption.text, entities: caption.entities };
+	});
+	return {
+		chatId,
+		text: "",
+		mediaGroup,
+		disableNotification: true,
+	};
+}
+
+/**
+ * Send prediction-market PNGs: one `sendPhoto` when a single card rendered,
+ * otherwise one `sendMediaGroup` album (Telegram requires 2–10 items).
+ */
 export async function sendPredictionMarketPhotos(options: {
 	sender: TelegramSender;
 	chatId: number;
@@ -51,30 +83,25 @@ export async function sendPredictionMarketPhotos(options: {
 	scheduledMinutes: MinuteOfDay;
 }): Promise<DeliveryResult | null> {
 	const { sender, chatId, photos, logger, userId, scheduledDate, scheduledMinutes } = options;
-	let blockedResult: DeliveryResult | null = null;
-	for (const { card, photo } of photos) {
-		const caption = formatPredictionMarketCardCaption(card);
-		const result = await sender({
-			chatId,
-			text: caption.text,
-			entities: caption.entities,
-			photo,
-			disableNotification: true,
-		});
-		if (!result.success) {
-			logger.warn("Failed to send prediction market card photo", {
+	if (photos.length === 0) return null;
+
+	const result = await sender(buildPredictionMarketPhotoMessage(chatId, photos));
+	if (!result.success) {
+		logger.warn(
+			photos.length === 1
+				? "Failed to send prediction market card photo"
+				: "Failed to send prediction market card album",
+			{
 				userId,
 				scheduledDate,
 				scheduledMinutes,
-				marketKey: card.key,
+				photoCount: photos.length,
+				marketKey: photos.length === 1 ? (photos[0]?.card.key ?? null) : null,
 				errorCode: result.errorCode ?? null,
 				error: result.error ?? null,
-			});
-			if (result.errorCode === "403") {
-				blockedResult = result;
-				break;
-			}
-		}
+			},
+		);
+		if (result.errorCode === "403") return result;
 	}
-	return blockedResult;
+	return null;
 }
