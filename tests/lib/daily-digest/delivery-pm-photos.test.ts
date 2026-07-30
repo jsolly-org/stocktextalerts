@@ -161,21 +161,22 @@ describe("processDailyDigestTelegramDelivery prediction-market photos", () => {
 		expect(sends.length).toBe(2);
 		const textMsg = sends[0];
 		const photoMsg = sends[1];
-		expect(textMsg?.photo).toBeUndefined();
-		expect(textMsg?.mediaGroup).toBeUndefined();
-		expect(textMsg?.replyMarkup).toBeDefined();
-		expect(textMsg?.text).toContain("NVDA binary market");
-		expect(textMsg?.text).toContain("AAPL binary market");
-		const nvdaIdx = textMsg?.text.indexOf("NVDA binary market") ?? -1;
-		const aaplIdx = textMsg?.text.indexOf("AAPL binary market") ?? -1;
-		const nvdaBlock = textMsg?.text.slice(nvdaIdx, aaplIdx) ?? "";
+		expect(textMsg?.kind).toBe("text");
+		if (textMsg?.kind !== "text") throw new Error("expected text digest");
+		expect(textMsg.replyMarkup).toBeDefined();
+		expect(textMsg.text).toContain("NVDA binary market");
+		expect(textMsg.text).toContain("AAPL binary market");
+		const nvdaIdx = textMsg.text.indexOf("NVDA binary market");
+		const aaplIdx = textMsg.text.indexOf("AAPL binary market");
+		const nvdaBlock = textMsg.text.slice(nvdaIdx, aaplIdx);
 		expect(nvdaBlock).not.toContain("█");
 		expect(nvdaBlock).toContain("View full market");
-		expect(textMsg?.text).toMatch(/AAPL binary market[\s\S]*?█/);
-		expect(photoMsg?.photo).toEqual(pngMagic);
-		expect(photoMsg?.mediaGroup).toBeUndefined();
-		expect(photoMsg?.disableNotification).toBe(true);
-		expect(photoMsg?.replyMarkup).toBeUndefined();
+		expect(textMsg.text).toMatch(/AAPL binary market[\s\S]*?█/);
+		expect(photoMsg?.kind).toBe("photo");
+		if (photoMsg?.kind !== "photo") throw new Error("expected photo");
+		expect(photoMsg.photo).toEqual(pngMagic);
+		expect(photoMsg.disableNotification).toBe(true);
+		expect(photoMsg.replyMarkup).toBeUndefined();
 	});
 
 	it("regression: many PNGs send exactly one text message + one mediaGroup album", async () => {
@@ -191,17 +192,17 @@ describe("processDailyDigestTelegramDelivery prediction-market photos", () => {
 		expect(sender).toHaveBeenCalledTimes(2);
 		expect(sends).toHaveLength(2);
 		const [textMsg, albumMsg] = sends;
-		expect(textMsg?.photo).toBeUndefined();
-		expect(textMsg?.mediaGroup).toBeUndefined();
-		expect(textMsg?.replyMarkup).toBeDefined();
-		expect(albumMsg?.photo).toBeUndefined();
-		expect(albumMsg?.replyMarkup).toBeUndefined();
-		expect(albumMsg?.disableNotification).toBe(true);
-		expect(albumMsg?.mediaGroup).toHaveLength(3);
-		expect(albumMsg?.mediaGroup?.[0]?.text).toBeTruthy();
-		expect(albumMsg?.mediaGroup?.[1]?.text).toBeUndefined();
-		expect(albumMsg?.mediaGroup?.[2]?.text).toBeUndefined();
-		expect(sends.filter((m) => m.photo !== undefined)).toHaveLength(0);
+		expect(textMsg?.kind).toBe("text");
+		if (textMsg?.kind !== "text") throw new Error("expected text digest");
+		expect(textMsg.replyMarkup).toBeDefined();
+		expect(albumMsg?.kind).toBe("mediaGroup");
+		if (albumMsg?.kind !== "mediaGroup") throw new Error("expected mediaGroup");
+		expect(albumMsg.disableNotification).toBe(true);
+		expect(albumMsg.mediaGroup).toHaveLength(3);
+		expect(albumMsg.mediaGroup[0]?.text).toBeTruthy();
+		expect(albumMsg.mediaGroup[1]?.text).toBeUndefined();
+		expect(albumMsg.mediaGroup[2]?.text).toBeUndefined();
+		expect(sends.filter((m) => m.kind === "photo")).toHaveLength(0);
 	});
 
 	it("regression: asset + macro cards still send one text + one album", async () => {
@@ -212,8 +213,10 @@ describe("processDailyDigestTelegramDelivery prediction-market photos", () => {
 		});
 
 		expect(sender).toHaveBeenCalledTimes(2);
-		expect(sends[1]?.mediaGroup).toHaveLength(3);
-		expect(sends.filter((m) => m.photo !== undefined)).toHaveLength(0);
+		expect(sends[1]?.kind).toBe("mediaGroup");
+		if (sends[1]?.kind !== "mediaGroup") throw new Error("expected mediaGroup");
+		expect(sends[1].mediaGroup).toHaveLength(3);
+		expect(sends.filter((m) => m.kind === "photo")).toHaveLength(0);
 	});
 
 	it("keeps unicode bars and skips photos when every render fails", async () => {
@@ -221,16 +224,16 @@ describe("processDailyDigestTelegramDelivery prediction-market photos", () => {
 		await runDelivery({ assetCards: [binaryCard("pm:x", "NVDA")] });
 		expect(sender).toHaveBeenCalledTimes(1);
 		expect(sends.length).toBe(1);
-		expect(sends[0]?.photo).toBeUndefined();
-		expect(sends[0]?.mediaGroup).toBeUndefined();
-		expect(sends[0]?.text).toContain("█");
+		expect(sends[0]?.kind).toBe("text");
+		if (sends[0]?.kind !== "text") throw new Error("expected text digest");
+		expect(sends[0].text).toContain("█");
 	});
 
 	it("opts out when the album send returns 403", async () => {
 		renderChartPng.mockResolvedValue(pngMagic);
 		sender.mockReset().mockImplementation(async (message: TelegramMessage) => {
 			sends.push(message);
-			if (message.mediaGroup !== undefined) {
+			if (message.kind === "mediaGroup") {
 				return { success: false, error: "blocked", errorCode: "403" };
 			}
 			return { success: true, messageSid: "text" };
@@ -241,7 +244,9 @@ describe("processDailyDigestTelegramDelivery prediction-market photos", () => {
 		});
 
 		expect(sender).toHaveBeenCalledTimes(2);
-		expect(sends[1]?.mediaGroup).toHaveLength(2);
+		expect(sends[1]?.kind).toBe("mediaGroup");
+		if (sends[1]?.kind !== "mediaGroup") throw new Error("expected mediaGroup");
+		expect(sends[1].mediaGroup).toHaveLength(2);
 		expect(optOutIfBotBlocked).toHaveBeenCalledWith(
 			expect.anything(),
 			"user-1",
@@ -254,7 +259,7 @@ describe("processDailyDigestTelegramDelivery prediction-market photos", () => {
 		renderChartPng.mockResolvedValue(pngMagic);
 		sender.mockReset().mockImplementation(async (message: TelegramMessage) => {
 			sends.push(message);
-			if (message.photo !== undefined) {
+			if (message.kind === "photo") {
 				return { success: false, error: "blocked", errorCode: "403" };
 			}
 			return { success: true, messageSid: "text" };
@@ -263,7 +268,9 @@ describe("processDailyDigestTelegramDelivery prediction-market photos", () => {
 		await runDelivery({ assetCards: [binaryCard("pm:nvda", "NVDA")] });
 
 		expect(sender).toHaveBeenCalledTimes(2);
-		expect(sends[1]?.photo).toEqual(pngMagic);
+		expect(sends[1]?.kind).toBe("photo");
+		if (sends[1]?.kind !== "photo") throw new Error("expected photo");
+		expect(sends[1].photo).toEqual(pngMagic);
 		expect(optOutIfBotBlocked).toHaveBeenCalledWith(
 			expect.anything(),
 			"user-1",

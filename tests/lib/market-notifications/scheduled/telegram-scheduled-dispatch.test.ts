@@ -19,7 +19,7 @@ import { processMarketScheduledUser } from "../../../../src/lib/market-notificat
 import { attachPrefsToUsers } from "../../../../src/lib/messaging/load-prefs";
 import type { EmailSender, TelegramSender } from "../../../../src/lib/messaging/types";
 import type { UserRecord } from "../../../../src/lib/types";
-import { dashboardButtonUrl } from "../../../helpers/messaging-doubles";
+import { dashboardButtonUrl, telegramMessageText } from "../../../helpers/messaging-doubles";
 import { adminClient } from "../../../helpers/test-env";
 import { createTestUser, setTestUserPrefs } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
@@ -126,7 +126,7 @@ describe("Telegram scheduled market-price dispatch", () => {
 
 		const sent = telegramSender.mock.calls[0]?.[0];
 		expect(sent?.chatId).toBe(telegramChatId);
-		expect(sent?.text).toContain("NVDA");
+		expect(telegramMessageText(sent)).toContain("NVDA");
 		// The "Manage notifications" button deep-links to the Market Notifications section.
 		expect(dashboardButtonUrl(sent)).toContain("#market-notifications");
 

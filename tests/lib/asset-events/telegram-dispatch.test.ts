@@ -19,7 +19,7 @@ import { rootLogger } from "../../../src/lib/logging";
 import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
 import type { EmailSender, TelegramSender } from "../../../src/lib/messaging/types";
 import type { UserRecord } from "../../../src/lib/types";
-import { dashboardButtonUrl } from "../../helpers/messaging-doubles";
+import { dashboardButtonUrl, telegramMessageText } from "../../helpers/messaging-doubles";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser, setTestUserPrefs } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -115,7 +115,7 @@ describe("Telegram standalone asset-events dispatch", () => {
 
 		const sent = telegramSender.mock.calls[0]?.[0];
 		expect(sent?.chatId).toBe(telegramChatId);
-		expect(sent?.text).toContain("Earnings");
+		expect(telegramMessageText(sent)).toContain("Earnings");
 		// The "Manage notifications" button deep-links to the Asset Events section.
 		expect(dashboardButtonUrl(sent)).toContain("#asset-events-notifications");
 

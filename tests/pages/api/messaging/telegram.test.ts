@@ -4,7 +4,7 @@ import { mintLinkToken } from "../../../../src/lib/auth/deep-link-token";
 import type { TelegramMessage } from "../../../../src/lib/messaging/types";
 import { POST } from "../../../../src/pages/api/messaging/telegram";
 import { createApiContext } from "../../../helpers/api-context";
-import { dashboardButtonUrl } from "../../../helpers/messaging-doubles";
+import { dashboardButtonUrl, telegramMessageText } from "../../../helpers/messaging-doubles";
 import { adminClient } from "../../../helpers/test-env";
 import { createTestUser } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
@@ -410,7 +410,7 @@ describe("The Telegram bot honors /stop, /unlink, and /help on a linked chat.", 
 		expect(response.status).toBe(200);
 
 		const reply = sentMessages.find((m) => m.chatId === chatId);
-		expect(reply?.text).toContain("dashboard");
+		expect(telegramMessageText(reply)).toContain("dashboard");
 		// The button deep-links to the notification-channels section.
 		expect(dashboardButtonUrl(reply)).toContain("#notification-channels");
 	});
@@ -424,6 +424,6 @@ describe("The Telegram bot honors /stop, /unlink, and /help on a linked chat.", 
 		expect(response.status).toBe(200);
 
 		const reply = sentMessages.find((m) => m.chatId === chatId);
-		expect(reply?.text).toContain("/dashboard");
+		expect(telegramMessageText(reply)).toContain("/dashboard");
 	});
 });
