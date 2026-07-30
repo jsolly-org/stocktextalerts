@@ -109,12 +109,13 @@ const exclusiveCard: PredictionMarketEventCard = {
 const formatOpts = { timeZone: "UTC", use24Hour: true };
 
 describe("formatEventCardText", () => {
-	it("renders binary Yes/No without deltas", () => {
+	it("renders binary Yes/No without deltas or open/close timestamps", () => {
 		const text = formatEventCardText(binaryCard, formatOpts);
 		expect(text).toContain("Yes");
 		expect(text).toContain("No");
 		expect(text).toContain("11%");
-		expect(text).toContain("Updated");
+		expect(text).not.toContain("Updated");
+		expect(text).not.toContain("Closes");
 		expect(text).not.toContain("▲");
 		expect(text).not.toContain("▼");
 	});
@@ -157,12 +158,12 @@ const sampleReadings: PredictionMarketReading[] = [
 		url: "https://kalshi.com/markets/kxratecut/kxratecut-26dec31",
 	},
 	{
-		key: "spx_best_2026",
-		label: "S&P best '26",
+		key: "spx_opens_up_down",
+		label: "SPX up/down",
 		venue: "polymarket",
-		probabilityPercent: 70,
+		probabilityPercent: 60,
 		deltaPoints: null,
-		url: "https://polymarket.com/event/will-the-sp-500-have-the-best-performance-in-2026-545",
+		url: "https://polymarket.com/event/spx-opens-up-or-down-on-july-31-2026",
 	},
 ];
 
@@ -194,7 +195,7 @@ describe("legacy formatPredictionMarketsEmailHtml", () => {
 		expect(html).toContain("Recession &#39;26");
 		expect(html).toContain('href="https://kalshi.com/markets/kxrecssnber/kxrecssnber-26"');
 		expect(html).toContain(
-			'href="https://polymarket.com/event/will-the-sp-500-have-the-best-performance-in-2026-545"',
+			'href="https://polymarket.com/event/spx-opens-up-or-down-on-july-31-2026"',
 		);
 	});
 });

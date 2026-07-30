@@ -45,10 +45,22 @@ function sumProbabilities(
 	return Math.round(sum * 10) / 10;
 }
 
-function looksLikeYesNoPair(outcomes: readonly DiscoveredPredictionOutcome[]): boolean {
+function normalizedLabels(outcomes: readonly DiscoveredPredictionOutcome[]): string[] {
+	return outcomes.map((o) => o.label.trim().toLowerCase());
+}
+
+function looksLikeBinaryPair(outcomes: readonly DiscoveredPredictionOutcome[]): boolean {
 	if (outcomes.length !== 2) return false;
-	const labels = outcomes.map((o) => o.label.trim().toLowerCase());
-	return labels.includes("yes") && labels.includes("no");
+	const labels = normalizedLabels(outcomes);
+	if (labels.includes("yes") && labels.includes("no")) return true;
+	return labels.includes("up") && labels.includes("down");
+}
+
+function binaryPairSortRank(label: string): number {
+	const l = label.trim().toLowerCase();
+	if (l === "yes" || l === "up") return 0;
+	if (l === "no" || l === "down") return 1;
+	return 2;
 }
 
 function looksLikeThresholdLadder(outcomes: readonly DiscoveredPredictionOutcome[]): boolean {
@@ -78,7 +90,7 @@ export function detectPredictionMarketShape(input: ShapeDetectionInput): {
 		return { shape: "independent", validated: false };
 	}
 
-	if (outcomes.length === 1 || looksLikeYesNoPair(outcomes)) {
+	if (outcomes.length === 1 || looksLikeBinaryPair(outcomes)) {
 		return { shape: "binary", validated: true };
 	}
 
@@ -96,16 +108,15 @@ export function detectPredictionMarketShape(input: ShapeDetectionInput): {
 	return { shape: "independent", validated: false };
 }
 
-/** Ensure binary cards always expose Yes + No totaling ~100%. */
+/** Ensure binary cards expose a two-sided pair totaling ~100% (Yes/No or Up/Down). */
 export function ensureBinaryOutcomes(
 	outcomes: readonly DiscoveredPredictionOutcome[],
 	fallbackContractId: string,
 ): DiscoveredPredictionOutcome[] {
-	if (looksLikeYesNoPair(outcomes)) {
-		return [...outcomes].sort((a, b) => {
-			const rank = (l: string) => (l.toLowerCase() === "yes" ? 0 : 1);
-			return rank(a.label) - rank(b.label);
-		});
+	if (looksLikeBinaryPair(outcomes)) {
+		return [...outcomes]
+			.sort((a, b) => binaryPairSortRank(a.label) - binaryPairSortRank(b.label))
+			.map((o, index) => ({ ...o, sortOrder: index }));
 	}
 	if (outcomes.length === 1) {
 		const yes = outcomes[0];

@@ -22,9 +22,34 @@ function titleSalient(card: PredictionMarketEventCard): boolean {
 	return card.outcomes.some((o) => o.highlighted === true);
 }
 
+/** Next-day / session direction markets (e.g. "AAPL Up or Down on July 31?"). */
+export function isDailyDirectionMarket(card: PredictionMarketEventCard): boolean {
+	return /\bup or down\b/i.test(card.title);
+}
+
+/**
+ * End-of-month / strike price targets — deprioritized vs daily up/down.
+ * Daily direction titles are never treated as price targets.
+ */
+export function isPriceTargetMarket(card: PredictionMarketEventCard): boolean {
+	if (isDailyDirectionMarket(card)) return false;
+	if (card.matchKind === "direct_price") return true;
+	return /\b(close above|closes?(?:\s+\w+){0,4}\s+(?:above|at|below)|hit\s+\$?\d|price will|finish\b.{0,30}\babove|end of (?:the )?month)\b/i.test(
+		card.title,
+	);
+}
+
+function soonestCloseFirst(a: PredictionMarketEventCard, b: PredictionMarketEventCard): number {
+	const aTs = a.closesAt ? Date.parse(a.closesAt) : Number.POSITIVE_INFINITY;
+	const bTs = b.closesAt ? Date.parse(b.closesAt) : Number.POSITIVE_INFINITY;
+	if (aTs !== bTs) return aTs - bTs;
+	return b.volume - a.volume;
+}
+
 /**
  * Per-asset selection — at most one prediction-market card per ticker:
- * - Prefer the soonest future close (reject expired / stale)
+ * - Prefer the soonest daily up/down market (reject expired / stale)
+ * - Else soonest non-price-target future close
  * - Else the highest-volume undated ongoing card when title-salient and volume > 0
  * - Macro/curated markets are selected separately and are unaffected
  */
@@ -42,12 +67,17 @@ export function selectAssetEventCards(
 			(c.closesAt === null || isFutureClose(c.closesAt, nowMs)),
 	);
 
-	const soonestDated = freshOpen
+	const bestDirection = [...freshOpen.filter(isDailyDirectionMarket)].sort(soonestCloseFirst)[0];
+	if (bestDirection) return [bestDirection];
+
+	const nonPrice = freshOpen.filter((c) => !isPriceTargetMarket(c));
+
+	const soonestDated = nonPrice
 		.filter((c) => c.closesAt !== null)
 		.sort((a, b) => Date.parse(a.closesAt ?? "") - Date.parse(b.closesAt ?? ""))[0];
 	if (soonestDated) return [soonestDated];
 
-	const bestOngoing = freshOpen
+	const bestOngoing = nonPrice
 		.filter((c) => c.closesAt === null)
 		.filter((c) => titleSalient(c))
 		.filter((c) => c.volume > 0)

@@ -193,7 +193,7 @@ export function formatDailyDigestEmail(options: {
 	/** User's 24-hour-time preference for the market-closed "as of" timestamp.
 	 *  Defaults to 12-hour (the DB default) when omitted; production callers pass it. */
 	is24Hour?: boolean;
-	/** IANA timezone for prediction-market Updated/Closes labels. */
+	/** IANA timezone retained for call-site compatibility (PM cards omit timestamps). */
 	timeZone?: string;
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
@@ -368,7 +368,7 @@ export function formatDailyDigestTelegram(opts: {
 	/** User's 24-hour-time preference for the market-closed "as of" timestamp.
 	 *  Defaults to 12-hour (the DB default) when omitted; production callers pass it. */
 	is24Hour?: boolean;
-	/** IANA timezone for prediction-market Updated/Closes labels. */
+	/** IANA timezone retained for call-site compatibility (PM cards omit timestamps). */
 	timeZone?: string;
 	sparklines?: SparklineMap;
 	marketOpen?: boolean;

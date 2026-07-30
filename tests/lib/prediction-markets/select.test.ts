@@ -33,6 +33,74 @@ function card(
 describe("selectAssetEventCards", () => {
 	const nowMs = Date.parse("2026-07-10T12:00:00.000Z");
 
+	it("prefers daily up/down over sooner end-of-month price targets", () => {
+		const selected = selectAssetEventCards(
+			[
+				card({
+					key: "month-price",
+					title: "Will NVDA close above $140 by end of July?",
+					closesAt: "2026-07-12T00:00:00.000Z",
+					volume: 9000,
+					symbol: "NVDA",
+					matchKind: "direct_price",
+				}),
+				card({
+					key: "up-down",
+					title: "NVIDIA (NVDA) Up or Down on July 31?",
+					closesAt: "2026-07-31T20:00:00.000Z",
+					volume: 1200,
+					symbol: "NVDA",
+					matchKind: "direct_price",
+					outcomes: [
+						{
+							venueContractId: "up",
+							label: "Up",
+							probabilityPercent: 55,
+							sortOrder: 0,
+							strikeValue: null,
+							volume: 600,
+						},
+						{
+							venueContractId: "down",
+							label: "Down",
+							probabilityPercent: 45,
+							sortOrder: 1,
+							strikeValue: null,
+							volume: 600,
+						},
+					],
+				}),
+			],
+			{ nowMs },
+		);
+		expect(selected.map((c) => c.key)).toEqual(["up-down"]);
+	});
+
+	it("skips price-target markets when only company-subject dated cards remain", () => {
+		const selected = selectAssetEventCards(
+			[
+				card({
+					key: "price",
+					title: "Will NVDA close above $150?",
+					closesAt: "2026-07-14T00:00:00.000Z",
+					volume: 800,
+					symbol: "NVDA",
+					matchKind: "direct_price",
+				}),
+				card({
+					key: "subject",
+					title: "NVDA earnings beat?",
+					closesAt: "2026-08-01T00:00:00.000Z",
+					volume: 2000,
+					symbol: "NVDA",
+					matchKind: "company_subject",
+				}),
+			],
+			{ nowMs },
+		);
+		expect(selected.map((c) => c.key)).toEqual(["subject"]);
+	});
+
 	it("picks only the soonest future close and rejects expired", () => {
 		const selected = selectAssetEventCards(
 			[
@@ -77,22 +145,24 @@ describe("selectAssetEventCards", () => {
 		expect(selected).toEqual([]);
 	});
 
-	it("prefers a dated close over higher-volume ongoing for the same ticker", () => {
+	it("prefers a dated company-subject close over higher-volume ongoing for the same ticker", () => {
 		const selected = selectAssetEventCards(
 			[
 				card({
 					key: "d1",
-					title: "Dated low",
+					title: "Google product launch in July?",
 					closesAt: "2026-07-20T00:00:00.000Z",
 					volume: 100,
 					symbol: "GOOGL",
+					matchKind: "company_subject",
 				}),
 				card({
 					key: "d2",
-					title: "Dated high",
+					title: "Google product launch in August?",
 					closesAt: "2026-07-25T00:00:00.000Z",
 					volume: 300,
 					symbol: "GOOGL",
+					matchKind: "company_subject",
 				}),
 				card({
 					key: "ongoing",
@@ -167,6 +237,7 @@ describe("selectAssetEventCards", () => {
 				closesAt: "2026-07-18T00:00:00.000Z",
 				volume: 900,
 				symbol: "NVDA",
+				matchKind: "direct_price",
 			}),
 			card({
 				key: "nvda-dated-b",
@@ -174,6 +245,15 @@ describe("selectAssetEventCards", () => {
 				closesAt: "2026-07-14T00:00:00.000Z",
 				volume: 800,
 				symbol: "NVDA",
+				matchKind: "direct_price",
+			}),
+			card({
+				key: "nvda-up-down",
+				title: "NVIDIA (NVDA) Up or Down on July 15?",
+				closesAt: "2026-07-15T20:00:00.000Z",
+				volume: 500,
+				symbol: "NVDA",
+				matchKind: "direct_price",
 			}),
 			card({
 				key: "nvda-dated-c",
@@ -181,6 +261,7 @@ describe("selectAssetEventCards", () => {
 				closesAt: "2026-08-01T00:00:00.000Z",
 				volume: 2000,
 				symbol: "NVDA",
+				matchKind: "company_subject",
 			}),
 			card({
 				key: "nvda-ongoing-a",
@@ -210,7 +291,7 @@ describe("selectAssetEventCards", () => {
 		];
 		const selected = selectAssetEventCards(flood, { nowMs });
 		expect(selected).toHaveLength(1);
-		expect(selected[0]?.key).toBe("nvda-dated-b");
+		expect(selected[0]?.key).toBe("nvda-up-down");
 	});
 });
 

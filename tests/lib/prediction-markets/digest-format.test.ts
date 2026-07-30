@@ -83,7 +83,8 @@ describe("formatPredictionMarketsDigest*", () => {
 		expect(text?.indexOf("Your Assets")).toBeLessThan(text?.indexOf("Macro Weather") ?? 0);
 		expect(text).toContain("Yes");
 		expect(text).toContain("No");
-		expect(text).toContain("Updated");
+		expect(text).not.toContain("Updated");
+		expect(text).not.toContain("Closes");
 	});
 
 	it("puts Your Assets before Macro Weather in Telegram", () => {
