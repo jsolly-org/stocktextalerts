@@ -141,10 +141,10 @@ export async function processDailyDigestEmailDelivery(options: {
  *
  * Renders the Telegram-native digest (parse-mode entities) and sends a silent
  * message via the Telegram sender. When prediction-market cards rasterize to
- * PNGs, Unicode bars are omitted from the text and each card follows as a
- * silent `sendPhoto`. Grok news/rumors are intentionally omitted from `extras`
- * by the caller. Claims the `telegram` channel of the daily slot so it retries
- * and advances independently of email.
+ * PNGs, Unicode bars are omitted from the text and cards follow as one silent
+ * `sendPhoto` (single card) or one `sendMediaGroup` album (2+). Grok news/rumors
+ * are intentionally omitted from `extras` by the caller. Claims the `telegram`
+ * channel of the daily slot so it retries and advances independently of email.
  */
 export async function processDailyDigestTelegramDelivery(options: {
 	user: UserRecord;
