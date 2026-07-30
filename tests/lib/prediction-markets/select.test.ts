@@ -101,6 +101,139 @@ describe("selectAssetEventCards", () => {
 		expect(selected.map((c) => c.key)).toEqual(["up-down"]);
 	});
 
+	it("on July 30 prefers July 31 up/down over today's still-open July 30 market", () => {
+		// 2026-07-30 16:00 UTC = noon ET — July 30 session still open.
+		const july30NoonEt = Date.parse("2026-07-30T16:00:00.000Z");
+		const selected = selectAssetEventCards(
+			[
+				card({
+					key: "today",
+					title: "NVIDIA (NVDA) Up or Down on July 30?",
+					closesAt: "2026-07-30T20:00:00.000Z",
+					volume: 9000,
+					symbol: "NVDA",
+					matchKind: "direct_price",
+					outcomes: [
+						{
+							venueContractId: "up",
+							label: "Up",
+							probabilityPercent: 55,
+							sortOrder: 0,
+							strikeValue: null,
+							volume: 600,
+						},
+						{
+							venueContractId: "down",
+							label: "Down",
+							probabilityPercent: 45,
+							sortOrder: 1,
+							strikeValue: null,
+							volume: 600,
+						},
+					],
+				}),
+				card({
+					key: "tomorrow",
+					title: "NVIDIA (NVDA) Up or Down on July 31?",
+					closesAt: "2026-07-31T20:00:00.000Z",
+					volume: 1200,
+					symbol: "NVDA",
+					matchKind: "direct_price",
+					outcomes: [
+						{
+							venueContractId: "up",
+							label: "Up",
+							probabilityPercent: 52,
+							sortOrder: 0,
+							strikeValue: null,
+							volume: 600,
+						},
+						{
+							venueContractId: "down",
+							label: "Down",
+							probabilityPercent: 48,
+							sortOrder: 1,
+							strikeValue: null,
+							volume: 600,
+						},
+					],
+				}),
+				card({
+					key: "week-out",
+					title: "NVIDIA (NVDA) Up or Down on August 5?",
+					closesAt: "2026-08-05T20:00:00.000Z",
+					volume: 800,
+					symbol: "NVDA",
+					matchKind: "direct_price",
+					outcomes: [
+						{
+							venueContractId: "up",
+							label: "Up",
+							probabilityPercent: 50,
+							sortOrder: 0,
+							strikeValue: null,
+							volume: 400,
+						},
+						{
+							venueContractId: "down",
+							label: "Down",
+							probabilityPercent: 50,
+							sortOrder: 1,
+							strikeValue: null,
+							volume: 400,
+						},
+					],
+				}),
+			],
+			{ nowMs: july30NoonEt },
+		);
+		expect(selected.map((c) => c.key)).toEqual(["tomorrow"]);
+	});
+
+	it("skips today's up/down and falls back when no next-day direction market exists", () => {
+		const july30NoonEt = Date.parse("2026-07-30T16:00:00.000Z");
+		const selected = selectAssetEventCards(
+			[
+				card({
+					key: "today",
+					title: "NVIDIA (NVDA) Up or Down on July 30?",
+					closesAt: "2026-07-30T20:00:00.000Z",
+					volume: 9000,
+					symbol: "NVDA",
+					matchKind: "direct_price",
+					outcomes: [
+						{
+							venueContractId: "up",
+							label: "Up",
+							probabilityPercent: 55,
+							sortOrder: 0,
+							strikeValue: null,
+							volume: 600,
+						},
+						{
+							venueContractId: "down",
+							label: "Down",
+							probabilityPercent: 45,
+							sortOrder: 1,
+							strikeValue: null,
+							volume: 600,
+						},
+					],
+				}),
+				card({
+					key: "subject",
+					title: "NVDA earnings beat?",
+					closesAt: "2026-08-01T00:00:00.000Z",
+					volume: 2000,
+					symbol: "NVDA",
+					matchKind: "company_subject",
+				}),
+			],
+			{ nowMs: july30NoonEt },
+		);
+		expect(selected.map((c) => c.key)).toEqual(["subject"]);
+	});
+
 	it("skips price-target markets when only company-subject dated cards remain", () => {
 		const selected = selectAssetEventCards(
 			[

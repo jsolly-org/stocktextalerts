@@ -1,3 +1,5 @@
+import { DateTime } from "luxon";
+import { US_MARKET_TIMEZONE } from "../constants";
 import type { PredictionMarketEventCard } from "./types";
 import { PREDICTION_MARKET_STALE_MS } from "./types";
 
@@ -37,6 +39,18 @@ function isPriceTargetMarket(card: PredictionMarketEventCard): boolean {
 	return card.matchKind === "direct_price";
 }
 
+/** ET calendar date of the market's session (from closesAt, typically 4pm ET). */
+function sessionDateEt(card: PredictionMarketEventCard): string | null {
+	if (!card.closesAt) return null;
+	const dt = DateTime.fromISO(card.closesAt, { zone: "utc" }).setZone(US_MARKET_TIMEZONE);
+	return dt.isValid ? dt.toISODate() : null;
+}
+
+function todayDateEt(nowMs: number): string | null {
+	const dt = DateTime.fromMillis(nowMs, { zone: "utc" }).setZone(US_MARKET_TIMEZONE);
+	return dt.isValid ? dt.toISODate() : null;
+}
+
 function soonestCloseFirst(a: PredictionMarketEventCard, b: PredictionMarketEventCard): number {
 	const aTs = a.closesAt ? Date.parse(a.closesAt) : Number.POSITIVE_INFINITY;
 	const bTs = b.closesAt ? Date.parse(b.closesAt) : Number.POSITIVE_INFINITY;
@@ -46,7 +60,7 @@ function soonestCloseFirst(a: PredictionMarketEventCard, b: PredictionMarketEven
 
 /**
  * Per-asset selection — at most one prediction-market card per ticker:
- * - Prefer the soonest daily up/down market (reject expired / stale)
+ * - Prefer the soonest daily up/down for a *future* ET session (tomorrow+, never today)
  * - Else soonest non-price-target future close
  * - Else the highest-volume undated ongoing card when title-salient and volume > 0
  * - Macro/curated markets are selected separately and are unaffected
@@ -56,6 +70,7 @@ export function selectAssetEventCards(
 	options: { nowMs?: number } = {},
 ): PredictionMarketEventCard[] {
 	const nowMs = options.nowMs ?? Date.now();
+	const todayEt = todayDateEt(nowMs);
 
 	const freshOpen = cards.filter(
 		(c) =>
@@ -65,10 +80,21 @@ export function selectAssetEventCards(
 			(c.closesAt === null || isFutureClose(c.closesAt, nowMs)),
 	);
 
-	const bestDirection = [...freshOpen.filter(isDailyDirectionMarket)].sort(soonestCloseFirst)[0];
+	const bestDirection =
+		todayEt === null
+			? undefined
+			: [...freshOpen.filter(isDailyDirectionMarket)]
+					.filter((c) => {
+						const session = sessionDateEt(c);
+						// Next-day (or next available session): strictly after today in ET.
+						return session !== null && session > todayEt;
+					})
+					.sort(soonestCloseFirst)[0];
 	if (bestDirection) return [bestDirection];
 
-	const nonPrice = freshOpen.filter((c) => !isPriceTargetMarket(c));
+	// Direction markets only compete in the preferred lane (future session).
+	// Do not fall back to today's still-open up/down via the dated lane.
+	const nonPrice = freshOpen.filter((c) => !isPriceTargetMarket(c) && !isDailyDirectionMarket(c));
 
 	const soonestDated = nonPrice.filter((c) => c.closesAt !== null).sort(soonestCloseFirst)[0];
 	if (soonestDated) return [soonestDated];
