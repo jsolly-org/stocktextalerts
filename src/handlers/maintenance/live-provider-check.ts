@@ -20,6 +20,9 @@ import { buildCandlestickSvg } from "../../lib/messaging/telegram/candlestick";
 import { checkTelegramLive } from "../../lib/messaging/telegram/health";
 import { renderChartPng } from "../../lib/messaging/telegram/render-png";
 import { createTelegramBot, readTelegramBotToken } from "../../lib/messaging/telegram/sender";
+import { assertStructuredBinaryCard } from "../../lib/prediction-markets/binary";
+import { CURATED_PREDICTION_MARKETS } from "../../lib/prediction-markets/catalog";
+import { fetchCuratedPredictionMarketCards } from "../../lib/prediction-markets/fetch";
 import { type IntradayCandle, isRecord } from "../../lib/types";
 import { kalshiFetch } from "../../lib/vendors/kalshi";
 import { polymarketFetch } from "../../lib/vendors/polymarket";
@@ -185,6 +188,24 @@ export async function handler(
 				);
 				if (!isRecord(marketsPayload) || !Array.isArray(marketsPayload.markets)) {
 					throw new Error("kalshi markets?series_ticker=KXTSLA returned invalid payload");
+				}
+			}),
+			await runCheck(logger, "prediction-markets:curated-macro", async () => {
+				// Digest Macro Weather — each curated market must resolve as a structured
+				// Yes/No or Up/Down binary (probabilities finite, totaling ~100).
+				const cards = await fetchCuratedPredictionMarketCards({ logger });
+				if (cards.length === 0) {
+					throw new Error("curated prediction markets returned no active cards");
+				}
+				const expectedKeys = new Set(CURATED_PREDICTION_MARKETS.map((m) => m.key));
+				const gotKeys = new Set(cards.map((c) => c.key));
+				for (const key of expectedKeys) {
+					if (!gotKeys.has(key)) {
+						throw new Error(`curated prediction market missing active card: ${key}`);
+					}
+				}
+				for (const card of cards) {
+					assertStructuredBinaryCard(card);
 				}
 			}),
 			await runCheck(logger, "chart:render-png", async () => {
