@@ -159,7 +159,7 @@ const sampleReadings: PredictionMarketReading[] = [
 	},
 	{
 		key: "spx_opens_up_down",
-		label: "SPX up/down",
+		label: "S&P 500 up/down",
 		venue: "polymarket",
 		probabilityPercent: 60,
 		deltaPoints: null,

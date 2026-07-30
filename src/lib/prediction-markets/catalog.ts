@@ -24,7 +24,7 @@ export const CURATED_PREDICTION_MARKETS: readonly CuratedPredictionMarket[] = [
 	},
 	{
 		key: "spx_opens_up_down",
-		label: "SPX up/down",
+		label: "S&P 500 up/down",
 		venue: "polymarket",
 		polymarketSlug: "spx-opens-up-or-down-on-july-31-2026",
 	},

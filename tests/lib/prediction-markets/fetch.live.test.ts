@@ -52,7 +52,7 @@ describe("live curated prediction markets", () => {
 
 		const digest = formatPredictionMarketsDigestText({ assetCards: [], macroCards: cards });
 		expect(digest).toContain("Macro Weather");
-		expect(digest).toContain("SPX up/down");
+		expect(digest).toContain("S&P 500 up/down");
 		expect(digest).toContain("Recession '26");
 	}, 30_000);
 
