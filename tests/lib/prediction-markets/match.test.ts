@@ -142,9 +142,19 @@ describe("validateEnrichedAliases", () => {
 });
 
 describe("polymarketSearchQueries", () => {
-	it("uses strict SPY queries", () => {
+	it("uses strict SPY queries including up/down", () => {
 		const spy = buildAssetIdentity({ symbol: "SPY", name: "SPDR S&P 500 ETF Trust" });
-		expect(polymarketSearchQueries(spy)).toEqual(["SPY stock", "(SPY)", "SPDR S&P 500"]);
+		expect(polymarketSearchQueries(spy)).toEqual([
+			"SPY up or down",
+			"SPY stock",
+			"(SPY)",
+			"SPDR S&P 500",
+		]);
+	});
+
+	it("puts up-or-down first for ordinary tickers", () => {
+		const nvda = buildAssetIdentity({ symbol: "NVDA", name: "NVIDIA Corporation" });
+		expect(polymarketSearchQueries(nvda)[0]).toBe("NVDA up or down");
 	});
 });
 

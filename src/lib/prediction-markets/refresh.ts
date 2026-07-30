@@ -30,19 +30,70 @@ function asNumber(value: unknown): number {
 }
 
 function parsePolymarketYesPrice(market: Record<string, unknown>): number | null {
-	const outcomePrices = market.outcomePrices;
-	let prices: unknown = outcomePrices;
-	if (typeof outcomePrices === "string") {
+	const prices = parseOutcomePrices(market);
+	if (prices.length === 0) {
+		return parseYesProbabilityPercent(market.lastTradePrice ?? market.bestBid);
+	}
+	return prices[0] ?? null;
+}
+
+function parseJsonArray(raw: unknown): unknown[] | null {
+	if (Array.isArray(raw)) return raw;
+	if (typeof raw === "string") {
 		try {
-			prices = JSON.parse(outcomePrices) as unknown;
+			const parsed = JSON.parse(raw) as unknown;
+			return Array.isArray(parsed) ? parsed : null;
 		} catch {
 			return null;
 		}
 	}
-	if (!Array.isArray(prices) || prices.length === 0) {
-		return parseYesProbabilityPercent(market.lastTradePrice ?? market.bestBid);
+	return null;
+}
+
+function parseOutcomeLabels(market: Record<string, unknown>): string[] {
+	const outcomes = parseJsonArray(market.outcomes);
+	if (!outcomes) return [];
+	return outcomes.filter((x): x is string => typeof x === "string" && x.trim() !== "");
+}
+
+function parseOutcomePrices(market: Record<string, unknown>): number[] {
+	const prices = parseJsonArray(market.outcomePrices);
+	if (!prices) return [];
+	return prices.map((p) => parseYesProbabilityPercent(p)).filter((p): p is number => p !== null);
+}
+
+/** Single-market Polymarket row → Up/Down (or Yes/No) legs when outcomePrices present. */
+function outcomesFromSinglePolymarketMarket(
+	market: Record<string, unknown>,
+	fallbackContractId: string,
+): DiscoveredPredictionOutcome[] | null {
+	const conditionId =
+		asString(market.conditionId) ?? asString(market.condition_id) ?? fallbackContractId;
+	const volume = asNumber(market.volumeNum ?? market.volume);
+	const labels = parseOutcomeLabels(market);
+	const prices = parseOutcomePrices(market);
+	if (labels.length >= 2 && prices.length >= 2) {
+		return labels.map((label, index) => ({
+			venueContractId: `${conditionId}:${index}`,
+			label,
+			probabilityPercent: prices[index] ?? null,
+			sortOrder: index,
+			strikeValue: extractStrikeValue(label),
+			volume,
+		}));
 	}
-	return parseYesProbabilityPercent(prices[0]);
+	const yes = parsePolymarketYesPrice(market);
+	if (yes === null) return null;
+	return [
+		{
+			venueContractId: conditionId,
+			label: "Yes",
+			probabilityPercent: yes,
+			sortOrder: 0,
+			strikeValue: null,
+			volume,
+		},
+	];
 }
 
 async function refreshPolymarketEvent(options: { venueEventId: string; logger: Logger }): Promise<{
@@ -75,21 +126,9 @@ async function refreshPolymarketEvent(options: { venueEventId: string; logger: L
 		if (marketPayload === null) return null;
 		const market = Array.isArray(marketPayload) ? marketPayload[0] : marketPayload;
 		if (!isRecord(market)) return null;
-		const yes = parsePolymarketYesPrice(market);
-		if (yes === null) return null;
-		let outcomes = ensureBinaryOutcomes(
-			[
-				{
-					venueContractId: asString(market.conditionId) ?? venueEventId,
-					label: "Yes",
-					probabilityPercent: yes,
-					sortOrder: 0,
-					strikeValue: null,
-					volume: asNumber(market.volume),
-				},
-			],
-			venueEventId,
-		);
+		const built = outcomesFromSinglePolymarketMarket(market, venueEventId);
+		if (built === null) return null;
+		let outcomes = built;
 		const detected = detectPredictionMarketShape({ outcomes });
 		if (detected.shape === "binary") {
 			outcomes = ensureBinaryOutcomes(outcomes, venueEventId);
@@ -98,7 +137,7 @@ async function refreshPolymarketEvent(options: { venueEventId: string; logger: L
 			outcomes,
 			shape: detected.shape,
 			shapeValidated: detected.validated,
-			volume: asNumber(market.volume),
+			volume: asNumber(market.volumeNum ?? market.volume),
 			closesAt: asString(market.endDate),
 			status: market.closed === true || market.active === false ? "closed" : "open",
 			title: asString(market.question),
@@ -106,24 +145,35 @@ async function refreshPolymarketEvent(options: { venueEventId: string; logger: L
 	}
 
 	const marketsRaw = Array.isArray(row.markets) ? row.markets : [];
-	const outcomes: DiscoveredPredictionOutcome[] = [];
+	const activeMarkets = marketsRaw.filter(
+		(m): m is Record<string, unknown> => isRecord(m) && m.closed !== true && m.active !== false,
+	);
 	let volume = asNumber(row.volume ?? row.volumeNum);
-	for (const [index, m] of marketsRaw.entries()) {
-		if (!isRecord(m)) continue;
-		if (m.closed === true || m.active === false) continue;
-		const conditionId = asString(m.conditionId) ?? asString(m.condition_id);
-		if (!conditionId) continue;
-		const label = asString(m.groupItemTitle) ?? asString(m.question) ?? `Outcome ${index + 1}`;
-		const marketVolume = asNumber(m.volumeNum ?? m.volume);
-		volume += marketVolume;
-		outcomes.push({
-			venueContractId: conditionId,
-			label,
-			probabilityPercent: parsePolymarketYesPrice(m),
-			sortOrder: index,
-			strikeValue: extractStrikeValue(label),
-			volume: marketVolume,
-		});
+	let outcomes: DiscoveredPredictionOutcome[] = [];
+
+	if (activeMarkets.length === 1) {
+		const market = activeMarkets[0];
+		if (market) {
+			volume += asNumber(market.volumeNum ?? market.volume);
+			const built = outcomesFromSinglePolymarketMarket(market, venueEventId);
+			if (built) outcomes = built;
+		}
+	} else {
+		for (const [index, m] of activeMarkets.entries()) {
+			const conditionId = asString(m.conditionId) ?? asString(m.condition_id);
+			if (!conditionId) continue;
+			const label = asString(m.groupItemTitle) ?? asString(m.question) ?? `Outcome ${index + 1}`;
+			const marketVolume = asNumber(m.volumeNum ?? m.volume);
+			volume += marketVolume;
+			outcomes.push({
+				venueContractId: conditionId,
+				label,
+				probabilityPercent: parsePolymarketYesPrice(m),
+				sortOrder: index,
+				strikeValue: extractStrikeValue(label),
+				volume: marketVolume,
+			});
+		}
 	}
 
 	if (outcomes.length === 0) {

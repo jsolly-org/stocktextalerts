@@ -13,7 +13,7 @@ export type CuratedPredictionMarket =
 			key: string;
 			label: string;
 			venue: "polymarket";
-			/** Polymarket Gamma market slug (binary Yes/No). */
+			/** Polymarket Gamma market slug (binary Yes/No or Up/Down). */
 			polymarketSlug: string;
 	  };
 

@@ -23,16 +23,10 @@ export const CURATED_PREDICTION_MARKETS: readonly CuratedPredictionMarket[] = [
 		kalshiTicker: "KXRATECUT-26DEC31",
 	},
 	{
-		key: "fed_cut_by_dec_2026",
-		label: "Fed cut by Dec",
+		key: "spx_opens_up_down",
+		label: "SPX up/down",
 		venue: "polymarket",
-		polymarketSlug: "fed-rate-cut-by-december-2026-meeting",
-	},
-	{
-		key: "spx_best_2026",
-		label: "S&P best '26",
-		venue: "polymarket",
-		polymarketSlug: "will-the-sp-500-have-the-best-performance-in-2026-545",
+		polymarketSlug: "spx-opens-up-or-down-on-july-31-2026",
 	},
 	{
 		key: "us_china_tariff_deal",
