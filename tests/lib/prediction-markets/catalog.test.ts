@@ -15,15 +15,17 @@ describe("CURATED_PREDICTION_MARKETS", () => {
 		}
 	});
 
-	it("includes SPX up/down and excludes retired S&P-best / Fed-cut-by-Dec keys", () => {
+	it("includes S&P 500 up/down and excludes retired curated keys", () => {
 		const keys = CURATED_PREDICTION_MARKETS.map((m) => m.key);
 		expect(keys).toContain("spx_opens_up_down");
 		expect(keys).not.toContain("spx_best_2026");
 		expect(keys).not.toContain("fed_cut_by_dec_2026");
+		expect(keys).not.toContain("recession_2026");
 		const spx = CURATED_PREDICTION_MARKETS.find((m) => m.key === "spx_opens_up_down");
 		expect(spx).toMatchObject({
 			venue: "polymarket",
 			polymarketSlug: "spx-opens-up-or-down-on-july-31-2026",
+			label: "S&P 500 up/down",
 		});
 	});
 });

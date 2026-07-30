@@ -11,12 +11,6 @@ import type { CuratedPredictionMarket } from "./types";
  */
 export const CURATED_PREDICTION_MARKETS: readonly CuratedPredictionMarket[] = [
 	{
-		key: "recession_2026",
-		label: "Recession '26",
-		venue: "kalshi",
-		kalshiTicker: "KXRECSSNBER-26",
-	},
-	{
 		key: "fed_cut_by_2027",
 		label: "Fed cut by '27",
 		venue: "kalshi",

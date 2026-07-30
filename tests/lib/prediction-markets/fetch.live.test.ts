@@ -53,7 +53,8 @@ describe("live curated prediction markets", () => {
 		const digest = formatPredictionMarketsDigestText({ assetCards: [], macroCards: cards });
 		expect(digest).toContain("Macro Weather");
 		expect(digest).toContain("S&P 500 up/down");
-		expect(digest).toContain("Recession '26");
+		expect(digest).toContain("Fed cut by '27");
+		expect(digest).not.toContain("Recession '26");
 	}, 30_000);
 
 	it("keeps SPX curated market on Up/Down (not Yes/No)", async () => {
