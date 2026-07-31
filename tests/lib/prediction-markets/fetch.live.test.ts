@@ -1,6 +1,9 @@
 /**
- * Live curated Macro Weather fetch against Kalshi + Polymarket public APIs.
- * Asserts each card is a structured Yes/No or Up/Down binary — the digest contract.
+ * Optional live curated Macro Weather fetch against Kalshi + Polymarket.
+ * Excluded from default Vitest (see vitest.config.ts). Run explicitly:
+ *   LIVE_PREDICTION_MARKETS=1 npx vitest run tests/lib/prediction-markets/fetch.live.test.ts
+ *
+ * Post-deploy CI uses stocktextalerts-live-provider-check instead.
  */
 import { describe, expect, it } from "vitest";
 import { createLogger } from "../../../src/lib/logging";
@@ -16,15 +19,20 @@ import {
 } from "../../../src/lib/prediction-markets/format";
 
 const logger = createLogger({ action: "prediction-markets-live-test" });
+const liveEnabled = process.env.LIVE_PREDICTION_MARKETS === "1";
 
-describe("live curated prediction markets", () => {
-	it("fetches every catalog market as a structured Yes/No or Up/Down binary", async () => {
+describe.skipIf(!liveEnabled)("live curated prediction markets", () => {
+	it("fetches catalog markets as structured Yes/No or Up/Down binaries", async () => {
 		const cards = await fetchCuratedPredictionMarketCards({ logger });
-
-		expect(cards.length).toBe(CURATED_PREDICTION_MARKETS.length);
-		expect(cards.map((c) => c.key).sort()).toEqual(
-			[...CURATED_PREDICTION_MARKETS.map((m) => m.key)].sort(),
+		const requiredKeys = CURATED_PREDICTION_MARKETS.filter((m) => !m.allowInactive).map(
+			(m) => m.key,
 		);
+		const gotKeys = new Set(cards.map((c) => c.key));
+
+		expect(cards.length).toBeGreaterThan(0);
+		for (const key of requiredKeys) {
+			expect(gotKeys.has(key), `missing required curated key ${key}`).toBe(true);
+		}
 
 		for (const card of cards) {
 			expect(isStructuredBinaryCard(card), `${card.key} structure`).toBe(true);
@@ -52,15 +60,17 @@ describe("live curated prediction markets", () => {
 
 		const digest = formatPredictionMarketsDigestText({ assetCards: [], macroCards: cards });
 		expect(digest).toContain("Macro Weather");
-		expect(digest).toContain("S&P 500 up/down");
 		expect(digest).toContain("Fed cut by '27");
 		expect(digest).not.toContain("Recession '26");
 	}, 30_000);
 
-	it("keeps SPX curated market on Up/Down (not Yes/No)", async () => {
+	it("keeps SPX curated market on Up/Down when active", async () => {
 		const cards = await fetchCuratedPredictionMarketCards({ logger });
 		const spx = cards.find((c) => c.key === "spx_opens_up_down");
-		expect(spx).toBeDefined();
-		expect(spx?.outcomes.map((o) => o.label).sort()).toEqual(["Down", "Up"]);
+		if (!spx) return; // allowInactive — skip when dated slug has resolved
+		expect(spx.outcomes.map((o) => o.label).sort()).toEqual(["Down", "Up"]);
+		expect(formatPredictionMarketsDigestText({ assetCards: [], macroCards: cards })).toContain(
+			"S&P 500 up/down",
+		);
 	}, 30_000);
 });

@@ -20,7 +20,9 @@ export const CURATED_PREDICTION_MARKETS: readonly CuratedPredictionMarket[] = [
 		key: "spx_opens_up_down",
 		label: "S&P 500 up/down",
 		venue: "polymarket",
+		// Dated daily market — rotate the slug when this session resolves.
 		polymarketSlug: "spx-opens-up-or-down-on-july-31-2026",
+		allowInactive: true,
 	},
 	{
 		key: "us_china_tariff_deal",

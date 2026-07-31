@@ -26,6 +26,7 @@ describe("CURATED_PREDICTION_MARKETS", () => {
 			venue: "polymarket",
 			polymarketSlug: "spx-opens-up-or-down-on-july-31-2026",
 			label: "S&P 500 up/down",
+			allowInactive: true,
 		});
 	});
 });

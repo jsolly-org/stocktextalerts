@@ -19,6 +19,9 @@ export default getViteConfig(
 		test: {
 			setupFiles: ["./tests/setup.ts"],
 			include: ["tests/**/*.test.ts"],
+			// Live vendor HTTP belongs on live-provider-check (Lambda), not default CI Vitest.
+			// Opt in locally: LIVE_PREDICTION_MARKETS=1 npx vitest tests/**/*.live.test.ts
+			exclude: ["tests/**/*.live.test.ts"],
 			// Run test files sequentially; they share Supabase state and can race otherwise.
 			fileParallelism: false,
 			sequence: {
