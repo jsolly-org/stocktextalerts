@@ -70,8 +70,9 @@ async function buildMacroCards(options: {
  * Build grouped prediction-market content for one digest user:
  * stored asset event cards + next-session up/down fill-in + curated macro.
  *
+ * Asset cards are next-session up/down only (no KPI / subject fallback).
  * One-shot discovery never sees rotating Polymarket dailies, so when DB cards
- * lack a future-session up/down we probe the deterministic slug and prefer it.
+ * lack a future-session up/down we probe the deterministic slug and use it.
  */
 export async function buildPredictionMarketsDigestContent(options: {
 	supabase: SupabaseAdminClient;
