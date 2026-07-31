@@ -109,6 +109,30 @@ export function selectAssetEventCards(
 }
 
 /**
+ * True when cards already include a fresh daily up/down for a future ET session
+ * (the preferred digest lane). Used to skip live direction probes.
+ */
+export function hasFutureDailyDirectionMarket(
+	cards: readonly PredictionMarketEventCard[],
+	options: { nowMs?: number } = {},
+): boolean {
+	const nowMs = options.nowMs ?? Date.now();
+	const todayEt = todayDateEt(nowMs);
+	if (todayEt === null) return false;
+	return cards.some(
+		(c) =>
+			isDailyDirectionMarket(c) &&
+			c.outcomes.length > 0 &&
+			isFresh(c.refreshedAt, nowMs) &&
+			(c.closesAt === null || isFutureClose(c.closesAt, nowMs)) &&
+			(() => {
+				const session = sessionDateEt(c);
+				return session !== null && session > todayEt;
+			})(),
+	);
+}
+
+/**
  * Order asset cards by watchlist order (newest-first symbols), then within
  * each symbol keep selection order (at most one card per symbol).
  */

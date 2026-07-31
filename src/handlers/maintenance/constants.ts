@@ -27,6 +27,12 @@ export const PM_DISCOVERY_MIN_REMAINING_MS = 240_000;
 export const PM_REFRESH_MIN_REMAINING_MS = 300_000;
 
 /**
+ * Next-session Polymarket daily up/down probe for every tracked symbol.
+ * Additive upserts; soft-fail missing slugs.
+ */
+export const PM_DIRECTION_PROBE_MIN_REMAINING_MS = 180_000;
+
+/**
  * SEC EDGAR filings ingest: company tickers map + one submissions poll per
  * distinct tracked CIK (polite delay). Soft-fail vendor; remaining-time gate.
  */
