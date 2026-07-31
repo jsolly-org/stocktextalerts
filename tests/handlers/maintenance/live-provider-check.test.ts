@@ -46,6 +46,9 @@ vi.mock("../../../src/lib/vendors/polymarket", () => ({
 vi.mock("../../../src/lib/vendors/kalshi", () => ({
 	kalshiFetch: vi.fn(),
 }));
+vi.mock("../../../src/lib/prediction-markets/fetch", () => ({
+	fetchCuratedPredictionMarketCards: vi.fn(),
+}));
 // Distinct from the committed stub ("dev") so the success payload proves the handler
 // echoes the build-stamped RELEASE_ID used by deploy.yml's freshness assert.
 const { STAMPED_RELEASE_ID } = vi.hoisted(() => ({
@@ -66,6 +69,9 @@ import { fetchAssetPricesWithSessionState } from "../../../src/lib/market-data/p
 import { getCurrentMarketSession } from "../../../src/lib/market-data/session";
 import { checkTelegramLive } from "../../../src/lib/messaging/telegram/health";
 import { renderChartPng } from "../../../src/lib/messaging/telegram/render-png";
+import { CURATED_PREDICTION_MARKETS } from "../../../src/lib/prediction-markets/catalog";
+import { fetchCuratedPredictionMarketCards } from "../../../src/lib/prediction-markets/fetch";
+import type { PredictionMarketEventCard } from "../../../src/lib/prediction-markets/types";
 import { kalshiFetch } from "../../../src/lib/vendors/kalshi";
 import { polymarketFetch } from "../../../src/lib/vendors/polymarket";
 
@@ -120,6 +126,59 @@ function stubHealthyProviders(): void {
 		}
 		return { markets: [{ ticker: "KXTSLA-26", title: "Tesla" }] };
 	});
+	vi.mocked(fetchCuratedPredictionMarketCards).mockResolvedValue(
+		CURATED_PREDICTION_MARKETS.map(
+			(market): PredictionMarketEventCard => ({
+				key: market.key,
+				title: market.label,
+				venue: market.venue,
+				url: "https://example.com",
+				shape: "binary",
+				shapeValidated: true,
+				closesAt: null,
+				refreshedAt: new Date().toISOString(),
+				volume: 1,
+				outcomes:
+					market.key === "spx_opens_up_down"
+						? [
+								{
+									venueContractId: "up",
+									label: "Up",
+									probabilityPercent: 55,
+									sortOrder: 0,
+									strikeValue: null,
+									volume: 1,
+								},
+								{
+									venueContractId: "down",
+									label: "Down",
+									probabilityPercent: 45,
+									sortOrder: 1,
+									strikeValue: null,
+									volume: 1,
+								},
+							]
+						: [
+								{
+									venueContractId: "yes",
+									label: "Yes",
+									probabilityPercent: 20,
+									sortOrder: 0,
+									strikeValue: null,
+									volume: 1,
+								},
+								{
+									venueContractId: "no",
+									label: "No",
+									probabilityPercent: 80,
+									sortOrder: 1,
+									strikeValue: null,
+									volume: 1,
+								},
+							],
+			}),
+		),
+	);
 }
 
 describe("live-provider-check Lambda", () => {
@@ -266,6 +325,105 @@ describe("live-provider-check Lambda", () => {
 		});
 		expectConsoleError(/Live provider checks failed/);
 		await expect(handler(event, context)).rejects.toThrow(/kalshi:companies-series/);
+	});
+
+	it("A curated macro strip with missing/malformed cards fails the check and pages", async () => {
+		vi.mocked(fetchCuratedPredictionMarketCards).mockResolvedValue([]);
+		expectConsoleError(/Live provider checks failed/);
+		await expect(handler(event, context)).rejects.toThrow(/prediction-markets:curated-macro/);
+	});
+
+	it("A curated macro strip may omit allowInactive markets without paging", async () => {
+		const cards = CURATED_PREDICTION_MARKETS.filter((m) => !m.allowInactive).map(
+			(market): PredictionMarketEventCard => ({
+				key: market.key,
+				title: market.label,
+				venue: market.venue,
+				url: "https://example.com",
+				shape: "binary",
+				shapeValidated: true,
+				closesAt: null,
+				refreshedAt: new Date().toISOString(),
+				volume: 1,
+				outcomes: [
+					{
+						venueContractId: "yes",
+						label: "Yes",
+						probabilityPercent: 20,
+						sortOrder: 0,
+						strikeValue: null,
+						volume: 1,
+					},
+					{
+						venueContractId: "no",
+						label: "No",
+						probabilityPercent: 80,
+						sortOrder: 1,
+						strikeValue: null,
+						volume: 1,
+					},
+				],
+			}),
+		);
+		vi.mocked(fetchCuratedPredictionMarketCards).mockResolvedValue(cards);
+		await expect(handler(event, context)).resolves.toMatchObject({ ok: true });
+	});
+
+	it("A curated macro strip missing a required (non-allowInactive) market pages", async () => {
+		const cards = CURATED_PREDICTION_MARKETS.filter((m) => m.key !== "fed_cut_by_2027").map(
+			(market): PredictionMarketEventCard => ({
+				key: market.key,
+				title: market.label,
+				venue: market.venue,
+				url: "https://example.com",
+				shape: "binary",
+				shapeValidated: true,
+				closesAt: null,
+				refreshedAt: new Date().toISOString(),
+				volume: 1,
+				outcomes:
+					market.key === "spx_opens_up_down"
+						? [
+								{
+									venueContractId: "up",
+									label: "Up",
+									probabilityPercent: 55,
+									sortOrder: 0,
+									strikeValue: null,
+									volume: 1,
+								},
+								{
+									venueContractId: "down",
+									label: "Down",
+									probabilityPercent: 45,
+									sortOrder: 1,
+									strikeValue: null,
+									volume: 1,
+								},
+							]
+						: [
+								{
+									venueContractId: "yes",
+									label: "Yes",
+									probabilityPercent: 20,
+									sortOrder: 0,
+									strikeValue: null,
+									volume: 1,
+								},
+								{
+									venueContractId: "no",
+									label: "No",
+									probabilityPercent: 80,
+									sortOrder: 1,
+									strikeValue: null,
+									volume: 1,
+								},
+							],
+			}),
+		);
+		vi.mocked(fetchCuratedPredictionMarketCards).mockResolvedValue(cards);
+		expectConsoleError(/Live provider checks failed/);
+		await expect(handler(event, context)).rejects.toThrow(/prediction-markets:curated-macro/);
 	});
 
 	it("An invalid bot token (getMe returns no bot id) fails the check and pages", async () => {

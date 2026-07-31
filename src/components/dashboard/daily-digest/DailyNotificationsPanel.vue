@@ -246,9 +246,8 @@
 							id="daily_digest_include_prediction_markets_description"
 							class="text-sm text-body-secondary mt-0.5"
 						>
-							Daily odds from Kalshi and Polymarket for your tracked assets when
-							company-specific markets exist, plus curated macro context (Fed, recession,
-							tariffs, and more). Macro odds include day-over-day moves.
+							One market per tracked asset (prefer tomorrow's up/down), plus curated
+							macro context (Fed, S&P 500, tariffs, and more).
 						</p>
 					</div>
 					<div class="shrink-0">

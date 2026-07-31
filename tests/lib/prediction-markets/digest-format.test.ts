@@ -85,6 +85,8 @@ describe("formatPredictionMarketsDigest*", () => {
 		expect(text).toContain("No");
 		expect(text).not.toContain("Updated");
 		expect(text).not.toContain("Closes");
+		expect(text).not.toContain("Kalshi");
+		expect(text).not.toContain("Polymarket");
 	});
 
 	it("puts Your Assets before Macro Weather in Telegram", () => {
@@ -95,6 +97,8 @@ describe("formatPredictionMarketsDigest*", () => {
 			formatted?.text.indexOf("Macro Weather") ?? 0,
 		);
 		expect(formatted?.text).toContain("█");
+		expect(formatted?.text).not.toContain("Kalshi");
+		expect(formatted?.text).not.toContain("Polymarket");
 	});
 
 	it("puts Your Assets before Macro Weather in email HTML", () => {
@@ -103,6 +107,8 @@ describe("formatPredictionMarketsDigest*", () => {
 		expect(html).toContain("Macro Weather");
 		expect(html?.indexOf("Your Assets")).toBeLessThan(html?.indexOf("Macro Weather") ?? 0);
 		expect(html).toContain("View full market");
+		expect(html).not.toContain("Kalshi");
+		expect(html).not.toContain(">Polymarket<");
 	});
 
 	it("macro-only fallback works when asset markets are empty", () => {
