@@ -69,9 +69,16 @@ export async function persistDiscoveredMatches(options: {
 	logger: Logger;
 	symbol: string;
 	markets: readonly DiscoveredPredictionEvent[];
+	/**
+	 * When true (default), reject prior accepted matches not in this batch.
+	 * When false, upsert additively (next-session direction probe).
+	 */
+	replaceAcceptedSet?: boolean;
 }): Promise<number> {
 	const { supabase, logger, symbol, markets } = options;
+	const replaceAcceptedSet = options.replaceAcceptedSet !== false;
 	if (markets.length === 0) {
+		if (!replaceAcceptedSet) return 0;
 		const { error } = await supabase
 			.from("asset_prediction_market_matches")
 			.update({ decision: "rejected", evaluated_at: new Date().toISOString() })
@@ -180,6 +187,10 @@ export async function persistDiscoveredMatches(options: {
 
 	if (markets.length > 0 && stored === 0) {
 		throw new Error(`Failed to persist any prediction-market matches for ${symbol}`);
+	}
+
+	if (!replaceAcceptedSet) {
+		return stored;
 	}
 
 	const { data: prior, error: priorError } = await supabase
@@ -369,6 +380,37 @@ export async function loadUncheckedTrackedSymbols(options: {
 				delisted_at: string | null;
 			};
 			if (!assets || assets.delisted_at || assets.pm_discovery_checked_at) continue;
+			if (seen.has(row.symbol)) continue;
+			seen.add(row.symbol);
+			out.push({ symbol: row.symbol, name: assets.name });
+		}
+		if (rows.length < PAGE_SIZE) break;
+	}
+	return out;
+}
+
+/** All distinct tracked (non-delisted) symbols — for nightly direction probes. */
+export async function loadDistinctTrackedSymbols(options: {
+	supabase: SupabaseAdminClient;
+}): Promise<Array<{ symbol: string; name: string }>> {
+	const { supabase } = options;
+	const seen = new Set<string>();
+	const out: Array<{ symbol: string; name: string }> = [];
+	const PAGE_SIZE = 1000;
+	for (let from = 0; ; from += PAGE_SIZE) {
+		const { data: tracked, error: trackedError } = await supabase
+			.from("user_assets")
+			.select("symbol, assets!inner(name, delisted_at)")
+			.order("symbol", { ascending: true })
+			.range(from, from + PAGE_SIZE - 1);
+		if (trackedError) throw trackedError;
+		const rows = tracked ?? [];
+		for (const row of rows) {
+			const assets = row.assets as unknown as {
+				name: string;
+				delisted_at: string | null;
+			};
+			if (!assets || assets.delisted_at) continue;
 			if (seen.has(row.symbol)) continue;
 			seen.add(row.symbol);
 			out.push({ symbol: row.symbol, name: assets.name });

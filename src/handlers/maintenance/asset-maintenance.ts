@@ -22,10 +22,12 @@ import { createLogger, type Logger } from "../../lib/logging";
 import { RELEASE_ID } from "../../lib/logging/release-id";
 import { runLambda } from "../../lib/logging/request-context";
 import { createEmailSender } from "../../lib/messaging/email/utils";
+import { runNextSessionDirectionProbe } from "../../lib/prediction-markets/direction-probe";
 import { runPredictionMarketDiscoveryDrip } from "../../lib/prediction-markets/pipeline";
 import { refreshActivePredictionMarketSnapshots } from "../../lib/prediction-markets/refresh";
 import { enqueueAssetEventsIngestRetry } from "../../lib/vendors/backfill/enqueue";
 import {
+	PM_DIRECTION_PROBE_MIN_REMAINING_MS,
 	PM_DISCOVERY_MIN_REMAINING_MS,
 	PM_REFRESH_MIN_REMAINING_MS,
 	RECONCILE_MIN_REMAINING_MS,
@@ -174,6 +176,36 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				logger.error(
 					"Prediction-market snapshot refresh failed",
 					{ action: "daily_pm_refresh" },
+					error,
+				);
+			}
+		}
+
+		// Rotating Polymarket daily up/down markets are created ~noon UTC the day
+		// before the session. One-shot discovery never sees them — probe the
+		// deterministic slug for every tracked symbol and upsert additively.
+		if (
+			stepFitsRemainingTime(
+				context,
+				logger,
+				"pm_direction_probe",
+				PM_DIRECTION_PROBE_MIN_REMAINING_MS,
+			)
+		) {
+			try {
+				const probeResult = await runNextSessionDirectionProbe({
+					supabase,
+					logger,
+					getRemainingTimeInMillis: () => context.getRemainingTimeInMillis(),
+				});
+				logger.info("Prediction-market next-session direction probe complete", {
+					action: "daily_pm_direction_probe",
+					...probeResult,
+				});
+			} catch (error) {
+				logger.error(
+					"Prediction-market next-session direction probe failed",
+					{ action: "daily_pm_direction_probe" },
 					error,
 				);
 			}
