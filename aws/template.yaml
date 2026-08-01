@@ -155,11 +155,10 @@ Resources:
       FunctionName: stocktextalerts-asset-maintenance
       Handler: asset-maintenance.handler
       CodeUri: src/handlers
-      # 900s: nightly work spans Massive corporate actions, universe reconcile,
-      # branding drip, delisting confirms, plus Finnhub earnings/recommendation/insider
-      # ingest and prediction-market discovery. Remaining-time guards skip steps that
-      # can't fit; 900s is Lambda's hard max and absorbs retries / slow vendor days.
-      Timeout: 900
+      # 600s: measured ~258–270s after dropping watermark-driven icon fanout
+      # (2026-08-01 manual invokes). Headroom covers Polymarket discovery slowdowns
+      # and vendor jitter; remaining-time guards still skip steps that can't fit.
+      Timeout: 600
       MemorySize: 512
       LoggingConfig:
         LogGroup: !Ref AssetMaintenanceLogGroup
