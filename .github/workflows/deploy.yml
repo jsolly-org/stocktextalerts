@@ -49,7 +49,7 @@ jobs:
           # workflow_run default checkout is the workflow file's default branch tip,
           # not the CI commit — pin to the SHA that just passed CI.
           ref: ${{ env.DEPLOY_SHA }}
-          # Depth 2 so "Refuse infra-only deploys" can diff HEAD against its parent.
+          # Depth 2 so "Classify deploy scope" can diff HEAD against its parent.
           # At the default depth 1 the parent object is absent and `git diff-tree HEAD`
           # prints NOTHING — the gate passed vacuously for every commit (caught 2026-07-03
           # when a template.yaml-touching commit sailed through).
@@ -95,7 +95,12 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Refuse infra-only deploys
+      # Pure infra commits (template.yaml / deploy.sh only) must not red the Deploy
+      # workflow — code deploy is a no-op for them, and a failed conclusion looks like
+      # a production outage. Skip code + live-provider; still run infra-drift so a
+      # forgotten `npm run deploy:infra` fails closed (Timeout/MemorySize parity).
+      - name: Classify deploy scope
+        id: deploy_scope
         run: |
           set -euo pipefail
           changed="$(git diff-tree --no-commit-id --name-only -r HEAD)"
@@ -106,37 +111,45 @@ jobs:
             echo "git diff-tree returned no files (shallow checkout?) — cannot verify the landed commit; refusing deploy."
             exit 1
           fi
-          # Refuse ONLY when the commit is pure infra (template/deploy.sh and nothing
-          # else). A mixed commit that also lands app/handler/migration changes must
-          # still run code+migration deploy — blocking those left Lambdas stale until
-          # a later tip deploy (and blocked migrations entirely for that commit).
+          # Pure infra (template/deploy.sh and nothing else): skip code deploy green.
+          # Mixed commits that also land app/handler/migration changes must still run
+          # code+migration deploy — blocking those left Lambdas stale until a later
+          # tip deploy (and blocked migrations entirely for that commit).
           # CloudFormation still needs a manual `npm run deploy:infra`; the infra-drift
           # check below + update-function-code failures on brand-new functions catch that.
+          skip_code_deploy=false
           if grep -Eq '^aws/(template\.yaml|deploy\.sh)$' <<<"$changed"; then
             non_infra="$(grep -Ev '^aws/(template\.yaml|deploy\.sh)$' <<<"$changed" || true)"
             if [ -z "$non_infra" ]; then
-              echo "Commit only changes aws/template.yaml and/or aws/deploy.sh."
-              echo "Run npm run deploy:infra manually with admin credentials."
-              exit 1
+              skip_code_deploy=true
+              echo "::notice::Pure infra commit (aws/template.yaml and/or aws/deploy.sh only)."
+              echo "Skipping migrations + Lambda code update + live-provider check."
+              echo "Run npm run deploy:infra manually with admin credentials if not already applied."
+              echo "Infra-drift check still runs to verify Timeout/MemorySize parity."
+            else
+              echo "::warning::aws/template.yaml or aws/deploy.sh changed alongside app code."
+              echo "Proceeding with migrations + Lambda code update. Still run npm run deploy:infra"
+              echo "for new resources / env / IAM / schedule changes. Infra-drift check only"
+              echo "enforces Timeout/MemorySize parity — it will not catch env or IAM drift."
             fi
-            echo "::warning::aws/template.yaml or aws/deploy.sh changed alongside app code."
-            echo "Proceeding with migrations + Lambda code update. Still run npm run deploy:infra"
-            echo "for new resources / env / IAM / schedule changes. Infra-drift check only"
-            echo "enforces Timeout/MemorySize parity — it will not catch env or IAM drift."
           fi
+          echo "skip_code_deploy=${skip_code_deploy}" >> "$GITHUB_OUTPUT"
 
       - name: Deploy migrations and Lambdas
+        if: steps.deploy_scope.outputs.skip_code_deploy != 'true'
         run: bash aws/deploy-web.sh --deploy-ci
 
       # Fails red when the deployed Lambda config (Timeout/MemorySize) drifts from
       # aws/template.yaml — i.e. a committed infra change whose manual `deploy:infra`
       # hasn't run yet. Code deploys ride this workflow; infra does not, so this is
       # the only automated signal for the "code half deployed, infra half pending"
-      # gap (the 2026-07-07 asset-maintenance timeout incident).
+      # gap (the 2026-07-07 asset-maintenance timeout incident). Also the sole Deploy
+      # assert for pure-infra commits (code deploy skipped above).
       - name: Infra drift check
         run: npm run check:infra-drift
 
       - name: Live provider check
+        if: steps.deploy_scope.outputs.skip_code_deploy != 'true'
         run: |
           set -euo pipefail
           payload="{\"id\":\"github-actions-deploy\",\"time\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
