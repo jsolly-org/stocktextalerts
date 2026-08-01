@@ -30,6 +30,27 @@ function card(
 	};
 }
 
+function upDownOutcomes(upPercent: number, downPercent: number) {
+	return [
+		{
+			venueContractId: "up",
+			label: "Up",
+			probabilityPercent: upPercent,
+			sortOrder: 0,
+			strikeValue: null,
+			volume: 600,
+		},
+		{
+			venueContractId: "down",
+			label: "Down",
+			probabilityPercent: downPercent,
+			sortOrder: 1,
+			strikeValue: null,
+			volume: 600,
+		},
+	];
+}
+
 describe("selectAssetEventCards", () => {
 	const nowMs = Date.parse("2026-07-10T12:00:00.000Z");
 
@@ -76,24 +97,7 @@ describe("selectAssetEventCards", () => {
 					volume: 1200,
 					symbol: "NVDA",
 					matchKind: "direct_price",
-					outcomes: [
-						{
-							venueContractId: "up",
-							label: "Up",
-							probabilityPercent: 55,
-							sortOrder: 0,
-							strikeValue: null,
-							volume: 600,
-						},
-						{
-							venueContractId: "down",
-							label: "Down",
-							probabilityPercent: 45,
-							sortOrder: 1,
-							strikeValue: null,
-							volume: 600,
-						},
-					],
+					outcomes: upDownOutcomes(55, 45),
 				}),
 			],
 			{ nowMs },
@@ -113,24 +117,7 @@ describe("selectAssetEventCards", () => {
 					volume: 9000,
 					symbol: "NVDA",
 					matchKind: "direct_price",
-					outcomes: [
-						{
-							venueContractId: "up",
-							label: "Up",
-							probabilityPercent: 55,
-							sortOrder: 0,
-							strikeValue: null,
-							volume: 600,
-						},
-						{
-							venueContractId: "down",
-							label: "Down",
-							probabilityPercent: 45,
-							sortOrder: 1,
-							strikeValue: null,
-							volume: 600,
-						},
-					],
+					outcomes: upDownOutcomes(55, 45),
 				}),
 				card({
 					key: "tomorrow",
@@ -139,24 +126,7 @@ describe("selectAssetEventCards", () => {
 					volume: 1200,
 					symbol: "NVDA",
 					matchKind: "direct_price",
-					outcomes: [
-						{
-							venueContractId: "up",
-							label: "Up",
-							probabilityPercent: 52,
-							sortOrder: 0,
-							strikeValue: null,
-							volume: 600,
-						},
-						{
-							venueContractId: "down",
-							label: "Down",
-							probabilityPercent: 48,
-							sortOrder: 1,
-							strikeValue: null,
-							volume: 600,
-						},
-					],
+					outcomes: upDownOutcomes(52, 48),
 				}),
 				card({
 					key: "week-out",
@@ -165,24 +135,7 @@ describe("selectAssetEventCards", () => {
 					volume: 800,
 					symbol: "NVDA",
 					matchKind: "direct_price",
-					outcomes: [
-						{
-							venueContractId: "up",
-							label: "Up",
-							probabilityPercent: 50,
-							sortOrder: 0,
-							strikeValue: null,
-							volume: 400,
-						},
-						{
-							venueContractId: "down",
-							label: "Down",
-							probabilityPercent: 50,
-							sortOrder: 1,
-							strikeValue: null,
-							volume: 400,
-						},
-					],
+					outcomes: upDownOutcomes(50, 50),
 				}),
 			],
 			{ nowMs: july30NoonEt },
@@ -190,7 +143,7 @@ describe("selectAssetEventCards", () => {
 		expect(selected.map((c) => c.key)).toEqual(["tomorrow"]);
 	});
 
-	it("skips today's up/down and falls back when no next-day direction market exists", () => {
+	it("returns empty when only today's up/down and non-direction markets exist", () => {
 		const july30NoonEt = Date.parse("2026-07-30T16:00:00.000Z");
 		const selected = selectAssetEventCards(
 			[
@@ -201,24 +154,7 @@ describe("selectAssetEventCards", () => {
 					volume: 9000,
 					symbol: "NVDA",
 					matchKind: "direct_price",
-					outcomes: [
-						{
-							venueContractId: "up",
-							label: "Up",
-							probabilityPercent: 55,
-							sortOrder: 0,
-							strikeValue: null,
-							volume: 600,
-						},
-						{
-							venueContractId: "down",
-							label: "Down",
-							probabilityPercent: 45,
-							sortOrder: 1,
-							strikeValue: null,
-							volume: 600,
-						},
-					],
+					outcomes: upDownOutcomes(55, 45),
 				}),
 				card({
 					key: "subject",
@@ -228,13 +164,29 @@ describe("selectAssetEventCards", () => {
 					symbol: "NVDA",
 					matchKind: "company_subject",
 				}),
+				card({
+					key: "kpi",
+					title: "Will Palantir report above 1060 total customers in Q2 2026?",
+					closesAt: "2026-08-15T00:00:00.000Z",
+					volume: 5000,
+					symbol: "PLTR",
+					matchKind: "kpi",
+				}),
+				card({
+					key: "eom-updown",
+					title: "SpaceX Closing Price Up/Down End of July?",
+					closesAt: "2026-07-31T20:00:00.000Z",
+					volume: 3000,
+					symbol: "SPCX",
+					matchKind: "company_subject",
+				}),
 			],
 			{ nowMs: july30NoonEt },
 		);
-		expect(selected.map((c) => c.key)).toEqual(["subject"]);
+		expect(selected).toEqual([]);
 	});
 
-	it("skips price-target markets when only company-subject dated cards remain", () => {
+	it("returns empty for KPI and company-subject markets (no direction fallback)", () => {
 		const selected = selectAssetEventCards(
 			[
 				card({
@@ -247,55 +199,29 @@ describe("selectAssetEventCards", () => {
 				}),
 				card({
 					key: "subject",
-					title: "NVDA earnings beat?",
+					title: "Largest Company end of July?",
 					closesAt: "2026-08-01T00:00:00.000Z",
 					volume: 2000,
 					symbol: "NVDA",
 					matchKind: "company_subject",
 				}),
-			],
-			{ nowMs },
-		);
-		expect(selected.map((c) => c.key)).toEqual(["subject"]);
-	});
-
-	it("picks only the soonest future close and rejects expired", () => {
-		const selected = selectAssetEventCards(
-			[
 				card({
-					key: "expired",
-					title: "Expired",
-					closesAt: "2026-07-01T00:00:00.000Z",
-				}),
-				card({
-					key: "late",
-					title: "Late",
-					closesAt: "2026-09-01T00:00:00.000Z",
-				}),
-				card({
-					key: "soon",
-					title: "Soon",
-					closesAt: "2026-07-15T00:00:00.000Z",
-				}),
-				card({
-					key: "sooner",
-					title: "Sooner",
-					closesAt: "2026-07-12T00:00:00.000Z",
-				}),
-			],
-			{ nowMs },
-		);
-		expect(selected.map((c) => c.key)).toEqual(["sooner"]);
-	});
-
-	it("omits stale snapshots older than 48h", () => {
-		const selected = selectAssetEventCards(
-			[
-				card({
-					key: "stale",
-					title: "Stale",
-					closesAt: "2026-08-01T00:00:00.000Z",
-					refreshedAt: "2026-07-07T00:00:00.000Z",
+					key: "ongoing",
+					title: "Next NVIDIA GPU architecture",
+					closesAt: null,
+					volume: 5000,
+					symbol: "NVDA",
+					outcomes: [
+						{
+							venueContractId: "yes",
+							label: "Yes",
+							probabilityPercent: 55,
+							sortOrder: 0,
+							strikeValue: null,
+							volume: 5000,
+							highlighted: true,
+						},
+					],
 				}),
 			],
 			{ nowMs },
@@ -303,88 +229,22 @@ describe("selectAssetEventCards", () => {
 		expect(selected).toEqual([]);
 	});
 
-	it("prefers a dated company-subject close over higher-volume ongoing for the same ticker", () => {
+	it("omits stale next-day up/down snapshots older than 48h", () => {
 		const selected = selectAssetEventCards(
 			[
 				card({
-					key: "d1",
-					title: "Google product launch in July?",
-					closesAt: "2026-07-20T00:00:00.000Z",
-					volume: 100,
-					symbol: "GOOGL",
-					matchKind: "company_subject",
-				}),
-				card({
-					key: "d2",
-					title: "Google product launch in August?",
-					closesAt: "2026-07-25T00:00:00.000Z",
-					volume: 300,
-					symbol: "GOOGL",
-					matchKind: "company_subject",
-				}),
-				card({
-					key: "ongoing",
-					title: "Next Google Gemini Pro Model",
-					closesAt: null,
-					volume: 2500,
-					symbol: "GOOGL",
-					outcomes: [
-						{
-							venueContractId: "yes",
-							label: "Yes",
-							probabilityPercent: 40,
-							sortOrder: 0,
-							strikeValue: null,
-							volume: 2500,
-							highlighted: true,
-						},
-					],
+					key: "stale",
+					title: "NVIDIA (NVDA) Up or Down on July 15?",
+					closesAt: "2026-07-15T20:00:00.000Z",
+					refreshedAt: "2026-07-07T00:00:00.000Z",
+					symbol: "NVDA",
+					matchKind: "direct_price",
+					outcomes: upDownOutcomes(55, 45),
 				}),
 			],
 			{ nowMs },
 		);
-		expect(selected.map((c) => c.key)).toEqual(["d1"]);
-	});
-
-	it("falls back to the highest-volume title-salient ongoing when no dated close", () => {
-		const selected = selectAssetEventCards(
-			[
-				card({
-					key: "quiet",
-					title: "Quiet Google rumor",
-					closesAt: null,
-					volume: 50,
-					symbol: "GOOGL",
-				}),
-				card({
-					key: "ongoing",
-					title: "Next Google Gemini Pro Model",
-					closesAt: null,
-					volume: 250,
-					symbol: "GOOGL",
-					outcomes: [
-						{
-							venueContractId: "yes",
-							label: "Yes",
-							probabilityPercent: 40,
-							sortOrder: 0,
-							strikeValue: null,
-							volume: 250,
-							highlighted: true,
-						},
-					],
-				}),
-				card({
-					key: "zero",
-					title: "Zero volume GOOGL",
-					closesAt: null,
-					volume: 0,
-					symbol: "GOOGL",
-				}),
-			],
-			{ nowMs },
-		);
-		expect(selected.map((c) => c.key)).toEqual(["ongoing"]);
+		expect(selected).toEqual([]);
 	});
 
 	it("never returns more than one card even when many NVDA markets match", () => {
@@ -412,6 +272,7 @@ describe("selectAssetEventCards", () => {
 				volume: 500,
 				symbol: "NVDA",
 				matchKind: "direct_price",
+				outcomes: upDownOutcomes(55, 45),
 			}),
 			card({
 				key: "nvda-dated-c",
