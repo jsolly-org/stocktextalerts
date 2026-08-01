@@ -119,7 +119,9 @@ function stubHealthySteps(): void {
 		referenceWatermarksBootstrapped: 0,
 		insertChunksFailed: 0,
 		delistedCleared: 2,
+		untrackedDelistCandidates: 5,
 		untrackedDelistedFlagged: 5,
+		untrackedDelistUnconfirmed: 0,
 		delistFlagSkippedShrunkActive: false,
 		warmupEnqueued: 18,
 		warmupEnqueueFailed: 0,
@@ -174,17 +176,22 @@ describe("asset-maintenance Lambda orchestration", () => {
 		infoSpy.mockRestore();
 	});
 
-	it("On a Sunday tick the nightly universe reconcile runs before the sweep", async () => {
+	it("On a Sunday tick the nightly delisting sweep runs before universe reconcile", async () => {
 		vi.setSystemTime(SUNDAY_UTC);
 
 		await handler(event, makeContext(AMPLE_REMAINING_MS));
 
+		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
 		expect(runUniverseReconcile).toHaveBeenCalledTimes(1);
+		const sweepOrder = vi.mocked(runDelistingSweep).mock.invocationCallOrder[0];
+		const reconcileOrder = vi.mocked(runUniverseReconcile).mock.invocationCallOrder[0];
+		expect(sweepOrder).toBeDefined();
+		expect(reconcileOrder).toBeDefined();
+		expect(sweepOrder as number).toBeLessThan(reconcileOrder as number);
 		expect(loggedMessages(infoSpy)).toContainEqual("Universe reconcile complete");
 		expect(refreshActivePredictionMarketSnapshots).toHaveBeenCalledTimes(1);
 		expect(runNextSessionDirectionProbe).toHaveBeenCalledTimes(1);
 		expect(runPredictionMarketDiscoveryDrip).toHaveBeenCalledTimes(1);
-		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
 	});
 
 	it("On a Wednesday tick the reconcile and every other nightly step run", async () => {

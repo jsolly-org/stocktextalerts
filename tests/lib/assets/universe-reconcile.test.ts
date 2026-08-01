@@ -310,13 +310,11 @@ describe("runUniverseReconcile", () => {
 		expect(Date.parse(row?.reference_updated_utc ?? "")).toBe(Date.parse(watermark));
 	});
 
-	it("Force-refreshes name + icon when Massive last_updated_utc advances past the stored watermark.", async () => {
+	it("Advances name + watermark from the list feed when last_updated_utc advances — without probing icons.", async () => {
 		const symbol = `${TEST_PREFIX}ADV`;
 		createdSymbols.push(symbol);
 		const oldIcon =
 			"https://api.massive.com/v1/reference/company-branding/x/images/2024-01-01_icon.png";
-		const newIcon =
-			"https://api.massive.com/v1/reference/company-branding/x/images/2026-07-01_icon.png";
 		await upsertAssets([
 			{
 				symbol,
@@ -329,17 +327,9 @@ describe("runUniverseReconcile", () => {
 			},
 		]);
 
-		const ensureIcon = vi.fn().mockImplementation(async ({ symbol: s }: { symbol: string }) => {
-			await adminClient
-				.from("assets")
-				.update({
-					icon_url: newIcon,
-					icon_checked_at: new Date().toISOString(),
-					icon_base64: null,
-				})
-				.eq("symbol", s);
-			return { probed: true, iconUrl: newIcon };
-		});
+		const ensureIcon = vi
+			.fn()
+			.mockResolvedValue({ probed: true, iconUrl: "https://example.com/x.png" });
 
 		const active = [
 			makeActiveTicker({
@@ -361,26 +351,26 @@ describe("runUniverseReconcile", () => {
 		expect(result.tickersRefreshed).toBe(1);
 		expect(result.namesUpdated).toBe(1);
 		expect(result.referenceWatermarksBootstrapped).toBe(0);
-		expect(ensureIcon).toHaveBeenCalledWith(expect.objectContaining({ symbol, force: true }));
+		expect(ensureIcon).not.toHaveBeenCalled();
 		const row = await getAsset(symbol);
 		expect(row?.name).toBe("New Name Corp");
 		expect(Date.parse(row?.reference_updated_utc ?? "")).toBe(Date.parse("2026-07-01T00:00:00Z"));
-		expect(row?.icon_url).toBe(newIcon);
+		expect(row?.icon_url).toBe(oldIcon);
 	});
 
-	it("Does not advance reference_updated_utc when the force icon probe fails.", async () => {
+	it("Advances reference_updated_utc on watermark advance without calling ensureIcon.", async () => {
 		const symbol = `${TEST_PREFIX}HOLD`;
 		createdSymbols.push(symbol);
-		const oldWatermark = "2026-01-01T00:00:00Z";
+		const oldIcon =
+			"https://api.massive.com/v1/reference/company-branding/x/images/2024-01-01_icon.png";
 		await upsertAssets([
 			{
 				symbol,
 				name: "Hold Watermark Inc",
 				type: "stock",
-				icon_url:
-					"https://api.massive.com/v1/reference/company-branding/x/images/2024-01-01_icon.png",
+				icon_url: oldIcon,
 				icon_checked_at: "2026-01-01T00:00:00Z",
-				reference_updated_utc: oldWatermark,
+				reference_updated_utc: "2026-01-01T00:00:00Z",
 			},
 		]);
 
@@ -402,10 +392,12 @@ describe("runUniverseReconcile", () => {
 			ensureIconChecked: ensureIcon,
 		});
 
-		expect(result.tickersRefreshed).toBe(0);
-		expect(ensureIcon).toHaveBeenCalledWith(expect.objectContaining({ force: true }));
+		expect(result.tickersRefreshed).toBe(1);
+		expect(result.namesUpdated).toBe(0);
+		expect(ensureIcon).not.toHaveBeenCalled();
 		const row = await getAsset(symbol);
-		expect(Date.parse(row?.reference_updated_utc ?? "")).toBe(Date.parse(oldWatermark));
+		expect(Date.parse(row?.reference_updated_utc ?? "")).toBe(Date.parse("2026-07-01T00:00:00Z"));
+		expect(row?.icon_url).toBe(oldIcon);
 	});
 
 	it("referenceWatermarkAdvanced is strict and ignores nulls.", () => {
@@ -446,7 +438,7 @@ describe("runUniverseReconcile", () => {
 		expect(after?.delisted_at).toBeNull();
 	});
 
-	it("An UNtracked stored symbol absent from the SUPERSET is flagged delisted, but one present only in the safety superset is not.", async () => {
+	it("An UNtracked stored symbol absent from the SUPERSET is flagged only after active=false confirm; superset-only symbols are not.", async () => {
 		const goneSymbol = `${TEST_PREFIX}GONE`;
 		const typeQuirkSymbol = `${TEST_PREFIX}QRK`;
 		const stillActive = `${TEST_PREFIX}LIVE`;
@@ -459,26 +451,65 @@ describe("runUniverseReconcile", () => {
 
 		// Active typed set = whole seed universe + `stillActive`, but NOT `goneSymbol`
 		// or `typeQuirkSymbol`. `typeQuirkSymbol` stays in the SUPERSET because Massive
-		// returned it in a row that could not be inserted; `goneSymbol` is absent from both. Excluding only
-		// these two is what isolates the delist-flag to our rows instead of stamping
-		// the entire shared seed table delisted.
+		// returned it in a row that could not be inserted; `goneSymbol` is absent from both.
 		const active = await activeSetCoveringSeedExcept([goneSymbol, typeQuirkSymbol]);
 		fetchActiveTickersMock.mockResolvedValue(makeUniverse(active, [typeQuirkSymbol]));
+		const confirm = vi.fn().mockImplementation(async (symbols: string[]) =>
+			symbols.map((symbol) =>
+				symbol === goneSymbol
+					? {
+							status: "delisted" as const,
+							result: {
+								symbol,
+								active: false as const,
+								delistedUtc: "2026-06-15",
+								primaryExchange: null,
+								name: "Defunct Untracked Inc",
+							},
+						}
+					: { status: "unknown" as const, symbol },
+			),
+		);
 		const result = await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
+			confirmUntrackedDelistings: confirm,
 		});
 
-		// Exactly the one superset-absent untracked symbol is newly flagged.
+		expect(confirm).toHaveBeenCalledTimes(1);
+		expect(confirm.mock.calls[0]?.[0]).toEqual([goneSymbol]);
+		expect(result.untrackedDelistCandidates).toBe(1);
 		expect(result.untrackedDelistedFlagged).toBe(1);
+		expect(result.untrackedDelistUnconfirmed).toBe(0);
 		expect(result.delistFlagSkippedShrunkActive).toBe(false);
 		const gone = await getAsset(goneSymbol);
 		const quirk = await getAsset(typeQuirkSymbol);
 		const live = await getAsset(stillActive);
 		expect(gone?.delisted_at).not.toBeNull();
-		// Present in the safety superset (just not insertable) → must survive.
+		expect(Date.parse(gone?.delisted_at ?? "")).toBe(Date.parse("2026-06-15T00:00:00.000Z"));
 		expect(quirk?.delisted_at).toBeNull();
 		expect(live?.delisted_at).toBeNull();
+	});
+
+	it("Leaves an absent untracked symbol unflagged when active=false confirm returns unknown.", async () => {
+		const goneSymbol = `${TEST_PREFIX}UNK`;
+		createdSymbols.push(goneSymbol);
+		await upsertAssets([{ symbol: goneSymbol, name: "Ambiguous Absent Co", type: "stock" }]);
+
+		const active = await activeSetCoveringSeedExcept([goneSymbol]);
+		fetchActiveTickersMock.mockResolvedValue(makeUniverse(active));
+		const confirm = vi.fn().mockResolvedValue([{ status: "unknown", symbol: goneSymbol }]);
+		const result = await runUniverseReconcile({
+			supabase: adminClient,
+			logger: rootLogger,
+			confirmUntrackedDelistings: confirm,
+		});
+
+		expect(result.untrackedDelistCandidates).toBe(1);
+		expect(result.untrackedDelistedFlagged).toBe(0);
+		expect(result.untrackedDelistUnconfirmed).toBe(1);
+		const gone = await getAsset(goneSymbol);
+		expect(gone?.delisted_at).toBeNull();
 	});
 
 	it("A TRACKED symbol absent from the active superset is NEVER flagged by reconcile (the safety carve-out).", async () => {
@@ -497,24 +528,32 @@ describe("runUniverseReconcile", () => {
 		registerTestUserForCleanup(user.id);
 		await attachUserAsset(user.id, trackedGone);
 
-		// Active set covers the whole seed universe but EXCLUDES both our targets — so
-		// both are "absent from the active superset", the exact delisting condition.
-		// The carve-out must flag the untracked one and spare the tracked one.
 		const active = await activeSetCoveringSeedExcept([trackedGone, untrackedGone]);
 		fetchActiveTickersMock.mockResolvedValue(makeUniverse(active));
+		const confirm = vi.fn().mockImplementation(async (symbols: string[]) =>
+			symbols.map((symbol) => ({
+				status: "delisted" as const,
+				result: {
+					symbol,
+					active: false as const,
+					delistedUtc: "2026-06-01",
+					primaryExchange: null,
+					name: null,
+				},
+			})),
+		);
 		const result = await runUniverseReconcile({
 			supabase: adminClient,
 			logger: rootLogger,
+			confirmUntrackedDelistings: confirm,
 		});
 
-		// The carve-out: reconcile leaves delisted_at null on the TRACKED row...
+		expect(confirm).toHaveBeenCalledWith([untrackedGone]);
 		const tracked = await getAsset(trackedGone);
 		expect(tracked?.delisted_at).toBeNull();
-		// ...but DOES flag the otherwise-identical UNtracked row (proves the active set
-		// really did mark both absent — so the tracked row's survival is the carve-out,
-		// not just an active-set miss).
 		const untracked = await getAsset(untrackedGone);
 		expect(untracked?.delisted_at).not.toBeNull();
+		expect(result.untrackedDelistCandidates).toBe(1);
 		expect(result.untrackedDelistedFlagged).toBe(1);
 	});
 

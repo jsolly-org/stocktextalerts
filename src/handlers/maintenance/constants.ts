@@ -10,8 +10,8 @@
 /** Universe reconcile: Massive reference pagination + chunked DB round-trips. */
 export const RECONCILE_MIN_REMAINING_MS = 180_000;
 
-/** Delisting sweep: all tracked symbols at bounded concurrency, plus notification writes. */
-export const SWEEP_MIN_REMAINING_MS = 300_000;
+/** Delisting sweep: tracked symbols at bounded concurrency, plus notification writes. */
+export const SWEEP_MIN_REMAINING_MS = 60_000;
 
 /**
  * Prediction-market discovery: all unchecked tracked symbols (Poly + Kalshi +
