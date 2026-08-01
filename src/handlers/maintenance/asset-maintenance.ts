@@ -269,23 +269,10 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			}
 		}
 
-		// Nightly universe reconcile. Independent try/catch so a reconcile failure
-		// never invalidates the calendar-events job or the delisting sweep. Ordered
-		// before the sweep so it operates on a freshly reconciled universe.
-		if (stepFitsRemainingTime(context, logger, "universe_reconcile", RECONCILE_MIN_REMAINING_MS)) {
-			try {
-				const reconcileResult = await runUniverseReconcile({ supabase, logger });
-				logger.info("Universe reconcile complete", {
-					action: "daily_universe_reconcile",
-					...reconcileResult,
-				});
-			} catch (error) {
-				logger.error("Universe reconcile failed", { action: "daily_universe_reconcile" }, error);
-			}
-		}
-
 		// Independent try/catch so sweep failures never invalidate the calendar-
-		// events job's success — the sweep runs again tomorrow.
+		// events job's success — the sweep runs again tomorrow. Ordered BEFORE
+		// universe reconcile: tracked confirms do not depend on reconcile, and a
+		// slow Massive list night must not starve user-facing delist work.
 		if (stepFitsRemainingTime(context, logger, "delisting_sweep", SWEEP_MIN_REMAINING_MS)) {
 			try {
 				const sendEmail = createEmailSender();
@@ -300,6 +287,20 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				});
 			} catch (error) {
 				logger.error("Delisting sweep failed", { action: "daily_delisting_sweep" }, error);
+			}
+		}
+
+		// Nightly universe reconcile. Independent try/catch so a reconcile failure
+		// never invalidates the calendar-events job or the delisting sweep.
+		if (stepFitsRemainingTime(context, logger, "universe_reconcile", RECONCILE_MIN_REMAINING_MS)) {
+			try {
+				const reconcileResult = await runUniverseReconcile({ supabase, logger });
+				logger.info("Universe reconcile complete", {
+					action: "daily_universe_reconcile",
+					...reconcileResult,
+				});
+			} catch (error) {
+				logger.error("Universe reconcile failed", { action: "daily_universe_reconcile" }, error);
 			}
 		}
 	});

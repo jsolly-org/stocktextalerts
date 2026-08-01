@@ -1,6 +1,7 @@
 import { enqueueNewSymbolWarmup } from "../vendors/backfill/enqueue";
 import { CHUNK_SIZE, MIN_PLAUSIBLE_ACTIVE_UNIVERSE } from "./constants";
 import { ensureAssetIconChecked } from "./icon-check";
+import { fetchTickerReferences } from "./reference/delistings";
 import { fetchActiveTickers } from "./reference/universe";
 import type {
 	ActiveTicker,
@@ -39,7 +40,9 @@ const EMPTY_RESULT: UniverseReconcileResult = {
 	referenceWatermarksBootstrapped: 0,
 	insertChunksFailed: 0,
 	delistedCleared: 0,
+	untrackedDelistCandidates: 0,
 	untrackedDelistedFlagged: 0,
+	untrackedDelistUnconfirmed: 0,
 	delistFlagSkippedShrunkActive: false,
 	warmupEnqueued: 0,
 	warmupEnqueueFailed: 0,
@@ -57,13 +60,13 @@ function chunksOf<T>(items: T[], size: number): T[][] {
 
 /**
  * Daily ticker-universe reconcile. Intended to run inside the asset-maintenance
- * Lambda BEFORE `runDelistingSweep`, in its own try/catch so a reconcile failure
+ * Lambda AFTER `runDelistingSweep`, in its own try/catch so a reconcile failure
  * never invalidates the sweep or the calendar-events job.
  *
- * Icon enrichment: new listings probe once; existing rows force-reprobe only when
- * Massive's list `last_updated_utc` advances past the stored watermark. First-seen
- * watermarks are stamped without a detail probe (avoids a one-shot ~27k fetch).
- * There is no nightly icon drip.
+ * Icon enrichment: new listings probe once. Existing rows never force-probe icons
+ * on Massive list `last_updated_utc` advance — that field is vendor freshness only,
+ * not a branding/detail cue. First-seen watermarks are stamped without a detail
+ * probe. There is no nightly icon drip.
  *
  * Flow:
  *   1. Fetch the active US listing from Massive's paginated reference API. If it
@@ -73,15 +76,12 @@ function chunksOf<T>(items: T[], size: number): T[][] {
  *      would be catastrophic. This is the single most important safety gate in the
  *      module.
  *   2. Load stored `assets` state, then INSERT new stock/etf listings, refresh
- *      existing active rows (name / watermark / icon on advance), and clear
+ *      existing active rows (name / type / watermark from the list feed), and clear
  *      `delisted_at` on any stored symbol that reappeared in the active superset.
- *   3. Bulk-flag `delisted_at` on stored symbols ABSENT from the active SUPERSET
- *      (every valid symbol returned by the configured Massive type pages, including
- *      rows that failed insertion filters) — but ONLY for UNtracked symbols. Tracked
- *      (user_assets) symbols are never flagged here; tracked delisting stays
- *      exclusively on the confirm-based sweep, which does not re-confirm an
- *      already-flagged row before notify+remove, so a false-positive flag there
- *      would wrongly delete a live subscription.
+ *   3. For stored symbols ABSENT from the active SUPERSET — but ONLY UNtracked
+ *      symbols — confirm via Massive `active=false` before setting `delisted_at`.
+ *      Tracked (user_assets) symbols are never flagged here; tracked delisting stays
+ *      exclusively on the confirm-based sweep.
  *   4. Enqueue a warmup backfill for every newly-inserted symbol.
  *
  * Each of steps 2–4 runs in its own try/catch and never throws past the handler,
@@ -92,6 +92,7 @@ export async function runUniverseReconcile(
 ): Promise<UniverseReconcileResult> {
 	const { supabase, logger } = deps;
 	const ensureIcon = deps.ensureIconChecked ?? ensureAssetIconChecked;
+	const confirmDelistings = deps.confirmUntrackedDelistings ?? fetchTickerReferences;
 
 	const result: UniverseReconcileResult = { ...EMPTY_RESULT };
 
@@ -144,7 +145,7 @@ export async function runUniverseReconcile(
 	const storedSymbols = new Set(storedRows.map((r) => r.symbol));
 	const activeBySymbol = new Map(active.map((ticker) => [ticker.symbol, ticker]));
 
-	// --- Step 2: Insert new listings, refresh names/watermarks/icons, clear reappeared. ---
+	// --- Step 2: Insert new listings, refresh names/watermarks, clear reappeared. ---
 	// Symbols whose insert chunk failed are excluded from step 4 warmup, since a failed
 	// insert may mean the row is not in `assets` and warming a phantom symbol just churns.
 	const newTickers = active.filter((t) => !storedSymbols.has(t.symbol));
@@ -223,42 +224,15 @@ export async function runUniverseReconcile(
 			}
 		}
 
+		// Watermark advance: stamp name/type/watermark from the list feed only.
+		// last_updated_utc is vendor freshness — not a cue to call Ticker Overview.
 		for (const chunk of chunksOf(toFullRefresh, CHUNK_SIZE)) {
-			// Probe icons BEFORE advancing the watermark. A transient Massive failure
-			// must leave reference_updated_utc unchanged so the next reconcile retries.
-			const probedOk = new Set<string>();
-			for (const batch of chunksOf(
-				chunk.map((t) => t.symbol),
-				10,
-			)) {
-				await Promise.all(
-					batch.map(async (symbol) => {
-						try {
-							const outcome = await ensureIcon({
-								supabase,
-								logger,
-								symbol,
-								force: true,
-							});
-							if (outcome.probed) probedOk.add(symbol);
-						} catch (probeError) {
-							logger.warn(
-								"Watermark-refresh icon probe failed",
-								{ action: "universe_reconcile", step: "icon_refresh", symbol },
-								probeError,
-							);
-						}
-					}),
-				);
-			}
-
 			const { error, count } = await supabase.from("assets").upsert(
 				chunk.map((ticker) => ({
 					symbol: ticker.symbol,
 					name: ticker.name,
 					type: ticker.type,
-					// Only stamp watermark when the force probe completed definitively.
-					...(probedOk.has(ticker.symbol) ? { reference_updated_utc: ticker.lastUpdatedUtc } : {}),
+					reference_updated_utc: ticker.lastUpdatedUtc,
 				})),
 				{ onConflict: "symbol", count: "exact" },
 			);
@@ -270,13 +244,10 @@ export async function runUniverseReconcile(
 				);
 				continue;
 			}
-			result.tickersRefreshed += probedOk.size;
+			result.tickersRefreshed += count ?? chunk.length;
 			for (const ticker of chunk) {
 				const stored = storedBySymbol.get(ticker.symbol);
 				if (stored != null && stored.name !== ticker.name) result.namesUpdated += 1;
-			}
-			if (count != null && count < chunk.length) {
-				// Upsert may still rewrite names for rows that skipped the watermark stamp.
 			}
 		}
 
@@ -362,7 +333,7 @@ export async function runUniverseReconcile(
 		);
 	}
 
-	// --- Step 3: Bulk-flag untracked delistings (tracked carve-out). ---
+	// --- Step 3: Confirm + flag untracked delistings (tracked carve-out). ---
 	try {
 		// Page through user_assets the same way the stored-assets load does. This read
 		// IS the tracked carve-out's only input: an unbounded `.select()` truncates at
@@ -403,10 +374,8 @@ export async function runUniverseReconcile(
 			});
 		} else {
 			// Stored symbols absent from the active SUPERSET, not already flagged, and NOT
-			// tracked. The `!trackedSymbols.has(...)` filter IS the tracked carve-out: a
-			// tracked symbol can never enter `toFlag`, so reconcile never stamps
-			// `delisted_at` on a tracked symbol. Tracked delisting stays 100% on the
-			// confirm-based sweep.
+			// tracked. Absence alone is only a candidate — Massive `active=false` must
+			// confirm before we stamp delisted_at (same confirm helper as the sweep).
 			const toFlag = storedRows
 				.filter(
 					(r) =>
@@ -416,22 +385,54 @@ export async function runUniverseReconcile(
 				)
 				.map((r) => r.symbol);
 
-			const nowIso = new Date().toISOString();
-			for (const chunk of chunksOf(toFlag, CHUNK_SIZE)) {
-				const { error, count } = await supabase
-					.from("assets")
-					.update({ delisted_at: nowIso }, { count: "exact" })
-					.in("symbol", chunk)
-					.is("delisted_at", null); // defensive: never re-stamp an already-flagged row
-				if (error) {
-					logger.error(
-						"Universe reconcile failed to flag untracked delistings",
-						{ action: "universe_reconcile", step: "flag_delisted", chunkSize: chunk.length },
-						error,
-					);
-					continue;
+			result.untrackedDelistCandidates = toFlag.length;
+			if (toFlag.length > 0) {
+				const statuses = await confirmDelistings(toFlag);
+				const confirmedBySymbol = new Map<string, string>();
+				let unconfirmed = 0;
+				for (const status of statuses) {
+					if (status.status === "delisted") {
+						// Massive delisted_utc is a date (YYYY-MM-DD); store as ISO midnight UTC.
+						const day = status.result.delistedUtc;
+						confirmedBySymbol.set(
+							status.result.symbol,
+							day.includes("T") ? day : `${day}T00:00:00.000Z`,
+						);
+					} else {
+						unconfirmed += 1;
+					}
 				}
-				result.untrackedDelistedFlagged += count ?? 0;
+				result.untrackedDelistUnconfirmed = unconfirmed;
+
+				const confirmed = [...confirmedBySymbol.entries()];
+				for (const chunk of chunksOf(confirmed, CHUNK_SIZE)) {
+					// Per-symbol delisted_at (Massive last-traded date) — update one-by-one
+					// within the chunk so dates stay accurate; chunking still bounds fanout.
+					for (const [symbol, delistedAt] of chunk) {
+						const { error, count } = await supabase
+							.from("assets")
+							.update({ delisted_at: delistedAt }, { count: "exact" })
+							.eq("symbol", symbol)
+							.is("delisted_at", null);
+						if (error) {
+							logger.error(
+								"Universe reconcile failed to flag untracked delisting",
+								{ action: "universe_reconcile", step: "flag_delisted", symbol },
+								error,
+							);
+							continue;
+						}
+						result.untrackedDelistedFlagged += count ?? 0;
+					}
+				}
+
+				logger.info("Universe reconcile untracked delist confirm complete", {
+					action: "universe_reconcile",
+					step: "flag_delisted",
+					candidates: toFlag.length,
+					confirmed: confirmedBySymbol.size,
+					unconfirmed,
+				});
 			}
 		}
 	} catch (error) {
