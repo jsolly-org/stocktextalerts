@@ -214,11 +214,23 @@ jobs:
     if: needs.gate.outputs.heavy == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404-arm
     timeout-minutes: 30
+    # Shard count is bounded by fixed per-shard setup, not by test work. Measured
+    # p50 (14d, Blacksmith job metrics): each shard pays ~11s runner/checkout +
+    # ~20s `npm ci` + ~150s Supabase bootstrap before a single test runs, while the
+    # whole unit suite is only ~345s of actual test time. At 6 shards that was
+    # 42-68s of tests per 250s job — ~75% pure setup, paid six times.
+    #
+    # 4 shards puts ~86s of tests behind the same ~183s of setup (~270s/job), which
+    # still lands under the e2e shards' 280s p50, so the CI critical path does not
+    # move while unit-test runner minutes drop ~25%. It also cuts concurrent
+    # Supabase stacks from 8 to 6, easing the registry throttling ci-db-retry.sh
+    # exists to absorb. Going to 3 would save more but push unit past e2e and
+    # regress wall-clock — the same trade that reverted the 3-way e2e trial.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
-        total: [6]
+        shard: [1, 2, 3, 4]
+        total: [4]
 
     steps:
       - uses: actions/checkout@v7
