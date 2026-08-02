@@ -45,6 +45,17 @@ if [ ! -f .env.local ]; then
 	fail 2
 fi
 
+# --- prewarm postgres-meta (background) --------------------------------------
+# db:gen-types (run by db:reset below) needs an image `supabase start` never
+# pulls, so it lands cold on the critical path after migrate/seed. Overlap that
+# pull with the rest of the bootstrap. Skipped when this job opted out of
+# gen-types entirely. See scripts/db/ci-prewarm-postgres-meta.sh.
+PREWARM_PID=""
+if [ "${DB_RESET_SKIP_GEN_TYPES:-0}" != "1" ]; then
+	bash scripts/db/ci-prewarm-postgres-meta.sh >"$LOG_DIR/prewarm-postgres-meta.log" 2>&1 &
+	PREWARM_PID=$!
+fi
+
 # --- start (registry-throttle retry) -----------------------------------------
 bash scripts/db/ci-db-retry.sh db:start "$LOG_DIR/db-start.log" || fail $?
 
@@ -103,6 +114,15 @@ echo "DEFAULT_PASSWORD=${DEFAULT_PASSWORD}" >>"$ENV_FILE"
 
 # --- reset (registry-throttle retry; also runs privilege + option-catalog) ---
 bash scripts/db/ci-db-retry.sh db:reset "$LOG_DIR/db-reset.log" || fail $?
+
+# Surface the prewarm outcome in the tail the workflow prints. By now the pull
+# has long finished (it overlapped start + migrate + seed), so this is ~free.
+if [ -n "$PREWARM_PID" ]; then
+	wait "$PREWARM_PID" || true
+	if [ -f "$LOG_DIR/prewarm-postgres-meta.log" ]; then
+		cat "$LOG_DIR/prewarm-postgres-meta.log"
+	fi
+fi
 
 write_rc 0
 exit 0
