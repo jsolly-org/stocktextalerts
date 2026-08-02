@@ -231,6 +231,12 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
         total: [4]
+    env:
+      # db:reset ends with db:gen-types, which spawns a one-shot postgres-meta
+      # container `supabase start` never pulls — a cold ~99 MB image pull on the
+      # critical path of every shard. Only shard 1 consumes the regenerated file
+      # (the "Verify generated types are checked in" step below); the rest skip it.
+      DB_RESET_SKIP_GEN_TYPES: ${{ matrix.shard == 1 && '0' || '1' }}
 
     steps:
       - uses: actions/checkout@v7
@@ -338,6 +344,10 @@ jobs:
       matrix:
         shard: [1, 2]
         total: [2]
+    env:
+      # E2E never reads the regenerated types — skip db:gen-types (and the cold
+      # postgres-meta image pull it triggers). See unit-tests above.
+      DB_RESET_SKIP_GEN_TYPES: '1'
 
     steps:
       - uses: actions/checkout@v7
