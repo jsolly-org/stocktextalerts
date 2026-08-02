@@ -57,7 +57,15 @@ if [ "${DB_RESET_SKIP_GEN_TYPES:-0}" != "1" ]; then
 fi
 
 # --- start (registry-throttle retry) -----------------------------------------
+# Phase timings: the wait step only tails this log, so `supabase start`'s image-pull output is
+# usually scrolled off. Without these markers there is no way to tell from a finished run whether
+# the ~2min bootstrap went to registry pulls (fix: container caching / fewer containers) or to
+# migrate+seed (fix: a prebuilt DB). Printed again as a one-line summary at the end so the tail
+# always carries them.
+START_BEGIN=$SECONDS
 bash scripts/db/ci-db-retry.sh db:start "$LOG_DIR/db-start.log" || fail $?
+START_SECONDS=$((SECONDS - START_BEGIN))
+echo "ci-bootstrap: db:start took ${START_SECONDS}s"
 
 # --- load supabase status into .env.local + env file for GITHUB_ENV ----------
 ./node_modules/.bin/supabase status -o json >"$LOG_DIR/sb-status.json"
@@ -113,7 +121,9 @@ echo "DEFAULT_USER=${DEFAULT_USER:-dev@example.com}" >>"$ENV_FILE"
 echo "DEFAULT_PASSWORD=${DEFAULT_PASSWORD}" >>"$ENV_FILE"
 
 # --- reset (registry-throttle retry; also runs privilege + option-catalog) ---
+RESET_BEGIN=$SECONDS
 bash scripts/db/ci-db-retry.sh db:reset "$LOG_DIR/db-reset.log" || fail $?
+RESET_SECONDS=$((SECONDS - RESET_BEGIN))
 
 # Surface the prewarm outcome in the tail the workflow prints. By now the pull
 # has long finished (it overlapped start + migrate + seed), so this is ~free.
@@ -123,6 +133,8 @@ if [ -n "$PREWARM_PID" ]; then
 		cat "$LOG_DIR/prewarm-postgres-meta.log"
 	fi
 fi
+
+echo "ci-bootstrap: db:start ${START_SECONDS}s + db:reset ${RESET_SECONDS}s = ${SECONDS}s total"
 
 write_rc 0
 exit 0
