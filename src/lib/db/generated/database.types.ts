@@ -1010,6 +1010,7 @@ export type Database = {
           created_at: string
           daily_notification_next_send_at: string | null
           daily_notification_time: number | null
+          delivery_channel: Database["public"]["Enums"]["delivery_channel_mode"]
           dismiss_timezone_mismatch_prompts: boolean
           email: string
           email_notifications_enabled: boolean
@@ -1037,6 +1038,7 @@ export type Database = {
           created_at?: string
           daily_notification_next_send_at?: string | null
           daily_notification_time?: number | null
+          delivery_channel?: Database["public"]["Enums"]["delivery_channel_mode"]
           dismiss_timezone_mismatch_prompts?: boolean
           email: string
           email_notifications_enabled?: boolean
@@ -1064,6 +1066,7 @@ export type Database = {
           created_at?: string
           daily_notification_next_send_at?: string | null
           daily_notification_time?: number | null
+          delivery_channel?: Database["public"]["Enums"]["delivery_channel_mode"]
           dismiss_timezone_mismatch_prompts?: boolean
           email?: string
           email_notifications_enabled?: boolean
@@ -1189,6 +1192,7 @@ export type Database = {
     Enums: {
       asset_event_type: "earnings" | "dividend" | "split"
       asset_type: "stock" | "etf"
+      delivery_channel_mode: "email" | "telegram" | "disabled"
       delivery_method: "email" | "telegram"
       price_move_threshold_unit: "percent" | "dollar"
       scheduled_notification_status: "sending" | "sent" | "failed"
@@ -1322,6 +1326,7 @@ export const Constants = {
     Enums: {
       asset_event_type: ["earnings", "dividend", "split"],
       asset_type: ["stock", "etf"],
+      delivery_channel_mode: ["email", "telegram", "disabled"],
       delivery_method: ["email", "telegram"],
       price_move_threshold_unit: ["percent", "dollar"],
       scheduled_notification_status: ["sending", "sent", "failed"],
