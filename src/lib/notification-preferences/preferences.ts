@@ -137,8 +137,8 @@ export function buildNotificationPreferencesApiSnapshot(
 	};
 }
 
-/** Batch-load raw preference rows for one or more users. Uses `.eq` for a single
- *  id and `.in` otherwise. Returns `{ data, error }` — callers decide throw vs fail-open. */
+/** Batch-load raw preference rows for one or more users. Returns `{ data, error }`
+ *  — callers decide throw vs fail-open. Always uses `.in` (works for a single id). */
 export async function queryNotificationPreferenceRows(
 	supabase: AppSupabaseClient,
 	userIds: readonly string[],
@@ -148,14 +148,10 @@ export async function queryNotificationPreferenceRows(
 		return { data: [], error: null };
 	}
 
-	const base = supabase
+	const { data, error } = await supabase
 		.from("notification_preferences")
-		.select("user_id, notification_type, content, enabled");
-	const singleUserId = uniqueIds[0];
-	const { data, error } =
-		uniqueIds.length === 1 && singleUserId !== undefined
-			? await base.eq("user_id", singleUserId)
-			: await base.in("user_id", uniqueIds);
+		.select("user_id, notification_type, content, enabled")
+		.in("user_id", uniqueIds);
 
 	return { data: data as NotificationPreferenceDbRow[] | null, error: error as Error | null };
 }
