@@ -157,7 +157,11 @@ import { DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID } from "../constants";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import type { NotificationPreferencesData } from "../types";
-import { ASSET_EVENT_TYPES, type AssetEventKey } from "./asset-event-types";
+import {
+	ASSET_EVENT_TYPES,
+	type AssetEventKey,
+	selectableAssetEventKeys as selectableAssetEventKeysFor,
+} from "./asset-event-types";
 import DailyAssetEventsFieldset from "./DailyAssetEventsFieldset.vue";
 
 interface Props {
@@ -264,12 +268,8 @@ const assetEventModels = reactive<Record<AssetEventKey, boolean>>({
 	short_interest: user.value.asset_events_include_short_interest,
 });
 
-function isAssetEventBlocked(key: AssetEventKey): boolean {
-	return !hasTrackedAssets.value && key !== "ipo";
-}
-
 const selectableAssetEventKeys = computed(() =>
-	ASSET_EVENT_TYPES.filter((t) => !isAssetEventBlocked(t.key)).map((t) => t.key),
+	selectableAssetEventKeysFor(hasTrackedAssets.value),
 );
 
 const assetEventsAllChecked = computed(

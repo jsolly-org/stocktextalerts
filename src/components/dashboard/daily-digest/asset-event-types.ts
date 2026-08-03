@@ -53,3 +53,14 @@ export const ASSET_EVENT_TYPES = [
 ] as const;
 
 export type AssetEventKey = (typeof ASSET_EVENT_TYPES)[number]["key"];
+
+/** IPO stays available without a watchlist; every other asset-event needs tracked assets. */
+export function isAssetEventBlocked(key: AssetEventKey, hasTrackedAssets: boolean): boolean {
+	return !hasTrackedAssets && key !== "ipo";
+}
+
+export function selectableAssetEventKeys(hasTrackedAssets: boolean): AssetEventKey[] {
+	return ASSET_EVENT_TYPES.filter((t) => !isAssetEventBlocked(t.key, hasTrackedAssets)).map(
+		(t) => t.key,
+	);
+}

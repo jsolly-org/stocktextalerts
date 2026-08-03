@@ -78,4 +78,81 @@ describe("A user clicks the email unsubscribe link.", () => {
 		expect(error).toBeNull();
 		expect(updated?.delivery_channel).toBe("email");
 	});
+
+	it("does not mute Telegram delivery when the email unsubscribe link is clicked", async () => {
+		const user = await createTestUser({
+			email: createTestEmail("telegram-unsub"),
+			password: "TestPassword123!",
+			confirmed: true,
+			deliveryChannel: "email",
+		});
+		registerTestUserForCleanup(user.id);
+
+		const { error: routeError } = await adminClient
+			.from("users")
+			.update({
+				delivery_channel: "telegram",
+				telegram_chat_id: 991234570,
+			})
+			.eq("id", user.id);
+		expect(routeError).toBeNull();
+
+		const token = createEmailUnsubscribeToken({
+			userId: user.id,
+			email: user.email,
+		});
+		const url = new URL("http://localhost/unsubscribe");
+		url.searchParams.set("user", user.id);
+		url.searchParams.set("token", token);
+
+		const container = await AstroContainer.create({ renderers });
+		const response = await container.renderToResponse(EmailUnsubscribePage, {
+			request: new Request(url.toString()),
+		});
+
+		expect(response.status).toBe(200);
+
+		const { data: updated, error } = await adminClient
+			.from("users")
+			.select("delivery_channel")
+			.eq("id", user.id)
+			.maybeSingle();
+
+		expect(error).toBeNull();
+		expect(updated?.delivery_channel).toBe("telegram");
+	});
+
+	it("leaves an already-disabled account unchanged", async () => {
+		const user = await createTestUser({
+			email: createTestEmail("disabled-unsub"),
+			password: "TestPassword123!",
+			confirmed: true,
+			deliveryChannel: "disabled",
+		});
+		registerTestUserForCleanup(user.id);
+
+		const token = createEmailUnsubscribeToken({
+			userId: user.id,
+			email: user.email,
+		});
+		const url = new URL("http://localhost/unsubscribe");
+		url.searchParams.set("user", user.id);
+		url.searchParams.set("token", token);
+
+		const container = await AstroContainer.create({ renderers });
+		const response = await container.renderToResponse(EmailUnsubscribePage, {
+			request: new Request(url.toString()),
+		});
+
+		expect(response.status).toBe(200);
+
+		const { data: updated, error } = await adminClient
+			.from("users")
+			.select("delivery_channel")
+			.eq("id", user.id)
+			.maybeSingle();
+
+		expect(error).toBeNull();
+		expect(updated?.delivery_channel).toBe("disabled");
+	});
 });

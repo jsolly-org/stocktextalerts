@@ -82,7 +82,7 @@
 							:sr-label="`Toggle ${eventType.label}`"
 							:aria-labelledby="`asset_events_${eventType.key}_label`"
 							:aria-describedby="`asset_events_${eventType.key}_description`"
-							:disabled="isEventTypeBlockedByAssets(eventType.key)"
+							:disabled="isAssetEventBlocked(eventType.key, hasTrackedAssets)"
 							@update:model-value="setModel(eventType.key, $event)"
 						/>
 					</div>
@@ -99,7 +99,12 @@ import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import NewspaperIcon from "../../../icons/newspaper.svg?component";
 import ToggleSwitch from "../../ToggleSwitch.vue";
-import { ASSET_EVENT_TYPES, type AssetEventKey } from "./asset-event-types";
+import {
+	ASSET_EVENT_TYPES,
+	type AssetEventKey,
+	isAssetEventBlocked,
+	selectableAssetEventKeys,
+} from "./asset-event-types";
 
 interface Props {
 	hasTrackedAssets: boolean;
@@ -110,22 +115,14 @@ const props = defineProps<Props>();
 const emit = defineEmits<(event: "update:models", value: Record<AssetEventKey, boolean>) => void>();
 const { hasTrackedAssets, models } = toRefs(props);
 
-function isEventTypeBlockedByAssets(key: AssetEventKey): boolean {
-	return !hasTrackedAssets.value && key !== "ipo";
-}
-
-const selectableEventTypes = computed(() =>
-	ASSET_EVENT_TYPES.filter((t) => !isEventTypeBlockedByAssets(t.key)),
-);
+const selectableKeys = computed(() => selectableAssetEventKeys(hasTrackedAssets.value));
 
 const allChecked = computed(
 	() =>
-		selectableEventTypes.value.length > 0 &&
-		selectableEventTypes.value.every((t) => models.value[t.key]),
+		selectableKeys.value.length > 0 &&
+		selectableKeys.value.every((key) => models.value[key]),
 );
-const someChecked = computed(() =>
-	selectableEventTypes.value.some((t) => models.value[t.key]),
-);
+const someChecked = computed(() => selectableKeys.value.some((key) => models.value[key]));
 
 const selectAllRef = ref<HTMLInputElement | null>(null);
 
@@ -142,8 +139,8 @@ function setModel(key: AssetEventKey, value: boolean) {
 function toggleAll() {
 	const next = !allChecked.value;
 	const updated = { ...models.value };
-	for (const eventType of selectableEventTypes.value) {
-		updated[eventType.key] = next;
+	for (const key of selectableKeys.value) {
+		updated[key] = next;
 	}
 	emit("update:models", updated);
 }

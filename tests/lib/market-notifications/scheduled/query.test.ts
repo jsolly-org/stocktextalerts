@@ -65,4 +65,39 @@ describe("fetchMarketScheduledUsers candidate selection", () => {
 
 		expect(users.some((u: UserRecord) => u.id === user.id)).toBe(false);
 	});
+
+	it("selects an email-routed subscriber", async () => {
+		const user = await createTestUser({
+			deliveryChannel: "email",
+			confirmed: true,
+		});
+		registerTestUserForCleanup(user.id);
+
+		const { error } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_enabled: true,
+				market_scheduled_asset_price_times: [570],
+			})
+			.eq("id", user.id);
+		expect(error).toBeNull();
+		await setTestUserPrefs(user.id, [["market_scheduled_asset_price", "", true]]);
+
+		const users = await fetchMarketScheduledUsers({
+			supabase: adminClient,
+			logger: rootLogger,
+			forceSend: true,
+			currentTimeIso: new Date().toISOString(),
+		});
+
+		const found = users.find((u: UserRecord) => u.id === user.id);
+		expect(found, "email-routed user must be a market-scheduled candidate").toBeDefined();
+		expect(found?.delivery_channel).toBe("email");
+		expect(
+			found?.prefs.some(
+				(p) =>
+					p.notification_type === "market_scheduled_asset_price" && p.content === "" && p.enabled,
+			),
+		).toBe(true);
+	});
 });

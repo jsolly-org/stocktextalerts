@@ -13,6 +13,7 @@ describe("account delivery routing", () => {
 			"email",
 		);
 		expect(wantsEmailDelivery({ delivery_channel: "email" })).toBe(true);
+		expect(wantsEmailDelivery({ delivery_channel: "telegram" })).toBe(false);
 	});
 
 	it("resolves telegram only when routed to telegram AND linked", () => {
