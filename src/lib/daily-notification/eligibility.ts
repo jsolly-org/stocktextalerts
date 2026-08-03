@@ -36,8 +36,3 @@ export function hasAnyDailyAssetEventFacet(prefs: readonly PrefRow[]): boolean {
 	}
 	return false;
 }
-
-/** True when any asset-event facet is enabled (alias of hasAnyDailyAssetEventFacet). */
-export function anyDailyAssetEventFacetEnabled(prefs: readonly PrefRow[]): boolean {
-	return hasAnyDailyAssetEventFacet(prefs);
-}

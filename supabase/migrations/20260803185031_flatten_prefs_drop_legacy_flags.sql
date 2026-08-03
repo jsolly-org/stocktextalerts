@@ -63,10 +63,16 @@ SELECT
 			bool_or(np.enabled),
 			false
 		)
+		-- Active pipe: prefer that grain, but fall back when expand-era accounts
+		-- only have the other channel's rows (runtime collapsePreferenceRows does
+		-- the same). coalesce skips NULL only — explicit all-false preferred grain stays false.
 		ELSE coalesce(
 			bool_or(np.enabled) FILTER (
 				WHERE np.channel::text = u.delivery_channel::text
 			),
+			bool_or(np.enabled) FILTER (WHERE np.channel::text = 'email'),
+			bool_or(np.enabled) FILTER (WHERE np.channel::text = 'telegram'),
+			bool_or(np.enabled),
 			false
 		)
 	END AS enabled,

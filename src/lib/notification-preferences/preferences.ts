@@ -56,7 +56,8 @@ export async function persistNotificationPreferences(options: {
 	deliveryChannel: DeliveryChannelMode;
 	logger?: Logger;
 }): Promise<void> {
-	const { supabase, userId, parsedData, formData, deliveryChannel, logger } = options;
+	const { supabase, userId, parsedData, formData, logger } = options;
+	void options.deliveryChannel;
 
 	const rows = [...PREFERENCE_FIELD_MAP.values()].flatMap((target) => {
 		const field = target.fieldName;
@@ -79,8 +80,11 @@ export async function persistNotificationPreferences(options: {
 		return;
 	}
 
-	const writeChannel = preferenceWriteChannel(deliveryChannel);
-	const rowsWithChannel = rows.map((row) => ({ ...row, channel: writeChannel }));
+	// Expand-era: mirror the same enabled bits onto both channel grains so old
+	// Lambdas keep delivering after a pipe switch without a content retoggle.
+	const rowsWithChannel = (["email", "telegram"] as const).flatMap((channel) =>
+		rows.map((row) => ({ ...row, channel })),
+	);
 
 	const { error: channelError } = await supabase
 		.from("notification_preferences")
@@ -128,7 +132,9 @@ export async function seedDefaultNotificationPreferences(options: {
 	logger?: Logger;
 }): Promise<void> {
 	const { supabase, userId, rows, logger } = options;
-	const withChannel = rows.map((row) => ({ ...row, channel: "email" as const }));
+	const withChannel = (["email", "telegram"] as const).flatMap((channel) =>
+		rows.map((row) => ({ ...row, channel })),
+	);
 
 	const { error: channelError } = await supabase
 		.from("notification_preferences")
@@ -160,10 +166,35 @@ export async function seedDefaultNotificationPreferences(options: {
 	}
 }
 
-/* =============
-Per-option snapshot: the flat `<field>: boolean` map the dashboard UI consumes,
-reconstructed from notification_preferences rows.
-============= */
+/**
+ * Persist every catalog content toggle from an already-collapsed snapshot.
+ * Used when delivery_channel changes without content fields in the form so
+ * expand-era channel grains stay mirrored onto both pipes.
+ */
+export async function persistCollapsedPreferenceSnapshot(options: {
+	supabase: AppSupabaseClient;
+	userId: string;
+	prefs: readonly PrefRow[];
+	deliveryChannel: DeliveryChannelMode;
+	logger?: Logger;
+}): Promise<void> {
+	const snapshot = buildPreferenceSnapshot(options.prefs);
+	const formData = new FormData();
+	const parsedData: Partial<Record<string, boolean>> = {};
+	for (const entry of NOTIFICATION_PREFERENCE_CATALOG) {
+		const value = snapshot[entry.fieldName];
+		parsedData[entry.fieldName] = value;
+		formData.set(entry.fieldName, value ? "on" : "off");
+	}
+	await persistNotificationPreferences({
+		supabase: options.supabase,
+		userId: options.userId,
+		parsedData,
+		formData,
+		deliveryChannel: options.deliveryChannel,
+		logger: options.logger,
+	});
+}
 
 /** The flat per-option snapshot keyed by dashboard field name. */
 type PreferenceSnapshot = Record<NotificationOptionFieldName, boolean>;

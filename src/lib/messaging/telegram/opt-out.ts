@@ -1,5 +1,6 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import { type Logger, rootLogger } from "../../logging";
+import { createErrorForLogging } from "../../logging/errors";
 import type { DeliveryResult } from "../../types";
 import { updateUserDeliveryChannel } from "../delivery-channel";
 
@@ -24,39 +25,47 @@ export async function optOutIfBotBlocked(
 	if (result.success || result.errorCode !== TELEGRAM_FORBIDDEN_CODE) {
 		return;
 	}
-	const { data, error: readError } = await supabase
-		.from("users")
-		.select("delivery_channel")
-		.eq("id", userId)
-		.maybeSingle();
-	if (readError) {
+	try {
+		const { data, error: readError } = await supabase
+			.from("users")
+			.select("delivery_channel")
+			.eq("id", userId)
+			.maybeSingle();
+		if (readError) {
+			logger.error(
+				"Failed to read delivery_channel after bot-blocked 403",
+				{ userId },
+				createErrorForLogging(readError),
+			);
+			return;
+		}
+		if (data?.delivery_channel !== "telegram") {
+			return;
+		}
+		const { updated, error } = await updateUserDeliveryChannel({
+			supabase,
+			userId,
+			channel: "disabled",
+			casCurrent: "telegram",
+		});
+		if (error) {
+			logger.error(
+				"Failed to set delivery_channel=disabled after bot-blocked 403",
+				{ userId },
+				createErrorForLogging(error),
+			);
+			return;
+		}
+		if (!updated) {
+			logger.info("Bot-blocked 403 opt-out no-op: concurrent channel change", { userId });
+			return;
+		}
+		logger.info("Telegram delivery disabled after bot-blocked 403", { userId });
+	} catch (error) {
 		logger.error(
-			"Failed to read delivery_channel after bot-blocked 403",
+			"Bot-blocked 403 opt-out threw unexpectedly",
 			{ userId },
-			readError instanceof Error ? readError : new Error(String(readError)),
+			createErrorForLogging(error),
 		);
-		return;
 	}
-	if (data?.delivery_channel !== "telegram") {
-		return;
-	}
-	const { updated, error } = await updateUserDeliveryChannel({
-		supabase,
-		userId,
-		channel: "disabled",
-		casCurrent: "telegram",
-	});
-	if (error) {
-		logger.error(
-			"Failed to set delivery_channel=disabled after bot-blocked 403",
-			{ userId },
-			error instanceof Error ? error : new Error(String(error)),
-		);
-		return;
-	}
-	if (!updated) {
-		logger.info("Bot-blocked 403 opt-out no-op: concurrent channel change", { userId });
-		return;
-	}
-	logger.info("Telegram delivery disabled after bot-blocked 403", { userId });
 }

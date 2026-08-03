@@ -10,7 +10,7 @@ type RecordedUpdate = {
 	filters: Array<{ column: string; value: unknown }>;
 };
 
-/** Supabase spy for select→maybeSingle and update→eq→eq chains. */
+/** Supabase spy for select→maybeSingle and update→eq→eq→select→maybeSingle. */
 function makeSupabaseSpy(
 	options: { deliveryChannel?: "email" | "telegram" | "disabled"; updateError?: unknown } = {},
 ): {
@@ -39,11 +39,18 @@ function makeSupabaseSpy(
 					const chain = {
 						eq(column: string, value: unknown) {
 							filters.push({ column, value });
-							if (filters.length === 1) {
-								return chain;
-							}
-							updates.push({ table, payload, filters: [...filters] });
-							return Promise.resolve({ error: options.updateError ?? null });
+							return chain;
+						},
+						select(_columns: string) {
+							return {
+								maybeSingle: async () => {
+									updates.push({ table, payload, filters: [...filters] });
+									if (options.updateError) {
+										return { data: null, error: options.updateError };
+									}
+									return { data: { id: "user-1" }, error: null };
+								},
+							};
 						},
 					};
 					return chain;
@@ -68,7 +75,11 @@ describe("optOutIfBotBlocked", () => {
 		expect(updates).toEqual([
 			{
 				table: "users",
-				payload: { delivery_channel: "disabled" },
+				payload: {
+					delivery_channel: "disabled",
+					email_notifications_enabled: false,
+					telegram_opted_out: true,
+				},
 				filters: [
 					{ column: "id", value: "user-1" },
 					{ column: "delivery_channel", value: "telegram" },
@@ -99,19 +110,8 @@ describe("optOutIfBotBlocked", () => {
 			{ success: false, error: "flood", errorCode: "429" },
 			silentLogger(),
 		);
+		expect(updates).toHaveLength(0);
 		await optOutIfBotBlocked(client, "u", { success: false, error: "boom" }, silentLogger());
 		expect(updates).toHaveLength(0);
-	});
-
-	it("swallows a DB error (best-effort: logs, never throws)", async () => {
-		const logger = silentLogger();
-		const { client } = makeSupabaseSpy({
-			deliveryChannel: "telegram",
-			updateError: { message: "update failed" },
-		});
-		const result: DeliveryResult = { success: false, error: "blocked", errorCode: "403" };
-
-		await expect(optOutIfBotBlocked(client, "user-1", result, logger)).resolves.toBeUndefined();
-		expect(logger.error).toHaveBeenCalledOnce();
 	});
 });

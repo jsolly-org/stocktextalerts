@@ -2,7 +2,6 @@ import type { DateTime } from "luxon";
 import { buildAssetEventsContent } from "../asset-events/content";
 import type { AssetEventsContent } from "../asset-events/types";
 import {
-	anyDailyAssetEventFacetEnabled,
 	enabledDailyNotificationFacets,
 	hasAnyDailyAssetEventFacet,
 	isDailyNotificationFacetEnabled,
@@ -343,7 +342,7 @@ export async function processDailyDigestUser(options: {
 		let assetEvents: AssetEventsContent | null = null;
 		let shouldUpdateAnalystMonth = false;
 
-		if (hasAnyAssetEventsOption && anyDailyAssetEventFacetEnabled(user.prefs)) {
+		if (hasAnyAssetEventsOption) {
 			const built = await buildAssetEventsContent({
 				user,
 				supabase,

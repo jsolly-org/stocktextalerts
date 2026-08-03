@@ -1,8 +1,5 @@
 import type { DateTime } from "luxon";
-import {
-	anyDailyAssetEventFacetEnabled,
-	hasAnyDailyAssetEventFacet,
-} from "../daily-notification/eligibility";
+import { hasAnyDailyAssetEventFacet } from "../daily-notification/eligibility";
 import { updateUserDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { loadUserAssets, type UserAssetsMap } from "../db/user-assets";
@@ -85,10 +82,9 @@ export async function processAssetEventsUser(options: {
 		const delayBannerHtml = buildDelayBannerHtml(delayBannerOpts);
 
 		const outbound = resolveOutboundChannel(user);
-		const hasAnyAssetEventsOption = hasAnyDailyAssetEventFacet(user.prefs);
-		const contentEnabled = anyDailyAssetEventFacetEnabled(user.prefs);
+		const contentEnabled = hasAnyDailyAssetEventFacet(user.prefs);
 
-		if (!hasAnyAssetEventsOption || !outbound || !contentEnabled) {
+		if (!contentEnabled || !outbound) {
 			stats.skipped++;
 			await updateUserDailyNotificationNextSendAt({
 				user,
