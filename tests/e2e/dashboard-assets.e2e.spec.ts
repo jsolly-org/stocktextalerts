@@ -128,17 +128,19 @@ test.describe("dashboard and assets", () => {
 					.getByRole("button", { name: `Remove ${symbol}` })
 					.locator("xpath=ancestor::li");
 
-			await expect(
-				getRow("MSFT")
-					.locator(`img[alt="MSFT logo"]`)
-					.or(getRow("MSFT").getByText("Stock", { exact: true })),
-			).toBeVisible({ timeout: 15_000 });
+			// MSFT's icon_url is an allowlisted api.massive.com branding URL, and the
+			// MODE=test vendor stub serves decodable PNG bytes for it, so the proxy
+			// success path must render the img rather than fall back to the pill.
+			await expect(getRow("MSFT").locator(`img[alt="MSFT logo"]`)).toBeVisible({
+				timeout: 15_000,
+			});
 			await expect(getRow("AAPL").getByText("Stock", { exact: true })).toBeVisible();
-			await expect(
-				getRow("GOOGL")
-					.locator(`img[alt="GOOGL logo"]`)
-					.or(getRow("GOOGL").getByText("Stock", { exact: true })),
-			).toBeVisible({ timeout: 15_000 });
+			// GOOGL's icon_url is off the logo host allowlist, so resolveLogoUpstreamUrl
+			// rejects it before any fetch and the badge falls back — the SSRF guard is
+			// the point of this row, so assert the fallback rather than allowing either.
+			await expect(getRow("GOOGL").getByText("Stock", { exact: true })).toBeVisible({
+				timeout: 15_000,
+			});
 			await expect(getRow("VOO").getByText("ETF", { exact: true })).toBeVisible();
 
 			await ensureAssetsExist(["NVDA"]);
@@ -156,9 +158,7 @@ test.describe("dashboard and assets", () => {
 				.getByRole("option")
 				.filter({ hasText: new RegExp(`${escapeRegExp("NVDA")}\\s+-`) });
 			await expect(nvdaOption).toBeVisible({ timeout: 30_000 });
-			await expect(
-				nvdaOption.locator(`img[alt="NVDA logo"]`).or(nvdaOption.getByText("Stock")),
-			).toBeVisible();
+			await expect(nvdaOption.locator(`img[alt="NVDA logo"]`)).toBeVisible();
 		} finally {
 			for (const symbol of symbolsToRestore) {
 				await adminClient
