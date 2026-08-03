@@ -135,6 +135,7 @@ Test email never hits real SES.
 - **Route walker exception:** `tests/e2e/routes.e2e.spec.ts` sets `retries: 1` locally (stateless navigation).
 - **`reuseExistingServer`:** enabled locally, disabled in CI (`playwright.config.ts`).
 - **Web server env:** vendor modules aliased to no-op stubs when `MODE=test` (see `astro.config.ts`); Mailpit SMTP settings inherited from `.env.local`.
+- **Vendor HTTP:** anything the server fetches from a provider must go through `src/lib/vendors/massive.ts`, `finnhub.ts`, or `src/lib/vendors/http.ts`; those three are the aliased modules. A direct `fetch` to a vendor bypasses the stub and makes a live call from CI (the logo proxy and icon probe did exactly that).
 - **Origins:** derive from Playwright `baseURL` / `page` origin instead of hardcoding `:4322` where practical.
 - **Waits:** prefer route gates, response barriers, and `expect.poll` over fixed `waitForTimeout`.
 
