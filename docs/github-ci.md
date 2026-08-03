@@ -37,7 +37,7 @@ Re-run these rather than changing application code:
 
 - `docker: toomanyrequests` during Reset database / Start Supabase is Docker Hub's anonymous pull limit. `gh run rerun <id> --failed` usually lands on a runner with a different IP. A durable fix requires human-owned `DOCKERHUB_TOKEN` credentials and a login step in `ci.yml`.
 - `db:doctor` auth 502 or `auth container not inspectable; recreating stack` is usually slow GoTrue startup.
-- `tests/e2e/registration-approval.e2e.spec.ts` can flake on Mailpit/GoTrue email-redirect timing.
+- `tests/e2e/registration-approval.e2e.spec.ts` can flake on Mailpit/GoTrue email-redirect timing. **Now measurable, and currently not firing:** 18 consecutive e2e jobs passed it in 14.8-19.6s (per-test history landed with the Playwright JUnit reporter). Check before re-running on faith: `blacksmith jobs tests <job_id> --limit 0 --format json | jq '.tests[] | select(.test_suite | test("registration-approval"))'`. If it starts failing again, that is new signal rather than the documented background rate.
 
 ## Required GitHub settings
 
