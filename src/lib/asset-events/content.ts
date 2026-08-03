@@ -13,7 +13,13 @@ import {
 	formatInsiderSectionTelegram,
 } from "./format";
 import { loadStoredSecFilings } from "./sec-filings";
-import type { AssetEventsContent, AssetEventsTelegramFacets, SecFilingLine } from "./types";
+import { loadShortInterestDigestContent } from "./short-interest";
+import type {
+	AssetEventsContent,
+	AssetEventsTelegramFacets,
+	SecFilingLine,
+	ShortInterestDigestContent,
+} from "./types";
 
 type DeliveryChannel = "email";
 
@@ -22,6 +28,7 @@ const emptyContent = (): AssetEventsContent => ({
 	insiderSection: null,
 	analystSection: null,
 	filingsLines: null,
+	shortInterest: null,
 	hasAnyContent: false,
 });
 
@@ -50,6 +57,10 @@ function channelWantsAnalyst(
 
 function channelWantsFilings(user: UserRecord, channel: DeliveryChannel): boolean {
 	return isDailyNotificationFacetEnabled(user.prefs, channel, "filings");
+}
+
+function channelWantsShortInterest(user: UserRecord, channel: DeliveryChannel): boolean {
+	return isDailyNotificationFacetEnabled(user.prefs, channel, "short_interest");
 }
 
 type RawEvent = {
@@ -83,9 +94,11 @@ type FormatContentOptions = {
 	}>;
 	finnhubData: Awaited<ReturnType<typeof loadStoredFinnhubExtras>>;
 	filingsLines: SecFilingLine[];
+	shortInterest: ShortInterestDigestContent | null;
 	includeInsider: boolean;
 	includeAnalyst: boolean;
 	includeFilings: boolean;
+	includeShortInterest: boolean;
 };
 
 function buildEmailAssetEventsContent(options: FormatContentOptions): AssetEventsContent {
@@ -94,9 +107,11 @@ function buildEmailAssetEventsContent(options: FormatContentOptions): AssetEvent
 		eventsWithDaysUntil,
 		finnhubData,
 		filingsLines,
+		shortInterest,
 		includeInsider,
 		includeAnalyst,
 		includeFilings,
+		includeShortInterest,
 	} = options;
 
 	const channelEvents = filterEventsForChannel(eventsWithDaysUntil, user, "email");
@@ -106,18 +121,21 @@ function buildEmailAssetEventsContent(options: FormatContentOptions): AssetEvent
 	const insiderSection = includeInsider ? formatInsiderSectionEmail(finnhubData.insider) : null;
 	const analystSection = includeAnalyst ? formatAnalystSectionEmail(finnhubData.analyst) : null;
 	const emailFilings = includeFilings && filingsLines.length > 0 ? filingsLines : null;
+	const emailShortInterest = includeShortInterest ? shortInterest : null;
 
 	const hasAnyContent =
 		eventsSection !== null ||
 		insiderSection !== null ||
 		analystSection !== null ||
-		emailFilings !== null;
+		emailFilings !== null ||
+		emailShortInterest !== null;
 
 	return {
 		eventsSection,
 		insiderSection,
 		analystSection,
 		filingsLines: emailFilings,
+		shortInterest: emailShortInterest,
 		hasAnyContent,
 	};
 }
@@ -153,12 +171,14 @@ export async function buildAssetEventsContentForChannels(options: {
 	const telegramWantsInsider = Boolean(telegramFacets?.insider);
 	const telegramWantsAnalyst = Boolean(telegramFacets?.analyst);
 	const telegramWantsFilings = Boolean(telegramFacets?.filings);
+	const telegramWantsShortInterest = Boolean(telegramFacets?.short_interest);
 	const hasTelegramRequest =
 		telegramWantsCalendar ||
 		telegramWantsIpos ||
 		telegramWantsInsider ||
 		telegramWantsAnalyst ||
-		telegramWantsFilings;
+		telegramWantsFilings ||
+		telegramWantsShortInterest;
 
 	if (channels.length === 0 && !hasTelegramRequest) {
 		return noChannels;
@@ -198,6 +218,8 @@ export async function buildAssetEventsContentForChannels(options: {
 		channels.some((ch) => channelWantsAnalyst(user, ch, currentMonth)) || telegramAnalystDue;
 	const includeFilingsUnion =
 		channels.some((ch) => channelWantsFilings(user, ch)) || telegramWantsFilings;
+	const includeShortInterestUnion =
+		channels.some((ch) => channelWantsShortInterest(user, ch)) || telegramWantsShortInterest;
 
 	const calendarPromise =
 		includeCalendar && tickers.length > 0
@@ -269,7 +291,7 @@ export async function buildAssetEventsContentForChannels(options: {
 		analystFetchSucceeded: false,
 	};
 
-	const [finnhubLoaded, filingsLoaded] = await Promise.all([
+	const [finnhubLoaded, filingsLoaded, shortInterestLoaded] = await Promise.all([
 		(includeInsiderUnion || includeAnalystUnion) && tickers.length > 0
 			? loadStoredFinnhubExtras({
 					supabase,
@@ -288,9 +310,18 @@ export async function buildAssetEventsContentForChannels(options: {
 					localDate,
 				})
 			: Promise.resolve([] as SecFilingLine[]),
+		includeShortInterestUnion
+			? loadShortInterestDigestContent({
+					supabase,
+					logger,
+					tickers,
+					localDate,
+				})
+			: Promise.resolve(null as ShortInterestDigestContent | null),
 	]);
 	finnhubData = finnhubLoaded;
 	const filingsLines = filingsLoaded;
+	const shortInterest = shortInterestLoaded;
 
 	const analystFetchAttempted = includeAnalystUnion && tickers.length > 0;
 	const shouldUpdateAnalystMonth = analystFetchAttempted && finnhubData.analystFetchSucceeded;
@@ -303,9 +334,11 @@ export async function buildAssetEventsContentForChannels(options: {
 			eventsWithDaysUntil,
 			finnhubData,
 			filingsLines,
+			shortInterest,
 			includeInsider: channelWantsInsider(user, "email"),
 			includeAnalyst: channelWantsAnalyst(user, "email", currentMonth),
 			includeFilings: channelWantsFilings(user, "email"),
+			includeShortInterest: channelWantsShortInterest(user, "email"),
 		});
 	}
 
@@ -325,16 +358,19 @@ export async function buildAssetEventsContentForChannels(options: {
 			? formatAnalystSectionTelegram(finnhubData.analyst)
 			: null;
 		const telegramFilings = telegramWantsFilings && filingsLines.length > 0 ? filingsLines : null;
+		const telegramShortInterest = telegramWantsShortInterest ? shortInterest : null;
 		telegram = {
 			eventsSection,
 			insiderSection,
 			analystSection,
 			filingsLines: telegramFilings,
+			shortInterest: telegramShortInterest,
 			hasAnyContent:
 				eventsSection !== null ||
 				insiderSection !== null ||
 				analystSection !== null ||
-				telegramFilings !== null,
+				telegramFilings !== null ||
+				telegramShortInterest !== null,
 		};
 	}
 

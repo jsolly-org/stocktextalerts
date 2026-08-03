@@ -316,6 +316,47 @@ export type Database = {
           },
         ]
       }
+      asset_short_interest: {
+        Row: {
+          avg_daily_volume: number | null
+          days_to_cover: number | null
+          fetched_at: string
+          id: number
+          settlement_date: string
+          share_class_shares_outstanding: number | null
+          short_interest: number
+          symbol: string
+        }
+        Insert: {
+          avg_daily_volume?: number | null
+          days_to_cover?: number | null
+          fetched_at?: string
+          id?: number
+          settlement_date: string
+          share_class_shares_outstanding?: number | null
+          short_interest: number
+          symbol: string
+        }
+        Update: {
+          avg_daily_volume?: number | null
+          days_to_cover?: number | null
+          fetched_at?: string
+          id?: number
+          settlement_date?: string
+          share_class_shares_outstanding?: number | null
+          short_interest?: number
+          symbol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_short_interest_symbol_fkey"
+            columns: ["symbol"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["symbol"]
+          },
+        ]
+      }
       assets: {
         Row: {
           cik: string | null

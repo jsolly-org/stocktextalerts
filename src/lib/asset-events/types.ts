@@ -12,12 +12,27 @@ export type AssetEventsTelegramFacets = {
 	insider: boolean;
 	analyst: boolean;
 	filings: boolean;
+	short_interest: boolean;
 };
 
 /** One SEC filing line for digest rendering (label is the hyperlink text). */
 export type SecFilingLine = {
 	label: string;
 	url: string;
+};
+
+/** One watchlist short-interest line for digest rendering. */
+export type ShortInterestLine = {
+	symbol: string;
+	text: string;
+};
+
+/** Short-interest facet payload for a single digest delivery. */
+export type ShortInterestDigestContent = {
+	mode: "heads_up" | "report";
+	publishDate: string;
+	settlementDate: string;
+	lines: ShortInterestLine[] | null;
 };
 
 export type AssetEventsContent = {
@@ -31,6 +46,8 @@ export type AssetEventsContent = {
 	analystSection: string | null;
 	/** Material 8-K / 6-K lines; each label is rendered as the hyperlink. */
 	filingsLines: SecFilingLine[] | null;
+	/** FINRA short-interest heads-up or watchlist report for the calendar window. */
+	shortInterest: ShortInterestDigestContent | null;
 	hasAnyContent: boolean;
 };
 

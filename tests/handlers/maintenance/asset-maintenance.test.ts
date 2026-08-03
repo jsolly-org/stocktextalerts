@@ -20,6 +20,9 @@ vi.mock("../../../src/lib/asset-events/fetch", () => ({
 vi.mock("../../../src/lib/asset-events/sec-filings", () => ({
 	fetchAndStoreSecFilings: vi.fn(),
 }));
+vi.mock("../../../src/lib/asset-events/short-interest", () => ({
+	fetchAndStoreShortInterest: vi.fn(),
+}));
 vi.mock("../../../src/lib/assets/delisting-sweep", () => ({
 	runDelistingSweep: vi.fn(),
 }));
@@ -52,11 +55,13 @@ import {
 	PM_REFRESH_MIN_REMAINING_MS,
 	RECONCILE_MIN_REMAINING_MS,
 	SEC_FILINGS_MIN_REMAINING_MS,
+	SHORT_INTEREST_MIN_REMAINING_MS,
 	SWEEP_MIN_REMAINING_MS,
 } from "../../../src/handlers/maintenance/constants";
 import { fetchAndStoreFinnhubEnrichment } from "../../../src/lib/asset-events/enrichment-store";
 import { fetchAndStoreAssetEvents } from "../../../src/lib/asset-events/fetch";
 import { fetchAndStoreSecFilings } from "../../../src/lib/asset-events/sec-filings";
+import { fetchAndStoreShortInterest } from "../../../src/lib/asset-events/short-interest";
 import { runDelistingSweep } from "../../../src/lib/assets/delisting-sweep";
 import { runUniverseReconcile } from "../../../src/lib/assets/universe-reconcile";
 import { createSupabaseAdminClient } from "../../../src/lib/db/supabase";
@@ -81,6 +86,7 @@ const STARVED_REMAINING_MS =
 		PM_REFRESH_MIN_REMAINING_MS,
 		PM_DIRECTION_PROBE_MIN_REMAINING_MS,
 		SEC_FILINGS_MIN_REMAINING_MS,
+		SHORT_INTEREST_MIN_REMAINING_MS,
 	) - 60_000;
 
 const event = { id: "evt-asset-maint-1", time: "2026-07-05T00:00:00Z" } as ScheduledEvent;
@@ -108,6 +114,10 @@ function stubHealthySteps(): void {
 		cikUpdated: 2,
 		filingsUpserted: 5,
 		ciksPolled: 3,
+		failures: [],
+	});
+	vi.mocked(fetchAndStoreShortInterest).mockResolvedValue({
+		upserted: 8,
 		failures: [],
 	});
 	vi.mocked(runUniverseReconcile).mockResolvedValue({
@@ -207,10 +217,11 @@ describe("asset-maintenance Lambda orchestration", () => {
 		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
 	});
 
-	it("A starved invocation (remaining time below every step budget) skips reconcile, SEC filings, pm refresh, pm discovery, and sweep with pageable error logs", async () => {
+	it("A starved invocation (remaining time below every step budget) skips reconcile, SEC filings, short interest, pm refresh, pm discovery, and sweep with pageable error logs", async () => {
 		vi.setSystemTime(SUNDAY_UTC);
 		expectConsoleError(/Skipping universe_reconcile/);
 		expectConsoleError(/Skipping sec_filings/);
+		expectConsoleError(/Skipping short_interest/);
 		expectConsoleError(/Skipping pm_refresh/);
 		expectConsoleError(/Skipping pm_direction_probe/);
 		expectConsoleError(/Skipping pm_discovery/);
@@ -221,6 +232,7 @@ describe("asset-maintenance Lambda orchestration", () => {
 		// The unguarded calendar ingest still ran; every budget-guarded step did not.
 		expect(fetchAndStoreAssetEvents).toHaveBeenCalledTimes(2);
 		expect(fetchAndStoreSecFilings).not.toHaveBeenCalled();
+		expect(fetchAndStoreShortInterest).not.toHaveBeenCalled();
 		expect(runUniverseReconcile).not.toHaveBeenCalled();
 		expect(refreshActivePredictionMarketSnapshots).not.toHaveBeenCalled();
 		expect(runNextSessionDirectionProbe).not.toHaveBeenCalled();
@@ -229,6 +241,7 @@ describe("asset-maintenance Lambda orchestration", () => {
 		// The skip is not silent: each guarded step left an ERROR log (ErrorLogAlarm pages).
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping universe_reconcile"));
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping sec_filings"));
+		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping short_interest"));
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping pm_refresh"));
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping pm_direction_probe"));
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping pm_discovery"));
@@ -252,6 +265,7 @@ describe("asset-maintenance Lambda orchestration", () => {
 		);
 		expect(fetchAndStoreFinnhubEnrichment).toHaveBeenCalledTimes(1);
 		expect(fetchAndStoreSecFilings).toHaveBeenCalledTimes(1);
+		expect(fetchAndStoreShortInterest).toHaveBeenCalledTimes(1);
 		expect(refreshActivePredictionMarketSnapshots).toHaveBeenCalledTimes(1);
 		expect(runNextSessionDirectionProbe).toHaveBeenCalledTimes(1);
 		expect(runPredictionMarketDiscoveryDrip).toHaveBeenCalledTimes(1);

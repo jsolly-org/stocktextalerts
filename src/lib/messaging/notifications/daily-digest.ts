@@ -5,6 +5,10 @@ import {
 	formatFilingsSectionMarkdown,
 	formatFilingsSectionPlainText,
 } from "../../asset-events/format";
+import {
+	formatShortInterestSectionLines,
+	formatShortInterestSectionTitle,
+} from "../../asset-events/short-interest";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import type { TopMover } from "../../market-data/types";
 import {
@@ -242,6 +246,12 @@ export function formatDailyDigestEmail(options: {
 	const filingsPlain = ae?.filingsLines?.length
 		? formatFilingsSectionPlainText(ae.filingsLines)
 		: null;
+	const shortInterestTitle = ae?.shortInterest
+		? formatShortInterestSectionTitle(ae.shortInterest)
+		: null;
+	const shortInterestBody = ae?.shortInterest
+		? formatShortInterestSectionLines(ae.shortInterest)
+		: null;
 	const topMovers = options.extras.topMovers ? renderTopMoversBody(options.extras.topMovers) : "";
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
@@ -292,6 +302,9 @@ export function formatDailyDigestEmail(options: {
 		analyst ? `\n📊 Analyst Consensus\n${analyst}` : "",
 		insider ? `\n🏦 Insider Trades\n${insider}` : "",
 		filingsPlain ? `\n📄 SEC Filings\n${filingsPlain}` : "",
+		shortInterestBody && shortInterestTitle
+			? `\n📉 ${shortInterestTitle}\n${shortInterestBody}`
+			: "",
 		topMovers ? `\n🚀 Top Movers\n${topMovers}` : "",
 		// Prediction Markets last among content sections (after Upcoming IPOs).
 		predictionMarketsText ? `\n🎯 Prediction Markets\n${predictionMarketsText}` : "",
@@ -337,6 +350,7 @@ export function formatDailyDigestEmail(options: {
 		${renderEmailSection("📊", "Analyst Consensus", analyst, { showFinnhubLogo: true })}
 		${renderEmailSection("🏦", "Insider Trades", insider, { showFinnhubLogo: true })}
 		${renderEmailSection("📄", "SEC Filings", filingsMarkdown ?? "")}
+		${renderEmailSection("📉", shortInterestTitle ?? "Short Interest", shortInterestBody ?? "")}
 		${renderEmailSection("🚀", "Top Movers", topMovers, { showMassiveLogo: true })}
 		${
 			predictionMarketsHtml
@@ -435,6 +449,11 @@ export function formatDailyDigestTelegram(opts: {
 		: null;
 	if (filingsTelegram) {
 		msg = fmt`${msg}\n\n${FormattedString.bold("📄 SEC Filings")}\n${filingsTelegram}`;
+	}
+	if (ae?.shortInterest) {
+		const title = formatShortInterestSectionTitle(ae.shortInterest);
+		const body = formatShortInterestSectionLines(ae.shortInterest);
+		msg = fmt`${msg}\n\n${FormattedString.bold(`📉 ${title}`)}\n${boldTickerPrefixesTelegram(body)}`;
 	}
 
 	// Prediction Markets last among content sections (after Upcoming IPOs / asset events).
