@@ -22,17 +22,20 @@ type AssetFixture = {
 };
 
 /**
- * `assets` is shared across Vitest workers, and these fixture statements lock
- * overlapping rows in different orders: `markAllAssetIconsChecked()` locks every
- * unchecked row in physical order while another file's `deleteAssets()` locks its
- * own two symbols, so Postgres can pick either side as the deadlock victim
- * (`40P01`, seen on CI job 91724627441 with `tests/lib/assets/icon-check.test.ts`
- * and `tests/lib/schedule/helpers.test.ts` running side by side).
+ * `assets` is shared across Vitest workers, so two fixture statements can lock overlapping
+ * rows in different orders and Postgres kills one side as the deadlock victim (`40P01`).
  *
- * A deadlock victim only needs to try again — the winner has already committed by
- * the time the error surfaces — and every statement below is a single idempotent
- * statement, so the retry is safe. Serialization failures (`40001`) get the same
- * treatment for the same reason.
+ * The one that actually produced this on CI (job 91724627441, `icon-check.test.ts` next to
+ * `schedule/helpers.test.ts`) was a table-wide `UPDATE public.assets ... WHERE
+ * icon_checked_at IS NULL`, which locked every unchecked row against another file's
+ * two-symbol `DELETE`. That statement is gone: it was a leftover from the removed nightly
+ * icon drip, and every spec that ran it only ever read rows it seeded itself. What remains
+ * here writes only the caller's symbols.
+ *
+ * The retry stays as the net for the overlap that is still possible (two files touching
+ * intersecting symbol sets). A deadlock victim only needs to try again, since the winner
+ * has already committed by the time the error surfaces, and every statement below is a
+ * single idempotent statement. Serialization failures (`40001`) get the same treatment.
  */
 const RETRYABLE_PG_CODES = new Set(["40P01", "40001"]);
 const MAX_PG_ATTEMPTS = 5;
@@ -93,21 +96,6 @@ export async function upsertAssets(records: AssetFixture[]): Promise<void> {
 					    )
 			`,
 			[JSON.stringify(records)],
-		);
-	});
-}
-
-/**
- * Stamp `icon_checked_at` on every currently-unchecked `assets` row, so only
- * fixtures a test seeds afterwards (with a NULL `icon_checked_at`) qualify as
- * icon-backfill candidates. Without this, the ~10k-row seed universe (all
- * unchecked, sorting before Z-prefixed fixtures) fills PostgREST's max_rows-
- * clamped probe window and fixture symbols are never selected.
- */
-export async function markAllAssetIconsChecked(): Promise<void> {
-	await withPgClient(async (client) => {
-		await client.query(
-			`UPDATE public.assets SET icon_checked_at = now() WHERE icon_checked_at IS NULL`,
 		);
 	});
 }
