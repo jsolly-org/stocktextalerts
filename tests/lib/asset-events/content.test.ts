@@ -448,6 +448,7 @@ describe("buildAssetEventsContentForChannels Telegram facets", () => {
 				insider: false,
 				analyst: false,
 				filings: false,
+				short_interest: false,
 			},
 		});
 
@@ -481,6 +482,7 @@ describe("buildAssetEventsContentForChannels Telegram facets", () => {
 				insider: false,
 				analyst: false,
 				filings: false,
+				short_interest: false,
 			},
 		});
 

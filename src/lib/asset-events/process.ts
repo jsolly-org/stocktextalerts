@@ -96,6 +96,7 @@ export async function processAssetEventsUser(options: {
 			insider: telegramFacetSet.has("insider"),
 			analyst: telegramFacetSet.has("analyst"),
 			filings: telegramFacetSet.has("filings"),
+			short_interest: telegramFacetSet.has("short_interest"),
 		};
 		const wantsTelegram =
 			isTelegramChannelUsable(user) && anyDailyAssetEventFacetEnabled(user.prefs, "telegram");
@@ -177,6 +178,7 @@ export async function processAssetEventsUser(options: {
 				analystSection: emailContent.analystSection,
 				insiderSection: emailContent.insiderSection,
 				filingsLines: emailContent.filingsLines,
+				shortInterest: emailContent.shortInterest,
 				marketClosureInfo,
 				sendEmail,
 				stats,
@@ -201,6 +203,7 @@ export async function processAssetEventsUser(options: {
 				analystSection: telegramContent.analystSection,
 				insiderSection: telegramContent.insiderSection,
 				filingsLines: telegramContent.filingsLines,
+				shortInterest: telegramContent.shortInterest,
 				delayBanner: delayBannerText,
 				marketClosureInfo,
 				getTelegramSender,

@@ -499,7 +499,9 @@ const hasAnyAssetEventsOptionEnabled = computed(
 		user.value.asset_events_include_insider_email ||
 		props.telegramPrefs.insider === true ||
 		user.value.asset_events_include_filings_email ||
-		props.telegramPrefs.filings === true,
+		props.telegramPrefs.filings === true ||
+		user.value.asset_events_include_short_interest_email ||
+		props.telegramPrefs.short_interest === true,
 );
 
 /** Derive the current delivery time input from the shared user state (managed by NotificationChannelsPanel). */
@@ -659,6 +661,10 @@ watch(savedData, (newData) => {
 		}),
 		...(newData.asset_events_include_filings_email !== undefined && {
 			asset_events_include_filings_email: newData.asset_events_include_filings_email,
+		}),
+		...(newData.asset_events_include_short_interest_email !== undefined && {
+			asset_events_include_short_interest_email:
+				newData.asset_events_include_short_interest_email,
 		}),
 		daily_notification_time: newData.daily_notification_time,
 		daily_notification_next_send_at: newData.daily_notification_next_send_at,

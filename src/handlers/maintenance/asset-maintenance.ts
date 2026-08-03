@@ -14,6 +14,7 @@ import { DateTime } from "luxon";
 import { fetchAndStoreFinnhubEnrichment } from "../../lib/asset-events/enrichment-store";
 import { fetchAndStoreAssetEvents } from "../../lib/asset-events/fetch";
 import { fetchAndStoreSecFilings } from "../../lib/asset-events/sec-filings";
+import { fetchAndStoreShortInterest } from "../../lib/asset-events/short-interest";
 import type { AssetEventProvider } from "../../lib/asset-events/types";
 import { runDelistingSweep } from "../../lib/assets/delisting-sweep";
 import { runUniverseReconcile } from "../../lib/assets/universe-reconcile";
@@ -32,6 +33,7 @@ import {
 	PM_REFRESH_MIN_REMAINING_MS,
 	RECONCILE_MIN_REMAINING_MS,
 	SEC_FILINGS_MIN_REMAINING_MS,
+	SHORT_INTEREST_MIN_REMAINING_MS,
 	SWEEP_MIN_REMAINING_MS,
 } from "./constants";
 
@@ -151,8 +153,20 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				await fetchAndStoreSecFilings({ supabase, logger });
 			} catch (error) {
 				logger.error(
-					"SEC filings ingest failed (continuing with prediction-market refresh)",
+					"SEC filings ingest failed (continuing with short-interest ingest)",
 					{ action: "fetch_sec_filings" },
+					error,
+				);
+			}
+		}
+
+		if (stepFitsRemainingTime(context, logger, "short_interest", SHORT_INTEREST_MIN_REMAINING_MS)) {
+			try {
+				await fetchAndStoreShortInterest({ supabase, logger });
+			} catch (error) {
+				logger.error(
+					"Short interest ingest failed (continuing with prediction-market refresh)",
+					{ action: "fetch_short_interest" },
 					error,
 				);
 			}

@@ -373,6 +373,7 @@ export async function processDailyDigestUser(options: {
 				insider: telegramFacets.has("insider"),
 				analyst: telegramFacets.has("analyst"),
 				filings: telegramFacets.has("filings"),
+				short_interest: telegramFacets.has("short_interest"),
 			};
 			const wantsAssetEventsTelegram =
 				telegramEnabled && anyDailyAssetEventFacetEnabled(user.prefs, "telegram");

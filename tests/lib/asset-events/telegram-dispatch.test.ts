@@ -86,6 +86,7 @@ describe("Telegram standalone asset-events dispatch", () => {
 				insiderSection: null,
 				analystSection: null,
 				filingsLines: null,
+				shortInterest: null,
 				hasAnyContent: true,
 			},
 			analystFetchAttempted: false,

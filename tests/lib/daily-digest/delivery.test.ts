@@ -348,6 +348,7 @@ describe("Daily digest email prices", () => {
 				insiderSection: null,
 				analystSection: null,
 				filingsLines: null,
+				shortInterest: null,
 				hasAnyContent: true,
 			},
 		});
@@ -395,6 +396,7 @@ describe("Daily digest email prices", () => {
 				insiderSection: null,
 				analystSection: null,
 				filingsLines: null,
+				shortInterest: null,
 				hasAnyContent: true,
 			},
 		});

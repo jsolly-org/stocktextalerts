@@ -37,3 +37,6 @@ export const PM_DIRECTION_PROBE_MIN_REMAINING_MS = 180_000;
  * distinct tracked CIK (polite delay). Soft-fail vendor; remaining-time gate.
  */
 export const SEC_FILINGS_MIN_REMAINING_MS = 120_000;
+
+/** Short interest daily Asset Events facet step budget (Massive bulk + ticker details). */
+export const SHORT_INTEREST_MIN_REMAINING_MS = 120_000;

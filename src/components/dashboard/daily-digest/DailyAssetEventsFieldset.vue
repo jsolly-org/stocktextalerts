@@ -2,8 +2,8 @@
 	<div class="!border-t-0 py-4">
 		<h3 class="text-lg sm:text-xl font-bold text-heading mb-1">Asset events</h3>
 		<p class="text-sm text-body-secondary mb-4">
-			Calendar, IPO, analyst, insider, and SEC filing updates bundled into the same daily
-			message.
+			Calendar, IPO, analyst, insider, SEC filing, and short interest updates bundled into
+			the same daily message.
 		</p>
 
 		<div class="space-y-4">
@@ -86,6 +86,16 @@
 								aria-label="Powered by Finnhub"
 								role="img"
 							/>
+							<NewspaperIcon
+								v-if="eventType.plainIcon === 'newspaper'"
+								class="h-4.5 w-4.5 shrink-0 text-body-secondary"
+								aria-hidden="true"
+							/>
+							<ChartBarIcon
+								v-if="eventType.plainIcon === 'chart-bar'"
+								class="h-4.5 w-4.5 shrink-0 text-body-secondary"
+								aria-hidden="true"
+							/>
 						</div>
 						<p
 							:id="`asset_events_${eventType.key}_description`"
@@ -116,8 +126,10 @@
 
 <script lang="ts" setup>
 import { computed, ref, toRefs, watch, watchEffect } from "vue";
+import ChartBarIcon from "../../../icons/chart-bar.svg?component";
 import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
+import NewspaperIcon from "../../../icons/newspaper.svg?component";
 import { isTelegramChannelUsable } from "../../../lib/messaging/telegram/eligibility";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
@@ -155,6 +167,7 @@ const ASSET_EVENT_TYPES = [
 			"Included in your daily delivery when earnings, ex-dividend dates, or stock splits are scheduled in the next 3 days.",
 		massive: true,
 		finnhub: true,
+		plainIcon: null,
 	},
 	{
 		key: "ipo" as const,
@@ -163,6 +176,7 @@ const ASSET_EVENT_TYPES = [
 			"Included in your daily delivery when an IPO listing date is within the next 3 days.",
 		massive: true,
 		finnhub: false,
+		plainIcon: null,
 	},
 	{
 		key: "analyst" as const,
@@ -171,6 +185,7 @@ const ASSET_EVENT_TYPES = [
 			"Sent at most once per month, usually in your first delivery of the month.",
 		massive: false,
 		finnhub: true,
+		plainIcon: null,
 	},
 	{
 		key: "insider" as const,
@@ -179,6 +194,7 @@ const ASSET_EVENT_TYPES = [
 			"Can appear in your daily delivery when new insider filings are available.",
 		massive: false,
 		finnhub: true,
+		plainIcon: null,
 	},
 	{
 		key: "filings" as const,
@@ -187,6 +203,16 @@ const ASSET_EVENT_TYPES = [
 			"Material 8-K and 6-K filings for your watchlist, with links to EDGAR.",
 		massive: false,
 		finnhub: false,
+		plainIcon: "newspaper" as const,
+	},
+	{
+		key: "short_interest" as const,
+		label: "Short Interest",
+		description:
+			"Included in your daily delivery when a FINRA short-interest report is scheduled in the next 3 days.",
+		massive: false,
+		finnhub: false,
+		plainIcon: "chart-bar" as const,
 	},
 ] as const;
 
@@ -226,6 +252,10 @@ const assetEventRefs: Record<
 	filings: {
 		email: ref(user.value.asset_events_include_filings_email),
 		telegram: ref(props.telegramPrefs.filings === true),
+	},
+	short_interest: {
+		email: ref(user.value.asset_events_include_short_interest_email),
+		telegram: ref(props.telegramPrefs.short_interest === true),
 	},
 };
 

@@ -74,6 +74,7 @@ describe("processAssetEventsUser", () => {
 				insiderSection: null,
 				analystSection: null,
 				filingsLines: null,
+				shortInterest: null,
 				hasAnyContent: true,
 			},
 			telegram: null,
@@ -123,6 +124,7 @@ describe("processAssetEventsUser", () => {
 				insiderSection: "AAPL: insider",
 				analystSection: null,
 				filingsLines: null,
+				shortInterest: null,
 				hasAnyContent: true,
 			},
 			telegram: {
@@ -130,6 +132,7 @@ describe("processAssetEventsUser", () => {
 				insiderSection: "AAPL: insider",
 				analystSection: null,
 				filingsLines: null,
+				shortInterest: null,
 				hasAnyContent: true,
 			},
 			analystFetchAttempted: false,
