@@ -21,6 +21,22 @@ export const sharedDefaults = {
 	// genuinely shared state, the Mailpit inbox, is now cleared per recipient rather than
 	// globally (tests/helpers/mailpit.ts). Raising this needs the same check: what does a
 	// spec read that another spec can write?
+	//
+	// 3 was measured and rejected (PR #689), so don't re-derive it from the scheduling
+	// math alone. Playwright parallelizes by file, and per-suite timings said 3 should
+	// win: 165.9s of test time over 9 files, longest 42.7s, so a ~87s makespan at 2
+	// workers against ~59s at 3. What actually happened on the runner is that the box is
+	// already CPU-saturated, so the third worker mostly inflated the work rather than
+	// absorbing it:
+	//
+	//   workers  E2E step        total test time  slowest single test
+	//   2        136-140s        165.9s           15.0s
+	//   3        121s / 133s     224.8s (+35%)    23.4s (auth-onboarding, was 5.1s)
+	//
+	// ~11s of mean gain on a ~218s job, bought with 4.6x inflation on the slowest test
+	// and a 12s run-to-run spread (vs 4s at 2 workers). With `retries: 0` and a
+	// documented Mailpit/GoTrue timing flake, that margin is worth more than the 11s.
+	// Reconsider only on a runner with more vCPU, not on this one.
 	workers: 2,
 	// Global retries mask serial-suite state bugs; routes.e2e.spec.ts opts in locally.
 	retries: 0,

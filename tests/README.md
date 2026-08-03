@@ -132,7 +132,7 @@ Test email never hits real SES.
 
 ## Playwright policy
 
-- **Workers:** `2` in `playwright.shared.ts`, sized for the 4-vCPU CI runner (which also carries Astro dev and Supabase). Specs create their own users; the shared Mailpit inbox is cleared per recipient, never globally.
+- **Workers:** `2` in `playwright.shared.ts`, sized for the 4-vCPU CI runner (which also carries Astro dev and Supabase). Specs create their own users; the shared Mailpit inbox is cleared per recipient, never globally. **`3` was measured and rejected** (PR #689): the runner is already CPU-saturated, so it bought ~11s of a ~218s job while inflating total test time 35% and the slowest single test from 5.1s to 23.4s. Playwright parallelizes by **file**, so the floor is the longest suite (`dashboard-assets`, ~43s) regardless: check `blacksmith jobs tests <job_id> --summary suites` before touching this.
 - **Global retries:** `0` in `playwright.shared.ts`. Suites that mutate DB/page state must not auto-retry.
 - **Route walker exception:** `tests/e2e/routes.e2e.spec.ts` sets `retries: 1` locally (stateless navigation).
 - **`reuseExistingServer`:** enabled locally, disabled in CI (`playwright.config.ts`).
