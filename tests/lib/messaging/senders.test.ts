@@ -5,13 +5,14 @@
  * runtime mode. The suite stubs them via tests/helpers/messaging-doubles.ts so
  * unit/integration tests never hit real delivery endpoints.
  */
+import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createEmailSender } from "../../../src/lib/messaging/email/utils";
 import {
 	createTelegramBot,
 	createTelegramSender,
 } from "../../../src/lib/messaging/telegram/sender";
-import { clearMailpit, waitForMailpitMessageTo } from "../../helpers/mailpit";
+import { clearMailpitFor, waitForMailpitMessageTo } from "../../helpers/mailpit";
 
 const STUB_TELEGRAM_TOKEN = "123456:AA-fake-token-for-sender-gate-tests-only";
 
@@ -39,9 +40,11 @@ describe("messaging test doubles — no real SES/Telegram in tests", () => {
 		it("routes through Mailpit via SMTP when EMAIL_SMTP_HOST is set", async () => {
 			vi.stubEnv("EMAIL_SMTP_HOST", "localhost");
 
-			await clearMailpit();
 			const send = createEmailSender();
-			const recipient = `sender-gate-${Date.now()}@example.com`;
+			// randomUUID, not Date.now(): unit files run in parallel against one Mailpit,
+			// and the wait below matches on this address alone.
+			const recipient = `sender-gate-${randomUUID()}@example.com`;
+			await clearMailpitFor(recipient);
 			const result = await send({
 				to: recipient,
 				subject: "sender-gate smoke test",
