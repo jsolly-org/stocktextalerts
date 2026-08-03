@@ -25,5 +25,14 @@ export const sharedDefaults = {
 	// Global retries mask serial-suite state bugs; routes.e2e.spec.ts opts in locally.
 	retries: 0,
 	outputDir: ".playwright-mcp/cli",
+	// Vitest's console output is auto-parsed by Blacksmith test analytics, so the unit
+	// suite already has per-test timings and failure history (`blacksmith jobs tests
+	// <job_id>`). Playwright's default reporter is not, so the e2e job (the one with the
+	// documented Mailpit/GoTrue timing flake) reported *zero* structured tests. A JUnit
+	// file written anywhere on disk during the job is picked up automatically (no workflow
+	// change, no artifact upload), which is what makes a flake measurable after the fact
+	// instead of a re-run and a shrug. `list` keeps the human-readable log; the default
+	// in CI is `dot`, which is also what auto-parsing choked on.
+	reporter: [["list"], ["junit", { outputFile: "test-results/playwright-junit.xml" }]],
 	use: sharedUse,
-} satisfies Pick<PlaywrightTestConfig, "workers" | "retries" | "outputDir" | "use">;
+} satisfies Pick<PlaywrightTestConfig, "workers" | "retries" | "outputDir" | "reporter" | "use">;
