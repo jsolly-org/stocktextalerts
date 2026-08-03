@@ -24,8 +24,40 @@ function ensureNoWatch(vitestArgs: string[]): string[] {
 }
 
 /**
+ * A positional argument means the caller picked files by hand (`npm test -- some.test.ts`).
+ * Splitting a hand-picked subset into two passes is pointless and can leave a pass with no
+ * matching files, so those runs stay single-pass.
+ */
+function hasFileFilter(vitestArgs: string[]): boolean {
+	return vitestArgs.some((arg) => !arg.startsWith("-"));
+}
+
+function runPass(pass: "all" | "parallel" | "serial", args: string[]): number {
+	const child = spawnSync("./node_modules/.bin/vitest", args, {
+		stdio: "inherit",
+		env: { ...process.env, VITEST_PASS: pass },
+		shell: process.platform === "win32",
+	});
+	return typeof child.status === "number" ? child.status : 1;
+}
+
+/**
+ * The full suite runs in two passes: everything that tolerates parallelism, then the handful of
+ * files that need the database or the HTTP test port to themselves (tests/serial-test-files.ts).
+ * The parallel pass carries nearly every file, so it sets the wall clock; the serial tail costs a
+ * few seconds. Both passes always run, and the run fails if either does.
+ */
+function runFullSuite(args: string[]): number {
+	const parallelExit = runPass("parallel", args);
+	// --passWithNoTests: a future --shard split can legitimately leave this pass empty.
+	const serialExit = runPass("serial", [...args, "--passWithNoTests"]);
+	return parallelExit !== 0 ? parallelExit : serialExit;
+}
+
+/**
  * Entry point for a small Vitest wrapper that:
  * - forces `--no-watch` by default
+ * - runs the parallel and serial passes for a full-suite run
  * - exits with the child process status code
  */
 async function main() {
@@ -47,12 +79,7 @@ async function main() {
 
 	let exitCode = 1;
 	try {
-		const child = spawnSync("./node_modules/.bin/vitest", args, {
-			stdio: "inherit",
-			env: process.env,
-			shell: process.platform === "win32",
-		});
-		exitCode = typeof child.status === "number" ? child.status : 1;
+		exitCode = hasFileFilter(vitestArgs) ? runPass("all", args) : runFullSuite(args);
 	} finally {
 		releaseTestLock();
 		stopAstroDevLockAfterHttpTests();

@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 import { rootLogger } from "../../src/lib/logging";
 import { TEST_PASSWORD } from "../helpers/constants";
 import { signIn } from "../helpers/e2e/auth";
-import { clearMailpit, waitForMailpitMessageTo } from "../helpers/mailpit";
+import { clearMailpitFor, waitForMailpitMessageTo } from "../helpers/mailpit";
 import { adminClient } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../helpers/test-user";
 
@@ -131,7 +131,7 @@ test.describe("admin pending-user approval", () => {
 
 	test("approving the pending user updates the DB, removes them from the list, and sends email", async () => {
 		expect(await getApprovedAt(pendingId as string)).toBeNull();
-		await clearMailpit();
+		await clearMailpitFor(pendingEmail);
 
 		await page.goto("/admin/users");
 		const row = page.locator("li", { hasText: pendingEmail });

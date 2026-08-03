@@ -227,25 +227,24 @@ jobs:
     if: needs.gate.outputs.heavy == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404-arm
     timeout-minutes: 30
-    # Shard count is bounded by fixed per-shard setup, not by test work, so it has
-    # to be re-derived whenever that setup gets cheaper. Measured p50 before this
-    # change (Blacksmith job steps): ~4s runner/checkout + ~9s setup-node + ~19s
-    # `npm ci` + ~122s Supabase bootstrap = ~154s of setup in front of ~82s of
-    # tests, four times over.
+    # Sharding buys wall-clock only while the suite is slower than the ~85s of setup
+    # sitting in front of it, so the shard count has to be re-derived whenever either
+    # number moves. Both moved:
     #
-    # The node_modules sticky disk (~19s -> ~1s) and the seed-only bootstrap
-    # (db:ci-seed skips the redundant migration replay, ~122s -> ~70s) cut that to
-    # ~85s. At 2 shards each job then runs ~165s of the ~330s unit suite behind
-    # ~85s of setup (~250s/job), still at/under the e2e shards, which remain the
-    # ceiling, so wall-clock is unchanged while unit runner minutes drop ~45% and
-    # concurrent Supabase stacks drop from 6 to 4 (less registry throttling for
-    # ci-db-retry.sh to absorb). Re-measure before moving this again: the rule is
-    # that the slowest unit shard must not exceed the slowest e2e shard.
+    #   - setup: ~154s -> ~85s (node_modules sticky disk, seed-only db:ci-seed)
+    #   - the unit suite itself: ~330s -> ~70s, by running test files in parallel
+    #     instead of one at a time (vitest.config.ts, tests/global-setup.ts)
+    #
+    # A 70s suite behind 85s of setup is not worth splitting: two shards would each
+    # pay the full 85s to save ~35s. One shard runs in ~155s, under the previous
+    # ~250s/shard, and drops unit runner minutes ~70% along with two more concurrent
+    # Supabase stacks (less registry throttling for ci-db-retry.sh to absorb). The
+    # matrix stays so re-sharding is a one-line change if the suite grows back.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
-        total: [2]
+        shard: [1]
+        total: [1]
     env:
       # The bootstrap ends with db:gen-types, which spawns a one-shot postgres-meta
       # container `supabase start` never pulls: a cold ~99 MB image pull on the
@@ -361,11 +360,14 @@ jobs:
     if: needs.gate.outputs.heavy == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404-arm
     timeout-minutes: 30
+    # Same arithmetic as unit-tests: the suite now runs two Playwright workers instead
+    # of one (playwright.shared.ts), ~111s -> ~68s, which is below the ~85s of setup a
+    # second shard would have to re-pay. One shard it is.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
-        total: [2]
+        shard: [1]
+        total: [1]
     env:
       # E2E never reads the regenerated types — skip db:gen-types (and the cold
       # postgres-meta image pull it triggers). See unit-tests above.
