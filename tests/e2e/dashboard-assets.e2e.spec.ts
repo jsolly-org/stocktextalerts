@@ -43,8 +43,8 @@ test.describe("dashboard and assets", () => {
 			await session.page.goto("/dashboard");
 			await expectCurrentPath(session.page, "/dashboard");
 
-			const emailSwitch = session.page.getByRole("switch", { name: "Email notifications" });
-			await expect(emailSwitch).toHaveAttribute("aria-checked", "true");
+			const emailRadio = session.page.getByRole("radio", { name: "Email" });
+			await expect(emailRadio).toBeChecked();
 
 			await expect(session.page.getByText("No assets tracked yet")).toBeVisible();
 		} finally {
@@ -185,7 +185,7 @@ test.describe("dashboard and assets", () => {
 				.waitFor({ timeout: 15_000 });
 
 			const emailRadio = session.page.getByRole("radio", { name: "Email" });
-			if ((await emailRadio.getAttribute("aria-checked")) !== "true") {
+			if (!(await emailRadio.isChecked())) {
 				await selectDeliveryChannel(session.page, "Email");
 				await waitForDeliveryChannel(user.id, "email");
 			}
@@ -282,10 +282,7 @@ test.describe("dashboard and assets", () => {
 				.toBe(true);
 
 			await session.page.reload();
-			await expect(session.page.getByRole("radio", { name: "Email" })).toHaveAttribute(
-				"aria-checked",
-				"true",
-			);
+			await expect(session.page.getByRole("radio", { name: "Email" })).toBeChecked();
 			await expect(
 				session.page.getByRole("switch", { name: /Scheduled Asset Price Notifications/i }),
 			).toHaveAttribute("aria-checked", "true");
@@ -307,10 +304,7 @@ test.describe("dashboard and assets", () => {
 			await waitForDeliveryChannel(user.id, "disabled");
 
 			await session.page.goto("/dashboard");
-			await expect(session.page.getByRole("radio", { name: "Disabled" })).toHaveAttribute(
-				"aria-checked",
-				"true",
-			);
+			await expect(session.page.getByRole("radio", { name: "Disabled" })).toBeChecked();
 		} finally {
 			await session.cleanup();
 		}
@@ -327,10 +321,7 @@ test.describe("dashboard and assets", () => {
 
 			await session.page.goto("/dashboard");
 			await waitForDeliveryChannel(user.id, "disabled");
-			await expect(session.page.getByRole("radio", { name: "Disabled" })).toHaveAttribute(
-				"aria-checked",
-				"true",
-			);
+			await expect(session.page.getByRole("radio", { name: "Disabled" })).toBeChecked();
 		} finally {
 			await session.cleanup();
 		}
@@ -353,9 +344,7 @@ test.describe("dashboard and assets", () => {
 			await signIn(session.page, user.email, user.password);
 
 			await expect(session.page.getByRole("button", { name: "Remove AAPL" })).toBeVisible();
-			await expect(
-				session.page.getByRole("switch", { name: "Email notifications" }),
-			).toHaveAttribute("aria-checked", "true");
+			await expect(session.page.getByRole("radio", { name: "Email" })).toBeChecked();
 		} finally {
 			await session.cleanup();
 		}

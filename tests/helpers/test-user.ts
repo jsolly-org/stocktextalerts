@@ -38,6 +38,8 @@ export type CreateTestUserOptions = {
 	password?: string;
 	timezone?: string;
 	deliveryChannel?: "email" | "telegram" | "disabled";
+	/** Required implicitly when deliveryChannel is telegram (CHECK constraint). */
+	telegramChatId?: number;
 	scheduledUpdateTimes?: number[] | null;
 	trackedAssets?: string[];
 	confirmed?: boolean;
@@ -180,13 +182,19 @@ export async function createTestUser(options: CreateTestUserOptions = {}): Promi
 			}
 		}
 
+		const deliveryChannel = options.deliveryChannel ?? "email";
+		const telegramChatId =
+			options.telegramChatId ??
+			(deliveryChannel === "telegram" ? Math.floor(Math.random() * 1_000_000_000) + 1 : null);
+
 		const profile: DbUserInsert = {
 			id: userId,
 			email,
 			approved_at: approved ? DateTime.utc().toISO() : null,
 			approved_by: approved ? "test" : null,
 			timezone,
-			delivery_channel: options.deliveryChannel ?? "email",
+			delivery_channel: deliveryChannel,
+			telegram_chat_id: telegramChatId,
 			market_scheduled_asset_price_times: finalMarketScheduledPriceTimes,
 			market_scheduled_asset_price_next_send_at: nextSendAtIso,
 		};

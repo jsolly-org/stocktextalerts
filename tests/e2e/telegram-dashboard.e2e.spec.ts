@@ -161,7 +161,7 @@ test.describe("Telegram dashboard UI", () => {
 		// Route to Telegram first so Disabled is a real mute from telegram.
 		await selectDeliveryChannel(page, "Telegram");
 		await waitForDeliveryChannel(userId as string, "telegram");
-		await expect(telegramRadio).toHaveAttribute("aria-checked", "true");
+		await expect(telegramRadio).toBeChecked();
 
 		await selectDeliveryChannel(page, "Disabled");
 		await waitForDeliveryChannel(userId as string, "disabled");
@@ -176,7 +176,7 @@ test.describe("Telegram dashboard UI", () => {
 
 		await selectDeliveryChannel(page, "Telegram");
 		await waitForDeliveryChannel(userId as string, "telegram");
-		await expect(telegramRadio).toHaveAttribute("aria-checked", "true");
+		await expect(telegramRadio).toBeChecked();
 	});
 
 	test("toggling Market and asset-event content options each persist a DB row", async () => {
@@ -274,10 +274,7 @@ test.describe("Telegram-only notification channel", () => {
 				"true",
 			);
 
-			await expect(page.getByRole("radio", { name: "Telegram" })).toHaveAttribute(
-				"aria-checked",
-				"true",
-			);
+			await expect(page.getByRole("radio", { name: "Telegram" })).toBeChecked();
 		} finally {
 			if (userId) {
 				try {
