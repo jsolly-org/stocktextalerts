@@ -1,7 +1,10 @@
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
+import {
+	groupPrefRowsByUser,
+	queryNotificationPreferenceRows,
+} from "../notification-preferences/preferences";
 import type { PrefRow } from "../types";
-import { parsePrefRow } from "./notification-prefs";
 
 /* =============
 Batch loader for notification_preferences rows.
@@ -17,44 +20,25 @@ async function loadPrefsByUser(
 	supabase: AppSupabaseClient,
 	userIds: readonly string[],
 ): Promise<Map<string, PrefRow[]>> {
-	const byUser = new Map<string, PrefRow[]>();
 	if (userIds.length === 0) {
-		return byUser;
+		return new Map();
 	}
 
-	const { data, error } = await supabase
-		.from("notification_preferences")
-		.select("user_id, notification_type, content, enabled")
-		.in("user_id", [...new Set(userIds)]);
+	const { data, error } = await queryNotificationPreferenceRows(supabase, userIds);
 
 	if (error) {
 		rootLogger.error("Failed to load notification preferences", { action: "load_prefs" }, error);
-		return byUser;
+		return new Map();
 	}
 
-	for (const row of data ?? []) {
-		const r = row as {
-			user_id: string;
-			notification_type: string;
-			content: string;
-			enabled: boolean;
-		};
-		const pref = parsePrefRow(r);
-		if (!pref) {
-			rootLogger.warn("Skipping invalid notification preference row", {
-				action: "load_prefs",
-				userId: r.user_id,
-				notification_type: r.notification_type,
-				content: r.content,
-			});
-			continue;
-		}
-		const list = byUser.get(r.user_id) ?? [];
-		list.push(pref);
-		byUser.set(r.user_id, list);
-	}
-
-	return byUser;
+	return groupPrefRowsByUser(data ?? [], (row) => {
+		rootLogger.warn("Skipping invalid notification preference row", {
+			action: "load_prefs",
+			userId: row.user_id,
+			notification_type: row.notification_type,
+			content: row.content,
+		});
+	});
 }
 
 /** Attach a `prefs` array to each user record by batch-loading their preference rows. */

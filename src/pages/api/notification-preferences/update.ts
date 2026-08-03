@@ -1,7 +1,6 @@
 import type { APIRoute } from "astro";
 import { createUserService } from "../../../lib/auth/user-service";
 import type { ApiJsonBody } from "../../../lib/client/types";
-import { NOTIFICATION_PREFERENCE_CATALOG } from "../../../lib/constants";
 import {
 	hasAnyDailyNotificationFacet,
 	isDailyNotificationFacetEnabled,
@@ -12,12 +11,13 @@ import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
 import { NOTIFICATION_PREFERENCES_SCHEMA } from "../../../lib/notification-preferences/constants";
 import {
-	buildPreferenceSnapshot,
+	buildNotificationPreferencesApiSnapshot,
 	loadUserPreferenceRows,
 	persistNotificationPreferences,
 } from "../../../lib/notification-preferences/preferences";
 import {
 	buildNotificationPreferencesUpdatePayload,
+	DAILY_NOTIFICATION_CATALOG_ENTRIES,
 	DAILY_NOTIFICATION_SCHEDULE_FIELDS,
 } from "../../../lib/notification-preferences/update-payload";
 import { userLocalToEtMinute } from "../../../lib/time/conversion";
@@ -161,9 +161,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const dailyNotificationScheduleSubmitted = DAILY_NOTIFICATION_SCHEDULE_FIELDS.some((field) =>
 		formData.has(field),
 	);
-	const dailyNotificationEnabledAfterUpdate = NOTIFICATION_PREFERENCE_CATALOG.filter(
-		(entry) => entry.notification_type === "daily_notification",
-	).some((entry) =>
+	const dailyNotificationEnabledAfterUpdate = DAILY_NOTIFICATION_CATALOG_ENTRIES.some((entry) =>
 		formData.has(entry.fieldName) && parsed.data[entry.fieldName] !== undefined
 			? parsed.data[entry.fieldName] === true
 			: entry.content !== "" && isDailyNotificationFacetEnabled(existingPrefs, entry.content),
@@ -206,12 +204,6 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			Object.keys(safeNotificationPreferenceUpdates).length === 0
 				? dbUser
 				: await userService.update(user.id, safeNotificationPreferenceUpdates);
-		if (!updatedUser) {
-			logger.error("User update returned null", { userId: user.id });
-			return Response.json({ ok: false, message: "user_not_found" } satisfies ApiJsonBody, {
-				status: 404,
-			});
-		}
 
 		await persistNotificationPreferences({
 			supabase,
@@ -227,18 +219,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			{
 				ok: true,
 				message: "settings_updated",
-				notificationPreferences: {
-					market_scheduled_asset_price_enabled: updatedUser.market_scheduled_asset_price_enabled,
-					delivery_channel: updatedUser.delivery_channel,
-					timezone: updatedUser.timezone,
-					market_scheduled_asset_price_times: updatedUser.market_scheduled_asset_price_times,
-					daily_notification_time: updatedUser.daily_notification_time,
-					daily_notification_next_send_at: updatedUser.daily_notification_next_send_at,
-					market_scheduled_asset_price_next_send_at:
-						updatedUser.market_scheduled_asset_price_next_send_at,
-					dismiss_timezone_mismatch_prompts: updatedUser.dismiss_timezone_mismatch_prompts,
-					...buildPreferenceSnapshot(updatedPrefs),
-				},
+				notificationPreferences: buildNotificationPreferencesApiSnapshot(updatedUser, updatedPrefs),
 			} satisfies ApiJsonBody,
 			{ status: 200 },
 		);

@@ -135,13 +135,6 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			{ status: 500 },
 		);
 	}
-	if (!updatedUser) {
-		logger.error("User update returned null", { userId: authUser.id });
-		return Response.json({ ok: false, message: "user_not_found" } satisfies ApiJsonBody, {
-			status: 404,
-		});
-	}
-
 	return Response.json(
 		{
 			ok: true,

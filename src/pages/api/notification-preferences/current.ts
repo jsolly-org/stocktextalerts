@@ -4,7 +4,7 @@ import type { ApiJsonBody } from "../../../lib/client/types";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import {
-	buildPreferenceSnapshot,
+	buildNotificationPreferencesApiSnapshot,
 	loadUserPreferenceRows,
 } from "../../../lib/notification-preferences/preferences";
 
@@ -49,18 +49,7 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 			{
 				ok: true,
 				message: "ok",
-				notificationPreferences: {
-					market_scheduled_asset_price_enabled: dbUser.market_scheduled_asset_price_enabled,
-					delivery_channel: dbUser.delivery_channel,
-					timezone: dbUser.timezone,
-					market_scheduled_asset_price_times: dbUser.market_scheduled_asset_price_times,
-					daily_notification_time: dbUser.daily_notification_time,
-					daily_notification_next_send_at: dbUser.daily_notification_next_send_at,
-					market_scheduled_asset_price_next_send_at:
-						dbUser.market_scheduled_asset_price_next_send_at,
-					dismiss_timezone_mismatch_prompts: dbUser.dismiss_timezone_mismatch_prompts,
-					...buildPreferenceSnapshot(prefs),
-				},
+				notificationPreferences: buildNotificationPreferencesApiSnapshot(dbUser, prefs),
 			} satisfies ApiJsonBody,
 			{ status: 200 },
 		);
