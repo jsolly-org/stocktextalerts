@@ -43,7 +43,7 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 			});
 		}
 
-		const prefs = await loadUserPreferenceRows(supabase, user.id, dbUser.delivery_channel);
+		const prefs = await loadUserPreferenceRows(supabase, user.id);
 
 		return Response.json(
 			{

@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-	legacyFlagsForDeliveryChannel,
 	needsNotificationChannelSelection,
 	resolveOutboundChannel,
 	wantsEmailDelivery,
 	wantsTelegramDelivery,
 } from "../../../src/lib/messaging/delivery-channel";
 import { createTelegramSenderFactory } from "../../../src/lib/messaging/telegram/sender-factory";
-import { preferenceWriteChannel } from "../../../src/lib/notification-preferences/preferences";
 
 describe("account delivery routing", () => {
 	it("resolves email when delivery_channel is email", () => {
@@ -16,23 +14,6 @@ describe("account delivery routing", () => {
 		);
 		expect(wantsEmailDelivery({ delivery_channel: "email" })).toBe(true);
 		expect(wantsEmailDelivery({ delivery_channel: "telegram" })).toBe(false);
-	});
-
-	it("maps delivery_channel to expand-era legacy flags", () => {
-		expect(legacyFlagsForDeliveryChannel("email")).toEqual({
-			email_notifications_enabled: true,
-			telegram_opted_out: true,
-		});
-		expect(legacyFlagsForDeliveryChannel("telegram")).toEqual({
-			email_notifications_enabled: false,
-			telegram_opted_out: false,
-		});
-		expect(legacyFlagsForDeliveryChannel("disabled")).toEqual({
-			email_notifications_enabled: false,
-			telegram_opted_out: true,
-		});
-		expect(preferenceWriteChannel("disabled")).toBe("email");
-		expect(preferenceWriteChannel("telegram")).toBe("telegram");
 	});
 
 	it("resolves telegram only when routed to telegram AND linked", () => {

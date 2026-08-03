@@ -14,7 +14,6 @@ import { NOTIFICATION_PREFERENCES_SCHEMA } from "../../../lib/notification-prefe
 import {
 	buildPreferenceSnapshot,
 	loadUserPreferenceRows,
-	persistCollapsedPreferenceSnapshot,
 	persistNotificationPreferences,
 } from "../../../lib/notification-preferences/preferences";
 import {
@@ -150,7 +149,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 	let existingPrefs: Awaited<ReturnType<typeof loadUserPreferenceRows>>;
 	try {
-		existingPrefs = await loadUserPreferenceRows(supabase, user.id, dbUser.delivery_channel);
+		existingPrefs = await loadUserPreferenceRows(supabase, user.id);
 	} catch (error) {
 		logger.error("Failed to load existing notification preferences", { userId: user.id }, error);
 		return Response.json(
@@ -219,35 +218,10 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			userId: user.id,
 			parsedData: parsed.data,
 			formData,
-			deliveryChannel:
-				safeNotificationPreferenceUpdates.delivery_channel ?? updatedUser.delivery_channel,
 			logger,
 		});
 
-		// Channel-only autosave (Channels panel) submits no content fields — re-mirror
-		// the collapsed snapshot onto both expand-era grains so the new pipe is live.
-		const contentFieldsSubmitted = NOTIFICATION_PREFERENCE_CATALOG.some((entry) =>
-			formData.has(entry.fieldName),
-		);
-		if (
-			formData.has("delivery_channel") &&
-			safeNotificationPreferenceUpdates.delivery_channel !== undefined &&
-			!contentFieldsSubmitted
-		) {
-			await persistCollapsedPreferenceSnapshot({
-				supabase,
-				userId: user.id,
-				prefs: existingPrefs,
-				deliveryChannel: updatedUser.delivery_channel,
-				logger,
-			});
-		}
-
-		const updatedPrefs = await loadUserPreferenceRows(
-			supabase,
-			user.id,
-			updatedUser.delivery_channel,
-		);
+		const updatedPrefs = await loadUserPreferenceRows(supabase, user.id);
 
 		return Response.json(
 			{
