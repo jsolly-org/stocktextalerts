@@ -138,6 +138,7 @@ Test email never hits real SES.
 - **`reuseExistingServer`:** enabled locally, disabled in CI (`playwright.config.ts`).
 - **Web server env:** vendor modules aliased to no-op stubs when `MODE=test` (see `astro.config.ts`); Mailpit SMTP settings inherited from `.env.local`.
 - **Vendor HTTP:** anything the server fetches from a provider must go through `src/lib/vendors/massive.ts`, `finnhub.ts`, or `src/lib/vendors/http.ts`; those three are the aliased modules. A direct `fetch` to a vendor bypasses the stub and makes a live call from CI (the logo proxy and icon probe did exactly that).
+- **What the HTTP stub answers:** `tests/stubs/vendors/http.ts` serves a real 1x1 PNG for logo/branding URLs, so the dashboard logo proxy and the email logo fetcher run their success paths (content-type allowlist, `MAX_LOGO_BYTES`, base64 inlining) instead of collapsing to "vendor unavailable". The Massive **ticker-detail** probe stays 503 on purpose: a 200 makes `checkAndStoreIcon` write `icon_url` + `icon_checked_at` mid-spec and clobber fixture values. Unit specs that want a failing upstream import `tests/stubs/vendors/http-unavailable.ts` instead, which 503s everything.
 - **Origins:** derive from Playwright `baseURL` / `page` origin instead of hardcoding `:4322` where practical.
 - **Waits:** prefer route gates, response barriers, and `expect.poll` over fixed `waitForTimeout`.
 

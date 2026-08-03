@@ -22,10 +22,10 @@ vi.mock("../../../src/lib/time/market/calendar", () => ({
 }));
 
 // Digest email logos are not what these scenarios assert on, and the vendor URL is a
-// third-party host (tests/helpers/network-guard.ts blocks it). Same stub the MODE=test
-// Astro servers use: an unavailable upstream, so the logo fetcher takes the "no logo"
-// branch it already took in CI against the placeholder key.
-vi.mock("../../../src/lib/vendors/http", () => import("../../stubs/vendors/http"));
+// third-party host (tests/helpers/network-guard.ts blocks it). The unavailable stub, not
+// the MODE=test one: the logo fetcher takes the "no logo" branch it already took in CI
+// against the placeholder key, and never writes icon_base64 on shared asset rows.
+vi.mock("../../../src/lib/vendors/http", () => import("../../stubs/vendors/http-unavailable"));
 
 // Mock market-data (a per-call mock lets each test return the prices it expects).
 // Mocks must be created via vi.hoisted so the vi.mock factory below — which is
