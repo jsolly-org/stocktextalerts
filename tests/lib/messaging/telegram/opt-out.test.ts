@@ -77,8 +77,6 @@ describe("optOutIfBotBlocked", () => {
 				table: "users",
 				payload: {
 					delivery_channel: "disabled",
-					email_notifications_enabled: false,
-					telegram_opted_out: true,
 				},
 				filters: [
 					{ column: "id", value: "user-1" },

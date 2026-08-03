@@ -47,41 +47,7 @@ export function needsNotificationChannelSelection(
 	return user.delivery_channel === "disabled";
 }
 
-/** Legacy flag twin of `delivery_channel` (expand-era columns). */
-export type LegacyDeliveryFlags = {
-	email_notifications_enabled: boolean;
-	telegram_opted_out: boolean;
-};
-
-/**
- * Inverse of the expand backfill/trigger CASE so old Lambdas mute correctly
- * while `delivery_channel` is the authored routing source.
- */
-export function legacyFlagsForDeliveryChannel(channel: DeliveryChannelMode): LegacyDeliveryFlags {
-	switch (channel) {
-		case "telegram":
-			return { email_notifications_enabled: false, telegram_opted_out: false };
-		case "email":
-			return { email_notifications_enabled: true, telegram_opted_out: true };
-		case "disabled":
-			return { email_notifications_enabled: false, telegram_opted_out: true };
-	}
-}
-
-function isUndefinedColumnError(error: { message?: string; code?: string }): boolean {
-	const msg = error.message ?? "";
-	return (
-		error.code === "PGRST204" ||
-		/could not find.*column/i.test(msg) ||
-		/column .* does not exist/i.test(msg)
-	);
-}
-
-/**
- * Update `users.delivery_channel`, dual-writing expand-era legacy flags when
- * those columns still exist (Vercel-ahead-of-Deploy / expand bake window).
- * Retries without legacy columns after contract migrate drops them.
- */
+/** Update `users.delivery_channel` (plus optional extra columns). */
 export async function updateUserDeliveryChannel(options: {
 	supabase: AppSupabaseClient;
 	userId: string;
@@ -92,25 +58,13 @@ export async function updateUserDeliveryChannel(options: {
 	extra?: UserUpdateInput;
 }): Promise<{ updated: boolean; error: { message: string; code?: string } | null }> {
 	const { supabase, userId, channel, casCurrent, extra } = options;
-	const withLegacy = {
-		...extra,
-		delivery_channel: channel,
-		...legacyFlagsForDeliveryChannel(channel),
-	} as UserUpdateInput;
+	const patch = { ...extra, delivery_channel: channel } as UserUpdateInput;
 
-	const run = async (patch: UserUpdateInput) => {
-		let query = supabase.from("users").update(patch).eq("id", userId);
-		if (casCurrent !== undefined) {
-			query = query.eq("delivery_channel", casCurrent);
-		}
-		return query.select("id").maybeSingle();
-	};
-
-	let { data, error } = await run(withLegacy);
-	if (error && isUndefinedColumnError(error)) {
-		const withoutLegacy = { ...extra, delivery_channel: channel } as UserUpdateInput;
-		({ data, error } = await run(withoutLegacy));
+	let query = supabase.from("users").update(patch).eq("id", userId);
+	if (casCurrent !== undefined) {
+		query = query.eq("delivery_channel", casCurrent);
 	}
+	const { data, error } = await query.select("id").maybeSingle();
 
 	return {
 		updated: data != null,

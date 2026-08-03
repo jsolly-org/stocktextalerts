@@ -1,8 +1,4 @@
-import type {
-	DeliveryChannelMode,
-	FacetCatalogEntry,
-	NotificationOptionFieldName,
-} from "../constants";
+import type { FacetCatalogEntry, NotificationOptionFieldName } from "../constants";
 import { NOTIFICATION_PREFERENCE_CATALOG } from "../constants";
 import type { AppSupabaseClient } from "../db/supabase";
 import type { Logger } from "../logging";
@@ -12,32 +8,14 @@ import type { PrefRow } from "../types";
 /* =============
 Notification-preference persistence (content toggles).
 
-Post-contract: one row per (user_id, notification_type, content).
-Expand-era (pre-flatten migrate): channel-keyed rows still exist. Writers try
-channel-keyed upsert first (channel = active pipe, or email when disabled),
-then fall back to flat upsert after the contract migration drops `channel`.
+One row per (user_id, notification_type, content). Account routing lives on
+`users.delivery_channel`, not on these rows.
 ============= */
 
 /** field name → its catalog option, for every valid option. */
 const PREFERENCE_FIELD_MAP: ReadonlyMap<string, FacetCatalogEntry> = new Map(
 	NOTIFICATION_PREFERENCE_CATALOG.map((entry) => [entry.fieldName, entry]),
 );
-
-function isPrefsSchemaMismatch(error: { message?: string; code?: string }): boolean {
-	const msg = error.message ?? "";
-	return (
-		error.code === "PGRST204" ||
-		/could not find.*column/i.test(msg) ||
-		/column .* does not exist/i.test(msg) ||
-		/ON CONFLICT/i.test(msg) ||
-		/no unique or exclusion constraint/i.test(msg)
-	);
-}
-
-/** Content grain used when dual-writing expand-era channel-keyed prefs. */
-export function preferenceWriteChannel(deliveryChannel: DeliveryChannelMode): "email" | "telegram" {
-	return deliveryChannel === "telegram" ? "telegram" : "email";
-}
 
 /**
  * Upsert `notification_preferences` rows for every content preference present in
@@ -53,11 +31,9 @@ export async function persistNotificationPreferences(options: {
 	userId: string;
 	parsedData: Partial<Record<string, boolean>>;
 	formData: FormData;
-	deliveryChannel: DeliveryChannelMode;
 	logger?: Logger;
 }): Promise<void> {
 	const { supabase, userId, parsedData, formData, logger } = options;
-	void options.deliveryChannel;
 
 	const rows = [...PREFERENCE_FIELD_MAP.values()].flatMap((target) => {
 		const field = target.fieldName;
@@ -80,46 +56,21 @@ export async function persistNotificationPreferences(options: {
 		return;
 	}
 
-	// Expand-era: mirror the same enabled bits onto both channel grains so old
-	// Lambdas keep delivering after a pipe switch without a content retoggle.
-	const rowsWithChannel = (["email", "telegram"] as const).flatMap((channel) =>
-		rows.map((row) => ({ ...row, channel })),
-	);
-
-	const { error: channelError } = await supabase
-		.from("notification_preferences")
-		// Expand-era PK includes channel; cast until contract migrate drops it.
-		.upsert(rowsWithChannel as never, {
-			onConflict: "user_id,notification_type,content,channel",
-		});
-
-	if (!channelError) {
-		return;
-	}
-	if (!isPrefsSchemaMismatch(channelError)) {
-		logger?.error(
-			"Failed to upsert notification preferences",
-			{ userId, fieldCount: rows.length, mode: "channel" },
-			channelError,
-		);
-		throw channelError;
-	}
-
-	const { error: flatError } = await supabase
+	const { error } = await supabase
 		.from("notification_preferences")
 		.upsert(rows, { onConflict: "user_id,notification_type,content" });
 
-	if (flatError) {
+	if (error) {
 		logger?.error(
 			"Failed to upsert notification preferences",
-			{ userId, fieldCount: rows.length, mode: "flat" },
-			flatError,
+			{ userId, fieldCount: rows.length },
+			error,
 		);
-		throw flatError;
+		throw error;
 	}
 }
 
-/** Seed signup defaults with the same expand→contract dual-path as autosave. */
+/** Seed signup defaults into flat `notification_preferences` rows. */
 export async function seedDefaultNotificationPreferences(options: {
 	supabase: AppSupabaseClient;
 	userId: string;
@@ -132,68 +83,14 @@ export async function seedDefaultNotificationPreferences(options: {
 	logger?: Logger;
 }): Promise<void> {
 	const { supabase, userId, rows, logger } = options;
-	const withChannel = (["email", "telegram"] as const).flatMap((channel) =>
-		rows.map((row) => ({ ...row, channel })),
-	);
 
-	const { error: channelError } = await supabase
-		.from("notification_preferences")
-		.upsert(withChannel as never, {
-			onConflict: "user_id,notification_type,content,channel",
-		});
-	if (!channelError) {
-		return;
-	}
-	if (!isPrefsSchemaMismatch(channelError)) {
-		logger?.error(
-			"Failed to seed default notification preferences",
-			{ userId, mode: "channel" },
-			channelError,
-		);
-		throw channelError;
-	}
-
-	const { error: flatError } = await supabase
+	const { error } = await supabase
 		.from("notification_preferences")
 		.upsert(rows, { onConflict: "user_id,notification_type,content" });
-	if (flatError) {
-		logger?.error(
-			"Failed to seed default notification preferences",
-			{ userId, mode: "flat" },
-			flatError,
-		);
-		throw flatError;
+	if (error) {
+		logger?.error("Failed to seed default notification preferences", { userId }, error);
+		throw error;
 	}
-}
-
-/**
- * Persist every catalog content toggle from an already-collapsed snapshot.
- * Used when delivery_channel changes without content fields in the form so
- * expand-era channel grains stay mirrored onto both pipes.
- */
-export async function persistCollapsedPreferenceSnapshot(options: {
-	supabase: AppSupabaseClient;
-	userId: string;
-	prefs: readonly PrefRow[];
-	deliveryChannel: DeliveryChannelMode;
-	logger?: Logger;
-}): Promise<void> {
-	const snapshot = buildPreferenceSnapshot(options.prefs);
-	const formData = new FormData();
-	const parsedData: Partial<Record<string, boolean>> = {};
-	for (const entry of NOTIFICATION_PREFERENCE_CATALOG) {
-		const value = snapshot[entry.fieldName];
-		parsedData[entry.fieldName] = value;
-		formData.set(entry.fieldName, value ? "on" : "off");
-	}
-	await persistNotificationPreferences({
-		supabase: options.supabase,
-		userId: options.userId,
-		parsedData,
-		formData,
-		deliveryChannel: options.deliveryChannel,
-		logger: options.logger,
-	});
 }
 
 /** The flat per-option snapshot keyed by dashboard field name. */
@@ -209,55 +106,6 @@ export function buildPreferenceSnapshot(prefs: readonly PrefRow[]): PreferenceSn
 	return snapshot;
 }
 
-type PrefRowWithOptionalChannel = {
-	notification_type: string;
-	content: string;
-	enabled: boolean;
-	channel?: string | null;
-};
-
-/**
- * Collapse expand-era channel grains into one PrefRow per (type, content).
- * Prefer the account's active pipe, then email, then telegram, then any enabled.
- */
-export function collapsePreferenceRows(
-	rows: readonly PrefRowWithOptionalChannel[],
-	deliveryChannel: DeliveryChannelMode,
-): PrefRow[] {
-	const preferred =
-		deliveryChannel === "telegram" || deliveryChannel === "email" ? deliveryChannel : "email";
-
-	type Acc = {
-		email?: PrefRowWithOptionalChannel;
-		telegram?: PrefRowWithOptionalChannel;
-		other: PrefRowWithOptionalChannel[];
-	};
-	const byKey = new Map<string, Acc>();
-
-	for (const row of rows) {
-		const key = `${row.notification_type}|${row.content}`;
-		const acc = byKey.get(key) ?? { other: [] };
-		if (row.channel === "email") acc.email = row;
-		else if (row.channel === "telegram") acc.telegram = row;
-		else acc.other.push(row);
-		byKey.set(key, acc);
-	}
-
-	const collapsed: PrefRow[] = [];
-	for (const acc of byKey.values()) {
-		const pick =
-			(preferred === "telegram" ? acc.telegram : acc.email) ??
-			acc.email ??
-			acc.telegram ??
-			acc.other.find((r) => r.enabled) ??
-			acc.other[0];
-		if (!pick) continue;
-		const parsed = parsePrefRow(pick);
-		if (parsed) collapsed.push(parsed);
-	}
-	return collapsed;
-}
-
 /** Load a single user's preference rows from notification_preferences.
  *
  * Throws on a failed read (unlike the Lambda fan-out attach path, which
@@ -268,24 +116,7 @@ export function collapsePreferenceRows(
 export async function loadUserPreferenceRows(
 	supabase: AppSupabaseClient,
 	userId: string,
-	deliveryChannel: DeliveryChannelMode = "email",
 ): Promise<PrefRow[]> {
-	const withChannel = await supabase
-		.from("notification_preferences")
-		.select("notification_type, content, enabled, channel")
-		.eq("user_id", userId);
-
-	if (!withChannel.error) {
-		return collapsePreferenceRows(
-			(withChannel.data ?? []) as unknown as PrefRowWithOptionalChannel[],
-			deliveryChannel,
-		);
-	}
-
-	if (!isPrefsSchemaMismatch(withChannel.error)) {
-		throw withChannel.error;
-	}
-
 	const { data, error } = await supabase
 		.from("notification_preferences")
 		.select("notification_type, content, enabled")
