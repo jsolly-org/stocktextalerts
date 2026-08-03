@@ -149,7 +149,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 	let existingPrefs: Awaited<ReturnType<typeof loadUserPreferenceRows>>;
 	try {
-		existingPrefs = await loadUserPreferenceRows(supabase, user.id);
+		existingPrefs = await loadUserPreferenceRows(supabase, user.id, dbUser.delivery_channel);
 	} catch (error) {
 		logger.error("Failed to load existing notification preferences", { userId: user.id }, error);
 		return Response.json(
@@ -218,10 +218,16 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			userId: user.id,
 			parsedData: parsed.data,
 			formData,
+			deliveryChannel:
+				safeNotificationPreferenceUpdates.delivery_channel ?? updatedUser.delivery_channel,
 			logger,
 		});
 
-		const updatedPrefs = await loadUserPreferenceRows(supabase, user.id);
+		const updatedPrefs = await loadUserPreferenceRows(
+			supabase,
+			user.id,
+			updatedUser.delivery_channel,
+		);
 
 		return Response.json(
 			{

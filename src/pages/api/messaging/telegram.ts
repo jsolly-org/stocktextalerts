@@ -6,6 +6,7 @@ import { requireEnv } from "../../../lib/db/env";
 import { createSupabaseAdminClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
+import { updateUserDeliveryChannel } from "../../../lib/messaging/delivery-channel";
 import { buildDashboardButton } from "../../../lib/messaging/telegram/dashboard-button";
 import {
 	createTelegramBot,
@@ -352,13 +353,12 @@ async function handleStop(
 		return;
 	}
 
-	const { data: updated, error } = await admin
-		.from("users")
-		.update({ delivery_channel: "disabled" })
-		.eq("id", linked.id)
-		.eq("delivery_channel", "telegram")
-		.select("id")
-		.maybeSingle();
+	const { updated, error } = await updateUserDeliveryChannel({
+		supabase: admin,
+		userId: linked.id,
+		channel: "disabled",
+		casCurrent: "telegram",
+	});
 
 	if (error) {
 		logger.error("Telegram /stop update failed", { chatId }, createErrorForLogging(error));
@@ -414,13 +414,13 @@ async function handleUnlink(
 	// CAS disable only when still on telegram; otherwise clear link without
 	// touching routing (avoids clobbering a concurrent email/disabled write).
 	if (linked.delivery_channel === "telegram") {
-		const { data: updated, error } = await admin
-			.from("users")
-			.update({ ...clearLink, delivery_channel: "disabled" })
-			.eq("id", linked.id)
-			.eq("delivery_channel", "telegram")
-			.select("id")
-			.maybeSingle();
+		const { updated, error } = await updateUserDeliveryChannel({
+			supabase: admin,
+			userId: linked.id,
+			channel: "disabled",
+			casCurrent: "telegram",
+			extra: clearLink,
+		});
 
 		if (error) {
 			logger.error("Telegram /unlink update failed", { chatId }, createErrorForLogging(error));

@@ -4,6 +4,7 @@ import { applyDailyNotificationNextSendAtToUserUpdate } from "../daily-notificat
 import { omitUndefined } from "../db";
 import type { User, UserUpdateInput } from "../db/types";
 import type { Logger } from "../logging";
+import { legacyFlagsForDeliveryChannel } from "../messaging/delivery-channel";
 import { userLocalToEtMinute } from "../time/conversion";
 import {
 	computeNextSendAtIso,
@@ -151,17 +152,21 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		}
 	}
 
-	const safeNotificationPreferenceUpdates: UserUpdateInput = omitUndefined({
+	const safeNotificationPreferenceUpdates = omitUndefined({
 		timezone: parsedData.timezone,
 		market_scheduled_asset_price_times: etNormalizedTimes,
 		...boolUpdates,
 		...(formData.has("delivery_channel") && parsedData.delivery_channel !== undefined
-			? { delivery_channel: parsedData.delivery_channel }
+			? {
+					delivery_channel: parsedData.delivery_channel,
+					// Expand-era dual-write (stripped by userService.update after contract migrate).
+					...legacyFlagsForDeliveryChannel(parsedData.delivery_channel),
+				}
 			: {}),
 		...(formData.has("daily_digest_time")
 			? { daily_notification_time: parsedData.daily_digest_time ?? null }
 			: {}),
-	});
+	}) as UserUpdateInput;
 
 	const timezoneChanged =
 		safeNotificationPreferenceUpdates.timezone !== undefined &&

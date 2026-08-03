@@ -4,6 +4,7 @@ import StatusMessage from "../components/StatusMessage.astro";
 import { createUserService } from "../lib/auth/user-service";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
+import { updateUserDeliveryChannel } from "../lib/messaging/delivery-channel";
 import { verifyEmailUnsubscribeToken } from "../lib/messaging/email/unsubscribe";
 import { isValidUuid } from "../lib/validation";
 
@@ -69,13 +70,12 @@ if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 					deliveryChannel: user.delivery_channel,
 				});
 			} else {
-				const { data: updated, error: updateError } = await supabase
-					.from("users")
-					.update({ delivery_channel: "disabled" })
-					.eq("id", user.id)
-					.eq("delivery_channel", "email")
-					.select("id")
-					.maybeSingle();
+				const { updated, error: updateError } = await updateUserDeliveryChannel({
+					supabase,
+					userId: user.id,
+					channel: "disabled",
+					casCurrent: "email",
+				});
 
 				if (updateError) {
 					logger.error(

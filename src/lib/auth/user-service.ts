@@ -119,6 +119,25 @@ export function createUserService(supabase: AppSupabaseClient, cookies: AstroCoo
 				.select()
 				.single();
 
+			if (
+				error &&
+				(error.code === "PGRST204" ||
+					/could not find.*column/i.test(error.message) ||
+					/column .* does not exist/i.test(error.message))
+			) {
+				const stripped = { ...(updates as Record<string, unknown>) };
+				delete stripped.email_notifications_enabled;
+				delete stripped.telegram_opted_out;
+				const retry = await supabase
+					.from("users")
+					.update(stripped as UserUpdateInput)
+					.eq("id", id)
+					.select()
+					.single();
+				if (retry.error) throw retry.error;
+				return retry.data as User;
+			}
+
 			if (error) throw error;
 			return data as User;
 		},

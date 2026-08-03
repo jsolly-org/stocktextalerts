@@ -1,6 +1,7 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import { type Logger, rootLogger } from "../../logging";
 import type { DeliveryResult } from "../../types";
+import { updateUserDeliveryChannel } from "../delivery-channel";
 
 /** Telegram Bot API error_code for "Forbidden: bot was blocked by the user" (and
  *  the related "user is deactivated" / "chat not found"). grammY surfaces it as
@@ -39,13 +40,12 @@ export async function optOutIfBotBlocked(
 	if (data?.delivery_channel !== "telegram") {
 		return;
 	}
-	const { data: updated, error } = await supabase
-		.from("users")
-		.update({ delivery_channel: "disabled" })
-		.eq("id", userId)
-		.eq("delivery_channel", "telegram")
-		.select("id")
-		.maybeSingle();
+	const { updated, error } = await updateUserDeliveryChannel({
+		supabase,
+		userId,
+		channel: "disabled",
+		casCurrent: "telegram",
+	});
 	if (error) {
 		logger.error(
 			"Failed to set delivery_channel=disabled after bot-blocked 403",

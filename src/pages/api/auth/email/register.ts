@@ -7,6 +7,7 @@ import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../
 import { parseWithSchema } from "../../../../lib/forms/parse";
 import { createLogger, type Logger } from "../../../../lib/logging";
 import { buildDefaultPreferenceRows } from "../../../../lib/messaging/notification-prefs";
+import { seedDefaultNotificationPreferences } from "../../../../lib/notification-preferences/preferences";
 import { resolveTimezone } from "../../../../lib/time/timezone/cache";
 
 async function cleanupOrphanedAuthUser(
@@ -121,12 +122,14 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 
 		// Seed default notification_preferences rows (content toggles). These
 		// replace the old per-column DEFAULTs on `users` (prices on; everything else off).
-		const { error: prefsError } = await adminSupabase
-			.from("notification_preferences")
-			.upsert(buildDefaultPreferenceRows(data.user.id), {
-				onConflict: "user_id,notification_type,content",
+		try {
+			await seedDefaultNotificationPreferences({
+				supabase: adminSupabase,
+				userId: data.user.id,
+				rows: buildDefaultPreferenceRows(data.user.id),
+				logger,
 			});
-		if (prefsError) {
+		} catch (prefsError) {
 			logger.error(
 				"Failed to seed default notification preferences",
 				{ userId: data.user.id },

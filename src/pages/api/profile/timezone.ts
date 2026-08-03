@@ -73,7 +73,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	// needs recomputing — not asset-event facets only.
 	let prefs: Awaited<ReturnType<typeof loadUserPreferenceRows>>;
 	try {
-		prefs = await loadUserPreferenceRows(supabase, authUser.id);
+		prefs = await loadUserPreferenceRows(supabase, authUser.id, dbUser.delivery_channel);
 	} catch (error) {
 		logger.error(
 			"Failed to load notification preferences for timezone update",
