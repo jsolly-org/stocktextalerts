@@ -228,24 +228,27 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404-arm
     timeout-minutes: 30
     # Shard count trades runner minutes for wall-clock, and each shard re-pays the
-    # full setup cost. Measured on this runner (`blacksmith jobs steps`, run 30820000241,
-    # the first single-shard run):
+    # full setup cost. Measured on this runner (`blacksmith jobs steps`, jobs
+    # 91739215579 / 91737937065 / 91737576294, after the run-scoped dev server landed):
     #
-    #   Unit tests                  130s
-    #   Wait for Supabase bootstrap  60s
-    #   setup-node                   10s   (node_modules mounts from sticky disk in ~1s)
+    #   Unit tests                86-88s
+    #   Wait for Supabase bootstrap 60-70s
+    #   setup-node                12-13s   (node_modules mounts from sticky disk in ~1s)
     #   ---------------------------------
-    #   job total                   213s   = ~83s setup + 130s tests
+    #   job total                174-182s  = ~87s setup + ~87s tests
     #
-    # So a second shard would buy ~65s of wall-clock for ~83s of extra runner time.
-    # This repo is optimizing cost (CI is ~94% of its Actions spend) and both test
-    # jobs sit at the same ~210s ceiling, so halving one alone would not move the run
-    # anyway. One shard each it is. Flip this to 2 only if wall-clock becomes the
-    # binding constraint, and do e2e-tests at the same time or it changes nothing.
+    # Setup is now half the job, so a second shard would buy ~44s of wall-clock for
+    # ~87s of extra runner time. It would also buy nothing at the run level: e2e-tests
+    # measures ~221s against this job's ~177s, so e2e alone sets the ceiling and unit
+    # has ~45s of slack under it. This repo is optimizing cost (CI is ~94% of its
+    # Actions spend), so unit stays at 1 shard; if wall-clock ever becomes the binding
+    # constraint, spend the effort on e2e-tests, not here.
     #
     # Cost history, for calibration: 6 shards (~75% setup) -> 4 -> 2 (node_modules
     # sticky disk + seed-only db:ci-seed cut setup ~154s -> ~83s) -> 1 (parallel test
-    # files cut the unit suite ~330s -> 130s). Re-measure before moving it again.
+    # files cut the unit suite ~330s -> 130s) -> run-scoped dev server (dropped the
+    # per-file `astro dev stop` across ~184 files, ~130s -> ~87s). Re-measure before
+    # moving it again.
     strategy:
       fail-fast: false
       matrix:
@@ -366,10 +369,15 @@ jobs:
     if: needs.gate.outputs.heavy == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404-arm
     timeout-minutes: 30
-    # Same arithmetic as unit-tests, and the same measured run: 131s of E2E behind 52s
-    # of Supabase bootstrap plus ~25s of runner/node/Playwright mount = 208s. The suite
-    # runs 2 Playwright workers rather than 1 (playwright.shared.ts), which is where the
-    # old second shard's parallelism went.
+    # Same arithmetic as unit-tests: ~140s of E2E behind ~55s of Supabase bootstrap plus
+    # ~26s of runner/node/Playwright mount = ~221s (jobs 91739215613 / 91737937168 /
+    # 91737576349). The suite runs 2 Playwright workers rather than 1
+    # (playwright.shared.ts), which is where the old second shard's parallelism went.
+    #
+    # This job is the run's critical path: it is ~45s longer than unit-tests and ~114s
+    # longer than static checks. Any wall-clock work belongs here first, and more
+    # Playwright workers on the same runner is the cheaper experiment than a second
+    # shard, which would re-pay the whole ~81s setup.
     strategy:
       fail-fast: false
       matrix:
