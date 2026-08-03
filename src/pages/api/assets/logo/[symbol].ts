@@ -8,6 +8,7 @@ import { createUserService } from "../../../../lib/auth/user-service";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { createLogger } from "../../../../lib/logging";
 import { isValidAssetSymbol } from "../../../../lib/validation";
+import { vendorFetch } from "../../../../lib/vendors/http";
 
 /**
  * GET /api/assets/logo/:symbol
@@ -70,7 +71,7 @@ export const GET: APIRoute = async ({ url, params, request, cookies, locals, cac
 	}
 
 	try {
-		const upstream = await fetch(upstreamUrl, {
+		const upstream = await vendorFetch(upstreamUrl, {
 			signal: AbortSignal.timeout(10_000),
 		});
 

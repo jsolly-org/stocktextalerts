@@ -14,14 +14,24 @@ const stubVendorMassivePath = fileURLToPath(
 const stubVendorFinnhubPath = fileURLToPath(
 	new URL("./tests/stubs/vendors/finnhub.ts", import.meta.url),
 );
+const stubVendorHttpPath = fileURLToPath(new URL("./tests/stubs/vendors/http.ts", import.meta.url));
 
-function stubVendorModulesPlugin(stubs: { massive: string; finnhub: string }): Plugin {
+function stubVendorModulesPlugin(stubs: {
+	massive: string;
+	finnhub: string;
+	http: string;
+}): Plugin {
 	const resolveStub = (source: string): string | null => {
 		if (source.endsWith("/vendors/massive") || source.endsWith("/vendors/massive.ts")) {
 			return stubs.massive;
 		}
 		if (source.endsWith("/vendors/finnhub") || source.endsWith("/vendors/finnhub.ts")) {
 			return stubs.finnhub;
+		}
+		// The logo proxy, icon probe, and email logo fetcher reach Massive through this
+		// module instead of marketDataFetch (src/lib/vendors/http.ts).
+		if (source.endsWith("/vendors/http") || source.endsWith("/vendors/http.ts")) {
+			return stubs.http;
 		}
 		return null;
 	};
@@ -185,6 +195,7 @@ export default defineConfig({
 						stubVendorModulesPlugin({
 							massive: stubVendorMassivePath,
 							finnhub: stubVendorFinnhubPath,
+							http: stubVendorHttpPath,
 						}),
 					]
 				: []),
