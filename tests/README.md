@@ -153,6 +153,8 @@ The suite runs test **files** in parallel (tests within a file stay sequential).
 
 Some tests cannot follow rule 2 because the whole table *is* the subject: `runUniverseReconcile` counts every asset, and `runScheduledNotifications({ supabase, logger })` processes every user due at time T. Scoping them would change what they cover, so they are listed in [`tests/serial-test-files.ts`](serial-test-files.ts) and run in a second, serial pass after the parallel one. `npm test` runs both passes and fails if either does; a filtered run (`npm test -- some.test.ts`) is a single pass.
 
+**3. Shared processes belong to the run, not to a file.** The `tests/pages/http/**` specs share one Astro dev server on port 4325. They were serialized for a while because the server was started lazily by whichever worker got there first and then stopped by the `afterAll` in `tests/setup.ts`, which runs once per *file*: any file finishing killed the server the others were using. The lifecycle now lives at run level (a cross-worker lock in `tests/helpers/http/server.ts`, teardown in `tests/global-setup.ts`), so those files run in parallel. If you add another shared process, own it the same way.
+
 Keep that list short. An entry is a file that no longer gets any parallelism, so prefer fixing a shared-state assumption over adding one. A test that fails only when run alongside others is telling you it reads something it does not own.
 
 ## Clock-sensitive tests

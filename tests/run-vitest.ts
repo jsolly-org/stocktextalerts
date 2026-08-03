@@ -46,12 +46,12 @@ function runPass(pass: "all" | "parallel" | "serial", args: string[]): number {
  * files that need the database or the HTTP test port to themselves (tests/serial-test-files.ts).
  * The parallel pass carries nearly every file, so it sets the wall clock.
  *
- * The serial tail is no longer "a few seconds": measured on CI job 91709170896 it is 39.5s
- * against the parallel pass's 81.3s, i.e. a third of the unit suite's test time spent one file
- * at a time. Most of it is the two `tests/pages/http/**` files (auth 10.0s + profile 8.7s), which
- * are serial only because tests/helpers/http/server.ts pins a single Astro dev server to port
- * 4325; a per-worker port would let them rejoin the parallel pass. Re-measure with
- * `blacksmith jobs tests <job_id> --summary suites` before trading that off.
+ * The serial tail was 39.5s against the parallel pass's 81.3s on CI job 91709170896, i.e. a
+ * third of the unit suite's test time spent one file at a time. 18.7s of that was the two
+ * `tests/pages/http/**` files, which have since moved back into the parallel pass (see
+ * tests/serial-test-files.ts). What is left is the reconcile and scheduler specs, whose
+ * subject is the whole `assets`/scheduling table. Re-measure with
+ * `blacksmith jobs tests <job_id> --summary suites` before changing the split again.
  *
  * Both passes always run, and the run fails if either does.
  */

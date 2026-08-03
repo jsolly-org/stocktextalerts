@@ -1,7 +1,6 @@
 import { afterAll, afterEach, beforeAll, expect, vi } from "vitest";
 import { getRealAssetSymbols } from "./helpers/asset-data";
 import { resetTestEnvStubs, restoreBaselineTestEnvStubs } from "./helpers/env-stubs";
-import { shutdownHttpTestServer } from "./helpers/http/server";
 import { cleanupTestUser } from "./helpers/test-user";
 import { takeTestUserIdsForCleanup } from "./helpers/test-user-cleanup";
 
@@ -173,10 +172,13 @@ afterEach(() => {
 	}
 });
 
+// The HTTP test dev server is deliberately NOT stopped here. This hook runs once per
+// test file, so tearing the server down in it killed the server other files were still
+// using as soon as file parallelism was turned on. Its lifecycle belongs to the run:
+// tests/global-setup.ts owns the teardown.
 afterAll(() => {
 	warnSpy.mockRestore();
 	errorSpy.mockRestore();
-	shutdownHttpTestServer();
 });
 
 // Schema/admin verification and the run-wide user wipe live in tests/global-setup.ts: they

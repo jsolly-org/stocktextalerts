@@ -21,17 +21,44 @@ type AssetFixture = {
 	reference_updated_utc?: string | null;
 };
 
+/**
+ * `assets` is shared across Vitest workers, and these fixture statements lock
+ * overlapping rows in different orders: `markAllAssetIconsChecked()` locks every
+ * unchecked row in physical order while another file's `deleteAssets()` locks its
+ * own two symbols, so Postgres can pick either side as the deadlock victim
+ * (`40P01`, seen on CI job 91724627441 with `tests/lib/assets/icon-check.test.ts`
+ * and `tests/lib/schedule/helpers.test.ts` running side by side).
+ *
+ * A deadlock victim only needs to try again — the winner has already committed by
+ * the time the error surfaces — and every statement below is a single idempotent
+ * statement, so the retry is safe. Serialization failures (`40001`) get the same
+ * treatment for the same reason.
+ */
+const RETRYABLE_PG_CODES = new Set(["40P01", "40001"]);
+const MAX_PG_ATTEMPTS = 5;
+
+function isRetryablePgError(err: unknown): boolean {
+	const code = (err as { code?: unknown } | null | undefined)?.code;
+	return typeof code === "string" && RETRYABLE_PG_CODES.has(code);
+}
+
 async function withPgClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
 	const databaseUrl = process.env.DATABASE_URL;
 	if (!databaseUrl) {
 		throw new Error("Missing DATABASE_URL");
 	}
-	const client = new Client({ connectionString: databaseUrl });
-	await client.connect();
-	try {
-		return await run(client);
-	} finally {
-		await client.end();
+	for (let attempt = 1; ; attempt++) {
+		const client = new Client({ connectionString: databaseUrl });
+		await client.connect();
+		try {
+			return await run(client);
+		} catch (err) {
+			if (attempt >= MAX_PG_ATTEMPTS || !isRetryablePgError(err)) throw err;
+		} finally {
+			await client.end();
+		}
+		// Jittered backoff so both sides of a deadlock do not re-collide immediately.
+		await new Promise((resolve) => setTimeout(resolve, 25 * attempt + Math.random() * 25));
 	}
 }
 
