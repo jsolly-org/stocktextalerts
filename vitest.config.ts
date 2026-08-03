@@ -27,7 +27,7 @@ export default getViteConfig(
 	{
 		test: {
 			globalSetup: ["./tests/global-setup.ts"],
-			setupFiles: ["./tests/setup.ts"],
+			setupFiles: ["./tests/setup.ts", "./tests/network-guard-setup.ts"],
 			include: pass === "serial" ? SERIAL_TEST_GLOBS : ["tests/**/*.test.ts"],
 			// Live vendor HTTP belongs on live-provider-check (Lambda), not default CI Vitest.
 			// Opt in locally: LIVE_PREDICTION_MARKETS=1 npx vitest tests/**/*.live.test.ts

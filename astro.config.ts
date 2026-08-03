@@ -7,6 +7,7 @@ import { defineConfig, envField, memoryCache } from "astro/config";
 import icon from "astro-icon";
 import { loadEnv, type Plugin } from "vite";
 import svgLoader from "vite-svg-loader";
+import { installNetworkGuard } from "./tests/helpers/network-guard";
 
 const stubVendorMassivePath = fileURLToPath(
 	new URL("./tests/stubs/vendors/massive.ts", import.meta.url),
@@ -41,6 +42,34 @@ function stubVendorModulesPlugin(stubs: {
 		enforce: "pre",
 		resolveId(source) {
 			return resolveStub(source);
+		},
+	};
+}
+
+/**
+ * Backstop for the module stubs above: fail any outbound request the dev server makes to a
+ * host that is not the local stack.
+ *
+ * The aliases only cover modules we remembered to alias. A route that calls `fetch`
+ * directly slips past them, which is exactly how the logo proxy ended up making live
+ * `api.massive.com` calls from every E2E run. `configureServer` patches the process that
+ * actually serves SSR, so anything unstubbed now fails loudly during the test instead of
+ * quietly going out over the wire.
+ *
+ * Telemetry is disabled here for the same reason: it is outbound traffic from a test
+ * server, and CI already turns it off.
+ */
+function blockNonLocalFetchPlugin(): Plugin {
+	return {
+		name: "block-non-local-fetch",
+		config() {
+			process.env.ASTRO_TELEMETRY_DISABLED = "1";
+		},
+		configureServer() {
+			// Imported statically: inside `configureServer` a dynamic import goes through
+			// Vite's module runner, which is already closed here and takes the dev server
+			// down with it. The module has no import-time side effects.
+			installNetworkGuard("the MODE=test Astro dev server");
 		},
 	};
 }
@@ -197,6 +226,7 @@ export default defineConfig({
 							finnhub: stubVendorFinnhubPath,
 							http: stubVendorHttpPath,
 						}),
+						blockNonLocalFetchPlugin(),
 					]
 				: []),
 			// Astro Icon's <Icon> component cannot be used in Vue components (Astro-only, server-rendered).
