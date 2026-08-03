@@ -115,3 +115,32 @@ export function isFinraPublishInCalendarWindow(localDate: string, publishDate: s
 	const end = local.plus({ days: 2 });
 	return publish >= local && publish <= end;
 }
+
+/**
+ * Most recent FINRA cycle whose publish date is on or before `localDate`.
+ * Used the day after publish so overnight Massive ingest can feed morning digests.
+ */
+export function getMostRecentFinraShortInterestCycle(
+	localDate: string,
+): FinraShortInterestCycle | null {
+	const end = DateTime.fromISO(localDate, { zone: "utc" });
+	if (!end.isValid) return null;
+	const toIso = end.toISODate();
+	const fromIso = end.minus({ months: 3 }).toISODate();
+	if (!fromIso || !toIso) return null;
+	const cycles = listFinraShortInterestCyclesInRange(fromIso, toIso).filter(
+		(cycle) => cycle.publishDate <= localDate,
+	);
+	return cycles.at(-1) ?? null;
+}
+
+/**
+ * True when `localDate` is the calendar day after `publishDate`
+ * (catch overnight ingest for the morning digest).
+ */
+export function isFinraPublishLagDay(localDate: string, publishDate: string): boolean {
+	const local = DateTime.fromISO(localDate, { zone: "utc" }).startOf("day");
+	const publish = DateTime.fromISO(publishDate, { zone: "utc" }).startOf("day");
+	if (!local.isValid || !publish.isValid) return false;
+	return local.equals(publish.plus({ days: 1 }));
+}

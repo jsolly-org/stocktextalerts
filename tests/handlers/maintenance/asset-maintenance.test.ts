@@ -265,6 +265,7 @@ describe("asset-maintenance Lambda orchestration", () => {
 		);
 		expect(fetchAndStoreFinnhubEnrichment).toHaveBeenCalledTimes(1);
 		expect(fetchAndStoreSecFilings).toHaveBeenCalledTimes(1);
+		expect(fetchAndStoreShortInterest).toHaveBeenCalledTimes(1);
 		expect(refreshActivePredictionMarketSnapshots).toHaveBeenCalledTimes(1);
 		expect(runNextSessionDirectionProbe).toHaveBeenCalledTimes(1);
 		expect(runPredictionMarketDiscoveryDrip).toHaveBeenCalledTimes(1);

@@ -9,8 +9,10 @@ import { isRecord } from "../types";
 import { marketDataFetch } from "../vendors/massive";
 import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "../vendors/optional-vendors";
 import {
+	getMostRecentFinraShortInterestCycle,
 	getNextFinraShortInterestCycle,
 	isFinraPublishInCalendarWindow,
+	isFinraPublishLagDay,
 } from "./finra-short-interest-calendar";
 import type { ShortInterestDigestContent, ShortInterestLine } from "./types";
 
@@ -259,9 +261,20 @@ function formatPctOfShares(shortInterest: number, sharesOutstanding: number | nu
 	return `${pct.toFixed(1)}% of shares`;
 }
 
-function formatDaysToCover(daysToCover: number | null): string | null {
-	if (daysToCover === null || !Number.isFinite(daysToCover)) return null;
-	return `${daysToCover.toFixed(1)} days to cover`;
+function formatDaysToCover(daysToCover: number | string | null): string | null {
+	if (daysToCover === null || daysToCover === undefined) return null;
+	const value = typeof daysToCover === "number" ? daysToCover : Number(daysToCover);
+	if (!Number.isFinite(value)) return null;
+	return `${value.toFixed(1)} days to cover`;
+}
+
+function parseNumericField(value: unknown): number | null {
+	if (typeof value === "number" && Number.isFinite(value)) return value;
+	if (typeof value === "string" && value.trim() !== "") {
+		const parsed = Number(value);
+		if (Number.isFinite(parsed)) return parsed;
+	}
+	return null;
 }
 
 function formatSettlementLabel(isoDate: string): string {
@@ -270,30 +283,15 @@ function formatSettlementLabel(isoDate: string): string {
 	return dt.toFormat("MMM d");
 }
 
-/**
- * Build digest content when a FINRA publish date falls in the next-3-days window.
- * Heads-up before publish day (or when settlement rows are missing); numbers on publish day.
- */
-export async function loadShortInterestDigestContent(options: {
+async function buildReportForCycle(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	tickers: readonly string[];
 	localDate: string;
+	cycle: { publishDate: string; settlementDate: string };
 }): Promise<ShortInterestDigestContent | null> {
-	const { supabase, logger, tickers, localDate } = options;
-	const cycle = getNextFinraShortInterestCycle(localDate);
-	if (!cycle || !isFinraPublishInCalendarWindow(localDate, cycle.publishDate)) {
-		return null;
-	}
-
-	if (localDate < cycle.publishDate || tickers.length === 0) {
-		return {
-			mode: "heads_up",
-			publishDate: cycle.publishDate,
-			settlementDate: cycle.settlementDate,
-			lines: null,
-		};
-	}
+	const { supabase, logger, tickers, localDate, cycle } = options;
+	if (tickers.length === 0) return null;
 
 	const { data, error } = await supabase
 		.from("asset_short_interest")
@@ -309,12 +307,7 @@ export async function loadShortInterestDigestContent(options: {
 			{ action: "load_short_interest", localDate, settlementDate: cycle.settlementDate },
 			error,
 		);
-		return {
-			mode: "heads_up",
-			publishDate: cycle.publishDate,
-			settlementDate: cycle.settlementDate,
-			lines: null,
-		};
+		return null;
 	}
 
 	const bySymbol = new Map((data ?? []).map((row) => [row.symbol, row]));
@@ -323,9 +316,7 @@ export async function loadShortInterestDigestContent(options: {
 		const row = bySymbol.get(symbol);
 		if (!row) continue;
 		const pct = formatPctOfShares(row.short_interest, row.share_class_shares_outstanding);
-		const dtc = formatDaysToCover(
-			typeof row.days_to_cover === "number" ? Number(row.days_to_cover) : null,
-		);
+		const dtc = formatDaysToCover(parseNumericField(row.days_to_cover));
 		const parts = [pct, dtc].filter((part): part is string => Boolean(part));
 		if (parts.length === 0) {
 			lines.push({
@@ -337,14 +328,7 @@ export async function loadShortInterestDigestContent(options: {
 		lines.push({ symbol, text: `${symbol} — ${parts.join(" · ")}` });
 	}
 
-	if (lines.length === 0) {
-		return {
-			mode: "heads_up",
-			publishDate: cycle.publishDate,
-			settlementDate: cycle.settlementDate,
-			lines: null,
-		};
-	}
+	if (lines.length === 0) return null;
 
 	return {
 		mode: "report",
@@ -352,6 +336,60 @@ export async function loadShortInterestDigestContent(options: {
 		settlementDate: cycle.settlementDate,
 		lines,
 	};
+}
+
+/**
+ * Build digest content around a FINRA publish date.
+ * Heads-up when publish is in the next-3-days window and numbers aren't ready yet.
+ * Report on publish day (if ingested) or the following local morning after overnight ingest.
+ */
+export async function loadShortInterestDigestContent(options: {
+	supabase: SupabaseAdminClient;
+	logger: Logger;
+	tickers: readonly string[];
+	localDate: string;
+}): Promise<ShortInterestDigestContent | null> {
+	const { supabase, logger, tickers, localDate } = options;
+
+	const upcoming = getNextFinraShortInterestCycle(localDate);
+	if (upcoming && isFinraPublishInCalendarWindow(localDate, upcoming.publishDate)) {
+		if (localDate < upcoming.publishDate || tickers.length === 0) {
+			return {
+				mode: "heads_up",
+				publishDate: upcoming.publishDate,
+				settlementDate: upcoming.settlementDate,
+				lines: null,
+			};
+		}
+		const report = await buildReportForCycle({
+			supabase,
+			logger,
+			tickers,
+			localDate,
+			cycle: upcoming,
+		});
+		if (report) return report;
+		return {
+			mode: "heads_up",
+			publishDate: upcoming.publishDate,
+			settlementDate: upcoming.settlementDate,
+			lines: null,
+		};
+	}
+
+	// Day after publish: midnight-UTC ingest lands overnight; morning digests need numbers.
+	const recent = getMostRecentFinraShortInterestCycle(localDate);
+	if (recent && isFinraPublishLagDay(localDate, recent.publishDate) && tickers.length > 0) {
+		return buildReportForCycle({
+			supabase,
+			logger,
+			tickers,
+			localDate,
+			cycle: recent,
+		});
+	}
+
+	return null;
 }
 
 /** Format short-interest section body (without the section title). */

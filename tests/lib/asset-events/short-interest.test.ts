@@ -2,8 +2,10 @@ import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
 import {
 	addWeekdays,
+	getMostRecentFinraShortInterestCycle,
 	getNextFinraShortInterestCycle,
 	isFinraPublishInCalendarWindow,
+	isFinraPublishLagDay,
 	listFinraShortInterestCyclesInRange,
 	previousWeekdayOnOrBefore,
 } from "../../../src/lib/asset-events/finra-short-interest-calendar";
@@ -51,6 +53,19 @@ describe("FINRA short-interest calendar", () => {
 		expect(isFinraPublishInCalendarWindow("2026-08-11", "2026-08-11")).toBe(true);
 		expect(isFinraPublishInCalendarWindow("2026-08-08", "2026-08-11")).toBe(false);
 		expect(isFinraPublishInCalendarWindow("2026-08-12", "2026-08-11")).toBe(false);
+	});
+
+	it("getMostRecentFinraShortInterestCycle and lag day catch overnight ingest", () => {
+		expect(getMostRecentFinraShortInterestCycle("2026-08-12")).toEqual({
+			settlementDate: "2026-07-31",
+			publishDate: "2026-08-11",
+		});
+		expect(isFinraPublishLagDay("2026-08-12", "2026-08-11")).toBe(true);
+		expect(isFinraPublishLagDay("2026-08-11", "2026-08-11")).toBe(false);
+		expect(getNextFinraShortInterestCycle("2026-08-12")).toEqual({
+			settlementDate: "2026-08-14",
+			publishDate: "2026-08-25",
+		});
 	});
 });
 
