@@ -5,11 +5,11 @@
  * Asset fixture seeding goes through `upsertAssets` (direct `pg`).
  */
 import { randomUUID } from "node:crypto";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { ensureAssetIconChecked } from "../../../src/lib/assets/icon-check";
 import type { TickerDetail } from "../../../src/lib/assets/types";
 import { rootLogger } from "../../../src/lib/logging";
-import { deleteAssets, markAllAssetIconsChecked, upsertAssets } from "../../helpers/asset-db";
+import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";
 
 /**
@@ -43,10 +43,6 @@ function makeFakeDetail(bySymbol?: Map<string, TickerDetail | Error>): {
 
 describe("ensureAssetIconChecked", () => {
 	const createdSymbols: string[] = [];
-
-	beforeAll(async () => {
-		await markAllAssetIconsChecked();
-	});
 
 	afterEach(async () => {
 		await deleteAssets(createdSymbols).catch(() => {});
