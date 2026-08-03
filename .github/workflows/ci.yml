@@ -160,8 +160,21 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      # node_modules is 1.1 GB unpacked: too big for actions/cache (downloading and
+      # extracting a tarball that size costs more than the ~19s `npm ci` it would
+      # replace) but a natural fit for a sticky disk, which hot-mounts the tree in
+      # ~3s with no extraction at all. The key is OS+arch only; the lockfile hash
+      # lives in a stamp file inside the disk instead, so a dependency bump reuses
+      # the disk and reinstalls into it rather than cold-starting an empty one.
+      # See scripts/ci-npm-install.sh.
+      - name: Mount node_modules (sticky disk)
+        uses: useblacksmith/stickydisk@v1
+        with:
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ github.workspace }}/node_modules
+
       - name: Install dependencies
-        run: npm ci
+        run: bash scripts/ci-npm-install.sh
 
       - uses: astral-sh/setup-uv@v8.2.0
         with:
@@ -214,11 +227,31 @@ jobs:
     if: needs.gate.outputs.heavy == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404-arm
     timeout-minutes: 30
+    # Shard count is bounded by fixed per-shard setup, not by test work, so it has
+    # to be re-derived whenever that setup gets cheaper. Measured p50 before this
+    # change (Blacksmith job steps): ~4s runner/checkout + ~9s setup-node + ~19s
+    # `npm ci` + ~122s Supabase bootstrap = ~154s of setup in front of ~82s of
+    # tests, four times over.
+    #
+    # The node_modules sticky disk (~19s -> ~1s) and the seed-only bootstrap
+    # (db:ci-seed skips the redundant migration replay, ~122s -> ~70s) cut that to
+    # ~85s. At 2 shards each job then runs ~165s of the ~330s unit suite behind
+    # ~85s of setup (~250s/job), still at/under the e2e shards, which remain the
+    # ceiling, so wall-clock is unchanged while unit runner minutes drop ~45% and
+    # concurrent Supabase stacks drop from 6 to 4 (less registry throttling for
+    # ci-db-retry.sh to absorb). Re-measure before moving this again: the rule is
+    # that the slowest unit shard must not exceed the slowest e2e shard.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
-        total: [6]
+        shard: [1, 2]
+        total: [2]
+    env:
+      # The bootstrap ends with db:gen-types, which spawns a one-shot postgres-meta
+      # container `supabase start` never pulls: a cold ~99 MB image pull on the
+      # critical path of every shard. Only shard 1 consumes the regenerated file
+      # (the "Verify generated types are checked in" step below); the rest skip it.
+      DB_RESET_SKIP_GEN_TYPES: ${{ matrix.shard == 1 && '0' || '1' }}
 
     steps:
       - uses: actions/checkout@v7
@@ -229,8 +262,15 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      # node_modules sticky disk: see the static job for the rationale.
+      - name: Mount node_modules (sticky disk)
+        uses: useblacksmith/stickydisk@v1
+        with:
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ github.workspace }}/node_modules
+
       - name: Install dependencies
-        run: npm ci
+        run: bash scripts/ci-npm-install.sh
 
       # Stubs for the test battery. Supabase keys are filled in by the background
       # bootstrap after `supabase status`. The unsubscribe stub is concatenated so
@@ -326,6 +366,10 @@ jobs:
       matrix:
         shard: [1, 2]
         total: [2]
+    env:
+      # E2E never reads the regenerated types — skip db:gen-types (and the cold
+      # postgres-meta image pull it triggers). See unit-tests above.
+      DB_RESET_SKIP_GEN_TYPES: '1'
 
     steps:
       - uses: actions/checkout@v7
@@ -336,8 +380,15 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      # node_modules sticky disk: see the static job for the rationale.
+      - name: Mount node_modules (sticky disk)
+        uses: useblacksmith/stickydisk@v1
+        with:
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ github.workspace }}/node_modules
+
       - name: Install dependencies
-        run: npm ci
+        run: bash scripts/ci-npm-install.sh
 
       # Stubs for the test battery. Supabase keys are filled in by the background
       # bootstrap after `supabase status`. The unsubscribe stub is concatenated so
@@ -489,8 +540,15 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      # node_modules sticky disk: see the static job for the rationale.
+      - name: Mount node_modules (sticky disk)
+        uses: useblacksmith/stickydisk@v1
+        with:
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ github.workspace }}/node_modules
+
       - name: Install dependencies
-        run: npm ci
+        run: bash scripts/ci-npm-install.sh
 
       # Build needs validated env values but should not need a live Supabase stack.
       # Keep these CI-only stubs deterministic and side-effect-free.

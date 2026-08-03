@@ -59,6 +59,13 @@ enabled = false
 [edge_runtime]
 enabled = false
 
+# Storage is unused by this app (zero `.storage` / `storage.from()` / `createBucket()` call sites,
+# and no migration or seed SQL touches the `storage` schema). Its container is pure CI cost: every
+# heavy job pulls the ~179 MiB storage-api image and boots it before the battery can start. Same
+# rationale as realtime/edge_runtime above.
+[storage]
+enabled = false
+
 # Vector/Logflare analytics disabled for Podman compatibility. The Vector
 # log shipper tries to read logs from the Docker socket inside its
 # container, which Podman's Docker-API shim doesn't expose cleanly —
