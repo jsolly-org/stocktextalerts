@@ -30,6 +30,7 @@ import {
 	PRESERVED_TEST_EMAIL,
 	PRESERVED_USER_ID,
 } from "./helpers/constants";
+import { shutdownHttpTestServer } from "./helpers/http/server";
 import { adminClient } from "./helpers/test-env";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -186,4 +187,15 @@ export async function setup(): Promise<void> {
 	await verifyDatabaseSchemaUpToDate(databaseUrl);
 	await verifySupabaseAdminAccess();
 	await cleanupAllNonPreservedUsers(databaseUrl);
+}
+
+/**
+ * Stop the HTTP test dev server, if `tests/pages/http/**` started one.
+ *
+ * Run-level, for the same reason the user wipe above is: the server is shared by files
+ * that now run concurrently, so no single file may end its life. A no-op when no server
+ * was started (the common case: most runs never touch the HTTP specs).
+ */
+export function teardown(): void {
+	shutdownHttpTestServer();
 }

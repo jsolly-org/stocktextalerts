@@ -5,9 +5,6 @@
  * measured exceptions, not a precaution: running the suite four-wide surfaced exactly two
  * failure families, reproduced across runs.
  *
- *   - `tests/pages/http/**` drives a single Astro dev server on a fixed port
- *     (tests/helpers/http/server.ts, port 4325). Two workers hitting it race on startup and
- *     shutdown, which shows up as `TypeError: fetch failed`.
  *   - The universe/delisting reconcile specs assert on absolute row counts of the shared
  *     `assets` table (e.g. `expect(result.newListingsInserted).toBe(4)`). Any fixture another
  *     worker inserts concurrently changes the count. Their subject IS the whole table, so
@@ -18,11 +15,18 @@
  *     (seen once as a `scheduled_notifications_user_id_fkey` violation). Scoping the call to
  *     one user would change what the test covers, so it gets the table to itself instead.
  *
+ * `tests/pages/http/**` used to be here too, as the largest entry (auth 10.0s + profile 8.7s
+ * of a 39.5s serial pass, measured on CI job 91709170896). Its `TypeError: fetch failed` was
+ * not really a port conflict: the shared dev server was started lazily by whichever worker
+ * got there first and then stopped by the `afterAll` that tests/setup.ts registers for every
+ * file, so any file finishing killed the server the others were using. Moving the server's
+ * lifecycle to the run (tests/helpers/http/server.ts + the teardown in
+ * tests/global-setup.ts) removed the conflict, and those files run in parallel now.
+ *
  * Keep this list short. Prefer fixing a test's shared-state assumption to adding it here;
  * every entry is a file that no longer benefits from parallelism.
  */
 export const SERIAL_TEST_GLOBS = [
-	"tests/pages/http/**/*.test.ts",
 	"tests/lib/assets/universe-reconcile.test.ts",
 	"tests/lib/assets/delisting-sweep.test.ts",
 	"tests/handlers/maintenance/asset-maintenance.test.ts",
