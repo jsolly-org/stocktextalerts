@@ -148,8 +148,18 @@ jobs:
       - name: Infra drift check
         run: npm run check:infra-drift
 
+      # The CLI defaults (60s read timeout, 3 attempts) are wrong for a synchronous
+      # invoke of a function with a 300s Timeout: anything past 60s is killed
+      # client-side and then *re-invoked*, so a slow-but-healthy check burns 180s and
+      # three rounds of real Massive/Finnhub/Telegram calls before reporting
+      # "Read timeout on endpoint URL" (deploy run 30833307422, which passed on a
+      # plain re-run in 1m36s). Wait once for the Lambda's own budget instead, and let
+      # a genuine hang go red rather than hammer the providers.
       - name: Live provider check
         if: steps.deploy_scope.outputs.skip_code_deploy != 'true'
+        timeout-minutes: 7
+        env:
+          AWS_MAX_ATTEMPTS: 1
         run: |
           set -euo pipefail
           payload="{\"id\":\"github-actions-deploy\",\"time\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
@@ -157,6 +167,8 @@ jobs:
             --function-name stocktextalerts-live-provider-check \
             --payload "$payload" \
             --cli-binary-format raw-in-base64-out \
+            --cli-connect-timeout 10 \
+            --cli-read-timeout 310 \
             --query '{StatusCode:StatusCode,FunctionError:FunctionError}' \
             --output json \
             /tmp/live-provider-check.json)"
