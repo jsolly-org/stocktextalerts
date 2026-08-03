@@ -11,9 +11,9 @@ Built with Astro 7 (SSR) on Vercel, Supabase (Auth + PostgreSQL), AWS Lambda/SAM
 - **Telegram notifications** — Bot API delivery with optional candlestick charts
 - **Asset price alerts** — Optional smart alerts for tracked stocks (not ETFs) during US market hours, with Significant/Extreme sensitivity (capped at one alert per symbol per US trading day)
 - **Timezone support** — Browser-detected timezones with user overrides
-- **Market notifications** — Up to 8 delivery times for scheduled price updates (4:30 AM–7:30 PM ET on market-open days), by email and/or Telegram
-- **Daily digest** — Once-daily prices plus optional News/Rumors add-ons (email and Telegram)
-- **Asset events** — Earnings/dividends/splits/IPOs plus optional insider trades and analyst consensus (per-channel toggles)
+- **Market notifications** — Up to 8 delivery times for scheduled price updates (4:30 AM–7:30 PM ET on market-open days), by your selected delivery channel
+- **Daily digest** — Once-daily prices plus optional News/Rumors add-ons (delivered on your selected channel; AI News/Rumors are email-formatter)
+- **Asset events** — Earnings/dividends/splits/IPOs plus optional insider trades and analyst consensus (content toggles; one delivery channel)
 - **Format preferences** — Live email/Telegram previews and optional sparklines
 
 ## Architecture

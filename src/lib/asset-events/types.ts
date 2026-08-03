@@ -1,20 +1,5 @@
 export type AssetEventProvider = "earnings" | "dividends" | "splits" | "ipos";
 
-/**
- * Telegram facet selection for asset events, sourced from notification_preferences.
- * When present, the content builder renders a `telegram` AssetEventsContent using the
- * rich email-style section formatting, gated by these facets. Additive: email
- * rendering is unchanged.
- */
-export type AssetEventsTelegramFacets = {
-	calendar: boolean;
-	ipo: boolean;
-	insider: boolean;
-	analyst: boolean;
-	filings: boolean;
-	short_interest: boolean;
-};
-
 /** One SEC filing line for digest rendering (label is the hyperlink text). */
 export type SecFilingLine = {
 	label: string;

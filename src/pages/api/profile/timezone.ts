@@ -7,7 +7,7 @@ import type { User } from "../../../lib/db/types";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
-import { loadUserPreferenceRows } from "../../../lib/notification-preferences/channels";
+import { loadUserPreferenceRows } from "../../../lib/notification-preferences/preferences";
 import { computeTimezoneUpdatePayload } from "../../../lib/notification-preferences/update-payload";
 
 export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
@@ -73,7 +73,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	// needs recomputing — not asset-event facets only.
 	let prefs: Awaited<ReturnType<typeof loadUserPreferenceRows>>;
 	try {
-		prefs = await loadUserPreferenceRows(supabase, authUser.id);
+		prefs = await loadUserPreferenceRows(supabase, authUser.id, dbUser.delivery_channel);
 	} catch (error) {
 		logger.error(
 			"Failed to load notification preferences for timezone update",

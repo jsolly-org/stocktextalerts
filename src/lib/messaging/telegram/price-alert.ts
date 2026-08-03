@@ -158,7 +158,7 @@ export async function formatPriceAlertTelegram(
  * Tail of the price-move alert pipeline:
  * format → send → stats + failure log → bot-blocked opt-out →
  * notification_log. Callers must gate on channel usability
- * (isTelegramChannelUsable / shouldSendTelegram) BEFORE calling — the chatId
+ * (resolveOutboundChannel / wantsTelegramDelivery) BEFORE calling — the chatId
  * non-null cast relies on that invariant. Returns whether the send succeeded.
  */
 export async function deliverTelegramPriceAlert(options: {

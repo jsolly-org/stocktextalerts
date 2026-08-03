@@ -1,15 +1,11 @@
 import type { DateTime } from "luxon";
-import {
-	anyDailyAssetEventFacetEnabled,
-	enabledDailyNotificationFacets,
-	hasAnyDailyAssetEventFacet,
-} from "../daily-notification/eligibility";
+import { hasAnyDailyAssetEventFacet } from "../daily-notification/eligibility";
 import { updateUserDailyNotificationNextSendAt } from "../daily-notification/schedule";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { loadUserAssets, type UserAssetsMap } from "../db/user-assets";
 import type { Logger } from "../logging";
+import { resolveOutboundChannel } from "../messaging/delivery-channel";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/parts/delay";
-import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { EmailSender } from "../messaging/types";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
@@ -17,16 +13,16 @@ import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
 import { parseScheduledSlotContext } from "../time/schedule/next-send";
 import type { MarketClosureInfo } from "../time/types";
 import type { UserRecord } from "../types";
-import { buildAssetEventsContentForChannels } from "./content";
+import { buildAssetEventsContent } from "./content";
 import { processAssetEventsEmailDelivery, processAssetEventsTelegramDelivery } from "./delivery";
 import { shouldAdvanceAssetEventsSchedule } from "./schedule-state";
-import type { AssetEventsTelegramFacets } from "./types";
 
 /**
  * Process a single user's standalone asset events notification.
  *
  * Builds asset events content (earnings/dividends/splits/IPOs + insider + analyst),
- * delivers via enabled channels, and advances `daily_notification_next_send_at`.
+ * delivers on the account's single `delivery_channel`, and advances
+ * `daily_notification_next_send_at`.
  */
 export async function processAssetEventsUser(options: {
 	user: UserRecord;
@@ -85,25 +81,10 @@ export async function processAssetEventsUser(options: {
 		const delayBannerText = buildDelayBannerText(delayBannerOpts);
 		const delayBannerHtml = buildDelayBannerHtml(delayBannerOpts);
 
-		// All channel facets live in notification_preferences (carried on user.prefs).
-		// Telegram additionally gates on the usable-channel check (linked + not opted out).
-		const telegramFacetSet = isTelegramChannelUsable(user)
-			? enabledDailyNotificationFacets(user.prefs, "telegram")
-			: new Set<string>();
-		const telegramFacets: AssetEventsTelegramFacets = {
-			calendar: telegramFacetSet.has("calendar"),
-			ipo: telegramFacetSet.has("ipo"),
-			insider: telegramFacetSet.has("insider"),
-			analyst: telegramFacetSet.has("analyst"),
-			filings: telegramFacetSet.has("filings"),
-			short_interest: telegramFacetSet.has("short_interest"),
-		};
-		const wantsTelegram =
-			isTelegramChannelUsable(user) && anyDailyAssetEventFacetEnabled(user.prefs, "telegram");
+		const outbound = resolveOutboundChannel(user);
+		const contentEnabled = hasAnyDailyAssetEventFacet(user.prefs);
 
-		const hasAnyAssetEventsOption = hasAnyDailyAssetEventFacet(user.prefs);
-
-		if (!hasAnyAssetEventsOption) {
+		if (!contentEnabled || !outbound) {
 			stats.skipped++;
 			await updateUserDailyNotificationNextSendAt({
 				user,
@@ -117,19 +98,6 @@ export async function processAssetEventsUser(options: {
 		const userAssets = userAssetsMap?.get(user.id) ?? (await loadUserAssets(supabase, user.id));
 		const tickers = userAssets.map((s) => s.symbol);
 
-		const emailEnabled = user.email_notifications_enabled;
-
-		if (!emailEnabled && !wantsTelegram) {
-			stats.skipped++;
-			await updateUserDailyNotificationNextSendAt({
-				user,
-				supabase,
-				logger,
-				currentTime,
-			});
-			return stats;
-		}
-
 		const localDate = scheduledDate;
 
 		const marketClosureInfo =
@@ -137,48 +105,31 @@ export async function processAssetEventsUser(options: {
 				? passedMarketClosureInfo
 				: await getUsMarketClosureInfoForInstant(currentTime);
 
-		const wantsEmail = emailEnabled && anyDailyAssetEventFacetEnabled(user.prefs, "email");
+		const built = await buildAssetEventsContent({
+			user,
+			supabase,
+			logger,
+			localDate,
+			tickers,
+		});
+		const content = built.content;
+		const shouldUpdateAnalystMonth = built.shouldUpdateAnalystMonth;
 
-		let emailContent: Awaited<ReturnType<typeof buildAssetEventsContentForChannels>>["email"] =
-			null;
-		let telegramContent: Awaited<
-			ReturnType<typeof buildAssetEventsContentForChannels>
-		>["telegram"] = null;
-		let shouldUpdateAnalystMonth = false;
-
-		const channels: Array<"email"> = [];
-		if (wantsEmail) channels.push("email");
-
-		if (channels.length > 0 || wantsTelegram) {
-			const built = await buildAssetEventsContentForChannels({
-				user,
-				supabase,
-				logger,
-				localDate,
-				tickers,
-				channels,
-				...(wantsTelegram ? { telegramFacets } : {}),
-			});
-			emailContent = built.email;
-			telegramContent = built.telegram;
-			shouldUpdateAnalystMonth = built.shouldUpdateAnalystMonth;
-		}
-
-		if (wantsEmail && emailContent?.hasAnyContent) {
+		if (outbound === "email" && content.hasAnyContent) {
 			await processAssetEventsEmailDelivery({
 				user,
 				supabase,
 				logger,
 				scheduledDate,
 				scheduledMinutes,
-				earningsSection: emailContent.eventsSection?.earnings ?? null,
-				dividendsSection: emailContent.eventsSection?.dividends ?? null,
-				splitsSection: emailContent.eventsSection?.splits ?? null,
-				iposSection: emailContent.eventsSection?.ipos ?? null,
-				analystSection: emailContent.analystSection,
-				insiderSection: emailContent.insiderSection,
-				filingsLines: emailContent.filingsLines,
-				shortInterest: emailContent.shortInterest,
+				earningsSection: content.eventsSection?.earnings ?? null,
+				dividendsSection: content.eventsSection?.dividends ?? null,
+				splitsSection: content.eventsSection?.splits ?? null,
+				iposSection: content.eventsSection?.ipos ?? null,
+				analystSection: content.analystSection,
+				insiderSection: content.insiderSection,
+				filingsLines: content.filingsLines,
+				shortInterest: content.shortInterest,
 				marketClosureInfo,
 				sendEmail,
 				stats,
@@ -187,23 +138,21 @@ export async function processAssetEventsUser(options: {
 			});
 		}
 
-		// Telegram: facet filtering already happened in the content builder — the
-		// telegram block only carries sections for the user's Telegram-enabled facets.
-		if (wantsTelegram && telegramContent?.hasAnyContent) {
+		if (outbound === "telegram" && content.hasAnyContent) {
 			await processAssetEventsTelegramDelivery({
 				user,
 				supabase,
 				logger,
 				scheduledDate,
 				scheduledMinutes,
-				earningsSection: telegramContent.eventsSection?.earnings ?? null,
-				dividendsSection: telegramContent.eventsSection?.dividends ?? null,
-				splitsSection: telegramContent.eventsSection?.splits ?? null,
-				iposSection: telegramContent.eventsSection?.ipos ?? null,
-				analystSection: telegramContent.analystSection,
-				insiderSection: telegramContent.insiderSection,
-				filingsLines: telegramContent.filingsLines,
-				shortInterest: telegramContent.shortInterest,
+				earningsSection: content.eventsSection?.earnings ?? null,
+				dividendsSection: content.eventsSection?.dividends ?? null,
+				splitsSection: content.eventsSection?.splits ?? null,
+				iposSection: content.eventsSection?.ipos ?? null,
+				analystSection: content.analystSection,
+				insiderSection: content.insiderSection,
+				filingsLines: content.filingsLines,
+				shortInterest: content.shortInterest,
 				delayBanner: delayBannerText,
 				marketClosureInfo,
 				getTelegramSender,
@@ -226,15 +175,13 @@ export async function processAssetEventsUser(options: {
 			}
 		}
 
-		const emailRequired = wantsEmail && Boolean(emailContent?.hasAnyContent);
-		const telegramRequired = wantsTelegram && Boolean(telegramContent?.hasAnyContent);
+		const requiredChannel = content.hasAnyContent ? outbound : null;
 		const canAdvance = await shouldAdvanceAssetEventsSchedule({
 			supabase,
 			user,
 			scheduledDate,
 			scheduledMinutes,
-			emailRequired,
-			telegramRequired,
+			requiredChannel,
 		});
 
 		if (canAdvance) {
@@ -250,8 +197,7 @@ export async function processAssetEventsUser(options: {
 				userId: user.id,
 				scheduledDate,
 				scheduledMinutes,
-				emailRequired,
-				telegramRequired,
+				requiredChannel,
 			});
 		}
 

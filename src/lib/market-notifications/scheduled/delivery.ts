@@ -155,9 +155,9 @@ export async function processMarketScheduledEmailDelivery(options: {
  * Deliver a scheduled market asset update via Telegram and record the result.
  *
  * Claims the `telegram` channel of the market slot (so it retries/advances
- * independently of email) and renders the Telegram-native multi-asset price
+ * via the account delivery channel) and renders the Telegram-native multi-asset price
  * snapshot (parse-mode entities, no chart). Channel usability is re-checked by
- * the caller; the per-option Telegram pref gate runs in process.ts before this
+ * the caller; the content-pref gate runs in process.ts before this
  * is invoked.
  */
 export async function processMarketScheduledTelegramDelivery(options: {

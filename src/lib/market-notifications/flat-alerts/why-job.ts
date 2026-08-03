@@ -5,9 +5,9 @@ import type { SupabaseAdminClient } from "../../db/supabase";
 import type { Logger } from "../../logging";
 import { getIntradayBarsPreferCache } from "../../market-data/price-history-cache";
 import { fetchSparklines } from "../../market-data/sparklines";
+import { resolveOutboundChannel } from "../../messaging/delivery-channel";
 import { attachPrefsToUsers } from "../../messaging/load-prefs";
 import { createNotificationSenders } from "../../messaging/senders";
-import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import type { ChannelDeliveryStats, ExtendedAssetQuote } from "../../types";
 import { deliverFlatPriceAlert } from "./delivery";
 import { finalizeFlatPriceAlert, releaseFlatPriceAlert } from "./state";
@@ -57,7 +57,7 @@ async function loadFlatPriceAlertUser(
 	const { data, error } = await supabase
 		.from("users")
 		.select(
-			"id, email, email_notifications_enabled, use_24_hour_time, telegram_chat_id, telegram_opted_out, price_move_why_window_start, price_move_why_sends_in_window",
+			"id, email, delivery_channel, use_24_hour_time, telegram_chat_id, price_move_why_window_start, price_move_why_sends_in_window",
 		)
 		.eq("id", userId)
 		.maybeSingle();
@@ -197,7 +197,8 @@ export async function processPriceMoveWhyAlert(options: {
 		: null;
 	const stats = emptyChannelStats();
 	const { sendEmail, getTelegramSender, logoCache } = createNotificationSenders();
-	const sendTelegram = isTelegramChannelUsable(user) ? getTelegramSender().sender : null;
+	const sendTelegram =
+		resolveOutboundChannel(user) === "telegram" ? getTelegramSender().sender : null;
 
 	const delivered = await deliverFlatPriceAlert({
 		user,

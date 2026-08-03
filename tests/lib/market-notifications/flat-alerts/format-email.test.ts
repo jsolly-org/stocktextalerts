@@ -11,10 +11,10 @@ import type { ExtendedAssetQuote } from "../../../../src/lib/types";
 const user: FlatPriceAlertUser = {
 	id: "00000000-0000-4000-8000-000000000001",
 	email: "dev@example.com",
-	email_notifications_enabled: true,
+	delivery_channel: "email" as const,
 	use_24_hour_time: false,
 	telegram_chat_id: null,
-	telegram_opted_out: false,
+
 	price_move_why_window_start: null,
 	price_move_why_sends_in_window: 0,
 	prefs: [],

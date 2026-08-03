@@ -1,6 +1,7 @@
 import type { SupabaseAdminClient } from "../db/supabase";
 import { fetchUsersWithRetry } from "../db/user-query";
 import type { Logger } from "../logging";
+import { HAS_ACTIVE_DELIVERY_OR } from "../messaging/delivery-channel";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
 import type { UserRecord, UserRecordWithoutPrefs } from "../types";
 import { hasAnyDailyNotificationFacet } from "./eligibility";
@@ -15,17 +16,14 @@ const DAILY_NOTIFICATION_USER_SELECT = `
 	daily_notification_time,
 	daily_notification_next_send_at,
 	market_scheduled_asset_price_next_send_at,
-	email_notifications_enabled,
+	delivery_channel,
 	asset_events_last_analyst_sent_month,
 	market_scheduled_asset_price_times,
 	telegram_chat_id,
-	telegram_opted_out,
 	last_grok_rumors_at,
 	grok_window_start,
 	grok_sends_in_window
 `;
-
-const HAS_DELIVERY_CHANNEL_OR = "email_notifications_enabled.eq.true,telegram_chat_id.not.is.null";
 
 /**
  * Fetch users due for the unified daily notification pipeline.
@@ -46,7 +44,7 @@ export async function fetchDailyNotificationUsers(options: {
 			let query = options.supabase
 				.from("users")
 				.select(DAILY_NOTIFICATION_USER_SELECT)
-				.or(HAS_DELIVERY_CHANNEL_OR);
+				.or(HAS_ACTIVE_DELIVERY_OR);
 
 			if (!options.forceSend) {
 				query = query

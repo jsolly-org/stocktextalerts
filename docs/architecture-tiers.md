@@ -63,7 +63,7 @@ Scheduled notification delivery and delisting alerts call `createEmailSender()` 
 ## Shared lib layout (notification preferences example)
 
 - `src/lib/messaging/notification-prefs.ts` — canonical pref model and defaults
-- `src/lib/notification-preferences/channels.ts` — form ↔ `notification_preferences` table
+- `src/lib/notification-preferences/preferences.ts` — form ↔ `notification_preferences` table
 - `src/lib/notification-preferences/update-payload.ts` — `users`-table schedule fields and `*_next_send_at`
 - `src/lib/client/notification-preferences.ts` — browser fetch wrapper for the dashboard
 

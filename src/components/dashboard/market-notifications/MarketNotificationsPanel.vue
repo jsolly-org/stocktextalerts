@@ -51,13 +51,8 @@
 					/>
 					<input
 						type="hidden"
-						name="market_scheduled_asset_price_include_email"
-						:value="marketIncludeEmail ? 'on' : 'off'"
-					/>
-					<input
-						type="hidden"
-						name="market_scheduled_asset_price_include_telegram"
-						:value="marketIncludeTelegram ? 'on' : 'off'"
+						name="market_scheduled_asset_price_include"
+						:value="marketInclude ? 'on' : 'off'"
 					/>
 					<div class="min-w-0">
 						<div class="flex items-center gap-2">
@@ -74,11 +69,11 @@
 						</p>
 					</div>
 					<div class="shrink-0">
-						<ChannelMultiSelect
-							id-prefix="market_scheduled_asset_price"
-							labelledby="market_scheduled_asset_price_enabled_label"
-							:options="marketScheduledChannelOptions"
-							@toggle="handleMarketScheduledToggle"
+						<ToggleSwitch
+							v-model="marketInclude"
+							sr-label="Toggle scheduled asset price updates"
+							aria-labelledby="market_scheduled_asset_price_enabled_label"
+							aria-describedby="market_scheduled_asset_price_enabled_description"
 						/>
 					</div>
 				</div>
@@ -134,13 +129,8 @@
 			>
 				<input
 					type="hidden"
-					name="price_move_alerts_include_email"
-					:value="priceMoveAlertsIncludeEmail ? 'on' : 'off'"
-				/>
-				<input
-					type="hidden"
-					name="price_move_alerts_include_telegram"
-					:value="priceMoveAlertsIncludeTelegram ? 'on' : 'off'"
+					name="price_move_alerts_include"
+					:value="priceMoveAlertsInclude ? 'on' : 'off'"
 				/>
 				<div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
 					<div class="min-w-0">
@@ -161,11 +151,11 @@
 						</p>
 					</div>
 					<div class="shrink-0">
-						<ChannelMultiSelect
-							id-prefix="price_move_alerts"
-							labelledby="price_move_alerts_label"
-							:options="priceMoveChannelOptions"
-							@toggle="handlePriceMoveToggle"
+						<ToggleSwitch
+							v-model="priceMoveAlertsInclude"
+							sr-label="Toggle price move alerts"
+							aria-labelledby="price_move_alerts_label"
+							aria-describedby="price_move_alerts_description"
 						/>
 					</div>
 				</div>
@@ -199,7 +189,7 @@
 							v-if="!priceMoveAlertsEnabled"
 							class="mb-2 text-xs text-muted"
 						>
-							Turn on Email or Telegram above to set thresholds.
+							Turn on Price Move Alerts above to set thresholds.
 						</p>
 						<ul
 							class="flex flex-col gap-2 transition-opacity duration-200"
@@ -302,10 +292,7 @@ import { DASHBOARD_SECTION_IDS,
 	US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,} from "../../../lib/constants";
 import type { PriceMoveThresholdUnit } from "../../../lib/db/types";
-import {
-	isTelegramChannelUsable,
-	needsNotificationChannelSelection,
-} from "../../../lib/messaging/telegram/eligibility";
+import { needsNotificationChannelSelection } from "../../../lib/messaging/delivery-channel";
 import { etMinuteToUserLocal, getUsAfterOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
 	formatMinutesAsLocalTime,
@@ -313,45 +300,28 @@ import {
 } from "../../../lib/time/display";
 import { parseTimeToMinutes } from "../../../lib/time/parse";
 import FadeTransition from "../../FadeTransition.vue";
+import ToggleSwitch from "../../ToggleSwitch.vue";
 import AssetBadge from "../assets/AssetBadge.vue";
 import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import { useScheduledUpdateTiming } from "../composables/useScheduledUpdateTiming";
 import { DASHBOARD_MARKET_FORM_ID } from "../constants";
-import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
-import {
-	createChannelOptionBuilders,
-	getEmailChannelDisabledTitle,
-	getTelegramChannelDisabledTitle,
-} from "../shared/channel-options";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
-import type { ChannelOption, InitialAsset, NotificationPreferencesData, PriceMoveThresholdMap } from "../types";
+import type { InitialAsset, NotificationPreferencesData, PriceMoveThresholdMap } from "../types";
 import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
 
 interface Props {
-	emailEnabled: boolean;
 	hasTrackedAssets: boolean;
 	/** Live tracked-asset list (updated by watchlist edits) — one price-move
 	 *  threshold row is rendered per asset. */
 	trackedAssets: InitialAsset[];
 	/** Per-symbol price-move thresholds loaded server-side; absent = off. */
 	priceMoveThresholds: PriceMoveThresholdMap;
-	/**
-	 * The user's current market-notification Telegram selections, keyed by
-	 * notification_type ("market_scheduled_asset_price" | "price_move_alerts").
-	 * Loaded server-side from `notification_preferences` (channel='telegram',
-	 * content=''); absent types default to off. The autosave endpoint persists
-	 * Telegram to that table but does NOT echo it back in its snapshot, so these
-	 * refs are the panel's own source of truth.
-	 */
-	telegramPrefs?: Record<string, boolean>;
 }
 
-const props = withDefaults(defineProps<Props>(), {
-	telegramPrefs: () => ({}),
-});
-const { emailEnabled, hasTrackedAssets, trackedAssets } = toRefs(props);
+const props = defineProps<Props>();
+const { hasTrackedAssets, trackedAssets, priceMoveThresholds } = toRefs(props);
 
 // Inject the shared mutable user ref from DashboardPanels
 const user = useDashboardUser();
@@ -370,43 +340,16 @@ const {
 	formRef: scheduledFormElement,
 });
 
-const marketIncludeEmail = ref(user.value.market_scheduled_asset_price_include_email);
+const marketInclude = ref(user.value.market_scheduled_asset_price_include);
 
-const priceMoveAlertsIncludeEmail = ref(user.value.price_move_alerts_include_email);
+const priceMoveAlertsInclude = ref(user.value.price_move_alerts_include);
 
-/* =============
-Telegram per-option state. These prefs live in `notification_preferences`
-(channel='telegram', content=''), not the users row, so they initialize from the
-server-loaded `telegramPrefs` prop (absent type ⇒ off) and are NOT re-synced from
-`user.value` the way the email refs are.
-============= */
-const marketIncludeTelegram = ref(
-	props.telegramPrefs.market_scheduled_asset_price === true,
-);
-const priceMoveAlertsIncludeTelegram = ref(
-	props.telegramPrefs.price_move_alerts === true,
-);
-
-/** Telegram is selectable when linked and not globally muted (`telegram_opted_out`). */
-const telegramUsable = computed(() => isTelegramChannelUsable(user.value));
-const telegramDisabledTitle = computed(() => getTelegramChannelDisabledTitle(user.value));
-
-/* =============
-Master-flag coupling: the hidden `*_enabled` fields drive whether the notification
-fires at all. Telegram must flip them too — otherwise selecting only Telegram would
-persist a Telegram pref but leave the feature disabled, so nothing sends. Mirrors how
-email already gates `*_enabled`.
-============= */
-const marketNotificationsEnabled = computed(
-	() => marketIncludeEmail.value || marketIncludeTelegram.value,
-);
-const priceMoveAlertsEnabled = computed(
-	() => priceMoveAlertsIncludeEmail.value || priceMoveAlertsIncludeTelegram.value,
-);
+const marketNotificationsEnabled = computed(() => marketInclude.value);
+const priceMoveAlertsEnabled = computed(() => priceMoveAlertsInclude.value);
 const priceMoveThresholdsDisabledTitle = computed(() =>
 	priceMoveAlertsEnabled.value
 		? undefined
-		: "Turn on Price Move Alerts for at least one notification channel to enable this section.",
+		: "Turn on Price Move Alerts to enable this section.",
 );
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
@@ -512,51 +455,13 @@ const scheduledUpdateTimes = computed(() =>
 const timezone = computed(() => user.value.timezone);
 
 const needsChannelSelection = computed(() =>
-	needsNotificationChannelSelection(emailEnabled.value, user.value),
+	needsNotificationChannelSelection(user.value),
 );
 const needsTrackedAssets = computed(() => !hasTrackedAssets.value);
 const notificationSetupBlocked = computed(
 	() => needsChannelSelection.value || needsTrackedAssets.value,
 );
 
-/**
- * Hover-text reasons for disabled channel toggles. Populated only when the
- * channel itself is unavailable — panel-level blocks (no tracked assets, no
- * channel selected at all) are surfaced via SetupRequiredNotice instead.
- */
-const emailDisabledTitle = computed(() =>
-	getEmailChannelDisabledTitle(emailEnabled.value),
-);
-
-/* =============
-Channel multiselect options. Each option carries its selected/disabled/title so the
-multiselect can show every channel while still surfacing why a channel is unavailable.
-Email disabled logic mirrors the prior per-option checkboxes verbatim.
-============= */
-const { emailOption, telegramOption } = createChannelOptionBuilders({
-	emailDisabled: () => notificationSetupBlocked.value || !emailEnabled.value,
-	emailDisabledTitle: () => emailDisabledTitle.value,
-	telegramDisabled: () => !telegramUsable.value,
-	telegramDisabledTitle: () => telegramDisabledTitle.value,
-});
-
-const marketScheduledChannelOptions = computed<ChannelOption[]>(() => [
-	emailOption(marketIncludeEmail.value),
-	telegramOption(marketIncludeTelegram.value),
-]);
-const priceMoveChannelOptions = computed<ChannelOption[]>(() => [
-	emailOption(priceMoveAlertsIncludeEmail.value),
-	telegramOption(priceMoveAlertsIncludeTelegram.value),
-]);
-
-function handleMarketScheduledToggle(channel: string, selected: boolean) {
-	if (channel === "email") marketIncludeEmail.value = selected;
-	else if (channel === "telegram") marketIncludeTelegram.value = selected;
-}
-function handlePriceMoveToggle(channel: string, selected: boolean) {
-	if (channel === "email") priceMoveAlertsIncludeEmail.value = selected;
-	else if (channel === "telegram") priceMoveAlertsIncludeTelegram.value = selected;
-}
 
 /* =============
 Per-stock price-move thresholds. Row presence in price_move_alert_thresholds =
@@ -812,12 +717,12 @@ function watchUserPreference<T>(
 }
 
 watchUserPreference(
-	() => user.value.market_scheduled_asset_price_include_email,
-	marketIncludeEmail,
+	() => user.value.market_scheduled_asset_price_include,
+	marketInclude,
 );
 watchUserPreference(
-	() => user.value.price_move_alerts_include_email,
-	priceMoveAlertsIncludeEmail,
+	() => user.value.price_move_alerts_include,
+	priceMoveAlertsInclude,
 );
 watch(
 	() => user.value.market_scheduled_asset_price_times,
@@ -853,51 +758,40 @@ watch(
 		user.value = {
 			...user.value,
 			market_scheduled_asset_price_enabled: newData.market_scheduled_asset_price_enabled,
-			market_scheduled_asset_price_include_email: newData.market_scheduled_asset_price_include_email,
+			market_scheduled_asset_price_include: newData.market_scheduled_asset_price_include,
 			market_scheduled_asset_price_times: newData.market_scheduled_asset_price_times,
 			market_scheduled_asset_price_next_send_at: newData.market_scheduled_asset_price_next_send_at,
 			// Keep other panels' scheduling in sync with the server response.
 			daily_notification_next_send_at: newData.daily_notification_next_send_at,
 			// Sync price-move alert channel state from the server response.
-			...(newData.price_move_alerts_include_email !== undefined && {
-				price_move_alerts_include_email: newData.price_move_alerts_include_email,
+			...(newData.price_move_alerts_include !== undefined && {
+				price_move_alerts_include: newData.price_move_alerts_include,
 			}),
 			};
 		}
 	},
 );
 
-watch(marketIncludeEmail, (email) => {
-	if (email === user.value.market_scheduled_asset_price_include_email) {
+watch(marketInclude, (enabled) => {
+	if (enabled === user.value.market_scheduled_asset_price_include) {
 		return;
 	}
 	user.value = {
 		...user.value,
-		market_scheduled_asset_price_include_email: email,
-		market_scheduled_asset_price_enabled: email,
+		market_scheduled_asset_price_include: enabled,
+		market_scheduled_asset_price_enabled: enabled,
 	};
 	notifyChange();
 });
 
-watch(priceMoveAlertsIncludeEmail, (email) => {
-	if (email === user.value.price_move_alerts_include_email) {
+watch(priceMoveAlertsInclude, (enabled) => {
+	if (enabled === user.value.price_move_alerts_include) {
 		return;
 	}
 	user.value = {
 		...user.value,
-		price_move_alerts_include_email: email,
+		price_move_alerts_include: enabled,
 	};
-	notifyChange();
-});
-
-/* =============
-Telegram refs have no `users` columns, so unlike email they don't push into
-`user.value` — they persist to `notification_preferences` server-side. We still
-trigger autosave so the hidden `*_telegram` form fields submit. The hidden
-`*_enabled` fields are bound to the master computeds (which include Telegram), so
-the form already carries the coupled enable flag.
-============= */
-watch([marketIncludeTelegram, priceMoveAlertsIncludeTelegram], () => {
 	notifyChange();
 });
 
@@ -955,4 +849,3 @@ function handleRemoveTime(index: number) {
 }
 
 </script>
-

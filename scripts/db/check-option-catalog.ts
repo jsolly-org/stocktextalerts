@@ -27,8 +27,8 @@ import { pgSsl } from "./pg-ssl";
 
 const DB_STATEMENT_TIMEOUT_MS = 10_000;
 
-function optionKey(row: { notification_type: string; content: string; channel: string }): string {
-	return `${row.notification_type}|${row.content}|${row.channel}`;
+function optionKey(row: { notification_type: string; content: string }): string {
+	return `${row.notification_type}|${row.content}`;
 }
 
 /** Compare table rows to the code catalog. Exported for Vitest. */
@@ -38,11 +38,17 @@ export async function collectOptionCatalogDrift(client: Client): Promise<string[
 	const { rows } = await client.query<{
 		notification_type: string;
 		content: string;
-		channel: string;
-	}>("SELECT notification_type, content, channel FROM public.notification_options");
+	}>("SELECT notification_type, content FROM public.notification_options");
 
 	const dbKeys = new Set(rows.map(optionKey));
-	const codeKeys = new Set(NOTIFICATION_PREFERENCE_CATALOG.map(optionKey));
+	const codeKeys = new Set(
+		NOTIFICATION_PREFERENCE_CATALOG.map((entry) =>
+			optionKey({
+				notification_type: entry.notification_type,
+				content: entry.content,
+			}),
+		),
+	);
 
 	for (const key of codeKeys) {
 		if (!dbKeys.has(key)) {

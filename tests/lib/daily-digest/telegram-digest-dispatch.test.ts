@@ -93,7 +93,7 @@ describe("Telegram daily digest dispatch", () => {
 
 		const { id } = await createTestUser({
 			timezone: "America/New_York",
-			emailNotificationsEnabled: false,
+			deliveryChannel: "telegram",
 			trackedAssets: ["NVDA"],
 			confirmed: true,
 		});
@@ -108,14 +108,13 @@ describe("Telegram daily digest dispatch", () => {
 				daily_notification_time: nineAmLocalMinutes,
 				daily_notification_next_send_at: nowIso,
 				telegram_chat_id: telegramChatId,
-				telegram_opted_out: false,
 			})
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		// Select the daily-digest "prices" facet for the Telegram channel (createTestUser
-		// seeded it off by default; setTestUserPrefs upserts it on).
-		await setTestUserPrefs(id, [["daily_notification", "prices", "telegram", true]]);
+		// Select the daily-digest "prices" facet (createTestUser seeded it on by
+		// default; setTestUserPrefs upserts it on to be explicit).
+		await setTestUserPrefs(id, [["daily_notification", "prices", true]]);
 
 		// Realistic NVDA quote during a regular session.
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
@@ -194,7 +193,7 @@ describe("Telegram daily digest dispatch", () => {
 
 		const { id } = await createTestUser({
 			timezone: "America/New_York",
-			emailNotificationsEnabled: false,
+			deliveryChannel: "telegram",
 			trackedAssets: ["NVDA"],
 			confirmed: true,
 		});
@@ -207,12 +206,11 @@ describe("Telegram daily digest dispatch", () => {
 				daily_notification_time: 9 * 60,
 				daily_notification_next_send_at: nowIso,
 				telegram_chat_id: telegramChatId,
-				telegram_opted_out: false,
 			})
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		await setTestUserPrefs(id, [["daily_notification", "prices", "telegram", true]]);
+		await setTestUserPrefs(id, [["daily_notification", "prices", true]]);
 
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
 			prices: new Map([["NVDA", { price: 178.42, changePercent: 1.37, prevClose: 176.01 }]]),

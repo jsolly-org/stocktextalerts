@@ -1,5 +1,4 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
-import type { buildAssetEventsContent } from "../../asset-events/content";
 import { formatFilingsSectionTelegram } from "../../asset-events/filings-format";
 import {
 	formatFilingsSectionMarkdown,
@@ -9,6 +8,7 @@ import {
 	formatShortInterestSectionLines,
 	formatShortInterestSectionTitle,
 } from "../../asset-events/short-interest";
+import type { AssetEventsContent } from "../../asset-events/types";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import type { TopMover } from "../../market-data/types";
 import {
@@ -127,7 +127,7 @@ function ensureBlankLineBetweenTickerSnippets(content: string): string {
 	return normalized.join("\n").trim();
 }
 
-type AssetEventsResult = Awaited<ReturnType<typeof buildAssetEventsContent>> | null;
+type AssetEventsResult = AssetEventsContent | null;
 
 /** Show change % on closed-market digests only when a 7-day sparkline anchors it. */
 function shouldShowDigestChangePercent(

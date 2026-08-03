@@ -84,7 +84,7 @@ function etIsoDateOf(date: Date): string {
  * Process the price-move-alert pipeline: load enabled users and their per-symbol
  * thresholds, compute baselines from cached state vs. prev close, check each
  * asset's configured threshold (percent or dollar), claim eligible alerts
- * atomically, and deliver across channels.
+ * atomically, and deliver on the account delivery channel.
  *
  * Reuses the scheduler's captured watched-symbol `quoteMap` (a superset of the
  * threshold symbols) to avoid a duplicate Massive snapshot call. Only runs when

@@ -1,14 +1,14 @@
 import type { SupabaseAdminClient } from "../../db/supabase";
 import { shouldAdvanceScheduledNotificationSchedule } from "../../schedule/delivery-terminal";
+import type { DeliveryMethod } from "../../scheduled-notifications/types";
 import type { ScheduledSlotKey, UserRecord } from "../../types";
 
-/** True when every enabled market-scheduled channel is terminal for this slot. */
+/** True when the account's outbound channel is terminal for this market-scheduled slot. */
 export async function shouldAdvanceMarketScheduledSchedule(
 	options: {
 		supabase: SupabaseAdminClient;
 		user: UserRecord;
-		emailRequired: boolean;
-		telegramRequired?: boolean;
+		requiredChannel: DeliveryMethod | null;
 	} & ScheduledSlotKey,
 ): Promise<boolean> {
 	return shouldAdvanceScheduledNotificationSchedule({

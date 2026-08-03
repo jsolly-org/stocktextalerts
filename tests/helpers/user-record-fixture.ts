@@ -1,21 +1,19 @@
 import type { NotificationPreferenceType } from "../../src/lib/constants";
 import { parsePrefRow } from "../../src/lib/messaging/notification-prefs";
-import type { PrefChannel, PrefRow, UserRecord } from "../../src/lib/types";
+import type { PrefRow, UserRecord } from "../../src/lib/types";
 
 /**
  * Build notification_preferences rows for a test user from a compact spec.
  *
- * Each entry is `[notification_type, content, channel, enabled]`. Use this to set
- * per-option channel preferences on a UserRecord fixture (replacing the old
- * per-column `*_include_*` flags).
+ * Each entry is `[notification_type, content, enabled]`.
  */
 export function makePrefRows(
-	specs: ReadonlyArray<[NotificationPreferenceType, string, PrefChannel, boolean]>,
+	specs: ReadonlyArray<[NotificationPreferenceType, string, boolean]>,
 ): PrefRow[] {
-	return specs.map(([notification_type, content, channel, enabled]) => {
-		const row = parsePrefRow({ notification_type, content, channel, enabled });
+	return specs.map(([notification_type, content, enabled]) => {
+		const row = parsePrefRow({ notification_type, content, enabled });
 		if (!row) {
-			throw new Error(`Invalid test preference row: ${notification_type}/${content}/${channel}`);
+			throw new Error(`Invalid test preference row: ${notification_type}/${content}`);
 		}
 		return row;
 	});
@@ -29,7 +27,7 @@ export function makeUserRecord(overrides: Partial<UserRecord> = {}): UserRecord 
 		timezone: "UTC",
 		use_24_hour_time: false,
 		market_scheduled_asset_price_next_send_at: null,
-		email_notifications_enabled: true,
+		delivery_channel: "email",
 		market_scheduled_asset_price_enabled: false,
 		market_scheduled_asset_price_times: null,
 		daily_notification_time: null,
@@ -39,7 +37,6 @@ export function makeUserRecord(overrides: Partial<UserRecord> = {}): UserRecord 
 		grok_window_start: null,
 		grok_sends_in_window: 0,
 		telegram_chat_id: null,
-		telegram_opted_out: false,
 		prefs: [],
 		...overrides,
 	};

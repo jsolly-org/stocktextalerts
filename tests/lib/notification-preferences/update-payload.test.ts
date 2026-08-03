@@ -13,7 +13,7 @@ function makeUser(overrides: Partial<User> = {}): User {
 		market_scheduled_asset_price_next_send_at: "2026-01-14T14:30:00.000Z",
 		daily_notification_time: 1020,
 		daily_notification_next_send_at: "2026-01-14T22:00:00.000Z",
-		email_notifications_enabled: true,
+		delivery_channel: "email" as const,
 		market_scheduled_asset_price_enabled: true,
 		...overrides,
 	} as unknown as User;
@@ -61,14 +61,14 @@ describe("Notification preference update payloads stay aligned with user schedul
 		expect(payload.market_scheduled_asset_price_next_send_at).toBeNull();
 	});
 
-	it("Only persists booleans explicitly submitted in the form payload.", () => {
-		const user = makeUser();
+	it("Only persists delivery_channel when explicitly submitted in the form payload.", () => {
+		const user = makeUser({ delivery_channel: "disabled" });
 		const formData = new FormData();
-		formData.set("email_notifications_enabled", "on");
+		formData.set("delivery_channel", "email");
 
 		const payload = buildNotificationPreferencesUpdatePayload({
 			parsedData: {
-				email_notifications_enabled: true,
+				delivery_channel: "email" as const,
 				market_scheduled_asset_price_enabled: true,
 			},
 			formData,
@@ -78,19 +78,19 @@ describe("Notification preference update payloads stay aligned with user schedul
 			dailyNotificationOptionsChanged: false,
 		});
 
-		expect(payload.email_notifications_enabled).toBe(true);
+		expect(payload.delivery_channel).toBe("email");
 		// market_scheduled_asset_price_enabled was in parsedData but not the
 		// submitted formData, so it must be omitted (no unchecked-drift).
 		expect(payload.market_scheduled_asset_price_enabled).toBeUndefined();
 	});
 
-	it("Maps telegram_notifications_enabled on to telegram_opted_out false.", () => {
-		const user = makeUser({ telegram_opted_out: true });
+	it("Persists delivery_channel telegram when submitted.", () => {
+		const user = makeUser({ delivery_channel: "disabled" as const });
 		const formData = new FormData();
-		formData.set("telegram_notifications_enabled", "on");
+		formData.set("delivery_channel", "telegram");
 
 		const payload = buildNotificationPreferencesUpdatePayload({
-			parsedData: { telegram_notifications_enabled: true },
+			parsedData: { delivery_channel: "telegram" as const },
 			formData,
 			rawTimesValue: null,
 			dbUser: user,
@@ -98,19 +98,16 @@ describe("Notification preference update payloads stay aligned with user schedul
 			dailyNotificationOptionsChanged: false,
 		});
 
-		expect(payload.telegram_opted_out).toBe(false);
-		expect(
-			(payload as { telegram_notifications_enabled?: boolean }).telegram_notifications_enabled,
-		).toBeUndefined();
+		expect(payload.delivery_channel).toBe("telegram");
 	});
 
-	it("Maps telegram_notifications_enabled off to telegram_opted_out true.", () => {
-		const user = makeUser({ telegram_opted_out: false });
+	it("Persists delivery_channel disabled when submitted.", () => {
+		const user = makeUser({ delivery_channel: "telegram" as const });
 		const formData = new FormData();
-		formData.set("telegram_notifications_enabled", "off");
+		formData.set("delivery_channel", "disabled");
 
 		const payload = buildNotificationPreferencesUpdatePayload({
-			parsedData: { telegram_notifications_enabled: false },
+			parsedData: { delivery_channel: "disabled" as const },
 			formData,
 			rawTimesValue: null,
 			dbUser: user,
@@ -118,18 +115,18 @@ describe("Notification preference update payloads stay aligned with user schedul
 			dailyNotificationOptionsChanged: false,
 		});
 
-		expect(payload.telegram_opted_out).toBe(true);
+		expect(payload.delivery_channel).toBe("disabled");
 	});
 
-	it("Omits telegram_opted_out when telegram_notifications_enabled was not submitted.", () => {
-		const user = makeUser({ telegram_opted_out: true });
+	it("Omits delivery_channel when it was not submitted.", () => {
+		const user = makeUser({ delivery_channel: "disabled" as const });
 		const formData = new FormData();
-		formData.set("email_notifications_enabled", "on");
+		formData.set("market_scheduled_asset_price_enabled", "on");
 
 		const payload = buildNotificationPreferencesUpdatePayload({
 			parsedData: {
-				email_notifications_enabled: true,
-				telegram_notifications_enabled: false,
+				delivery_channel: "email" as const,
+				market_scheduled_asset_price_enabled: true,
 			},
 			formData,
 			rawTimesValue: null,
@@ -138,16 +135,17 @@ describe("Notification preference update payloads stay aligned with user schedul
 			dailyNotificationOptionsChanged: false,
 		});
 
-		expect(payload.telegram_opted_out).toBeUndefined();
+		expect(payload.delivery_channel).toBeUndefined();
+		expect(payload.market_scheduled_asset_price_enabled).toBe(true);
 	});
 
 	it("Schedules daily_notification_next_send_at when a daily facet becomes enabled.", () => {
 		const user = makeUser();
 		const formData = new FormData();
-		formData.set("asset_events_include_insider_telegram", "on");
+		formData.set("asset_events_include_insider", "on");
 
 		const payload = buildNotificationPreferencesUpdatePayload({
-			parsedData: { asset_events_include_insider_telegram: true },
+			parsedData: { asset_events_include_insider: true },
 			formData,
 			rawTimesValue: null,
 			dbUser: user,
@@ -161,10 +159,10 @@ describe("Notification preference update payloads stay aligned with user schedul
 	it("Nullifies daily notification cursors when the last facet is disabled.", () => {
 		const user = makeUser();
 		const formData = new FormData();
-		formData.set("asset_events_include_calendar_email", "on");
+		formData.set("asset_events_include_calendar", "on");
 
 		const payload = buildNotificationPreferencesUpdatePayload({
-			parsedData: { asset_events_include_calendar_email: false },
+			parsedData: { asset_events_include_calendar: false },
 			formData,
 			rawTimesValue: null,
 			dbUser: user,

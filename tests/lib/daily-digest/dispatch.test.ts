@@ -18,7 +18,7 @@ const mockSupabaseUser = {
 	use_24_hour_time: false,
 	daily_notification_time: 540,
 	daily_notification_next_send_at: null,
-	email_notifications_enabled: true,
+	delivery_channel: "email" as const,
 	asset_events_last_analyst_sent_month: null,
 	last_grok_rumors_at: null,
 	grok_window_start: null,

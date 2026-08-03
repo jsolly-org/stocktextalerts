@@ -17,7 +17,7 @@ describe("A signed-in user loads their current notification settings.", () => {
 			password: TEST_PASSWORD,
 			confirmed: true,
 			timezone: "America/Chicago",
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [555, 900],
 		});
 		registerTestUserForCleanup(testUser.id);
@@ -38,28 +38,24 @@ describe("A signed-in user loads their current notification settings.", () => {
 			ok: boolean;
 			message: string;
 			notificationPreferences: {
-				email_notifications_enabled: boolean;
+				delivery_channel: string;
 				timezone: string;
 				market_scheduled_asset_price_times: number[] | null;
 			};
 		};
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("ok");
-		expect(payload.notificationPreferences.email_notifications_enabled).toBe(true);
-		expect(
-			(payload.notificationPreferences as { telegram_notifications_enabled?: boolean })
-				.telegram_notifications_enabled,
-		).toBe(true);
+		expect(payload.notificationPreferences.delivery_channel).toBe("email");
 		expect(payload.notificationPreferences.timezone).toBe("America/Chicago");
 		expect(payload.notificationPreferences.market_scheduled_asset_price_times).toEqual([615, 960]);
 	});
 
-	it("Returns telegram_notifications_enabled false when the user is opted out.", async () => {
+	it("Returns delivery_channel disabled when the user has muted delivery.", async () => {
 		const testUser = await createTestUser({
 			email: `pref-current-tg-muted-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 		});
 		registerTestUserForCleanup(testUser.id);
 
@@ -68,7 +64,7 @@ describe("A signed-in user loads their current notification settings.", () => {
 			.update({
 				telegram_chat_id: 8675309,
 				telegram_linked_at: new Date().toISOString(),
-				telegram_opted_out: true,
+				delivery_channel: "disabled" as const,
 			})
 			.eq("id", testUser.id);
 		if (muteError) {
@@ -88,10 +84,10 @@ describe("A signed-in user loads their current notification settings.", () => {
 		expect(response.status).toBe(200);
 		const payload = (await response.json()) as {
 			ok: boolean;
-			notificationPreferences: { telegram_notifications_enabled: boolean };
+			notificationPreferences: { delivery_channel: string };
 		};
 		expect(payload.ok).toBe(true);
-		expect(payload.notificationPreferences.telegram_notifications_enabled).toBe(false);
+		expect(payload.notificationPreferences.delivery_channel).toBe("disabled");
 	});
 
 	it("Rejects a logged-out request.", async () => {

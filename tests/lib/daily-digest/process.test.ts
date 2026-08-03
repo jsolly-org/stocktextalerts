@@ -173,7 +173,7 @@ describe("Daily digest process scenarios", () => {
 
 		const { id } = await createTestUser({
 			timezone: "America/New_York",
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			trackedAssets: ["AAPL"],
 			confirmed: true,
 		});
@@ -187,7 +187,7 @@ describe("Daily digest process scenarios", () => {
 				grok_sends_in_window: 0,
 			})
 			.eq("id", id);
-		await setTestUserPrefs(id, [["daily_notification", "news", "email", true]]);
+		await setTestUserPrefs(id, [["daily_notification", "news", true]]);
 
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
 			prices: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 }]]),
@@ -222,7 +222,7 @@ describe("Daily digest process scenarios", () => {
 
 		const { id } = await createTestUser({
 			timezone: "America/New_York",
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			trackedAssets: ["AAPL"],
 			confirmed: true,
 		});
@@ -237,7 +237,7 @@ describe("Daily digest process scenarios", () => {
 				grok_window_start: nowIso,
 			})
 			.eq("id", id);
-		await setTestUserPrefs(id, [["daily_notification", "news", "email", true]]);
+		await setTestUserPrefs(id, [["daily_notification", "news", true]]);
 
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
 			prices: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 }]]),

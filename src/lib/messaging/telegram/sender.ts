@@ -13,7 +13,7 @@ import type { TelegramMessage, TelegramSender } from "../types";
  * grammY maps a Bot-API error response to a thrown `GrammyError` (see
  * `core/client.ts#callApi`), which we translate to a `{ success: false, errorCode }`
  * result — error_code 403 ("bot was blocked by the user") is handled by the caller,
- * which maps it to telegram_opted_out (never set opt-out from inbound content).
+ * which sets delivery_channel=disabled when routed to telegram (never from inbound content).
  */
 export async function sendViaBot(bot: Bot, message: TelegramMessage): Promise<DeliveryResult> {
 	try {

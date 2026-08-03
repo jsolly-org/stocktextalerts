@@ -62,8 +62,8 @@ test.describe("delivery times and timepicker", () => {
 
 		const user = await createTestUser({
 			confirmed: true,
-			emailNotificationsEnabled: true,
-			marketScheduledAssetPriceIncludeEmail: true,
+			deliveryChannel: "email",
+			marketScheduledAssetPriceInclude: true,
 			timezone: "America/Chicago",
 			// Explicit empty array → createTestUser normalizes to null (no times seeded).
 			scheduledUpdateTimes: [],

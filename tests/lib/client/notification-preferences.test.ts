@@ -30,7 +30,7 @@ describe("Dashboard notification-preferences client helpers", () => {
 					ok: true,
 					notificationPreferences: {
 						timezone: "America/New_York",
-						email_notifications_enabled: true,
+						delivery_channel: "email" as const,
 					},
 				}),
 				{
@@ -44,7 +44,7 @@ describe("Dashboard notification-preferences client helpers", () => {
 
 		expect(result).toEqual({
 			timezone: "America/New_York",
-			email_notifications_enabled: true,
+			delivery_channel: "email" as const,
 		});
 		expect(redirectToSignInMock).not.toHaveBeenCalled();
 	});

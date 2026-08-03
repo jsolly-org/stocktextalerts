@@ -1,5 +1,6 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
+import { resolveOutboundChannel } from "../../messaging/delivery-channel";
 import { sendUserEmail } from "../../messaging/email/index";
 import {
 	type createLogoCache,
@@ -10,7 +11,6 @@ import {
 import { isFacetEnabled } from "../../messaging/notification-prefs";
 import type { SparklineData } from "../../messaging/parts/sparkline";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
-import { isTelegramChannelUsable, shouldSendTelegram } from "../../messaging/telegram/eligibility";
 import { deliverTelegramPriceAlert } from "../../messaging/telegram/price-alert";
 import type { EmailSender, TelegramSender } from "../../messaging/types";
 import { consumeNotificationBudget, releaseNotificationBudget } from "../../notification-budget";
@@ -19,8 +19,8 @@ import type { ChannelDeliveryStats, ExtendedAssetQuote, IntradayBarsResult } fro
 import { buildSubject, formatFlatPriceAlertEmail, formatRelativeMinutesAgo } from "./format";
 import type { FlatPriceAlertUser } from "./users";
 
-/** Deliver a flat price alert across the channels the user has enabled
- *  (email and/or Telegram) and record each attempt in notification_log. */
+/** Deliver a flat price alert on the account's single delivery channel
+ *  and record the attempt in notification_log. */
 export async function deliverFlatPriceAlert(options: {
 	user: FlatPriceAlertUser;
 	symbol: string;
@@ -69,12 +69,10 @@ export async function deliverFlatPriceAlert(options: {
 	} = options;
 
 	let delivered = false;
+	const contentEnabled = isFacetEnabled(user.prefs, "price_move_alerts");
+	const outbound = resolveOutboundChannel(user);
 
-	// Email
-	if (
-		isFacetEnabled(user.prefs, "price_move_alerts", "email") &&
-		user.email_notifications_enabled
-	) {
+	if (contentEnabled && outbound === "email") {
 		const consume = await consumeNotificationBudget(supabase, {
 			userId: user.id,
 			kind: "price_move_alerts",
@@ -149,57 +147,52 @@ export async function deliverFlatPriceAlert(options: {
 		}
 	}
 
-	// Telegram delivery (additive; never alters the email path above). Real-time
-	// alert — no claim RPC; the per-symbol flat-alert reservation already deduped this
-	// symbol×user, so Telegram piggybacks. Only query per-option prefs for users whose
-	// channel is usable (linked + not opted out).
-	if (sendTelegram && isTelegramChannelUsable(user)) {
-		if (shouldSendTelegram(user, user.prefs, "price_move_alerts")) {
-			const consume = await consumeNotificationBudget(supabase, {
-				userId: user.id,
-				kind: "price_move_alerts",
+	// Telegram — only when the account is routed to telegram (linked chat required).
+	else if (sendTelegram && contentEnabled && outbound === "telegram") {
+		const consume = await consumeNotificationBudget(supabase, {
+			userId: user.id,
+			kind: "price_move_alerts",
+		});
+		if (consume.status === "reserved") {
+			const since = !isReTrigger
+				? "today"
+				: lastNotificationAt !== null
+					? `since last alert (${formatRelativeMinutesAgo(lastNotificationAt.getTime(), nowMs)})`
+					: "since last alert";
+			const enriched = buildFlatAlertEnriched({
+				symbol,
+				quote,
+				triggerPercent,
+				since,
+				intraday,
+				isAcceleration,
+				why: whyText,
 			});
-			if (consume.status === "reserved") {
-				const since = !isReTrigger
-					? "today"
-					: lastNotificationAt !== null
-						? `since last alert (${formatRelativeMinutesAgo(lastNotificationAt.getTime(), nowMs)})`
-						: "since last alert";
-				const enriched = buildFlatAlertEnriched({
-					symbol,
-					quote,
-					triggerPercent,
-					since,
-					intraday,
-					isAcceleration,
-					why: whyText,
-				});
-				const sent = await deliverTelegramPriceAlert({
-					alert: enriched,
-					user,
-					sendTelegram,
-					supabase,
-					stats,
-				});
-				if (sent) {
-					delivered = true;
-				} else {
-					await releaseNotificationBudget(supabase, {
-						userId: user.id,
-						kind: "price_move_alerts",
-					});
-				}
-			} else if (consume.status === "denied") {
-				rootLogger.info("Skipped flat price alert Telegram: notification budget exhausted", {
-					userId: user.id,
-					symbol,
-				});
+			const sent = await deliverTelegramPriceAlert({
+				alert: enriched,
+				user,
+				sendTelegram,
+				supabase,
+				stats,
+			});
+			if (sent) {
+				delivered = true;
 			} else {
-				rootLogger.info("Skipped flat price alert Telegram: notification budget check failed", {
+				await releaseNotificationBudget(supabase, {
 					userId: user.id,
-					symbol,
+					kind: "price_move_alerts",
 				});
 			}
+		} else if (consume.status === "denied") {
+			rootLogger.info("Skipped flat price alert Telegram: notification budget exhausted", {
+				userId: user.id,
+				symbol,
+			});
+		} else {
+			rootLogger.info("Skipped flat price alert Telegram: notification budget check failed", {
+				userId: user.id,
+				symbol,
+			});
 		}
 	}
 

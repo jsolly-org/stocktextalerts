@@ -38,17 +38,16 @@ describe("notification_options mirrors the authored option catalog", () => {
 	});
 
 	it("reports drift in both directions (missing table row; off-catalog table row)", async () => {
-		const rows = NOTIFICATION_PREFERENCE_CATALOG.map(({ notification_type, content, channel }) => ({
+		const rows = NOTIFICATION_PREFERENCE_CATALOG.map(({ notification_type, content }) => ({
 			notification_type,
 			content,
-			channel,
 		}));
 		const dropped = rows[0]!;
 		const mutated = [
 			...rows.slice(1),
 			// price_move_alerts is facet-less (content ""), so "prices" is never a
 			// valid content for it — an off-catalog straggler.
-			{ notification_type: "price_move_alerts", content: "prices", channel: "telegram" },
+			{ notification_type: "price_move_alerts", content: "prices" },
 		];
 		const fakeClient = {
 			query: async () => ({ rows: mutated }),
@@ -60,14 +59,14 @@ describe("notification_options mirrors the authored option catalog", () => {
 		expect(
 			errors.some(
 				(e) =>
-					e.includes(`(${dropped.notification_type}|${dropped.content}|${dropped.channel})`) &&
+					e.includes(`(${dropped.notification_type}|${dropped.content})`) &&
 					e.includes("has no notification_options row"),
 			),
 		).toBe(true);
 		expect(
 			errors.some(
 				(e) =>
-					e.includes("(price_move_alerts|prices|telegram)") &&
+					e.includes("(price_move_alerts|prices)") &&
 					e.includes("not in NOTIFICATION_OPTION_MATRIX"),
 			),
 		).toBe(true);

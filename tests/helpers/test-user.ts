@@ -4,7 +4,6 @@ import type { TablesInsert } from "../../src/lib/db/generated/database.types";
 import { buildDefaultPreferenceRows } from "../../src/lib/messaging/notification-prefs";
 import { userLocalToEtMinute } from "../../src/lib/time/conversion";
 import { calculateNextSendAtFromTimes } from "../../src/lib/time/schedule/next-send";
-import type { PrefChannel } from "../../src/lib/types";
 import { getAssetData } from "./asset-data";
 import { upsertAssets } from "./asset-db";
 import { PRESERVED_TEST_EMAIL, TEST_RUN_ID } from "./constants";
@@ -13,25 +12,22 @@ import { adminClient } from "./test-env";
 /**
  * Upsert notification_preferences rows for a test user.
  *
- * Per-option channel preferences are the single source of truth — tests that used
- * to set `users.*_include_*` columns set table rows instead. Each spec is
- * `[notification_type, content, channel, enabled]` (content "" for market types).
+ * Each spec is `[notification_type, content, enabled]` (content "" for market types).
  */
 export async function setTestUserPrefs(
 	userId: string,
-	specs: ReadonlyArray<[string, string, PrefChannel, boolean]>,
+	specs: ReadonlyArray<[string, string, boolean]>,
 ): Promise<void> {
 	if (specs.length === 0) return;
-	const rows = specs.map(([notification_type, content, channel, enabled]) => ({
+	const rows = specs.map(([notification_type, content, enabled]) => ({
 		user_id: userId,
 		notification_type,
 		content,
-		channel,
 		enabled,
 	}));
 	const { error } = await adminClient
 		.from("notification_preferences")
-		.upsert(rows, { onConflict: "user_id,notification_type,content,channel" });
+		.upsert(rows, { onConflict: "user_id,notification_type,content" });
 	if (error) {
 		throw new Error(`setTestUserPrefs failed: ${error.message}`);
 	}
@@ -41,12 +37,14 @@ export type CreateTestUserOptions = {
 	email?: string;
 	password?: string;
 	timezone?: string;
-	emailNotificationsEnabled?: boolean;
+	deliveryChannel?: "email" | "telegram" | "disabled";
+	/** Required implicitly when deliveryChannel is telegram (CHECK constraint). */
+	telegramChatId?: number;
 	scheduledUpdateTimes?: number[] | null;
 	trackedAssets?: string[];
 	confirmed?: boolean;
 	approved?: boolean;
-	marketScheduledAssetPriceIncludeEmail?: boolean;
+	marketScheduledAssetPriceInclude?: boolean;
 };
 
 export type TestUser = { id: string; email: string };
@@ -184,13 +182,19 @@ export async function createTestUser(options: CreateTestUserOptions = {}): Promi
 			}
 		}
 
+		const deliveryChannel = options.deliveryChannel ?? "email";
+		const telegramChatId =
+			options.telegramChatId ??
+			(deliveryChannel === "telegram" ? Math.floor(Math.random() * 1_000_000_000) + 1 : null);
+
 		const profile: DbUserInsert = {
 			id: userId,
 			email,
 			approved_at: approved ? DateTime.utc().toISO() : null,
 			approved_by: approved ? "test" : null,
 			timezone,
-			email_notifications_enabled: options.emailNotificationsEnabled ?? false,
+			delivery_channel: deliveryChannel,
+			telegram_chat_id: telegramChatId,
 			market_scheduled_asset_price_times: finalMarketScheduledPriceTimes,
 			market_scheduled_asset_price_next_send_at: nextSendAtIso,
 		};
@@ -203,20 +207,19 @@ export async function createTestUser(options: CreateTestUserOptions = {}): Promi
 			throw new Error(`Profile setup failed: ${profileError.message}`);
 		}
 
-		// Per-option channel preferences live in notification_preferences. Seed the
-		// default rows (prices email on; everything else off), then apply the
+		// Per-option content preferences live in notification_preferences. Seed the
+		// default rows (prices on; everything else off), then apply the
 		// scheduled-market overrides the test requested.
 		const defaultRows = buildDefaultPreferenceRows(userId);
-		const scheduledIncludeEmail =
-			options.marketScheduledAssetPriceIncludeEmail ?? options.emailNotificationsEnabled ?? false;
+		const scheduledInclude = options.marketScheduledAssetPriceInclude ?? false;
 		for (const row of defaultRows) {
 			if (row.notification_type === "market_scheduled_asset_price" && row.content === "") {
-				if (row.channel === "email") row.enabled = scheduledIncludeEmail;
+				row.enabled = scheduledInclude;
 			}
 		}
 		const { error: prefsError } = await adminClient
 			.from("notification_preferences")
-			.upsert(defaultRows, { onConflict: "user_id,notification_type,content,channel" });
+			.upsert(defaultRows, { onConflict: "user_id,notification_type,content" });
 		if (prefsError) {
 			throw new Error(`Notification preferences setup failed: ${prefsError.message}`);
 		}

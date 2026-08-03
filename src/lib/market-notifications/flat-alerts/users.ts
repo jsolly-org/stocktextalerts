@@ -1,35 +1,24 @@
+import type { DeliveryChannelMode } from "../../constants";
 import type { SupabaseAdminClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import { attachPrefsToUsers } from "../../messaging/load-prefs";
 import type { PrefRow } from "../../types";
 
-/** Minimal user shape for flat price alert delivery across email + Telegram. */
+/** Minimal user shape for flat price alert delivery. */
 export interface FlatPriceAlertUser {
 	id: string;
 	email: string;
-	email_notifications_enabled: boolean;
+	delivery_channel: DeliveryChannelMode;
 	use_24_hour_time: boolean;
-	/** Linked Telegram chat (null when never linked); gates the Telegram delivery branch. */
 	telegram_chat_id: number | null;
-	/** True after a verified outbound 403 ("bot blocked"); suppresses Telegram delivery. */
-	telegram_opted_out: boolean;
-	/** Start of the rolling window for price-move why Grok sends. */
 	price_move_why_window_start: string | null;
-	/** Successful why Grok sends in the current rolling window. */
 	price_move_why_sends_in_window: number;
-	/** Per-option channel preferences (single source of truth for all channels). */
 	prefs: PrefRow[];
 }
 
 /**
- * Fetch users who have at least one flat-price-alert channel enabled.
- * Per-channel gates (global email unsub, Telegram opt-out) and the
- * per-option `price_move_alerts` facet are enforced in `deliverFlatPriceAlert`.
- *
- * The per-option prefs now live in `notification_preferences`, which PostgREST
- * can't filter against the `users` table in one query, so the candidate set is
- * gated by channel-level columns only (email global enable / Telegram linked);
- * prefs are loaded in a batch and the delivery loop filters.
+ * Fetch users whose account delivery_channel is email or telegram.
+ * The `price_move_alerts` content toggle is enforced in `deliverFlatPriceAlert`.
  */
 export async function fetchFlatPriceAlertUsers(
 	supabase: SupabaseAdminClient,
@@ -37,12 +26,9 @@ export async function fetchFlatPriceAlertUsers(
 	const { data, error } = await supabase
 		.from("users")
 		.select(
-			"id, email, email_notifications_enabled, use_24_hour_time, telegram_chat_id, telegram_opted_out, price_move_why_window_start, price_move_why_sends_in_window",
+			"id, email, delivery_channel, use_24_hour_time, telegram_chat_id, price_move_why_window_start, price_move_why_sends_in_window",
 		)
-		// Candidate pre-filter on channel-level columns only: a usable email channel
-		// or a linked Telegram chat. The per-option price_move_alerts facet is checked
-		// in the delivery loop.
-		.or("email_notifications_enabled.eq.true,telegram_chat_id.not.is.null");
+		.in("delivery_channel", ["email", "telegram"]);
 
 	if (error) {
 		rootLogger.error(

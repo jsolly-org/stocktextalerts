@@ -1,10 +1,10 @@
-import type { NotificationOptionFieldName } from "../constants";
+import type { DeliveryChannelMode, NotificationOptionFieldName } from "../constants";
 import { NOTIFICATION_PREFERENCE_CATALOG } from "../constants";
 import { applyDailyNotificationNextSendAtToUserUpdate } from "../daily-notification/schedule";
 import { omitUndefined } from "../db";
 import type { User, UserUpdateInput } from "../db/types";
 import type { Logger } from "../logging";
-import { toTelegramOptedOut } from "../messaging/telegram/eligibility";
+import { legacyFlagsForDeliveryChannel } from "../messaging/delivery-channel";
 import { userLocalToEtMinute } from "../time/conversion";
 import {
 	computeNextSendAtIso,
@@ -12,17 +12,15 @@ import {
 	serializeTimes,
 } from "../time/schedule/next-send";
 
-/** Parsed form fields the update endpoint consumes. Per-option channel fields
+/** Parsed form fields the update endpoint consumes. Per-option content fields
  *  (derived from the catalog) are persisted to notification_preferences by
- *  `persistChannelPreferences`; the KEPT fields below are written to `users`.
+ *  `persistNotificationPreferences`; account routing + schedule fields go to `users`.
  *  Daily-notification option fields are read here only to recompute
  *  `daily_notification_next_send_at`. */
 type ParsedNotificationPreferencesForm = {
 	market_scheduled_asset_price_enabled?: boolean;
 	timezone?: string;
-	email_notifications_enabled?: boolean;
-	/** Positive form polarity; mapped to `users.telegram_opted_out` (inverted). */
-	telegram_notifications_enabled?: boolean;
+	delivery_channel?: DeliveryChannelMode;
 	market_scheduled_asset_price_times?: string[];
 	daily_digest_time?: number;
 } & Partial<Record<NotificationOptionFieldName, boolean>>;
@@ -139,13 +137,12 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 
 	/* =============
 	Only persist booleans the form actually submitted (unchecked controls are often omitted).
-	Per-option channel facets live in notification_preferences (written separately by
-	persistChannelPreferences); only KEPT channel/feature-level booleans go to `users`.
+	Content toggles live in notification_preferences (written separately by
+	persistNotificationPreferences); schedule + delivery_channel go to `users`.
 	============= */
-	const boolFields = [
-		"market_scheduled_asset_price_enabled",
-		"email_notifications_enabled",
-	] as const satisfies ReadonlyArray<keyof ParsedNotificationPreferencesForm>;
+	const boolFields = ["market_scheduled_asset_price_enabled"] as const satisfies ReadonlyArray<
+		keyof ParsedNotificationPreferencesForm
+	>;
 
 	const boolUpdates: Record<string, boolean> = {};
 	for (const field of boolFields) {
@@ -155,26 +152,21 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		}
 	}
 
-	/* =============
-	Telegram's global mute is `users.telegram_opted_out` (ONE-FLAG model — no
-	`telegram_notifications_enabled` column). The form uses positive polarity to
-	mirror email's toggle; invert at the users-table boundary.
-	============= */
-	if (
-		formData.has("telegram_notifications_enabled") &&
-		parsedData.telegram_notifications_enabled !== undefined
-	) {
-		boolUpdates.telegram_opted_out = toTelegramOptedOut(parsedData.telegram_notifications_enabled);
-	}
-
-	const safeNotificationPreferenceUpdates: UserUpdateInput = omitUndefined({
+	const safeNotificationPreferenceUpdates = omitUndefined({
 		timezone: parsedData.timezone,
 		market_scheduled_asset_price_times: etNormalizedTimes,
 		...boolUpdates,
+		...(formData.has("delivery_channel") && parsedData.delivery_channel !== undefined
+			? {
+					delivery_channel: parsedData.delivery_channel,
+					// Expand-era dual-write (stripped by userService.update after contract migrate).
+					...legacyFlagsForDeliveryChannel(parsedData.delivery_channel),
+				}
+			: {}),
 		...(formData.has("daily_digest_time")
 			? { daily_notification_time: parsedData.daily_digest_time ?? null }
 			: {}),
-	});
+	}) as UserUpdateInput;
 
 	const timezoneChanged =
 		safeNotificationPreferenceUpdates.timezone !== undefined &&

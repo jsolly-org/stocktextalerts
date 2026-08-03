@@ -147,9 +147,10 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 
 		const { id } = await createTestUser({
 			timezone,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceInclude: true,
 		});
 		registerTestUserForCleanup(id);
 
@@ -188,9 +189,10 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 
 		const { id } = await createTestUser({
 			timezone,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceInclude: true,
 		});
 		registerTestUserForCleanup(id);
 
@@ -204,7 +206,6 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		expect(updateError).toBeNull();
 
 		getCurrentMarketSessionMock.mockResolvedValue("pre");
-
 		const logger = {
 			debug: vi.fn(),
 			info: vi.fn(),
@@ -244,9 +245,10 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 
 		const { id } = await createTestUser({
 			timezone,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceInclude: true,
 		});
 		registerTestUserForCleanup(id);
 
@@ -303,9 +305,10 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 
 		const { id } = await createTestUser({
 			timezone,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceInclude: true,
 		});
 		registerTestUserForCleanup(id);
 
@@ -364,9 +367,10 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 
 		const { id } = await createTestUser({
 			timezone,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceInclude: true,
 		});
 		registerTestUserForCleanup(id);
 

@@ -2,7 +2,7 @@
  * Integration test for the standalone asset-events Telegram dispatch wiring.
  *
  * Scenario: a Telegram-linked user who selected the asset_events "calendar" facet
- * for the Telegram channel (email off) runs through `processAssetEventsUser`
+ * with delivery_channel=telegram runs through `processAssetEventsUser`
  * and receives a Telegram asset-events digest — a notification_log row with
  * delivery_method='telegram', the telegram scheduled_notifications row marked
  * sent, and stats.telegramSent incremented. Disabling the facet skips Telegram.
@@ -13,7 +13,7 @@
  */
 import { DateTime } from "luxon";
 import { describe, expect, it, vi } from "vitest";
-import { buildAssetEventsContentForChannels } from "../../../src/lib/asset-events/content";
+import { buildAssetEventsContent } from "../../../src/lib/asset-events/content";
 import { processAssetEventsUser } from "../../../src/lib/asset-events/process";
 import { rootLogger } from "../../../src/lib/logging";
 import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
@@ -28,14 +28,14 @@ vi.mock("../../../src/lib/asset-events/content", async () => {
 	const actual = await vi.importActual<typeof import("../../../src/lib/asset-events/content")>(
 		"../../../src/lib/asset-events/content",
 	);
-	return { ...actual, buildAssetEventsContentForChannels: vi.fn() };
+	return { ...actual, buildAssetEventsContent: vi.fn() };
 });
 
 async function seedTelegramAssetEventsUser(facetEnabled: boolean) {
 	const now = DateTime.utc();
 	const { id } = await createTestUser({
 		timezone: "America/New_York",
-		emailNotificationsEnabled: false,
+		deliveryChannel: "telegram",
 		trackedAssets: ["NVDA"],
 		confirmed: true,
 	});
@@ -47,14 +47,13 @@ async function seedTelegramAssetEventsUser(facetEnabled: boolean) {
 		.update({
 			daily_notification_next_send_at: now.toISO(),
 			telegram_chat_id: telegramChatId,
-			telegram_opted_out: false,
 		})
 		.eq("id", id);
 	expect(updateError).toBeNull();
 
 	// Per-option prefs live in notification_preferences (createTestUser seeded the
-	// asset_events Telegram facets off); set the calendar facet for this test.
-	await setTestUserPrefs(id, [["daily_notification", "calendar", "telegram", facetEnabled]]);
+	// asset_events facets off); set the calendar facet for this test.
+	await setTestUserPrefs(id, [["daily_notification", "calendar", facetEnabled]]);
 
 	const { data: userRow, error: selectError } = await adminClient
 		.from("users")
@@ -72,11 +71,9 @@ describe("Telegram standalone asset-events dispatch", () => {
 	it("A Telegram-linked user with the asset_events calendar facet enabled receives a Telegram digest.", async () => {
 		const { id, telegramChatId, userRow, now } = await seedTelegramAssetEventsUser(true);
 
-		// Only the Telegram calendar facet is on → builder returns a telegram block
-		// carrying the earnings section; email is null.
-		vi.mocked(buildAssetEventsContentForChannels).mockResolvedValue({
-			email: null,
-			telegram: {
+		// Calendar facet on → builder returns channel-agnostic content with earnings.
+		vi.mocked(buildAssetEventsContent).mockResolvedValue({
+			content: {
 				eventsSection: {
 					earnings: "NVDA: Earnings tomorrow",
 					dividends: null,
@@ -142,10 +139,16 @@ describe("Telegram standalone asset-events dispatch", () => {
 	it("A Telegram-linked user with the asset_events facet disabled receives no Telegram message.", async () => {
 		const { id, userRow, now } = await seedTelegramAssetEventsUser(false);
 
-		// No facet on → builder is never reached for telegram; return empty.
-		vi.mocked(buildAssetEventsContentForChannels).mockResolvedValue({
-			email: null,
-			telegram: null,
+		// Facet off → process skips builder; mock stays empty if reached.
+		vi.mocked(buildAssetEventsContent).mockResolvedValue({
+			content: {
+				eventsSection: null,
+				insiderSection: null,
+				analystSection: null,
+				filingsLines: null,
+				shortInterest: null,
+				hasAnyContent: false,
+			},
 			analystFetchAttempted: false,
 			shouldUpdateAnalystMonth: false,
 		});

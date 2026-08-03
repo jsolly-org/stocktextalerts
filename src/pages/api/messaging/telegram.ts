@@ -6,6 +6,7 @@ import { requireEnv } from "../../../lib/db/env";
 import { createSupabaseAdminClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
+import { updateUserDeliveryChannel } from "../../../lib/messaging/delivery-channel";
 import { buildDashboardButton } from "../../../lib/messaging/telegram/dashboard-button";
 import {
 	createTelegramBot,
@@ -266,13 +267,13 @@ async function handleStartLink(
 	}
 
 	// Link the chat to the TOKEN's user_id — the signed subject — never from.id.
+	// Link only — do not change delivery_channel (dashboard owns routing).
 	const { error: linkError } = await admin
 		.from("users")
 		.update({
 			telegram_chat_id: chatId,
 			telegram_id: fromId,
 			telegram_linked_at: nowIso,
-			telegram_opted_out: false,
 		})
 		.eq("id", consumed.user_id);
 
@@ -292,7 +293,7 @@ async function handleStartLink(
 	logger.info("Telegram account linked", { userId: consumed.user_id });
 	await reply(
 		chatId,
-		"Your Telegram is now linked to StockTextAlerts. You'll receive your alerts here.",
+		"Your Telegram is now linked to StockTextAlerts. Choose Telegram as your delivery channel on the dashboard to receive alerts here.",
 	);
 }
 
@@ -315,70 +316,155 @@ async function reply(
 }
 
 /**
- * /stop — pause Telegram delivery for the account linked to THIS chat (keeps the
- * link so the user can resume from the dashboard). The chat is the authenticated
- * channel: Telegram guarantees `chat.id`, so a user can only opt out their own
- * account. Looked up by telegram_chat_id, never from inbound-claimed identity.
+ * /stop — if this account's delivery_channel is telegram, set it to disabled
+ * (keeps the link so they can re-enable from the dashboard). No-op on routing
+ * when active channel is email or already disabled.
  */
 async function handleStop(
 	chatId: number,
 	admin: ReturnType<typeof createSupabaseAdminClient>,
 	logger: ReturnType<typeof createLogger>,
 ): Promise<void> {
-	const { data, error } = await admin
+	const { data: linked, error: readError } = await admin
 		.from("users")
-		.update({ telegram_opted_out: true })
+		.select("id, delivery_channel")
 		.eq("telegram_chat_id", chatId)
-		.select("id")
 		.maybeSingle();
+
+	if (readError) {
+		logger.error("Telegram /stop read failed", { chatId }, createErrorForLogging(readError));
+		await reply(chatId, "Something went wrong. Please try again.");
+		return;
+	}
+	if (!linked) {
+		await reply(chatId, "This chat isn't linked to a StockTextAlerts account.");
+		return;
+	}
+
+	if (linked.delivery_channel !== "telegram") {
+		logger.info("Telegram /stop no-op: delivery_channel is not telegram", {
+			userId: linked.id,
+			deliveryChannel: linked.delivery_channel,
+		});
+		await reply(
+			chatId,
+			"Stock alerts aren't set to Telegram right now. Manage delivery on your dashboard.",
+		);
+		return;
+	}
+
+	const { updated, error } = await updateUserDeliveryChannel({
+		supabase: admin,
+		userId: linked.id,
+		channel: "disabled",
+		casCurrent: "telegram",
+	});
 
 	if (error) {
 		logger.error("Telegram /stop update failed", { chatId }, createErrorForLogging(error));
 		await reply(chatId, "Something went wrong. Please try again.");
 		return;
 	}
-	if (!data) {
-		await reply(chatId, "This chat isn't linked to a StockTextAlerts account.");
+	if (!updated) {
+		logger.info("Telegram /stop no-op: concurrent channel change", {
+			userId: linked.id,
+		});
+		await reply(
+			chatId,
+			"Stock alerts aren't set to Telegram right now. Manage delivery on your dashboard.",
+		);
 		return;
 	}
 
-	logger.info("Telegram alerts paused via /stop", { userId: data.id });
+	logger.info("Telegram alerts paused via /stop", { userId: linked.id });
 	await reply(chatId, "Stock alerts paused. Turn them back on anytime from your dashboard.");
 }
 
 /**
- * /unlink — fully disconnect THIS chat from its account: clear the link and reset
- * the opt-out flag for a clean slate (a future /start link starts fresh). Looked
- * up by telegram_chat_id, same authenticated-channel guarantee as /stop.
+ * /unlink — disconnect THIS chat; if delivery_channel was telegram, set disabled.
+ * Looked up by telegram_chat_id, same authenticated-channel guarantee as /stop.
  */
 async function handleUnlink(
 	chatId: number,
 	admin: ReturnType<typeof createSupabaseAdminClient>,
 	logger: ReturnType<typeof createLogger>,
 ): Promise<void> {
-	const { data, error } = await admin
+	const { data: linked, error: readError } = await admin
 		.from("users")
-		.update({
-			telegram_chat_id: null,
-			telegram_id: null,
-			telegram_linked_at: null,
-			telegram_opted_out: false,
-		})
+		.select("id, delivery_channel")
 		.eq("telegram_chat_id", chatId)
-		.select("id")
 		.maybeSingle();
 
-	if (error) {
-		logger.error("Telegram /unlink update failed", { chatId }, createErrorForLogging(error));
+	if (readError) {
+		logger.error("Telegram /unlink read failed", { chatId }, createErrorForLogging(readError));
 		await reply(chatId, "Something went wrong. Please try again.");
 		return;
 	}
-	if (!data) {
+	if (!linked) {
 		await reply(chatId, "This chat isn't linked to a StockTextAlerts account.");
 		return;
 	}
 
-	logger.info("Telegram account unlinked via /unlink", { userId: data.id });
+	const clearLink = {
+		telegram_chat_id: null,
+		telegram_id: null,
+		telegram_linked_at: null,
+	} as const;
+
+	// CAS disable only when still on telegram; otherwise clear link without
+	// touching routing (avoids clobbering a concurrent email/disabled write).
+	if (linked.delivery_channel === "telegram") {
+		const { updated, error } = await updateUserDeliveryChannel({
+			supabase: admin,
+			userId: linked.id,
+			channel: "disabled",
+			casCurrent: "telegram",
+			extra: clearLink,
+		});
+
+		if (error) {
+			logger.error("Telegram /unlink update failed", { chatId }, createErrorForLogging(error));
+			await reply(chatId, "Something went wrong. Please try again.");
+			return;
+		}
+
+		if (!updated) {
+			// Concurrent switch off telegram — still clear the link, leave routing alone.
+			const { error: clearError } = await admin
+				.from("users")
+				.update(clearLink)
+				.eq("id", linked.id)
+				.eq("telegram_chat_id", chatId);
+			if (clearError) {
+				logger.error(
+					"Telegram /unlink clear-link fallback failed",
+					{ chatId },
+					createErrorForLogging(clearError),
+				);
+				await reply(chatId, "Something went wrong. Please try again.");
+				return;
+			}
+			logger.info("Telegram /unlink cleared link after concurrent channel change", {
+				userId: linked.id,
+			});
+		} else {
+			logger.info("Telegram account unlinked via /unlink", { userId: linked.id });
+		}
+	} else {
+		const { error } = await admin
+			.from("users")
+			.update(clearLink)
+			.eq("id", linked.id)
+			.eq("telegram_chat_id", chatId);
+
+		if (error) {
+			logger.error("Telegram /unlink update failed", { chatId }, createErrorForLogging(error));
+			await reply(chatId, "Something went wrong. Please try again.");
+			return;
+		}
+		logger.info("Telegram account unlinked via /unlink", { userId: linked.id });
+	}
+
 	await reply(
 		chatId,
 		"Your Telegram is disconnected from StockTextAlerts. Link again anytime from your dashboard.",

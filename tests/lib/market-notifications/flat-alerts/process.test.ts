@@ -98,17 +98,16 @@ function makeQuote(overrides: Partial<ExtendedAssetQuote>): ExtendedAssetQuote {
 	};
 }
 
-async function enableFlatAlerts(userId: string, channels: { email?: boolean } = {}): Promise<void> {
-	const wantEmail = channels.email ?? true;
+async function enableFlatAlerts(userId: string, opts: { enabled?: boolean } = {}): Promise<void> {
+	const enabled = opts.enabled ?? true;
 	const { error } = await adminClient
 		.from("users")
-		.update({ email_notifications_enabled: wantEmail })
+		.update({ delivery_channel: enabled ? "email" : "disabled" })
 		.eq("id", userId);
 	if (error) throw new Error(`Failed to enable flat alerts: ${error.message}`);
 
-	// Per-option price_move_alerts facets live in notification_preferences
-	// (default off); enable the email channel this test requested.
-	await setTestUserPrefs(userId, [["price_move_alerts", "", "email", wantEmail]]);
+	// Content toggle lives in notification_preferences (default off).
+	await setTestUserPrefs(userId, [["price_move_alerts", "", enabled]]);
 
 	// Opt every tracked asset into price-move alerts at the default 5% threshold —
 	// row presence is what enables the alert now (the pre-redesign behavior the
@@ -663,7 +662,7 @@ describe("processFlatPriceAlerts", () => {
 	it("Reserve RPC permission error skips delivery instead of sending without idempotency", async () => {
 		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
 		registerTestUserForCleanup(testUser.id);
-		await enableFlatAlerts(testUser.id, { email: true });
+		await enableFlatAlerts(testUser.id, { enabled: true });
 
 		const failingSupabase = new Proxy(adminClient, {
 			get(target, prop, receiver) {

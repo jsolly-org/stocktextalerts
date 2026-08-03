@@ -7,48 +7,19 @@
 		</p>
 
 		<div class="space-y-4">
-			<div class="flex flex-col gap-2 px-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+			<div class="flex flex-row items-center justify-between gap-3 px-4">
 				<span class="text-xs font-semibold uppercase tracking-wider text-faint select-none">Select all</span>
-				<div class="flex flex-row flex-wrap items-center gap-x-4 gap-y-2 sm:gap-4 shrink-0">
-					<label
-						class="inline-flex items-center gap-1.5"
-						:class="{ 'cursor-not-allowed': !emailEnabled }"
-						:title="emailDisabledTitle"
-					>
-						<input
-							ref="selectAllEmailRef"
-							type="checkbox"
-							:checked="allEmailChecked"
-							:disabled="!emailEnabled"
-							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-							:class="{ 'cursor-not-allowed': !emailEnabled }"
-							aria-label="Select all Email for asset events"
-							@change="toggleAllEmail"
-						/>
-						<span class="text-sm font-medium text-body-secondary">Email</span>
-					</label>
-					<label
-						class="inline-flex items-center gap-1.5"
-						:class="
-							telegramUsable
-								? undefined
-								: 'cursor-not-allowed opacity-50'
-						"
-						:title="telegramDisabledTitle"
-					>
-						<input
-							ref="selectAllTelegramRef"
-							type="checkbox"
-							:checked="allTelegramChecked"
-							:disabled="!telegramUsable"
-							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-							:class="{ 'cursor-not-allowed': !telegramUsable }"
-							aria-label="Select all Telegram for asset events"
-							@change="toggleAllTelegram"
-						/>
-						<span class="text-sm font-medium text-body-secondary">Telegram</span>
-					</label>
-				</div>
+				<label class="inline-flex items-center gap-1.5">
+					<input
+						ref="selectAllRef"
+						type="checkbox"
+						:checked="allChecked"
+						class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
+						aria-label="Select all asset events"
+						@change="toggleAll"
+					/>
+					<span class="text-sm font-medium text-body-secondary">All</span>
+				</label>
 			</div>
 
 			<div
@@ -58,13 +29,8 @@
 				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
 					<input
 						type="hidden"
-						:name="`asset_events_include_${eventType.key}_email`"
-						:value="assetEventRefs[eventType.key].email.value ? 'on' : 'off'"
-					/>
-					<input
-						type="hidden"
-						:name="`asset_events_include_${eventType.key}_telegram`"
-						:value="assetEventRefs[eventType.key].telegram.value ? 'on' : 'off'"
+						:name="`asset_events_include_${eventType.key}`"
+						:value="models[eventType.key] ? 'on' : 'off'"
 					/>
 					<div class="min-w-0">
 						<div class="flex items-center gap-2">
@@ -111,11 +77,13 @@
 						</p>
 					</div>
 					<div class="shrink-0">
-						<ChannelMultiSelect
-							:id-prefix="`asset_events_${eventType.key}`"
-							:labelledby="`asset_events_${eventType.key}_label`"
-							:options="channelOptionsFor(eventType.key)"
-							@toggle="(channel, selected) => handleAssetEventToggle(eventType.key, channel, selected)"
+						<ToggleSwitch
+							:model-value="models[eventType.key]"
+							:sr-label="`Toggle ${eventType.label}`"
+							:aria-labelledby="`asset_events_${eventType.key}_label`"
+							:aria-describedby="`asset_events_${eventType.key}_description`"
+							:disabled="isAssetEventBlocked(eventType.key, hasTrackedAssets)"
+							@update:model-value="setModel(eventType.key, $event)"
 						/>
 					</div>
 				</div>
@@ -125,242 +93,55 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, toRefs, watch, watchEffect } from "vue";
+import { computed, ref, toRefs, watchEffect } from "vue";
 import ChartBarIcon from "../../../icons/chart-bar.svg?component";
 import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import NewspaperIcon from "../../../icons/newspaper.svg?component";
-import { isTelegramChannelUsable } from "../../../lib/messaging/telegram/eligibility";
-import { useDashboardUser } from "../composables/useDashboardUser";
-import ChannelMultiSelect from "../shared/ChannelMultiSelect.vue";
+import ToggleSwitch from "../../ToggleSwitch.vue";
 import {
-	getEmailChannelDisabledTitle,
-	getTelegramChannelDisabledTitle,
-} from "../shared/channel-options";
-import type { ChannelOption } from "../types";
+	ASSET_EVENT_TYPES,
+	type AssetEventKey,
+	isAssetEventBlocked,
+	selectableAssetEventKeys,
+} from "./asset-event-types";
 
 interface Props {
-	emailEnabled: boolean;
 	hasTrackedAssets: boolean;
-	telegramPrefs?: Record<string, boolean>;
-	notifyChange: () => void;
+	models: Record<AssetEventKey, boolean>;
 }
 
-const props = withDefaults(defineProps<Props>(), {
-	telegramPrefs: () => ({}),
-});
-const { emailEnabled, hasTrackedAssets, notifyChange } = toRefs(props);
+const props = defineProps<Props>();
+const emit = defineEmits<(event: "update:models", value: Record<AssetEventKey, boolean>) => void>();
+const { hasTrackedAssets, models } = toRefs(props);
 
-const user = useDashboardUser();
+const selectableKeys = computed(() => selectableAssetEventKeys(hasTrackedAssets.value));
 
-const emailDisabledTitle = computed(() =>
-	getEmailChannelDisabledTitle(emailEnabled.value),
-);
-const telegramUsable = computed(() => isTelegramChannelUsable(user.value));
-const telegramDisabledTitle = computed(() => getTelegramChannelDisabledTitle(user.value));
-
-const ASSET_EVENT_TYPES = [
-	{
-		key: "calendar" as const,
-		label: "Calendar Events",
-		description:
-			"Included in your daily delivery when earnings, ex-dividend dates, or stock splits are scheduled in the next 3 days.",
-		massive: true,
-		finnhub: true,
-		plainIcon: null,
-	},
-	{
-		key: "ipo" as const,
-		label: "Upcoming IPOs",
-		description:
-			"Included in your daily delivery when an IPO listing date is within the next 3 days.",
-		massive: true,
-		finnhub: false,
-		plainIcon: null,
-	},
-	{
-		key: "analyst" as const,
-		label: "Analyst Consensus",
-		description:
-			"Sent at most once per month, usually in your first delivery of the month.",
-		massive: false,
-		finnhub: true,
-		plainIcon: null,
-	},
-	{
-		key: "insider" as const,
-		label: "Insider Trades",
-		description:
-			"Can appear in your daily delivery when new insider filings are available.",
-		massive: false,
-		finnhub: true,
-		plainIcon: null,
-	},
-	{
-		key: "filings" as const,
-		label: "SEC Filings",
-		description:
-			"Material 8-K and 6-K filings for your watchlist, with links to EDGAR.",
-		massive: false,
-		finnhub: false,
-		plainIcon: "newspaper" as const,
-	},
-	{
-		key: "short_interest" as const,
-		label: "Short Interest",
-		description:
-			"Included in your daily delivery when a FINRA short-interest report is scheduled in the next 3 days.",
-		massive: false,
-		finnhub: false,
-		plainIcon: "chart-bar" as const,
-	},
-] as const;
-
-type AssetEventKey = (typeof ASSET_EVENT_TYPES)[number]["key"];
-
-function isEventTypeBlockedByAssets(key: AssetEventKey): boolean {
-	return !hasTrackedAssets.value && key !== "ipo";
-}
-
-const selectableEventTypes = computed(() =>
-	ASSET_EVENT_TYPES.filter((t) => !isEventTypeBlockedByAssets(t.key)),
-);
-
-const assetEventRefs: Record<
-	AssetEventKey,
-	{
-		email: ReturnType<typeof ref<boolean>>;
-		telegram: ReturnType<typeof ref<boolean>>;
-	}
-> = {
-	calendar: {
-		email: ref(user.value.asset_events_include_calendar_email),
-		telegram: ref(props.telegramPrefs.calendar === true),
-	},
-	ipo: {
-		email: ref(user.value.asset_events_include_ipo_email),
-		telegram: ref(props.telegramPrefs.ipo === true),
-	},
-	analyst: {
-		email: ref(user.value.asset_events_include_analyst_email),
-		telegram: ref(props.telegramPrefs.analyst === true),
-	},
-	insider: {
-		email: ref(user.value.asset_events_include_insider_email),
-		telegram: ref(props.telegramPrefs.insider === true),
-	},
-	filings: {
-		email: ref(user.value.asset_events_include_filings_email),
-		telegram: ref(props.telegramPrefs.filings === true),
-	},
-	short_interest: {
-		email: ref(user.value.asset_events_include_short_interest_email),
-		telegram: ref(props.telegramPrefs.short_interest === true),
-	},
-};
-
-const allEmailChecked = computed(
+const allChecked = computed(
 	() =>
-		selectableEventTypes.value.length > 0 &&
-		selectableEventTypes.value.every((t) => assetEventRefs[t.key].email.value),
+		selectableKeys.value.length > 0 &&
+		selectableKeys.value.every((key) => models.value[key]),
 );
-const someEmailChecked = computed(() =>
-	selectableEventTypes.value.some((t) => assetEventRefs[t.key].email.value),
-);
-const allTelegramChecked = computed(
-	() =>
-		selectableEventTypes.value.length > 0 &&
-		selectableEventTypes.value.every((t) => assetEventRefs[t.key].telegram.value),
-);
-const someTelegramChecked = computed(() =>
-	selectableEventTypes.value.some((t) => assetEventRefs[t.key].telegram.value),
-);
+const someChecked = computed(() => selectableKeys.value.some((key) => models.value[key]));
 
-const selectAllEmailRef = ref<HTMLInputElement | null>(null);
-const selectAllTelegramRef = ref<HTMLInputElement | null>(null);
+const selectAllRef = ref<HTMLInputElement | null>(null);
 
 watchEffect(() => {
-	if (selectAllEmailRef.value) {
-		selectAllEmailRef.value.indeterminate = someEmailChecked.value && !allEmailChecked.value;
-	}
-});
-watchEffect(() => {
-	if (selectAllTelegramRef.value) {
-		selectAllTelegramRef.value.indeterminate =
-			someTelegramChecked.value && !allTelegramChecked.value;
+	if (selectAllRef.value) {
+		selectAllRef.value.indeterminate = someChecked.value && !allChecked.value;
 	}
 });
 
-function toggleAllEmail() {
-	const next = !allEmailChecked.value;
-	for (const eventType of selectableEventTypes.value) {
-		assetEventRefs[eventType.key].email.value = next;
+function setModel(key: AssetEventKey, value: boolean) {
+	emit("update:models", { ...models.value, [key]: value });
+}
+
+function toggleAll() {
+	const next = !allChecked.value;
+	const updated = { ...models.value };
+	for (const key of selectableKeys.value) {
+		updated[key] = next;
 	}
+	emit("update:models", updated);
 }
-
-function toggleAllTelegram() {
-	const next = !allTelegramChecked.value;
-	for (const eventType of selectableEventTypes.value) {
-		assetEventRefs[eventType.key].telegram.value = next;
-	}
-}
-
-function channelOptionsFor(key: AssetEventKey): ChannelOption[] {
-	const blockedByAssets = isEventTypeBlockedByAssets(key);
-	const refs = assetEventRefs[key];
-	return [
-		{
-			value: "email",
-			label: "Email",
-			selected: refs.email.value === true,
-			disabled: !emailEnabled.value || blockedByAssets,
-			disabledTitle: emailDisabledTitle.value,
-		},
-		{
-			value: "telegram",
-			label: "Telegram",
-			selected: refs.telegram.value === true,
-			disabled: !telegramUsable.value || blockedByAssets,
-			disabledTitle: telegramDisabledTitle.value,
-		},
-	];
-}
-
-function handleAssetEventToggle(key: AssetEventKey, channel: string, selected: boolean) {
-	const refs = assetEventRefs[key];
-	if (channel === "email") refs.email.value = selected;
-	else if (channel === "telegram") refs.telegram.value = selected;
-}
-
-type AssetEventUserFieldEmail = `asset_events_include_${AssetEventKey}_email`;
-
-for (const eventType of ASSET_EVENT_TYPES) {
-	const emailField = `asset_events_include_${eventType.key}_email` as AssetEventUserFieldEmail;
-	const refs = assetEventRefs[eventType.key];
-
-	watch(
-		() => user.value[emailField],
-		(v) => {
-			refs.email.value = v;
-		},
-	);
-
-	watch(refs.email, (email) => {
-		if (email === user.value[emailField]) return;
-		user.value = { ...user.value, [emailField]: email };
-		notifyChange.value();
-	});
-
-	watch(refs.telegram, () => {
-		notifyChange.value();
-	});
-}
-
-const assetEventsEnabled = computed(() =>
-	ASSET_EVENT_TYPES.some(
-		(t) => assetEventRefs[t.key].email.value || assetEventRefs[t.key].telegram.value,
-	),
-);
-
-defineExpose({ assetEventsEnabled });
 </script>
