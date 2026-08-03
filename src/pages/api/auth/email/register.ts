@@ -119,13 +119,12 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 			return redirect("/auth/register?error=profile_creation_failed");
 		}
 
-		// Seed default notification_preferences rows (all channels). These replace the
-		// old per-column DEFAULTs on `users` (prices email = on; everything else off).
-		// Without this, a new user would have zero preference rows once the columns are gone.
+		// Seed default notification_preferences rows (content toggles). These
+		// replace the old per-column DEFAULTs on `users` (prices on; everything else off).
 		const { error: prefsError } = await adminSupabase
 			.from("notification_preferences")
 			.upsert(buildDefaultPreferenceRows(data.user.id), {
-				onConflict: "user_id,notification_type,content,channel",
+				onConflict: "user_id,notification_type,content",
 			});
 		if (prefsError) {
 			logger.error(

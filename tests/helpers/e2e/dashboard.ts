@@ -1,5 +1,6 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
+import type { DeliveryChannelMode } from "../../../src/lib/constants";
 import { getAssetData } from "../asset-data";
 import { upsertAssets } from "../asset-db";
 import { adminClient } from "../test-env";
@@ -83,9 +84,9 @@ export async function waitForTrackedAssets(
 		.toEqual(expected);
 }
 
-export async function waitForEmailNotificationsEnabled(
+export async function waitForDeliveryChannel(
 	userId: string,
-	expectedValue: boolean,
+	expectedValue: DeliveryChannelMode,
 	timeoutMs = 30_000,
 ): Promise<void> {
 	await expect
@@ -93,13 +94,13 @@ export async function waitForEmailNotificationsEnabled(
 			async () => {
 				const { data, error } = await adminClient
 					.from("users")
-					.select("email_notifications_enabled")
+					.select("delivery_channel")
 					.eq("id", userId)
 					.single();
 				if (error) {
-					throw new Error(`Failed to read email notification state: ${error.message}`);
+					throw new Error(`Failed to read delivery_channel: ${error.message}`);
 				}
-				return data.email_notifications_enabled;
+				return data.delivery_channel;
 			},
 			{
 				timeout: timeoutMs,
@@ -108,25 +109,15 @@ export async function waitForEmailNotificationsEnabled(
 		.toBe(expectedValue);
 }
 
-/** Open a dashboard ChannelMultiSelect and return its listbox (retries through hydration races). */
-export async function openChannelMultiselect(
+/** Select a delivery-channel radio in the Notification Channels panel. */
+export async function selectDeliveryChannel(
 	page: Page,
-	idPrefix: string,
-	timeoutMs = 15_000,
-): Promise<Locator> {
-	const trigger = page.locator(`#${idPrefix}-channel-trigger`);
-	const listbox = page.locator(`#${idPrefix}-channel-listbox`);
-	await expect(trigger).toBeVisible({ timeout: timeoutMs });
-	await trigger.scrollIntoViewIfNeeded();
-	await page.locator("[data-hydrated]").first().waitFor({ state: "attached", timeout: timeoutMs });
-
-	await expect(async () => {
-		if (!(await listbox.isVisible())) {
-			await trigger.click();
-		}
-		await expect(listbox).toBeVisible({ timeout: 2_000 });
-		await expect(trigger).toHaveAttribute("aria-expanded", "true");
-	}).toPass({ timeout: timeoutMs });
-
-	return listbox;
+	channel: "Email" | "Telegram" | "Disabled",
+): Promise<void> {
+	const radio = page.getByRole("radio", { name: channel });
+	await expect(radio).toBeVisible({ timeout: 15_000 });
+	await radio.scrollIntoViewIfNeeded();
+	await waitForAutosave(page, async () => {
+		await radio.click();
+	});
 }

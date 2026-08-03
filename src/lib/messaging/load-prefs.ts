@@ -6,9 +6,9 @@ import { parsePrefRow } from "./notification-prefs";
 /* =============
 Batch loader for notification_preferences rows.
 
-`notification_preferences` is the single source of truth for all channels, but
+`notification_preferences` is the single source of truth for content toggles.
 PostgREST can't filter the `users` table against it in one query — so the user
-query layer fetches a candidate set (gated by channel-level columns) and then
+query layer fetches a candidate set (gated by delivery_channel) and then
 attaches each user's preference rows here in a single batched IN query.
 ============= */
 
@@ -24,13 +24,11 @@ async function loadPrefsByUser(
 
 	const { data, error } = await supabase
 		.from("notification_preferences")
-		.select("user_id, notification_type, content, channel, enabled")
+		.select("user_id, notification_type, content, enabled")
 		.in("user_id", [...new Set(userIds)]);
 
 	if (error) {
 		rootLogger.error("Failed to load notification preferences", { action: "load_prefs" }, error);
-		// Fail open with empty rows: each user simply has no enabled facets, so no
-		// channel is "wanted" — never crashes the fan-out, never sends spuriously.
 		return byUser;
 	}
 
@@ -39,7 +37,6 @@ async function loadPrefsByUser(
 			user_id: string;
 			notification_type: string;
 			content: string;
-			channel: string;
 			enabled: boolean;
 		};
 		const pref = parsePrefRow(r);
@@ -49,7 +46,6 @@ async function loadPrefsByUser(
 				userId: r.user_id,
 				notification_type: r.notification_type,
 				content: r.content,
-				channel: r.channel,
 			});
 			continue;
 		}

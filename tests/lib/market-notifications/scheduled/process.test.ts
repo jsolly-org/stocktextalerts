@@ -55,8 +55,8 @@ describe("processMarketScheduledUser schedule advancement", () => {
 
 		const user = makeUserRecord({
 			market_scheduled_asset_price_next_send_at: "2026-06-07T13:30:00.000Z",
-			email_notifications_enabled: true,
-			prefs: makePrefRows([["market_scheduled_asset_price", "", "email", true]]),
+			delivery_channel: "email" as const,
+			prefs: makePrefRows([["market_scheduled_asset_price", "", true]]),
 		});
 
 		await processMarketScheduledUser({
@@ -79,8 +79,8 @@ describe("processMarketScheduledUser schedule advancement", () => {
 
 		const user = makeUserRecord({
 			market_scheduled_asset_price_next_send_at: "2026-06-07T13:30:00.000Z",
-			email_notifications_enabled: true,
-			prefs: makePrefRows([["market_scheduled_asset_price", "", "email", true]]),
+			delivery_channel: "email" as const,
+			prefs: makePrefRows([["market_scheduled_asset_price", "", true]]),
 		});
 
 		await processMarketScheduledUser({

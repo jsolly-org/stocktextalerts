@@ -8,41 +8,41 @@ import {
 } from "../../../src/lib/messaging/notification-prefs";
 import { makePrefRows } from "../../helpers/user-record-fixture";
 
-describe("notification-prefs channel-parametric helpers", () => {
+describe("notification-prefs channel-agnostic helpers", () => {
 	const prefs = makePrefRows([
-		["daily_notification", "prices", "email", true],
-		["daily_notification", "top_movers", "email", true],
-		["daily_notification", "news", "telegram", true],
-		["price_move_alerts", "", "telegram", true],
+		["daily_notification", "prices", true],
+		["daily_notification", "top_movers", true],
+		["daily_notification", "news", true],
+		["price_move_alerts", "", true],
 	]);
 
 	describe("isFacetEnabled", () => {
-		it("is true only when a matching enabled row exists for (type, channel, content)", () => {
-			expect(isFacetEnabled(prefs, "daily_notification", "email", "prices")).toBe(true);
-			expect(isFacetEnabled(prefs, "daily_notification", "telegram", "prices")).toBe(false); // no such row
-			expect(isFacetEnabled(prefs, "daily_notification", "email", "news")).toBe(false); // no such row
+		it("is true only when a matching enabled row exists for (type, content)", () => {
+			expect(isFacetEnabled(prefs, "daily_notification", "prices")).toBe(true);
+			expect(isFacetEnabled(prefs, "daily_notification", "rumors")).toBe(false); // no such row
+			expect(isFacetEnabled(prefs, "daily_notification", "ipo")).toBe(false); // no such row
 		});
 
 		it("defaults content to '' for facet-less notification types", () => {
-			expect(isFacetEnabled(prefs, "price_move_alerts", "telegram")).toBe(true);
-			expect(isFacetEnabled(prefs, "price_move_alerts", "email")).toBe(false);
+			expect(isFacetEnabled(prefs, "price_move_alerts")).toBe(true);
+			expect(isFacetEnabled(prefs, "market_scheduled_asset_price")).toBe(false);
 		});
 	});
 
 	describe("enabledFacets", () => {
-		it("returns only the enabled content facets for the requested (type, channel)", () => {
-			expect(enabledFacets(prefs, "daily_notification", "email")).toEqual(
-				new Set(["prices", "top_movers"]),
+		it("returns only the enabled content facets for the requested type", () => {
+			expect(enabledFacets(prefs, "daily_notification")).toEqual(
+				new Set(["prices", "top_movers", "news"]),
 			);
-			expect(enabledFacets(prefs, "daily_notification", "telegram")).toEqual(new Set(["news"]));
+			expect(enabledFacets(prefs, "price_move_alerts")).toEqual(new Set([""]));
 		});
 	});
 
 	describe("anyFacetEnabled", () => {
-		it("is true when at least one facet is enabled for (type, channel)", () => {
-			expect(anyFacetEnabled(prefs, "daily_notification", "email")).toBe(true);
-			expect(anyFacetEnabled(prefs, "daily_notification", "telegram")).toBe(true);
-			expect(anyFacetEnabled(prefs, "price_move_alerts", "telegram")).toBe(true);
+		it("is true when at least one facet is enabled for the type", () => {
+			expect(anyFacetEnabled(prefs, "daily_notification")).toBe(true);
+			expect(anyFacetEnabled(prefs, "price_move_alerts")).toBe(true);
+			expect(anyFacetEnabled(prefs, "market_scheduled_asset_price")).toBe(false);
 		});
 	});
 
@@ -55,7 +55,6 @@ describe("notification-prefs channel-parametric helpers", () => {
 				parsePrefRow({
 					notification_type: "price_targets",
 					content: "",
-					channel: "email",
 					enabled: true,
 				}),
 			).toBeNull();
@@ -63,7 +62,7 @@ describe("notification-prefs channel-parametric helpers", () => {
 	});
 
 	describe("buildDefaultPreferenceRows", () => {
-		it("seeds prices email on and every other facet off, all owned by the user", () => {
+		it("seeds prices on and every other facet off, all owned by the user", () => {
 			const rows = buildDefaultPreferenceRows("user-xyz");
 			expect(rows.length).toBeGreaterThan(0);
 			expect(rows.every((r) => r.user_id === "user-xyz")).toBe(true);
@@ -74,13 +73,13 @@ describe("notification-prefs channel-parametric helpers", () => {
 					expect.objectContaining({
 						notification_type: "daily_notification",
 						content: "prices",
-						channel: "email",
 						enabled: true,
 					}),
 				]),
 			);
 			// Exactly the one prices default is on by default; everything else is off.
 			expect(enabled).toHaveLength(1);
+			expect(enabled.every((r) => !("channel" in r))).toBe(true);
 		});
 	});
 });

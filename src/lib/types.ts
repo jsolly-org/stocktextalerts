@@ -140,11 +140,7 @@ derived from NOTIFICATION_OPTION_MATRIX and live beside it in `./constants` —
 that matrix is the single authored source of the option taxonomy.
 ============= */
 
-/** A delivery channel (the DB `delivery_method` enum). */
-export type PrefChannel = Database["public"]["Enums"]["delivery_method"];
-
 type PrefRowBase = {
-	channel: PrefChannel;
 	enabled: boolean;
 };
 
@@ -175,9 +171,8 @@ type GrokRumorsPreferences = {
 
 /** User fields required for notification delivery, scheduling, and formatting.
  *
- * Per-option channel preferences live in `notification_preferences` (carried as
- * `prefs`), NOT on per-column flags. Channel-level enables (`email_notifications_enabled`,
- * etc.) stay on the users row. */
+ * Content toggles live in `notification_preferences` (carried as `prefs`).
+ * Account routing is `users.delivery_channel` (email | telegram | disabled). */
 export type UserRecord = Pick<
 	DbUserRow,
 	| "id"
@@ -185,7 +180,7 @@ export type UserRecord = Pick<
 	| "timezone"
 	| "use_24_hour_time"
 	| "market_scheduled_asset_price_next_send_at"
-	| "email_notifications_enabled"
+	| "delivery_channel"
 > & {
 	market_scheduled_asset_price_enabled: boolean;
 	market_scheduled_asset_price_times: number[] | null;
@@ -193,8 +188,7 @@ export type UserRecord = Pick<
 	daily_notification_next_send_at: string | null;
 	asset_events_last_analyst_sent_month: string | null;
 	telegram_chat_id: number | null;
-	telegram_opted_out: boolean;
-	/** Per-option channel preferences (the single source of truth for all channels). */
+	/** Content toggles (channel-agnostic). */
 	prefs: PrefRow[];
 } & GrokRumorsPreferences;
 

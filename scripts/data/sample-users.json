@@ -2,7 +2,7 @@
   {
     "email": "dev@example.com",
     "timezone": "America/New_York",
-    "email_notifications_enabled": false,
+    "delivery_channel": "disabled",
     "market_scheduled_asset_price_enabled": true,
     "market_scheduled_asset_price_times": [540],
     "tracked_assets": []
@@ -10,16 +10,14 @@
   {
     "email": "trader@example.com",
     "timezone": "America/Chicago",
-    "email_notifications_enabled": true,
+    "delivery_channel": "email",
     "market_scheduled_asset_price_enabled": true,
-    "market_scheduled_asset_price_include_email": true,
+    "market_scheduled_asset_price_include": true,
     "tracked_assets": ["AAPL", "MSFT"]
   },
   {
     "email": "nullable-fields@example.com",
     "timezone": "America/Los_Angeles",
-    "email_notifications_enabled": null,
-    "market_scheduled_asset_price_enabled": null,
     "tracked_assets": ["TSLA"]
   },
   {

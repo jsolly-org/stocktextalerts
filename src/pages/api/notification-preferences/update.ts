@@ -10,14 +10,12 @@ import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import type { User } from "../../../lib/db/types";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
-import { createErrorForLogging } from "../../../lib/logging/errors";
-import { toTelegramNotificationsEnabled } from "../../../lib/messaging/telegram/eligibility";
-import {
-	buildChannelPreferenceSnapshot,
-	loadUserPreferenceRows,
-	persistChannelPreferences,
-} from "../../../lib/notification-preferences/channels";
 import { NOTIFICATION_PREFERENCES_SCHEMA } from "../../../lib/notification-preferences/constants";
+import {
+	buildPreferenceSnapshot,
+	loadUserPreferenceRows,
+	persistNotificationPreferences,
+} from "../../../lib/notification-preferences/preferences";
 import {
 	buildNotificationPreferencesUpdatePayload,
 	DAILY_NOTIFICATION_SCHEDULE_FIELDS,
@@ -123,7 +121,15 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		});
 	}
 
-	// Validate scheduled times are within the extended-hours notification window (4:30 AM – 7:30 PM ET)
+	if (parsed.data.delivery_channel === "telegram" && dbUser.telegram_chat_id == null) {
+		logger.info("Notification-preferences update rejected: telegram not connected", {
+			userId: user.id,
+		});
+		return Response.json({ ok: false, message: "invalid_form" } satisfies ApiJsonBody, {
+			status: 400,
+		});
+	}
+
 	if (parsedMarketScheduledAssetPriceTimes?.length) {
 		const tz = (parsed.data.timezone as string | undefined) ?? dbUser.timezone;
 		const invalidTime = parsedMarketScheduledAssetPriceTimes.find((m) =>
@@ -141,9 +147,6 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		}
 	}
 
-	// Per-option channel facets live in notification_preferences. Load the user's
-	// CURRENT rows so we can compute the post-update daily notification state (for
-	// daily_notification_next_send_at).
 	let existingPrefs: Awaited<ReturnType<typeof loadUserPreferenceRows>>;
 	try {
 		existingPrefs = await loadUserPreferenceRows(supabase, user.id);
@@ -158,18 +161,12 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const dailyNotificationScheduleSubmitted = DAILY_NOTIFICATION_SCHEDULE_FIELDS.some((field) =>
 		formData.has(field),
 	);
-	// A daily facet is enabled after this update when its submitted form value says
-	// so, falling back to the existing row for unsubmitted options. Iterating the
-	// catalog covers exactly the valid (content, channel) combos — the FK guarantees
-	// existingPrefs holds nothing outside it.
 	const dailyNotificationEnabledAfterUpdate = NOTIFICATION_PREFERENCE_CATALOG.filter(
 		(entry) => entry.notification_type === "daily_notification",
 	).some((entry) =>
 		formData.has(entry.fieldName) && parsed.data[entry.fieldName] !== undefined
 			? parsed.data[entry.fieldName] === true
-			: // Daily entries always carry a non-"" content facet; the check narrows the type.
-				entry.content !== "" &&
-				isDailyNotificationFacetEnabled(existingPrefs, entry.channel, entry.content),
+			: entry.content !== "" && isDailyNotificationFacetEnabled(existingPrefs, entry.content),
 	);
 	const dailyNotificationEnabledBefore = hasAnyDailyNotificationFacet(existingPrefs);
 	const dailyNotificationOptionsChanged =
@@ -205,9 +202,6 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	}
 
 	try {
-		// A facet-only submission carries no `users`-column changes, so the payload
-		// can be empty. Skip the no-op `users` UPDATE (PostgREST returns 0 rows for an
-		// empty update, which `.single()` rejects) and reuse the freshly-fetched row.
 		const updatedUser =
 			Object.keys(safeNotificationPreferenceUpdates).length === 0
 				? dbUser
@@ -219,10 +213,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			});
 		}
 
-		// Persist every submitted channel facet (email/telegram alike) to
-		// notification_preferences — the single source of truth. The session-scoped
-		// `supabase` client (authed in getCurrentUser) satisfies the per-user RLS.
-		await persistChannelPreferences({
+		await persistNotificationPreferences({
 			supabase,
 			userId: user.id,
 			parsedData: parsed.data,
@@ -230,7 +221,6 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			logger,
 		});
 
-		// Rebuild the per-option snapshot from the table (post-write) for the UI.
 		const updatedPrefs = await loadUserPreferenceRows(supabase, user.id);
 
 		return Response.json(
@@ -239,10 +229,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				message: "settings_updated",
 				notificationPreferences: {
 					market_scheduled_asset_price_enabled: updatedUser.market_scheduled_asset_price_enabled,
-					email_notifications_enabled: updatedUser.email_notifications_enabled,
-					telegram_notifications_enabled: toTelegramNotificationsEnabled(
-						updatedUser.telegram_opted_out,
-					),
+					delivery_channel: updatedUser.delivery_channel,
 					timezone: updatedUser.timezone,
 					market_scheduled_asset_price_times: updatedUser.market_scheduled_asset_price_times,
 					daily_notification_time: updatedUser.daily_notification_time,
@@ -250,7 +237,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 					market_scheduled_asset_price_next_send_at:
 						updatedUser.market_scheduled_asset_price_next_send_at,
 					dismiss_timezone_mismatch_prompts: updatedUser.dismiss_timezone_mismatch_prompts,
-					...buildChannelPreferenceSnapshot(updatedPrefs),
+					...buildPreferenceSnapshot(updatedPrefs),
 				},
 			} satisfies ApiJsonBody,
 			{ status: 200 },
@@ -260,16 +247,12 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			"Failed to update notification-preferences",
 			{
 				userId: user.id,
-				notificationPreferences: safeNotificationPreferenceUpdates,
+				action: "notification_preferences_update",
 			},
-			createErrorForLogging(error),
+			error,
 		);
-
 		return Response.json(
-			{
-				ok: false,
-				message: "failed_to_update_settings",
-			} satisfies ApiJsonBody,
+			{ ok: false, message: "failed_to_update_settings" } satisfies ApiJsonBody,
 			{ status: 500 },
 		);
 	}

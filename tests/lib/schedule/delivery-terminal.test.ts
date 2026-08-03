@@ -29,7 +29,7 @@ describe("shouldAdvanceScheduledNotificationSchedule", () => {
 			notificationType: "market",
 			scheduledDate: assertIsoDateString("2026-06-07"),
 			scheduledMinutes: minuteOfDay(570),
-			emailRequired: true,
+			requiredChannel: "email",
 		});
 
 		expect(canAdvance).toBe(false);
@@ -54,7 +54,7 @@ describe("shouldAdvanceScheduledNotificationSchedule", () => {
 			notificationType: "asset_events",
 			scheduledDate: assertIsoDateString("2026-06-07"),
 			scheduledMinutes: minuteOfDay(540),
-			emailRequired: true,
+			requiredChannel: "email",
 		});
 
 		expect(canAdvance).toBe(true);

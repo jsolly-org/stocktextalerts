@@ -147,7 +147,7 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 
 		const { id } = await createTestUser({
 			timezone,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
 		});
@@ -188,7 +188,7 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 
 		const { id } = await createTestUser({
 			timezone,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
 		});
@@ -244,7 +244,7 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 
 		const { id } = await createTestUser({
 			timezone,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
 		});
@@ -303,7 +303,7 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 
 		const { id } = await createTestUser({
 			timezone,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
 		});
@@ -364,7 +364,7 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 
 		const { id } = await createTestUser({
 			timezone,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
 		});

@@ -106,7 +106,6 @@ describe("processDailyDigestTelegramDelivery prediction markets", () => {
 	it("sends one silent text message with Unicode bars in asset and macro sections", async () => {
 		const user = makeUserRecord({
 			telegram_chat_id: 5550001,
-			telegram_opted_out: false,
 		});
 		const userAssets: UserAssetRow[] = [{ symbol: "PLTR", name: "Palantir" }];
 		const assetPrices: AssetPriceMap = new Map([

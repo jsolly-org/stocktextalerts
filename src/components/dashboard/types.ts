@@ -1,4 +1,5 @@
-import type { EmailOptionFieldName, PriceMoveThresholdUnit, UserAsset } from "../../lib/db/types";
+import type { DeliveryChannelMode, NotificationOptionFieldName } from "../../lib/constants";
+import type { PriceMoveThresholdUnit, UserAsset } from "../../lib/db/types";
 
 export type InitialAsset = Pick<UserAsset, "symbol" | "name" | "type" | "icon_url">;
 
@@ -6,30 +7,15 @@ export type InitialAsset = Pick<UserAsset, "symbol" | "name" | "type" | "icon_ur
  *  A symbol absent from the map has no threshold (alerts off for that stock). */
 export type PriceMoveThresholdMap = Record<string, { value: number; unit: PriceMoveThresholdUnit }>;
 
-/**
- * A single selectable channel inside the multiselect. `disabled` keeps the option
- * visible (so the user understands the channel exists) but blocks toggling, with
- * `disabledTitle` explaining why — mirroring the legacy per-channel checkbox hints.
- */
-export interface ChannelOption {
-	value: string;
-	label: string;
-	selected: boolean;
-	disabled?: boolean;
-	disabledTitle?: string;
-}
-
 /** The update/current API's notificationPreferences payload as the dashboard
- *  consumes it. Per-option email fields derive from the option catalog. */
+ *  consumes it. Per-option content fields derive from the option catalog. */
 export type NotificationPreferencesData = {
 	market_scheduled_asset_price_enabled: boolean;
-	email_notifications_enabled: boolean;
-	/** Positive polarity derived from `!users.telegram_opted_out`. */
-	telegram_notifications_enabled: boolean;
+	delivery_channel: DeliveryChannelMode;
 	timezone: string;
 	market_scheduled_asset_price_times: number[] | null;
 	daily_notification_time: number | null;
 	daily_notification_next_send_at: string | null;
 	market_scheduled_asset_price_next_send_at: string | null;
 	dismiss_timezone_mismatch_prompts: boolean;
-} & Record<EmailOptionFieldName, boolean>;
+} & Record<NotificationOptionFieldName, boolean>;

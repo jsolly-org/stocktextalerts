@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-	formatAnalystSectionEmail,
-	formatAssetEventsSectionEmail,
-	formatInsiderSectionEmail,
+	formatAnalystSection,
+	formatAssetEventsSection,
+	formatInsiderSection,
 } from "../../../src/lib/asset-events/format";
 import type { InsiderTransaction, RecommendationTrend } from "../../../src/lib/types";
 
 describe("formatAssetEventsSection", () => {
-	it("formats earnings for email with estimates", () => {
+	it("formats earnings with estimates", () => {
 		const events = [
 			{
 				symbol: "AAPL",
@@ -22,14 +22,14 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const result = formatAssetEventsSectionEmail(events);
+		const result = formatAssetEventsSection(events);
 
 		expect(result.earnings).toContain("AAPL: earnings in 2 days (02-10) (16:30)");
 		expect(result.earnings).toContain("EPS est. $2.35");
 		expect(result.earnings).toContain("Rev est. $124.5B");
 	});
 
-	it("formats dividends for email with pay date and frequency", () => {
+	it("formats dividends with pay date and frequency", () => {
 		const events = [
 			{
 				symbol: "KO",
@@ -45,7 +45,7 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const result = formatAssetEventsSectionEmail(events);
+		const result = formatAssetEventsSection(events);
 
 		expect(result.dividends).toContain(
 			"KO: ex-div in 2 days (02-14) — $0.50/share (pays 04-01), quarterly",
@@ -63,9 +63,9 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const email = formatAssetEventsSectionEmail(events);
+		const result = formatAssetEventsSection(events);
 
-		expect(email.splits).toContain("NVDA: split in 2 days (02-20) — 10:1 forward split");
+		expect(result.splits).toContain("NVDA: split in 2 days (02-20) — 10:1 forward split");
 	});
 
 	it("formats reverse splits", () => {
@@ -79,13 +79,13 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const email = formatAssetEventsSectionEmail(events);
+		const result = formatAssetEventsSection(events);
 
-		expect(email.splits).toContain("SIRI: split in 2 days (03-01) — 10:1 reverse split");
+		expect(result.splits).toContain("SIRI: split in 2 days (03-01) — 10:1 reverse split");
 	});
 
 	it("returns all nulls when no events", () => {
-		const result = formatAssetEventsSectionEmail([]);
+		const result = formatAssetEventsSection([]);
 
 		expect(result.earnings).toBeNull();
 		expect(result.dividends).toBeNull();
@@ -122,7 +122,7 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const result = formatAssetEventsSectionEmail(events);
+		const result = formatAssetEventsSection(events);
 
 		expect(result.earnings).toContain("AAPL");
 		expect(result.dividends).toContain("KO");
@@ -140,7 +140,7 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const result = formatAssetEventsSectionEmail(events);
+		const result = formatAssetEventsSection(events);
 
 		expect(result.earnings).toContain("Rev est. $8M");
 	});
@@ -156,12 +156,12 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const email = formatAssetEventsSectionEmail(events);
+		const result = formatAssetEventsSection(events);
 
-		expect(email.earnings).toContain("AAPL: earnings today");
+		expect(result.earnings).toContain("AAPL: earnings today");
 	});
 
-	it("handles dividend without pay date for email", () => {
+	it("handles dividend without pay date", () => {
 		const events = [
 			{
 				symbol: "JNJ",
@@ -177,7 +177,7 @@ describe("formatAssetEventsSection", () => {
 			},
 		];
 
-		const result = formatAssetEventsSectionEmail(events);
+		const result = formatAssetEventsSection(events);
 
 		expect(result.dividends).toContain("JNJ: ex-div in 2 days (02-15) — $1.19/share");
 		expect(result.dividends).not.toContain("pays");
@@ -186,7 +186,7 @@ describe("formatAssetEventsSection", () => {
 });
 
 describe("formatAnalystSection formats recommendation trends per ticker.", () => {
-	it("Formats email analyst section with full breakdown.", () => {
+	it("Formats analyst section with full breakdown.", () => {
 		const data = new Map<string, RecommendationTrend | null>([
 			[
 				"NVDA",
@@ -201,7 +201,7 @@ describe("formatAnalystSection formats recommendation trends per ticker.", () =>
 			],
 		]);
 
-		const result = formatAnalystSectionEmail(data);
+		const result = formatAnalystSection(data);
 
 		expect(result).toContain("15 Strong Buy");
 		expect(result).toContain("38 Buy");
@@ -213,7 +213,7 @@ describe("formatAnalystSection formats recommendation trends per ticker.", () =>
 });
 
 describe("formatInsiderSection formats insider transactions per ticker.", () => {
-	it("Formats email insider section and caps at 5 transactions per ticker.", () => {
+	it("Formats insider section and caps at 5 transactions per ticker.", () => {
 		const transactions: InsiderTransaction[] = Array.from({ length: 6 }, (_, i) => ({
 			name: `Insider ${i}`,
 			share: 1000,
@@ -224,7 +224,7 @@ describe("formatInsiderSection formats insider transactions per ticker.", () => 
 
 		const data = new Map<string, InsiderTransaction[]>([["TSLA", transactions]]);
 
-		const result = formatInsiderSectionEmail(data);
+		const result = formatInsiderSection(data);
 
 		expect(result).not.toBeNull();
 		const lines = result?.split("\n") ?? [];

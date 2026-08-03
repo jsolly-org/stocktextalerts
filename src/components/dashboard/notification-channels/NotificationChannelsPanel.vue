@@ -27,11 +27,7 @@
 			<div class="card-body">
 
 			<NotificationChannelsFieldset
-				v-model:email-enabled="emailEnabledModel"
-				v-model:telegram-enabled="telegramEnabledModel"
-				:submit-telegram-toggle="telegramToggleDirty"
-				:email-notifications-enabled-id="emailNotificationsEnabledId"
-				:telegram-notifications-enabled-id="telegramNotificationsEnabledId"
+				v-model:delivery-channel="deliveryChannelModel"
 				:notification-channels-desc-id="notificationChannelsDescId"
 				:daily-delivery-time-input="dailyDeliveryTimeInput"
 				:daily-delivery-time-minutes="dailyDeliveryTimeMinutes"
@@ -53,7 +49,6 @@
 		</section>
 	</form>
 
-	<!-- Notification Preview -->
 	<section class="card">
 		<div class="card-body">
 			<header class="mb-4">
@@ -61,7 +56,7 @@
 					Notification Preview
 				</h2>
 				<p class="text-sm text-body-secondary mt-1">
-					See how your asset updates appear when delivered. Sent to whichever channels you enable — email or Telegram.
+					See how your asset updates appear when delivered on your selected channel.
 				</p>
 			</header>
 
@@ -87,14 +82,10 @@
 
 <script lang="ts" setup>
 import { DateTime } from "luxon";
-import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
-import {
-	needsNotificationChannelSelection,
-	toTelegramNotificationsEnabled,
-	toTelegramOptedOut,
-} from "../../../lib/messaging/telegram/eligibility";
-// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
+import type { DeliveryChannelMode } from "../../../lib/constants";
+import { needsNotificationChannelSelection } from "../../../lib/messaging/delivery-channel";
 import { etMinuteToUserLocal, getUsBeforeOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
 	formatCountdownWithSeconds,
@@ -119,17 +110,12 @@ import { DEMO_ASSETS } from "./preview/preview-data";
 import type { PreviewAsset } from "./preview/types";
 
 interface Props {
-	emailEnabled: boolean;
 	initialAssets: InitialAsset[];
 	hasTrackedAssets: boolean;
 }
 
 const props = defineProps<Props>();
-const { emailEnabled: emailEnabledProp } = toRefs(props);
 
-const emit = defineEmits<(event: "update:emailEnabled", value: boolean) => void>();
-
-// Inject the shared mutable user ref from DashboardPanels
 const user = useDashboardUser();
 
 const isHydrated = useHydrated();
@@ -148,7 +134,6 @@ onUnmounted(() => {
 	intervalId = null;
 });
 
-/* ============= Auto-save composable ============= */
 const notificationPreferencesFormElement = ref<HTMLFormElement | null>(null);
 const {
 	handleFormChange,
@@ -163,68 +148,31 @@ const {
 	formRef: notificationPreferencesFormElement,
 });
 
-/* ============= Channel state ============= */
-const emailNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-email_notifications_enabled`;
-const telegramNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-telegram_notifications_enabled`;
 const notificationChannelsDescId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-notification-channels-desc`;
 
-const emailEnabledModel = computed({
-	get: () => emailEnabledProp.value,
-	set: (value: boolean) => emit("update:emailEnabled", value),
-});
-
-/** Positive UI polarity mirrored from `!users.telegram_opted_out`. */
-const telegramEnabledModel = computed({
-	get: () => toTelegramNotificationsEnabled(user.value.telegram_opted_out),
-	set: (value: boolean) => {
-		user.value = { ...user.value, telegram_opted_out: toTelegramOptedOut(value) };
-		telegramToggleDirty.value = true;
+const deliveryChannelModel = computed({
+	get: () => user.value.delivery_channel,
+	set: (value: DeliveryChannelMode) => {
+		user.value = { ...user.value, delivery_channel: value };
+		notifyChange();
 	},
 });
 
-/**
- * Only include the Telegram global field after the user flips the switch so
- * unrelated autosaves (email, delivery time) cannot clear an out-of-band mute.
- */
-const telegramToggleDirty = ref(false);
-
-watch(emailEnabledModel, () => {
-	notifyChange();
-});
-
-watch(telegramEnabledModel, () => {
-	notifyChange();
-});
-
-// Watch savedData and update shared user ref directly (no more event bubbling)
 watch(
 	() => savedNotificationPreferencesData.value,
 	(newData) => {
 		if (newData) {
-			// Update shared user ref directly
 			user.value = {
 				...user.value,
-				email_notifications_enabled: newData.email_notifications_enabled,
-				telegram_opted_out: toTelegramOptedOut(newData.telegram_notifications_enabled),
+				delivery_channel: newData.delivery_channel,
 				daily_notification_time: newData.daily_notification_time,
 				daily_notification_next_send_at: newData.daily_notification_next_send_at,
 				market_scheduled_asset_price_next_send_at: newData.market_scheduled_asset_price_next_send_at,
 			};
-			telegramToggleDirty.value = false;
-			// Sync channel state with parent
-			emit("update:emailEnabled", newData.email_notifications_enabled);
 		}
 	},
 );
 
-/* ============= Daily Delivery Time ============= */
-
-/**
- * Stored `market_scheduled_asset_price_times` are ET-canonical minutes (Phase 9
- * migration). Convert each to user-local before deriving the earliest, so the
- * fallback delivery-time display matches what the user sees in the market
- * notifications picker.
- */
 function getEarliestMarketNotificationTime(): number | null {
 	const times = user.value.market_scheduled_asset_price_times;
 	if (!times || times.length === 0) return null;
@@ -270,7 +218,6 @@ function handleSetBeforeOpen() {
 	notifyChange();
 }
 
-// Sync delivery time from user state (e.g. after save from another panel)
 watch(
 	() => user.value.daily_notification_time,
 	(value) => {
@@ -286,7 +233,6 @@ watch(
 	},
 );
 
-/* ============= Next delivery countdown ============= */
 const nextDailyDeliveryText = computed(() => {
 	if (!isHydrated.value) return null;
 	void tick.value;
@@ -305,11 +251,8 @@ const nextDailyDeliveryText = computed(() => {
 	return secondsUntil <= 0 ? "is due soon" : `in ${formatCountdownWithSeconds(secondsUntil)}`;
 });
 
-/* ============= Notification Preview ============= */
 const needsTrackedAssets = computed(() => !props.hasTrackedAssets);
-const needsChannelSelection = computed(() =>
-	needsNotificationChannelSelection(emailEnabledProp.value, user.value),
-);
+const needsChannelSelection = computed(() => needsNotificationChannelSelection(user.value));
 const notificationSetupBlocked = computed(
 	() => needsChannelSelection.value || needsTrackedAssets.value,
 );
@@ -332,4 +275,3 @@ const previewAssets = computed<PreviewAsset[]>(() => {
 	});
 });
 </script>
-

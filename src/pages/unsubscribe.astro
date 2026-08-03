@@ -33,7 +33,7 @@ if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 	const supabase = createSupabaseAdminClient();
 	const { data: user, error } = await supabase
 		.from("users")
-		.select("id,email,email_notifications_enabled")
+		.select("id,email,delivery_channel")
 		.eq("id", userId)
 		.maybeSingle();
 
@@ -58,20 +58,33 @@ if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 				reason: verification.reason,
 			});
 		} else {
-			const { error: updateError } = await supabase
-				.from("users")
-				.update({ email_notifications_enabled: false })
-				.eq("id", user.id);
-
-			if (updateError) {
-				logger.error(
-					"Failed to disable email notifications via unsubscribe",
-					{ userId },
-					updateError,
-				);
-			} else {
+			if (user.delivery_channel !== "email") {
 				tone = "success";
-				message = `Email notifications are now turned off. You can ${isLoggedIn ? "visit your dashboard" : "sign in"} anytime to adjust your delivery schedule.`;
+				message =
+					user.delivery_channel === "telegram"
+						? `This account already delivers via Telegram, so email unsubscribe left delivery unchanged. You can ${isLoggedIn ? "visit your dashboard" : "sign in"} anytime to adjust channels.`
+						: `Email notifications are already off. You can ${isLoggedIn ? "visit your dashboard" : "sign in"} anytime to adjust your delivery schedule.`;
+				logger.info("Email unsubscribe no-op: delivery_channel is not email", {
+					userId,
+					deliveryChannel: user.delivery_channel,
+				});
+			} else {
+				const { error: updateError } = await supabase
+					.from("users")
+					.update({ delivery_channel: "disabled" })
+					.eq("id", user.id)
+					.eq("delivery_channel", "email");
+
+				if (updateError) {
+					logger.error(
+						"Failed to disable email notifications via unsubscribe",
+						{ userId },
+						updateError,
+					);
+				} else {
+					tone = "success";
+					message = `Email notifications are now turned off. You can ${isLoggedIn ? "visit your dashboard" : "sign in"} anytime to adjust your delivery schedule.`;
+				}
 			}
 		}
 	}

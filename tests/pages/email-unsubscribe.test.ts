@@ -15,12 +15,12 @@ describe("A user clicks the email unsubscribe link.", () => {
 		renderers = await loadRenderers([getVueRenderer()]);
 	});
 
-	it("Email notifications are disabled when the unsubscribe link is clicked.", async () => {
+	it("Delivery is disabled when the unsubscribe link is clicked.", async () => {
 		const user = await createTestUser({
 			email: createTestEmail("test"),
 			password: "TestPassword123!",
 			confirmed: true,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 		});
 		registerTestUserForCleanup(user.id);
 
@@ -41,12 +41,12 @@ describe("A user clicks the email unsubscribe link.", () => {
 
 		const { data: updated, error } = await adminClient
 			.from("users")
-			.select("email_notifications_enabled")
+			.select("delivery_channel")
 			.eq("id", user.id)
 			.maybeSingle();
 
 		expect(error).toBeNull();
-		expect(updated?.email_notifications_enabled).toBe(false);
+		expect(updated?.delivery_channel).toBe("disabled");
 	});
 
 	it("Invalid or expired unsubscribe token does not change user preferences.", async () => {
@@ -54,7 +54,7 @@ describe("A user clicks the email unsubscribe link.", () => {
 			email: createTestEmail("invalid-token"),
 			password: "TestPassword123!",
 			confirmed: true,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 		});
 		registerTestUserForCleanup(user.id);
 
@@ -71,11 +71,11 @@ describe("A user clicks the email unsubscribe link.", () => {
 
 		const { data: updated, error } = await adminClient
 			.from("users")
-			.select("email_notifications_enabled")
+			.select("delivery_channel")
 			.eq("id", user.id)
 			.maybeSingle();
 
 		expect(error).toBeNull();
-		expect(updated?.email_notifications_enabled).toBe(true);
+		expect(updated?.delivery_channel).toBe("email");
 	});
 });

@@ -522,17 +522,14 @@ export type Database = {
       }
       notification_options: {
         Row: {
-          channel: Database["public"]["Enums"]["delivery_method"]
           content: string
           notification_type: string
         }
         Insert: {
-          channel: Database["public"]["Enums"]["delivery_method"]
           content: string
           notification_type: string
         }
         Update: {
-          channel?: Database["public"]["Enums"]["delivery_method"]
           content?: string
           notification_type?: string
         }
@@ -540,7 +537,6 @@ export type Database = {
       }
       notification_preferences: {
         Row: {
-          channel: Database["public"]["Enums"]["delivery_method"]
           content: string
           created_at: string
           enabled: boolean
@@ -549,8 +545,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          channel: Database["public"]["Enums"]["delivery_method"]
-          content?: string
+          content: string
           created_at?: string
           enabled?: boolean
           notification_type: string
@@ -558,7 +553,6 @@ export type Database = {
           user_id: string
         }
         Update: {
-          channel?: Database["public"]["Enums"]["delivery_method"]
           content?: string
           created_at?: string
           enabled?: boolean
@@ -569,10 +563,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "notification_preferences_option_fkey"
-            columns: ["notification_type", "content", "channel"]
+            columns: ["notification_type", "content"]
             isOneToOne: false
             referencedRelation: "notification_options"
-            referencedColumns: ["notification_type", "content", "channel"]
+            referencedColumns: ["notification_type", "content"]
           },
           {
             foreignKeyName: "notification_preferences_user_id_fkey"
@@ -1013,7 +1007,6 @@ export type Database = {
           delivery_channel: Database["public"]["Enums"]["delivery_channel_mode"]
           dismiss_timezone_mismatch_prompts: boolean
           email: string
-          email_notifications_enabled: boolean
           grok_sends_in_window: number
           grok_window_start: string | null
           id: string
@@ -1026,7 +1019,6 @@ export type Database = {
           telegram_chat_id: number | null
           telegram_id: number | null
           telegram_linked_at: string | null
-          telegram_opted_out: boolean
           timezone: string
           updated_at: string
           use_24_hour_time: boolean
@@ -1041,7 +1033,6 @@ export type Database = {
           delivery_channel?: Database["public"]["Enums"]["delivery_channel_mode"]
           dismiss_timezone_mismatch_prompts?: boolean
           email: string
-          email_notifications_enabled?: boolean
           grok_sends_in_window?: number
           grok_window_start?: string | null
           id?: string
@@ -1054,7 +1045,6 @@ export type Database = {
           telegram_chat_id?: number | null
           telegram_id?: number | null
           telegram_linked_at?: string | null
-          telegram_opted_out?: boolean
           timezone?: string
           updated_at?: string
           use_24_hour_time?: boolean
@@ -1069,7 +1059,6 @@ export type Database = {
           delivery_channel?: Database["public"]["Enums"]["delivery_channel_mode"]
           dismiss_timezone_mismatch_prompts?: boolean
           email?: string
-          email_notifications_enabled?: boolean
           grok_sends_in_window?: number
           grok_window_start?: string | null
           id?: string
@@ -1082,7 +1071,6 @@ export type Database = {
           telegram_chat_id?: number | null
           telegram_id?: number | null
           telegram_linked_at?: string | null
-          telegram_opted_out?: boolean
           timezone?: string
           updated_at?: string
           use_24_hour_time?: boolean

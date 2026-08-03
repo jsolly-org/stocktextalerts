@@ -3,11 +3,10 @@ import { createUserService } from "../../../lib/auth/user-service";
 import type { ApiJsonBody } from "../../../lib/client/types";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
-import { toTelegramNotificationsEnabled } from "../../../lib/messaging/telegram/eligibility";
 import {
-	buildChannelPreferenceSnapshot,
+	buildPreferenceSnapshot,
 	loadUserPreferenceRows,
-} from "../../../lib/notification-preferences/channels";
+} from "../../../lib/notification-preferences/preferences";
 
 /**
  * Read the authenticated user's current notification-preferences.
@@ -44,8 +43,6 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 			});
 		}
 
-		// Per-option channel facets live in notification_preferences (the source of
-		// truth); reconstruct the flat per-option snapshot the UI consumes.
 		const prefs = await loadUserPreferenceRows(supabase, user.id);
 
 		return Response.json(
@@ -54,8 +51,7 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 				message: "ok",
 				notificationPreferences: {
 					market_scheduled_asset_price_enabled: dbUser.market_scheduled_asset_price_enabled,
-					email_notifications_enabled: dbUser.email_notifications_enabled,
-					telegram_notifications_enabled: toTelegramNotificationsEnabled(dbUser.telegram_opted_out),
+					delivery_channel: dbUser.delivery_channel,
 					timezone: dbUser.timezone,
 					market_scheduled_asset_price_times: dbUser.market_scheduled_asset_price_times,
 					daily_notification_time: dbUser.daily_notification_time,
@@ -63,7 +59,7 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 					market_scheduled_asset_price_next_send_at:
 						dbUser.market_scheduled_asset_price_next_send_at,
 					dismiss_timezone_mismatch_prompts: dbUser.dismiss_timezone_mismatch_prompts,
-					...buildChannelPreferenceSnapshot(prefs),
+					...buildPreferenceSnapshot(prefs),
 				},
 			} satisfies ApiJsonBody,
 			{ status: 200 },

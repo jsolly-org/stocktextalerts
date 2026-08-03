@@ -4,24 +4,10 @@ import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import type { UserRecord } from "../types";
 import { loadStoredFinnhubExtras } from "./enrichment-store";
-import {
-	formatAnalystSectionEmail,
-	formatAnalystSectionTelegram,
-	formatAssetEventsSectionEmail,
-	formatAssetEventsSectionTelegram,
-	formatInsiderSectionEmail,
-	formatInsiderSectionTelegram,
-} from "./format";
+import { formatAnalystSection, formatAssetEventsSection, formatInsiderSection } from "./format";
 import { loadStoredSecFilings } from "./sec-filings";
 import { loadShortInterestDigestContent } from "./short-interest";
-import type {
-	AssetEventsContent,
-	AssetEventsTelegramFacets,
-	SecFilingLine,
-	ShortInterestDigestContent,
-} from "./types";
-
-type DeliveryChannel = "email";
+import type { AssetEventsContent, SecFilingLine, ShortInterestDigestContent } from "./types";
 
 const emptyContent = (): AssetEventsContent => ({
 	eventsSection: null,
@@ -32,35 +18,31 @@ const emptyContent = (): AssetEventsContent => ({
 	hasAnyContent: false,
 });
 
-function channelWantsCalendar(user: UserRecord, channel: DeliveryChannel): boolean {
-	return isDailyNotificationFacetEnabled(user.prefs, channel, "calendar");
+function wantsCalendar(user: UserRecord): boolean {
+	return isDailyNotificationFacetEnabled(user.prefs, "calendar");
 }
 
-function channelWantsIpos(user: UserRecord, channel: DeliveryChannel): boolean {
-	return isDailyNotificationFacetEnabled(user.prefs, channel, "ipo");
+function wantsIpos(user: UserRecord): boolean {
+	return isDailyNotificationFacetEnabled(user.prefs, "ipo");
 }
 
-function channelWantsInsider(user: UserRecord, channel: DeliveryChannel): boolean {
-	return isDailyNotificationFacetEnabled(user.prefs, channel, "insider");
+function wantsInsider(user: UserRecord): boolean {
+	return isDailyNotificationFacetEnabled(user.prefs, "insider");
 }
 
-function channelWantsAnalyst(
-	user: UserRecord,
-	channel: DeliveryChannel,
-	currentMonth: string,
-): boolean {
+function wantsAnalyst(user: UserRecord, currentMonth: string): boolean {
 	return (
-		isDailyNotificationFacetEnabled(user.prefs, channel, "analyst") &&
+		isDailyNotificationFacetEnabled(user.prefs, "analyst") &&
 		user.asset_events_last_analyst_sent_month !== currentMonth
 	);
 }
 
-function channelWantsFilings(user: UserRecord, channel: DeliveryChannel): boolean {
-	return isDailyNotificationFacetEnabled(user.prefs, channel, "filings");
+function wantsFilings(user: UserRecord): boolean {
+	return isDailyNotificationFacetEnabled(user.prefs, "filings");
 }
 
-function channelWantsShortInterest(user: UserRecord, channel: DeliveryChannel): boolean {
-	return isDailyNotificationFacetEnabled(user.prefs, channel, "short_interest");
+function wantsShortInterest(user: UserRecord): boolean {
+	return isDailyNotificationFacetEnabled(user.prefs, "short_interest");
 }
 
 type RawEvent = {
@@ -70,119 +52,37 @@ type RawEvent = {
 	data: Record<string, unknown>;
 };
 
-function filterEventsForChannel<T extends RawEvent>(
-	events: T[],
-	user: UserRecord,
-	channel: DeliveryChannel,
-): T[] {
+function filterEventsForUserPrefs<T extends RawEvent>(events: T[], user: UserRecord): T[] {
 	return events.filter((event) => {
 		if (event.event_type === "ipo") {
-			return channelWantsIpos(user, channel);
+			return wantsIpos(user);
 		}
-		return channelWantsCalendar(user, channel);
+		return wantsCalendar(user);
 	});
 }
 
-type FormatContentOptions = {
-	user: UserRecord;
-	eventsWithDaysUntil: Array<{
-		symbol: string;
-		event_type: "earnings" | "dividend" | "split" | "ipo";
-		event_date: string;
-		data: Record<string, unknown>;
-		daysUntil: number;
-	}>;
-	finnhubData: Awaited<ReturnType<typeof loadStoredFinnhubExtras>>;
-	filingsLines: SecFilingLine[];
-	shortInterest: ShortInterestDigestContent | null;
-	includeInsider: boolean;
-	includeAnalyst: boolean;
-	includeFilings: boolean;
-	includeShortInterest: boolean;
-};
-
-function buildEmailAssetEventsContent(options: FormatContentOptions): AssetEventsContent {
-	const {
-		user,
-		eventsWithDaysUntil,
-		finnhubData,
-		filingsLines,
-		shortInterest,
-		includeInsider,
-		includeAnalyst,
-		includeFilings,
-		includeShortInterest,
-	} = options;
-
-	const channelEvents = filterEventsForChannel(eventsWithDaysUntil, user, "email");
-	const eventsSection =
-		channelEvents.length > 0 ? formatAssetEventsSectionEmail(channelEvents) : null;
-
-	const insiderSection = includeInsider ? formatInsiderSectionEmail(finnhubData.insider) : null;
-	const analystSection = includeAnalyst ? formatAnalystSectionEmail(finnhubData.analyst) : null;
-	const emailFilings = includeFilings && filingsLines.length > 0 ? filingsLines : null;
-	const emailShortInterest = includeShortInterest ? shortInterest : null;
-
-	const hasAnyContent =
-		eventsSection !== null ||
-		insiderSection !== null ||
-		analystSection !== null ||
-		emailFilings !== null ||
-		emailShortInterest !== null;
-
-	return {
-		eventsSection,
-		insiderSection,
-		analystSection,
-		filingsLines: emailFilings,
-		shortInterest: emailShortInterest,
-		hasAnyContent,
-	};
-}
-
-/** Build asset-events content for one or more delivery channels with a single upstream load. */
-export async function buildAssetEventsContentForChannels(options: {
+/**
+ * Load asset-events once from channel-agnostic content prefs.
+ * Delivery formatters wrap this payload for email or Telegram — this builder
+ * does not branch on `delivery_channel`.
+ */
+export async function buildAssetEventsContent(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	localDate: string;
 	tickers: readonly string[];
-	channels: readonly DeliveryChannel[];
-	/** When set, also render a Telegram content block gated by these facets. */
-	telegramFacets?: AssetEventsTelegramFacets;
 }): Promise<{
-	email: AssetEventsContent | null;
-	telegram: AssetEventsContent | null;
+	content: AssetEventsContent;
 	analystFetchAttempted: boolean;
 	shouldUpdateAnalystMonth: boolean;
 }> {
-	const { user, supabase, logger, localDate, tickers, channels, telegramFacets } = options;
-	const noChannels = {
-		email: null,
-		telegram: null,
+	const { user, supabase, logger, localDate, tickers } = options;
+	const empty = {
+		content: emptyContent(),
 		analystFetchAttempted: false,
 		shouldUpdateAnalystMonth: false,
 	};
-
-	// The Telegram facet selection independently requires content even when the
-	// user has email off (a Telegram-only asset-events user).
-	const telegramWantsCalendar = Boolean(telegramFacets?.calendar);
-	const telegramWantsIpos = Boolean(telegramFacets?.ipo);
-	const telegramWantsInsider = Boolean(telegramFacets?.insider);
-	const telegramWantsAnalyst = Boolean(telegramFacets?.analyst);
-	const telegramWantsFilings = Boolean(telegramFacets?.filings);
-	const telegramWantsShortInterest = Boolean(telegramFacets?.short_interest);
-	const hasTelegramRequest =
-		telegramWantsCalendar ||
-		telegramWantsIpos ||
-		telegramWantsInsider ||
-		telegramWantsAnalyst ||
-		telegramWantsFilings ||
-		telegramWantsShortInterest;
-
-	if (channels.length === 0 && !hasTelegramRequest) {
-		return noChannels;
-	}
 
 	const localDt = DateTime.fromISO(localDate);
 	if (!localDt.isValid) {
@@ -191,7 +91,7 @@ export async function buildAssetEventsContentForChannels(options: {
 			{ localDate, localDtInvalidReason: localDt.invalidReason },
 			new Error(`Invalid localDate: ${localDt.invalidReason ?? "unknown"}`),
 		);
-		return noChannels;
+		return empty;
 	}
 
 	const endDate = localDt.plus({ days: 2 }).toISODate() ?? "";
@@ -201,25 +101,27 @@ export async function buildAssetEventsContentForChannels(options: {
 			{ localDate, localDt: localDt.toString(), localDtIsValid: localDt.isValid },
 			new Error("Failed to format endDate for asset events content"),
 		);
-		return noChannels;
+		return empty;
 	}
 
 	const currentMonth = localDt.toFormat("yyyy-MM");
-	// Analyst is published monthly on the 1st — for every channel (incl. Telegram)
-	// it's gated on not having already sent this month.
-	const telegramAnalystDue =
-		telegramWantsAnalyst && user.asset_events_last_analyst_sent_month !== currentMonth;
-	const includeCalendar =
-		channels.some((ch) => channelWantsCalendar(user, ch)) || telegramWantsCalendar;
-	const includeIpos = channels.some((ch) => channelWantsIpos(user, ch)) || telegramWantsIpos;
-	const includeInsiderUnion =
-		channels.some((ch) => channelWantsInsider(user, ch)) || telegramWantsInsider;
-	const includeAnalystUnion =
-		channels.some((ch) => channelWantsAnalyst(user, ch, currentMonth)) || telegramAnalystDue;
-	const includeFilingsUnion =
-		channels.some((ch) => channelWantsFilings(user, ch)) || telegramWantsFilings;
-	const includeShortInterestUnion =
-		channels.some((ch) => channelWantsShortInterest(user, ch)) || telegramWantsShortInterest;
+	const includeCalendar = wantsCalendar(user);
+	const includeIpos = wantsIpos(user);
+	const includeInsider = wantsInsider(user);
+	const includeAnalyst = wantsAnalyst(user, currentMonth);
+	const includeFilings = wantsFilings(user);
+	const includeShortInterest = wantsShortInterest(user);
+
+	if (
+		!includeCalendar &&
+		!includeIpos &&
+		!includeInsider &&
+		!includeAnalyst &&
+		!includeFilings &&
+		!includeShortInterest
+	) {
+		return empty;
+	}
 
 	const calendarPromise =
 		includeCalendar && tickers.length > 0
@@ -249,7 +151,7 @@ export async function buildAssetEventsContentForChannels(options: {
 			{ localDate },
 			queryError ?? new Error("asset/market events query failed"),
 		);
-		return noChannels;
+		return empty;
 	}
 
 	const calendarRows = calendarResult.data ?? [];
@@ -292,17 +194,17 @@ export async function buildAssetEventsContentForChannels(options: {
 	};
 
 	const [finnhubLoaded, filingsLoaded, shortInterestLoaded] = await Promise.all([
-		(includeInsiderUnion || includeAnalystUnion) && tickers.length > 0
+		(includeInsider || includeAnalyst) && tickers.length > 0
 			? loadStoredFinnhubExtras({
 					supabase,
 					logger,
 					tickers,
 					localDate,
-					includeAnalyst: includeAnalystUnion,
-					includeInsider: includeInsiderUnion,
+					includeAnalyst,
+					includeInsider,
 				})
 			: Promise.resolve(finnhubData),
-		includeFilingsUnion && tickers.length > 0
+		includeFilings && tickers.length > 0
 			? loadStoredSecFilings({
 					supabase,
 					logger,
@@ -310,7 +212,7 @@ export async function buildAssetEventsContentForChannels(options: {
 					localDate,
 				})
 			: Promise.resolve([] as SecFilingLine[]),
-		includeShortInterestUnion
+		includeShortInterest
 			? loadShortInterestDigestContent({
 					supabase,
 					logger,
@@ -323,80 +225,33 @@ export async function buildAssetEventsContentForChannels(options: {
 	const filingsLines = filingsLoaded;
 	const shortInterest = shortInterestLoaded;
 
-	const analystFetchAttempted = includeAnalystUnion && tickers.length > 0;
+	const analystFetchAttempted = includeAnalyst && tickers.length > 0;
 	const shouldUpdateAnalystMonth = analystFetchAttempted && finnhubData.analystFetchSucceeded;
 
-	let email: AssetEventsContent | null = null;
+	const filteredEvents = filterEventsForUserPrefs(eventsWithDaysUntil, user);
+	const eventsSection = filteredEvents.length > 0 ? formatAssetEventsSection(filteredEvents) : null;
+	const insiderSection = includeInsider ? formatInsiderSection(finnhubData.insider) : null;
+	const analystSection = includeAnalyst ? formatAnalystSection(finnhubData.analyst) : null;
+	const contentFilings = includeFilings && filingsLines.length > 0 ? filingsLines : null;
+	const contentShortInterest = includeShortInterest ? shortInterest : null;
 
-	if (channels.includes("email")) {
-		email = buildEmailAssetEventsContent({
-			user,
-			eventsWithDaysUntil,
-			finnhubData,
-			filingsLines,
-			shortInterest,
-			includeInsider: channelWantsInsider(user, "email"),
-			includeAnalyst: channelWantsAnalyst(user, "email", currentMonth),
-			includeFilings: channelWantsFilings(user, "email"),
-			includeShortInterest: channelWantsShortInterest(user, "email"),
-		});
-	}
-
-	// Telegram uses the rich (email-style) section rendering, gated by the
-	// notification_preferences facet selection rather than the per-column flags.
-	let telegram: AssetEventsContent | null = null;
-	if (hasTelegramRequest) {
-		const telegramEvents = eventsWithDaysUntil.filter((event) =>
-			event.event_type === "ipo" ? telegramWantsIpos : telegramWantsCalendar,
-		);
-		const eventsSection =
-			telegramEvents.length > 0 ? formatAssetEventsSectionTelegram(telegramEvents) : null;
-		const insiderSection = telegramWantsInsider
-			? formatInsiderSectionTelegram(finnhubData.insider)
-			: null;
-		const analystSection = telegramAnalystDue
-			? formatAnalystSectionTelegram(finnhubData.analyst)
-			: null;
-		const telegramFilings = telegramWantsFilings && filingsLines.length > 0 ? filingsLines : null;
-		const telegramShortInterest = telegramWantsShortInterest ? shortInterest : null;
-		telegram = {
-			eventsSection,
-			insiderSection,
-			analystSection,
-			filingsLines: telegramFilings,
-			shortInterest: telegramShortInterest,
-			hasAnyContent:
-				eventsSection !== null ||
-				insiderSection !== null ||
-				analystSection !== null ||
-				telegramFilings !== null ||
-				telegramShortInterest !== null,
-		};
-	}
+	const content: AssetEventsContent = {
+		eventsSection,
+		insiderSection,
+		analystSection,
+		filingsLines: contentFilings,
+		shortInterest: contentShortInterest,
+		hasAnyContent:
+			eventsSection !== null ||
+			insiderSection !== null ||
+			analystSection !== null ||
+			contentFilings !== null ||
+			contentShortInterest !== null,
+	};
 
 	return {
-		email,
-		telegram,
+		content,
 		analystFetchAttempted,
 		shouldUpdateAnalystMonth,
 	};
-}
-
-/** Build asset-events email content for a single delivery. */
-export async function buildAssetEventsContent(options: {
-	user: UserRecord;
-	supabase: SupabaseAdminClient;
-	logger: Logger;
-	localDate: string;
-	tickers: readonly string[];
-}): Promise<AssetEventsContent> {
-	const built = await buildAssetEventsContentForChannels({
-		user: options.user,
-		supabase: options.supabase,
-		logger: options.logger,
-		localDate: options.localDate,
-		tickers: options.tickers,
-		channels: ["email"],
-	});
-	return built.email ?? emptyContent();
 }

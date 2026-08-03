@@ -6,15 +6,14 @@ import Layout from "../layouts/Layout.astro";
 import { isUserApproved } from "../lib/auth/approval/status";
 import { buildSigninRedirectUrl } from "../lib/auth/redirects";
 import { createUserService } from "../lib/auth/user-service";
-import { NOTIFICATION_PREFERENCE_CATALOG } from "../lib/constants";
 import { getUserAssets } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import type { PriceMoveThresholdMap } from "../components/dashboard/types";
 import { rootLogger } from "../lib/logging";
 import {
-	buildChannelPreferenceSnapshot,
+	buildPreferenceSnapshot,
 	loadUserPreferenceRows,
-} from "../lib/notification-preferences/channels";
+} from "../lib/notification-preferences/preferences";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
@@ -72,34 +71,11 @@ for (const row of thresholdRows ?? []) {
 	};
 }
 
-// ALL per-option channel prefs live in `notification_preferences` (single source of
-// truth), not on the users row, so they aren't carried by `getById`. Rebuild the
-// flat per-option snapshot (catalog-derived; missing rows default false). Telegram
-// entries feed the panels' telegram multiselect (grouped by type/facet); email
-// entries are folded back onto the user object so the existing per-option controls
-// keep reading `user.<field>`.
+// Content toggles live in `notification_preferences` (not on the users row).
+// Fold the flat catalog snapshot onto the user object for dashboard controls.
 const prefRows = await loadUserPreferenceRows(supabase, authUser.id);
-const prefSnapshot = buildChannelPreferenceSnapshot(prefRows);
-
-// daily_notification: keyed by content facet ("prices", "calendar", …);
-// market types (content=''): keyed by notification_type.
-const dailyDigestTelegramPrefs: Record<string, boolean> = {};
-const assetEventsTelegramPrefs: Record<string, boolean> = {};
-const marketTelegramPrefs: Record<string, boolean> = {};
-const channelPrefDefaults: Record<string, boolean> = {};
-for (const entry of NOTIFICATION_PREFERENCE_CATALOG) {
-	const enabled = prefSnapshot[entry.fieldName];
-	if (entry.channel !== "telegram") {
-		channelPrefDefaults[entry.fieldName] = enabled;
-	} else if (entry.notification_type !== "daily_notification") {
-		marketTelegramPrefs[entry.notification_type] = enabled;
-	} else if (entry.family === "digest") {
-		dailyDigestTelegramPrefs[entry.content] = enabled;
-	} else {
-		assetEventsTelegramPrefs[entry.content] = enabled;
-	}
-}
-const user = { ...dbUser, ...channelPrefDefaults } as import("../lib/db/types").DashboardUser;
+const prefSnapshot = buildPreferenceSnapshot(prefRows);
+const user = { ...dbUser, ...prefSnapshot } as import("../lib/db/types").DashboardUser;
 ---
 <Layout title="Dashboard" description="Review and manage your asset notifications. Add or remove tracked assets, set your delivery schedule, and choose email or Telegram delivery.">
 	<div class="min-h-screen bg-surface-alt">
@@ -118,9 +94,6 @@ const user = { ...dbUser, ...channelPrefDefaults } as import("../lib/db/types").
 				client:load
 				user={user}
 				initialAssets={initialAssets}
-				dailyDigestTelegramPrefs={dailyDigestTelegramPrefs}
-				assetEventsTelegramPrefs={assetEventsTelegramPrefs}
-				marketTelegramPrefs={marketTelegramPrefs}
 				priceMoveThresholds={priceMoveThresholds}
 			/>
 		</main>

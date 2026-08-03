@@ -137,7 +137,7 @@ Delivery: Telegram
  * Deliver a standalone asset-events digest via Telegram and record the attempt.
  *
  * Claims the `telegram` channel of the asset-events slot (retries/advances
- * independently of email) and renders the Telegram-native digest (parse-mode
+ * via the account delivery channel) and renders the Telegram-native digest (parse-mode
  * entities, no chart). The caller filters the sections to only the user's
  * Telegram-enabled facets before this is invoked.
  */

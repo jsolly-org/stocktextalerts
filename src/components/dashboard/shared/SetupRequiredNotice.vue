@@ -19,12 +19,12 @@
 					watchlist</a>.
 			</li>
 			<li v-if="needsChannelSelection">
-				Enable at least one notification channel in
+				Choose a delivery method in
 				<a
 					:href="DASHBOARD_SECTION_HASHES.notificationChannels"
 					class="font-medium text-primary no-underline rounded-sm hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-warning-bg"
 				>
-					notification channels</a>.
+					Notification Channels</a>.
 			</li>
 		</ul>
 	</div>

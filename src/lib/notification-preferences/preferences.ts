@@ -6,11 +6,10 @@ import { isFacetEnabled, parsePrefRow } from "../messaging/notification-prefs";
 import type { PrefRow } from "../types";
 
 /* =============
-Channel notification-preference persistence (email, telegram).
+Notification-preference persistence (content toggles).
 
-ALL per-option channel preferences live in `notification_preferences`, one row
-per (user_id, notification_type, content, channel). This is the single source of
-truth — there are no per-column `*_include_*` flags on `users` anymore.
+ALL content preferences live in `notification_preferences`, one row per
+(user_id, notification_type, content). Account routing is `users.delivery_channel`.
 
 Every catalog option maps to exactly one form field (`entry.fieldName`, derived
 from NOTIFICATION_OPTION_MATRIX); only fields actually present in the submission
@@ -18,20 +17,20 @@ are written (no-drift: an unsubmitted option leaves its existing row untouched).
 ============= */
 
 /** field name → its catalog option, for every valid option. */
-const CHANNEL_PREFERENCE_FIELD_MAP: ReadonlyMap<string, FacetCatalogEntry> = new Map(
+const PREFERENCE_FIELD_MAP: ReadonlyMap<string, FacetCatalogEntry> = new Map(
 	NOTIFICATION_PREFERENCE_CATALOG.map((entry) => [entry.fieldName, entry]),
 );
 
 /**
- * Upsert `notification_preferences` rows for every channel preference present in
- * this submission (email, telegram alike — uniform peers).
+ * Upsert `notification_preferences` rows for every content preference present in
+ * this submission.
  *
  * Only fields actually submitted are written (no-drift). `supabase` must be the
  * request's session-scoped client; RLS allows a user to write only their own rows.
  *
  * Throws if the upsert fails so the caller can surface a 500.
  */
-export async function persistChannelPreferences(options: {
+export async function persistNotificationPreferences(options: {
 	supabase: AppSupabaseClient;
 	userId: string;
 	parsedData: Partial<Record<string, boolean>>;
@@ -40,7 +39,7 @@ export async function persistChannelPreferences(options: {
 }): Promise<void> {
 	const { supabase, userId, parsedData, formData, logger } = options;
 
-	const rows = [...CHANNEL_PREFERENCE_FIELD_MAP.values()].flatMap((target) => {
+	const rows = [...PREFERENCE_FIELD_MAP.values()].flatMap((target) => {
 		const field = target.fieldName;
 		const value = parsedData[field];
 		if (!formData.has(field) || value === undefined) {
@@ -51,7 +50,6 @@ export async function persistChannelPreferences(options: {
 				user_id: userId,
 				notification_type: target.notification_type,
 				content: target.content,
-				channel: target.channel,
 				enabled: value,
 				updated_at: new Date().toISOString(),
 			},
@@ -64,7 +62,7 @@ export async function persistChannelPreferences(options: {
 
 	const { error } = await supabase
 		.from("notification_preferences")
-		.upsert(rows, { onConflict: "user_id,notification_type,content,channel" });
+		.upsert(rows, { onConflict: "user_id,notification_type,content" });
 
 	if (error) {
 		logger?.error(
@@ -78,26 +76,18 @@ export async function persistChannelPreferences(options: {
 
 /* =============
 Per-option snapshot: the flat `<field>: boolean` map the dashboard UI consumes,
-reconstructed from notification_preferences rows. This is the boundary translation
-between the table (source of truth) and the existing per-option UI shape.
+reconstructed from notification_preferences rows.
 ============= */
 
-/** The flat per-option snapshot keyed by dashboard field name (all channels). */
-type ChannelPreferenceSnapshot = Record<NotificationOptionFieldName, boolean>;
+/** The flat per-option snapshot keyed by dashboard field name. */
+type PreferenceSnapshot = Record<NotificationOptionFieldName, boolean>;
 
 /** Build the flat per-option snapshot from a user's preference rows. Every
  *  catalog option gets a key; options with no row default to `false`. */
-export function buildChannelPreferenceSnapshot(
-	prefs: readonly PrefRow[],
-): ChannelPreferenceSnapshot {
-	const snapshot = {} as ChannelPreferenceSnapshot;
+export function buildPreferenceSnapshot(prefs: readonly PrefRow[]): PreferenceSnapshot {
+	const snapshot = {} as PreferenceSnapshot;
 	for (const entry of NOTIFICATION_PREFERENCE_CATALOG) {
-		snapshot[entry.fieldName] = isFacetEnabled(
-			prefs,
-			entry.notification_type,
-			entry.channel,
-			entry.content,
-		);
+		snapshot[entry.fieldName] = isFacetEnabled(prefs, entry.notification_type, entry.content);
 	}
 	return snapshot;
 }
@@ -106,16 +96,16 @@ export function buildChannelPreferenceSnapshot(
  *
  * Throws on a failed read (unlike the Lambda fan-out attach path, which
  * deliberately fails open with empty rows): every web caller renders or writes
- * from these rows, and an empty result on error would show all 31 options as
- * OFF — one autosave later, `persistChannelPreferences` would durably persist
- * that wipe. Failing loud turns a DB blip into a 500 instead. */
+ * from these rows, and an empty result on error would show all options as
+ * OFF — one autosave later, `persistNotificationPreferences` would durably
+ * persist that wipe. Failing loud turns a DB blip into a 500 instead. */
 export async function loadUserPreferenceRows(
 	supabase: AppSupabaseClient,
 	userId: string,
 ): Promise<PrefRow[]> {
 	const { data, error } = await supabase
 		.from("notification_preferences")
-		.select("notification_type, content, channel, enabled")
+		.select("notification_type, content, enabled")
 		.eq("user_id", userId);
 
 	if (error) {

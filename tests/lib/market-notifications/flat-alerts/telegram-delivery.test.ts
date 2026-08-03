@@ -80,10 +80,9 @@ function makeUser(overrides: Partial<FlatPriceAlertUser> = {}): FlatPriceAlertUs
 	return {
 		id: "00000000-0000-0000-0000-000000000001",
 		email: "test@example.com",
-		email_notifications_enabled: false,
+		delivery_channel: "telegram" as const,
 		use_24_hour_time: false,
-		telegram_chat_id: null,
-		telegram_opted_out: false,
+		telegram_chat_id: 778899,
 		price_move_why_window_start: null,
 		price_move_why_sends_in_window: 0,
 		prefs: [],
@@ -134,7 +133,7 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		const { delivered, inserts, stats } = await deliver({
 			user: makeUser({
 				telegram_chat_id: 778899,
-				prefs: makePrefRows([["price_move_alerts", "", "telegram", true]]),
+				prefs: makePrefRows([["price_move_alerts", "", true]]),
 			}),
 			sendTelegram,
 		});
@@ -168,7 +167,7 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		const { delivered, inserts, stats, rpcCalls } = await deliver({
 			user: makeUser({
 				telegram_chat_id: 778899,
-				prefs: makePrefRows([["price_move_alerts", "", "telegram", true]]),
+				prefs: makePrefRows([["price_move_alerts", "", true]]),
 			}),
 			sendTelegram,
 		});
@@ -192,7 +191,7 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		const { delivered, inserts, stats, rpcCalls } = await deliver({
 			user: makeUser({
 				telegram_chat_id: 778899,
-				prefs: makePrefRows([["price_move_alerts", "", "telegram", true]]),
+				prefs: makePrefRows([["price_move_alerts", "", true]]),
 			}),
 			sendTelegram,
 			budgetOk: false,
@@ -214,7 +213,7 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		const { inserts, stats } = await deliver({
 			user: makeUser({
 				telegram_chat_id: 778899,
-				prefs: makePrefRows([["price_move_alerts", "", "telegram", false]]),
+				prefs: makePrefRows([["price_move_alerts", "", false]]),
 			}),
 			sendTelegram,
 		});
@@ -232,7 +231,7 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		await deliver({
 			user: makeUser({
 				telegram_chat_id: null,
-				prefs: makePrefRows([["price_move_alerts", "", "telegram", true]]),
+				prefs: makePrefRows([["price_move_alerts", "", true]]),
 			}),
 			sendTelegram,
 		});

@@ -6,13 +6,13 @@ import { adminClient, createAuthenticatedCookies } from "../../../helpers/test-e
 import { createTestUser } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 
-describe("A signed-in user updates their Telegram notification preference.", () => {
-	it("The user enables Telegram notifications (clears telegram_opted_out).", async () => {
+describe("A signed-in user updates their Telegram delivery channel.", () => {
+	it("The user routes delivery to Telegram when a chat is linked.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 		});
 		registerTestUserForCleanup(testUser.id);
 
@@ -21,7 +21,7 @@ describe("A signed-in user updates their Telegram notification preference.", () 
 			.update({
 				telegram_chat_id: 8675309,
 				telegram_linked_at: new Date().toISOString(),
-				telegram_opted_out: true,
+				delivery_channel: "disabled" as const,
 			})
 			.eq("id", testUser.id);
 		if (linkError) {
@@ -31,7 +31,7 @@ describe("A signed-in user updates their Telegram notification preference.", () 
 		const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 		const formData = new FormData();
-		formData.append("telegram_notifications_enabled", "true");
+		formData.append("delivery_channel", "telegram");
 
 		const request = new Request("http://localhost/api/notification-preferences/update", {
 			method: "POST",
@@ -43,29 +43,29 @@ describe("A signed-in user updates their Telegram notification preference.", () 
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as {
 			ok: boolean;
-			notificationPreferences?: { telegram_notifications_enabled?: boolean };
+			notificationPreferences?: { delivery_channel?: string };
 		};
 		expect(body.ok).toBe(true);
-		expect(body.notificationPreferences?.telegram_notifications_enabled).toBe(true);
+		expect(body.notificationPreferences?.delivery_channel).toBe("telegram");
 
 		const { data: updatedUser } = await adminClient
 			.from("users")
-			.select("telegram_opted_out,telegram_chat_id")
+			.select("delivery_channel,telegram_chat_id")
 			.eq("id", testUser.id)
 			.single();
 
 		expect(updatedUser).not.toBeNull();
 		if (!updatedUser) throw new Error("expected user row");
-		expect(updatedUser.telegram_opted_out).toBe(false);
+		expect(updatedUser.delivery_channel).toBe("telegram");
 		expect(updatedUser.telegram_chat_id).toBe(8675309);
 	});
 
-	it("The user disables Telegram notifications (sets telegram_opted_out).", async () => {
+	it("The user disables Telegram delivery without unlinking the chat.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 		});
 		registerTestUserForCleanup(testUser.id);
 
@@ -74,7 +74,7 @@ describe("A signed-in user updates their Telegram notification preference.", () 
 			.update({
 				telegram_chat_id: 8675309,
 				telegram_linked_at: new Date().toISOString(),
-				telegram_opted_out: false,
+				delivery_channel: "telegram" as const,
 			})
 			.eq("id", testUser.id);
 		if (linkError) {
@@ -84,7 +84,7 @@ describe("A signed-in user updates their Telegram notification preference.", () 
 		const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 		const formData = new FormData();
-		formData.append("telegram_notifications_enabled", "false");
+		formData.append("delivery_channel", "disabled");
 
 		const request = new Request("http://localhost/api/notification-preferences/update", {
 			method: "POST",
@@ -96,21 +96,45 @@ describe("A signed-in user updates their Telegram notification preference.", () 
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as {
 			ok: boolean;
-			notificationPreferences?: { telegram_notifications_enabled?: boolean };
+			notificationPreferences?: { delivery_channel?: string };
 		};
 		expect(body.ok).toBe(true);
-		expect(body.notificationPreferences?.telegram_notifications_enabled).toBe(false);
+		expect(body.notificationPreferences?.delivery_channel).toBe("disabled");
 
 		const { data: updatedUser } = await adminClient
 			.from("users")
-			.select("telegram_opted_out,telegram_chat_id")
+			.select("delivery_channel,telegram_chat_id")
 			.eq("id", testUser.id)
 			.single();
 
 		expect(updatedUser).not.toBeNull();
 		if (!updatedUser) throw new Error("expected user row");
-		expect(updatedUser.telegram_opted_out).toBe(true);
+		expect(updatedUser.delivery_channel).toBe("disabled");
 		// Link is preserved — mute does not unlink.
 		expect(updatedUser.telegram_chat_id).toBe(8675309);
+	});
+
+	it("Rejects routing to Telegram when no chat is linked.", async () => {
+		const testUser = await createTestUser({
+			email: `test-${randomUUID()}@example.com`,
+			password: "TestPassword123!",
+			confirmed: true,
+			deliveryChannel: "email",
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
+
+		const formData = new FormData();
+		formData.append("delivery_channel", "telegram");
+
+		const request = new Request("http://localhost/api/notification-preferences/update", {
+			method: "POST",
+			body: formData,
+		});
+
+		const response = await POST(createApiContext({ request, cookies }));
+
+		expect(response.status).toBe(400);
 	});
 });

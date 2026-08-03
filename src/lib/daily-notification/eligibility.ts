@@ -3,58 +3,41 @@ Daily notification eligibility — one logical slot, many content facets.
 ============= */
 
 import type { DailyNotificationContent } from "../constants";
-import { PREF_CHANNELS } from "../constants";
-import { enabledFacets, isFacetEnabled } from "../messaging/notification-prefs";
-import type { PrefChannel, PrefRow } from "../types";
+import { anyFacetEnabled, enabledFacets, isFacetEnabled } from "../messaging/notification-prefs";
+import type { PrefRow } from "../types";
 import { DAILY_ASSET_EVENT_FACETS, DAILY_NOTIFICATION_PREFERENCE_TYPE } from "./constants";
 
-/** True when a daily notification facet is enabled on a channel. */
+/** True when a daily notification facet is enabled. */
 export function isDailyNotificationFacetEnabled(
 	prefs: readonly PrefRow[],
-	channel: PrefChannel,
 	content: DailyNotificationContent,
 ): boolean {
-	return isFacetEnabled(prefs, DAILY_NOTIFICATION_PREFERENCE_TYPE, channel, content);
+	return isFacetEnabled(prefs, DAILY_NOTIFICATION_PREFERENCE_TYPE, content);
 }
 
-/** Enabled daily notification content facets for a channel. */
+/** Enabled daily notification content facets. */
 export function enabledDailyNotificationFacets(
 	prefs: readonly PrefRow[],
-	channel: PrefChannel,
 ): Set<DailyNotificationContent> {
-	return enabledFacets(
-		prefs,
-		DAILY_NOTIFICATION_PREFERENCE_TYPE,
-		channel,
-	) as Set<DailyNotificationContent>;
+	return enabledFacets(prefs, DAILY_NOTIFICATION_PREFERENCE_TYPE) as Set<DailyNotificationContent>;
 }
 
-/** True when any daily notification facet is enabled on any channel. */
+/** True when any daily notification facet is enabled. */
 export function hasAnyDailyNotificationFacet(prefs: readonly PrefRow[]): boolean {
-	return prefs.some((p) => p.notification_type === DAILY_NOTIFICATION_PREFERENCE_TYPE && p.enabled);
+	return anyFacetEnabled(prefs, DAILY_NOTIFICATION_PREFERENCE_TYPE);
 }
 
-/** True when any asset-event facet is enabled on any channel. */
+/** True when any asset-event facet is enabled. */
 export function hasAnyDailyAssetEventFacet(prefs: readonly PrefRow[]): boolean {
 	for (const content of DAILY_ASSET_EVENT_FACETS) {
-		for (const channel of PREF_CHANNELS) {
-			if (isDailyNotificationFacetEnabled(prefs, channel, content)) {
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
-/** True when any asset-event facet is enabled on a channel. */
-export function anyDailyAssetEventFacetEnabled(
-	prefs: readonly PrefRow[],
-	channel: PrefChannel,
-): boolean {
-	for (const content of DAILY_ASSET_EVENT_FACETS) {
-		if (isDailyNotificationFacetEnabled(prefs, channel, content)) {
+		if (isDailyNotificationFacetEnabled(prefs, content)) {
 			return true;
 		}
 	}
 	return false;
+}
+
+/** True when any asset-event facet is enabled (alias of hasAnyDailyAssetEventFacet). */
+export function anyDailyAssetEventFacetEnabled(prefs: readonly PrefRow[]): boolean {
+	return hasAnyDailyAssetEventFacet(prefs);
 }

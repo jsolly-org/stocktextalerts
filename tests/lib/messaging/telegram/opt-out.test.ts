@@ -4,24 +4,49 @@ import type { Logger } from "../../../../src/lib/logging";
 import { optOutIfBotBlocked } from "../../../../src/lib/messaging/telegram/opt-out";
 import type { DeliveryResult } from "../../../../src/lib/types";
 
-type RecordedUpdate = { table: string; payload: unknown; eqColumn: string; eqValue: unknown };
+type RecordedUpdate = {
+	table: string;
+	payload: unknown;
+	filters: Array<{ column: string; value: unknown }>;
+};
 
-/** Supabase spy capturing `.from(t).update(p).eq(c, v)` calls; the eq resolves to {error}. */
-function makeSupabaseSpy(error: unknown = null): {
+/** Supabase spy for select→maybeSingle and update→eq→eq chains. */
+function makeSupabaseSpy(
+	options: { deliveryChannel?: "email" | "telegram" | "disabled"; updateError?: unknown } = {},
+): {
 	client: AppSupabaseClient;
 	updates: RecordedUpdate[];
 } {
 	const updates: RecordedUpdate[] = [];
+	const deliveryChannel = options.deliveryChannel ?? "telegram";
 	const client = {
 		from(table: string) {
 			return {
-				update(payload: unknown) {
+				select(_columns: string) {
 					return {
-						eq(eqColumn: string, eqValue: unknown) {
-							updates.push({ table, payload, eqColumn, eqValue });
-							return Promise.resolve({ error });
+						eq(_column: string, _value: unknown) {
+							return {
+								maybeSingle: async () => ({
+									data: { delivery_channel: deliveryChannel },
+									error: null,
+								}),
+							};
 						},
 					};
+				},
+				update(payload: unknown) {
+					const filters: Array<{ column: string; value: unknown }> = [];
+					const chain = {
+						eq(column: string, value: unknown) {
+							filters.push({ column, value });
+							if (filters.length === 1) {
+								return chain;
+							}
+							updates.push({ table, payload, filters: [...filters] });
+							return Promise.resolve({ error: options.updateError ?? null });
+						},
+					};
+					return chain;
 				},
 			};
 		},
@@ -34,15 +59,30 @@ function silentLogger(): Logger {
 }
 
 describe("optOutIfBotBlocked", () => {
-	it("sets telegram_opted_out=true for the user on a 403 (bot blocked)", async () => {
-		const { client, updates } = makeSupabaseSpy();
+	it("sets delivery_channel=disabled when the account was routed to telegram on a 403", async () => {
+		const { client, updates } = makeSupabaseSpy({ deliveryChannel: "telegram" });
 		const result: DeliveryResult = { success: false, error: "blocked", errorCode: "403" };
 
 		await optOutIfBotBlocked(client, "user-1", result, silentLogger());
 
 		expect(updates).toEqual([
-			{ table: "users", payload: { telegram_opted_out: true }, eqColumn: "id", eqValue: "user-1" },
+			{
+				table: "users",
+				payload: { delivery_channel: "disabled" },
+				filters: [
+					{ column: "id", value: "user-1" },
+					{ column: "delivery_channel", value: "telegram" },
+				],
+			},
 		]);
+	});
+
+	it("does nothing when delivery_channel is not telegram", async () => {
+		const { client, updates } = makeSupabaseSpy({ deliveryChannel: "email" });
+		const result: DeliveryResult = { success: false, error: "blocked", errorCode: "403" };
+
+		await optOutIfBotBlocked(client, "user-1", result, silentLogger());
+		expect(updates).toHaveLength(0);
 	});
 
 	it("does nothing on a successful send", async () => {
@@ -65,7 +105,10 @@ describe("optOutIfBotBlocked", () => {
 
 	it("swallows a DB error (best-effort: logs, never throws)", async () => {
 		const logger = silentLogger();
-		const { client } = makeSupabaseSpy({ message: "update failed" });
+		const { client } = makeSupabaseSpy({
+			deliveryChannel: "telegram",
+			updateError: { message: "update failed" },
+		});
 		const result: DeliveryResult = { success: false, error: "blocked", errorCode: "403" };
 
 		await expect(optOutIfBotBlocked(client, "user-1", result, logger)).resolves.toBeUndefined();
