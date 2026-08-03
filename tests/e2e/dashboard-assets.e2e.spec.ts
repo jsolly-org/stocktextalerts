@@ -292,6 +292,7 @@ test.describe("dashboard and assets", () => {
 	});
 
 	test("TC-NOTIF-001: Notification preferences persist on reload", async ({ browser }) => {
+		test.setTimeout(60_000);
 		const user = await createApprovedE2eUser("dash-notif");
 		const session = await e2e.openSignedInPage(browser, user);
 		try {

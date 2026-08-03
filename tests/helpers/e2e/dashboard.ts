@@ -117,7 +117,12 @@ export async function selectDeliveryChannel(
 	const radio = page.getByRole("radio", { name: channel });
 	await expect(radio).toBeVisible({ timeout: 15_000 });
 	await radio.scrollIntoViewIfNeeded();
+	if (await radio.isChecked()) {
+		return;
+	}
 	await waitForAutosave(page, async () => {
-		await radio.click();
+		// Radios are sr-only under a full-size label; a normal click often hits the
+		// label / Astro toolbar instead of the input and never fires change/autosave.
+		await radio.check({ force: true });
 	});
 }

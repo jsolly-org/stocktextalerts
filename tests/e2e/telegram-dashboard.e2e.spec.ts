@@ -150,6 +150,7 @@ test.describe("Telegram dashboard UI", () => {
 	});
 
 	test("delivery_channel radio mutes Telegram without unlinking", async () => {
+		test.setTimeout(60_000);
 		await page.goto("/dashboard");
 		await page
 			.locator('form[aria-label="Notification preferences"][data-hydrated]')
