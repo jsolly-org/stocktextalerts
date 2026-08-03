@@ -1,4 +1,8 @@
-import type { DeliveryChannelMode, NotificationOptionFieldName } from "../constants";
+import type {
+	DeliveryChannelMode,
+	FacetCatalogEntry,
+	NotificationOptionFieldName,
+} from "../constants";
 import { NOTIFICATION_PREFERENCE_CATALOG } from "../constants";
 import { applyDailyNotificationNextSendAtToUserUpdate } from "../daily-notification/schedule";
 import { omitUndefined } from "../db";
@@ -24,12 +28,15 @@ type ParsedNotificationPreferencesForm = {
 	daily_digest_time?: number;
 } & Partial<Record<NotificationOptionFieldName, boolean>>;
 
-/** Daily notification form fields that gate next-send-at scheduling (every
- *  daily_notification option, derived from the catalog). */
-export const DAILY_NOTIFICATION_SCHEDULE_FIELDS: readonly NotificationOptionFieldName[] =
+/** Catalog entries for every daily_notification option (schedule source of truth). */
+export const DAILY_NOTIFICATION_CATALOG_ENTRIES: readonly FacetCatalogEntry[] =
 	NOTIFICATION_PREFERENCE_CATALOG.filter(
 		(entry) => entry.notification_type === "daily_notification",
-	).map((entry) => entry.fieldName);
+	);
+
+/** Daily notification form fields that gate next-send-at scheduling. */
+export const DAILY_NOTIFICATION_SCHEDULE_FIELDS: readonly NotificationOptionFieldName[] =
+	DAILY_NOTIFICATION_CATALOG_ENTRIES.map((entry) => entry.fieldName);
 
 /**
  * Compute `market_scheduled_asset_price_next_send_at` for scheduled update notifications when timezone or schedule changes.
@@ -210,15 +217,15 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 
 interface TimezoneUpdatePayload {
 	timezone: string;
-	market_scheduled_asset_price_next_send_at?: string | null;
 	daily_notification_next_send_at?: string | null;
 }
 
 /**
  * Compute the minimal update payload required when a user changes timezone.
  *
- * Recomputes `market_scheduled_asset_price_next_send_at` and `daily_notification_next_send_at`
- * only when the user has the corresponding schedule enabled to avoid unnecessary writes.
+ * Recomputes `daily_notification_next_send_at` only when the user has daily
+ * notification enabled. Market scheduled times are ET-canonical and do not
+ * need timezone-driven recomputation.
  */
 export function computeTimezoneUpdatePayload(
 	newTimezone: string,

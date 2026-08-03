@@ -73,7 +73,17 @@ for (const row of thresholdRows ?? []) {
 
 // Content toggles live in `notification_preferences` (not on the users row).
 // Fold the flat catalog snapshot onto the user object for dashboard controls.
-const prefRows = await loadUserPreferenceRows(supabase, authUser.id);
+let prefRows: Awaited<ReturnType<typeof loadUserPreferenceRows>>;
+try {
+	prefRows = await loadUserPreferenceRows(supabase, authUser.id);
+} catch (error) {
+	rootLogger.error(
+		"Failed to load notification preferences for dashboard",
+		{ userId: authUser.id, page: "dashboard" },
+		error,
+	);
+	throw error;
+}
 const prefSnapshot = buildPreferenceSnapshot(prefRows);
 const user = { ...dbUser, ...prefSnapshot } as import("../lib/db/types").DashboardUser;
 ---

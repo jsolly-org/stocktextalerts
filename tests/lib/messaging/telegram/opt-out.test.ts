@@ -94,6 +94,14 @@ describe("optOutIfBotBlocked", () => {
 		expect(updates).toHaveLength(0);
 	});
 
+	it("does nothing when delivery_channel is disabled", async () => {
+		const { client, updates } = makeSupabaseSpy({ deliveryChannel: "disabled" });
+		const result: DeliveryResult = { success: false, error: "blocked", errorCode: "403" };
+
+		await optOutIfBotBlocked(client, "user-1", result, silentLogger());
+		expect(updates).toHaveLength(0);
+	});
+
 	it("does nothing on a successful send", async () => {
 		const { client, updates } = makeSupabaseSpy();
 		await optOutIfBotBlocked(client, "user-1", { success: true }, silentLogger());

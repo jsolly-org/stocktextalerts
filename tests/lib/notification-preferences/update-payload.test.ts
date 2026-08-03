@@ -26,10 +26,9 @@ describe("Notification preference update payloads stay aligned with user schedul
 		const payload = computeTimezoneUpdatePayload("America/Chicago", user, true);
 
 		expect(payload.timezone).toBe("America/Chicago");
-		// Market-scheduled times are ET-canonical post-extended-hours migration
-		// — the absolute UTC instant of next_send_at is invariant under user-
-		// timezone changes, so the payload deliberately omits the field.
-		expect(payload.market_scheduled_asset_price_next_send_at).toBeUndefined();
+		// Market-scheduled times are ET-canonical — timezone changes must not
+		// recompute market_scheduled_asset_price_next_send_at.
+		expect(payload).not.toHaveProperty("market_scheduled_asset_price_next_send_at");
 		expect(payload.daily_notification_next_send_at).toBeTruthy();
 	});
 
