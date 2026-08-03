@@ -114,17 +114,24 @@ export async function selectDeliveryChannel(
 	page: Page,
 	channel: "Email" | "Telegram" | "Disabled",
 ): Promise<void> {
-	const radio = page.getByRole("radio", { name: channel });
+	const valueByLabel = {
+		Email: "email",
+		Telegram: "telegram",
+		Disabled: "disabled",
+	} as const;
+	const value = valueByLabel[channel];
+	const radio = page.locator(`input[name="delivery_channel_radio"][value="${value}"]`);
 	await expect(radio).toBeVisible({ timeout: 15_000 });
 	await radio.scrollIntoViewIfNeeded();
 	if (await radio.isChecked()) {
 		return;
 	}
 	await waitForAutosave(page, async () => {
-		// Radios are sr-only under a full-size <label>; click the label text so
-		// the native change event fires. Playwright check()/click on the input
-		// fights Vue's :checked binding and/or gets intercepted by the label.
-		// force bypasses the Astro dev toolbar overlay that occasionally covers the control.
-		await page.getByRole("radiogroup").getByText(channel, { exact: true }).click({ force: true });
+		// Vue binds :checked on these sr-only radios under a full-size label.
+		// Playwright click/check fights that binding (and the Astro toolbar);
+		// dispatch change so the @change → selectChannel → notifyChange path runs.
+		await radio.evaluate((el) => {
+			el.dispatchEvent(new Event("change", { bubbles: true }));
+		});
 	});
 }

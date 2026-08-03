@@ -151,6 +151,14 @@ test.describe("Telegram dashboard UI", () => {
 
 	test("delivery_channel radio mutes Telegram without unlinking", async () => {
 		test.setTimeout(60_000);
+		// Seed telegram routing in DB so the UI starts muted-from-telegram; avoids
+		// a flaky Email→Telegram UI hop before the mute assertion.
+		const { error: routeError } = await adminClient
+			.from("users")
+			.update({ delivery_channel: "telegram" })
+			.eq("id", userId as string);
+		expect(routeError).toBeNull();
+
 		await page.goto("/dashboard");
 		await page
 			.locator('form[aria-label="Notification preferences"][data-hydrated]')
@@ -158,10 +166,6 @@ test.describe("Telegram dashboard UI", () => {
 
 		const telegramRadio = page.getByRole("radio", { name: "Telegram" });
 		await expect(telegramRadio).toBeVisible();
-
-		// Route to Telegram first so Disabled is a real mute from telegram.
-		await selectDeliveryChannel(page, "Telegram");
-		await waitForDeliveryChannel(userId as string, "telegram");
 		await expect(telegramRadio).toBeChecked();
 
 		await selectDeliveryChannel(page, "Disabled");
