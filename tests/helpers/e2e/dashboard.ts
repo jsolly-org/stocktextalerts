@@ -121,8 +121,10 @@ export async function selectDeliveryChannel(
 		return;
 	}
 	await waitForAutosave(page, async () => {
-		// Radios are sr-only under a full-size label; a normal click often hits the
-		// label / Astro toolbar instead of the input and never fires change/autosave.
-		await radio.check({ force: true });
+		// Radios are sr-only under a full-size <label>; click the label text so
+		// the native change event fires. Playwright check()/click on the input
+		// fights Vue's :checked binding and/or gets intercepted by the label.
+		// force bypasses the Astro dev toolbar overlay that occasionally covers the control.
+		await page.getByRole("radiogroup").getByText(channel, { exact: true }).click({ force: true });
 	});
 }
