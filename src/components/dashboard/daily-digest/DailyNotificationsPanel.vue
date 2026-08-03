@@ -251,6 +251,10 @@ const digestOptions = [
 
 type AssetEventUserField = `asset_events_include_${AssetEventKey}`;
 
+function onAssetEventModelsUpdate(next: Record<AssetEventKey, boolean>) {
+	Object.assign(assetEventModels, next);
+}
+
 const assetEventModels = reactive<Record<AssetEventKey, boolean>>({
 	calendar: user.value.asset_events_include_calendar,
 	ipo: user.value.asset_events_include_ipo,

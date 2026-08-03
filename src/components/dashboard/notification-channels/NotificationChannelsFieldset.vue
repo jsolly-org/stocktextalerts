@@ -18,7 +18,6 @@
 				class="inline-flex w-full flex-col gap-2 sm:flex-row sm:rounded-lg sm:border sm:border-edge sm:bg-surface sm:p-1"
 				role="radiogroup"
 				:aria-labelledby="deliveryChannelLegendId"
-				:aria-describedby="telegramConnected ? undefined : telegramUnavailableDescId"
 			>
 				<label
 					v-for="option in channelOptions"
@@ -93,6 +92,7 @@
 						:input-name="`daily_digest_time`"
 						:initial-time="props.dailyDeliveryTimeInput"
 						input-aria-label="Daily notification delivery time"
+						:input-aria-describedby="'daily_digest_time_description'"
 						:clearable="props.dailyDeliveryTimeMinutes !== null"
 						clear-aria-label="Clear delivery time"
 						:is24="props.is24"

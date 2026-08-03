@@ -55,7 +55,14 @@ SELECT
 	np.notification_type,
 	np.content,
 	CASE
-		WHEN u.delivery_channel = 'disabled'::public.delivery_channel_mode THEN false
+		-- Preserve content toggles for disabled accounts (routing is separate).
+		-- Prefer email grain, else telegram, else any enabled bit.
+		WHEN u.delivery_channel = 'disabled'::public.delivery_channel_mode THEN coalesce(
+			bool_or(np.enabled) FILTER (WHERE np.channel::text = 'email'),
+			bool_or(np.enabled) FILTER (WHERE np.channel::text = 'telegram'),
+			bool_or(np.enabled),
+			false
+		)
 		ELSE coalesce(
 			bool_or(np.enabled) FILTER (
 				WHERE np.channel::text = u.delivery_channel::text

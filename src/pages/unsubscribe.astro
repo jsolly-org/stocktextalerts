@@ -69,11 +69,13 @@ if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 					deliveryChannel: user.delivery_channel,
 				});
 			} else {
-				const { error: updateError } = await supabase
+				const { data: updated, error: updateError } = await supabase
 					.from("users")
 					.update({ delivery_channel: "disabled" })
 					.eq("id", user.id)
-					.eq("delivery_channel", "email");
+					.eq("delivery_channel", "email")
+					.select("id")
+					.maybeSingle();
 
 				if (updateError) {
 					logger.error(
@@ -81,6 +83,10 @@ if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 						{ userId },
 						updateError,
 					);
+				} else if (!updated) {
+					tone = "success";
+					message = `Email notifications are already off. You can ${isLoggedIn ? "visit your dashboard" : "sign in"} anytime to adjust your delivery schedule.`;
+					logger.info("Email unsubscribe no-op: concurrent channel change", { userId });
 				} else {
 					tone = "success";
 					message = `Email notifications are now turned off. You can ${isLoggedIn ? "visit your dashboard" : "sign in"} anytime to adjust your delivery schedule.`;
