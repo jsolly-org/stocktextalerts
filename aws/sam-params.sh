@@ -40,6 +40,18 @@ done < "$_ENV_FILE"
 
 _SSM_PREFIX="${SSM_PREFIX:-/stocktextalerts}"
 
+# Optional: resolve asset-buyer heartbeat ARN from SSM when not set in .env.local.
+# Empty string leaves wakeups disabled (code fail-opens).
+_ASSET_BUYER_HEARTBEAT_ARN="${ASSET_BUYER_HEARTBEAT_ARN:-}"
+if [ -z "$_ASSET_BUYER_HEARTBEAT_ARN" ] && command -v aws >/dev/null 2>&1; then
+  _ASSET_BUYER_HEARTBEAT_ARN="$(
+    aws ssm get-parameter --name /asset-buyer/heartbeat-arn --query 'Parameter.Value' --output text 2>/dev/null || true
+  )"
+  if [ "$_ASSET_BUYER_HEARTBEAT_ARN" = "None" ]; then
+    _ASSET_BUYER_HEARTBEAT_ARN=""
+  fi
+fi
+
 SAM_PARAMS=(
   "SiteUrl=$PRODUCTION_SITE_URL"
   "AdminEmails=$ADMIN_EMAILS"
@@ -49,5 +61,6 @@ SAM_PARAMS=(
   "AlertTopicArn=${ALERT_TOPIC_SSM_PARAM:-/shared-infra/alert-topic-arn}"
   "EmailFrom=${EMAIL_FROM_SSM_PARAM:-$_SSM_PREFIX/email-from}"
   "BackupConnectionSsmParam=${BACKUP_CONNECTION_SSM_PARAM:-$_SSM_PREFIX/backup/connection-string}"
+  "AssetBuyerHeartbeatArn=${_ASSET_BUYER_HEARTBEAT_ARN}"
 )
 export SAM_PARAMS

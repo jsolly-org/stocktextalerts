@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { getAssetData } from "../../helpers/asset-data";
+import { MAX_TRACKED_ASSETS } from "../../../src/lib/db/database-errors";
+import { getAssetData, getRealAssetSymbols } from "../../helpers/asset-data";
 
 function createDbClient(): Client {
 	const databaseUrl = process.env.DATABASE_URL;
@@ -208,6 +209,40 @@ describe("User input is validated against required data format rules.", () => {
 		const aaplAfter = after.rows.find((r) => r.symbol === "AAPL")?.created_at;
 		const aaplAfterIso = aaplAfter instanceof Date ? aaplAfter.toISOString() : String(aaplAfter);
 		expect(aaplAfterIso).toBe(stampedIso);
+	});
+
+	it(`replace_user_assets accepts ${MAX_TRACKED_ASSETS} symbols and rejects ${MAX_TRACKED_ASSETS + 1}`, async () => {
+		const userId = randomUUID();
+		await client.query("insert into public.users (id, email) values ($1, $2)", [
+			userId,
+			`test-${randomUUID()}@example.com`,
+		]);
+
+		const symbols = getRealAssetSymbols(MAX_TRACKED_ASSETS + 1);
+		for (const symbol of symbols) {
+			const asset = getAssetData(symbol);
+			await client.query(
+				"insert into public.assets (symbol, name, type) values ($1, $2, $3) on conflict (symbol) do nothing",
+				[symbol, asset.name, asset.type === "etf" ? "etf" : "stock"],
+			);
+		}
+
+		await client.query(
+			"select set_config('request.jwt.claims', '{\"role\":\"service_role\"}', true)",
+		);
+
+		await expect(
+			client.query("select public.replace_user_assets($1::uuid, $2::text[])", [
+				userId,
+				symbols.slice(0, MAX_TRACKED_ASSETS),
+			]),
+		).resolves.toBeTruthy();
+
+		await expect(
+			client.query("select public.replace_user_assets($1::uuid, $2::text[])", [userId, symbols]),
+		).rejects.toMatchObject({
+			code: "23514",
+		});
 	});
 
 	it("An asset with type 'etf' is accepted by the database.", async () => {

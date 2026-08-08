@@ -16,6 +16,7 @@ import type { EmailSender, TelegramSender } from "../../messaging/types";
 import { consumeNotificationBudget, releaseNotificationBudget } from "../../notification-budget";
 import { buildFlatAlertEnriched } from "../../price-alerts/compose";
 import type { ChannelDeliveryStats, ExtendedAssetQuote, IntradayBarsResult } from "../../types";
+import { wakeupAssetBuyerFromFlatAlert } from "./asset-buyer-wakeup";
 import { buildSubject, formatFlatPriceAlertEmail, formatRelativeMinutesAgo } from "./format";
 import type { FlatPriceAlertUser } from "./users";
 
@@ -71,6 +72,39 @@ export async function deliverFlatPriceAlert(options: {
 	let delivered = false;
 	const contentEnabled = isFacetEnabled(user.prefs, "price_move_alerts");
 	const outbound = resolveOutboundChannel(user);
+
+	// System / stock-buyer users: Lambda wakeup only (no email/Telegram, no
+	// notification_log — delivery_method enum is email|telegram only).
+	if (user.delivery_channel === "lambda") {
+		if (!contentEnabled) {
+			rootLogger.info("Skipped lambda flat alert: price_move_alerts facet off", {
+				userId: user.id,
+				symbol,
+			});
+			return false;
+		}
+		const woke = await wakeupAssetBuyerFromFlatAlert({
+			symbol,
+			triggerPercent,
+			isAcceleration,
+		});
+		if (!woke) {
+			rootLogger.warn("Lambda flat alert wakeup failed", {
+				userId: user.id,
+				symbol,
+				triggerPercent,
+				isAcceleration,
+			});
+			return false;
+		}
+		rootLogger.info("Lambda flat alert wakeup completed (no human notification_log)", {
+			userId: user.id,
+			symbol,
+			triggerPercent,
+			isAcceleration,
+		});
+		return true;
+	}
 
 	if (contentEnabled && outbound === "email") {
 		const consume = await consumeNotificationBudget(supabase, {

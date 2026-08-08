@@ -41,6 +41,12 @@ Parameters:
     Type: String
     Default: /stocktextalerts/backup/connection-string
     Description: SSM SecureString param name holding the backup_readonly connection string
+  # Optional: empty disables STA→asset-buyer wakeups (code fail-opens). Production
+  # sets this from SSM `/asset-buyer/heartbeat-arn` via sam-params / deploy override.
+  AssetBuyerHeartbeatArn:
+    Type: String
+    Default: ""
+    Description: ARN of asset-buyer heartbeat Lambda for flat-alert wakeups (optional)
 
 Globals:
   Function:
@@ -111,18 +117,28 @@ Resources:
               Action:
                 - sqs:SendMessage
               Resource: !GetAtt PriceMoveWhyQueue.Arn
+            # Async-invoke asset-buyer heartbeat for lambda-channel flat alerts.
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource:
+                - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:asset-buyer-heartbeat"
+                - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:asset-buyer-heartbeat:*"
             # Read this app's runtime secrets (SSM SecureString). One namespace
             # wildcard rather than 11 per-secret ARNs — same-app boundary. No
             # kms:Decrypt grant needed for the AWS-managed alias/aws/ssm key.
             - Effect: Allow
               Action: ssm:GetParameter
-              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*"
+              Resource:
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*"
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/asset-buyer/heartbeat-arn"
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
           EMAIL_FROM: !Ref EmailFrom
           VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
           PRICE_MOVE_WHY_QUEUE_URL: !Ref PriceMoveWhyQueue
+          ASSET_BUYER_HEARTBEAT_ARN: !Ref AssetBuyerHeartbeatArn
           MASSIVE_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/massive-api-key"
           XAI_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/xai-api-key"
           TELEGRAM_BOT_TOKEN_SSM_PARAM: !Sub "${SsmPrefix}/telegram-bot-token"
@@ -371,13 +387,22 @@ Resources:
                 - ses:SendRawEmail
               Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${SesIdentityDomain}"
             - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource:
+                - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:asset-buyer-heartbeat"
+                - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:asset-buyer-heartbeat:*"
+            - Effect: Allow
               Action: ssm:GetParameter
-              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*"
+              Resource:
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*"
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/asset-buyer/heartbeat-arn"
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
           EMAIL_FROM: !Ref EmailFrom
           PRICE_MOVE_WHY_QUEUE_URL: !Ref PriceMoveWhyQueue
+          ASSET_BUYER_HEARTBEAT_ARN: !Ref AssetBuyerHeartbeatArn
           MASSIVE_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/massive-api-key"
           XAI_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/xai-api-key"
           TELEGRAM_BOT_TOKEN_SSM_PARAM: !Sub "${SsmPrefix}/telegram-bot-token"

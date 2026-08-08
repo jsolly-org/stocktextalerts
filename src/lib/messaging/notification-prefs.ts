@@ -3,7 +3,7 @@ Canonical notification-preference model.
 
 `notification_preferences` is the single source of truth for content toggles.
 One row per (user_id, notification_type, content). Account routing lives on
-`users.delivery_channel` (email | telegram | disabled), not on each option.
+`users.delivery_channel` (email | telegram | disabled | lambda), not on each option.
 `content = ""` for facet-less notification types (the market/price types).
 ============= */
 

@@ -1,5 +1,4 @@
 import type { Database } from "./db/generated/database.types";
-import { Constants } from "./db/generated/database.types";
 
 /* =============
 Delivery pipes
@@ -11,8 +10,15 @@ export type DeliveryMethod = Database["public"]["Enums"]["delivery_method"];
 /** Account-level routing mode (DB `delivery_channel_mode` enum). */
 export type DeliveryChannelMode = Database["public"]["Enums"]["delivery_channel_mode"];
 
-/** Every account delivery mode, in canonical order. */
-export const DELIVERY_CHANNEL_MODES = Constants.public.Enums.delivery_channel_mode;
+/**
+ * Delivery channels selectable on the dashboard / notification-preferences form.
+ * `lambda` is service-only (stock-buyer wakeup) and must not appear in UI.
+ */
+export const USER_SELECTABLE_DELIVERY_CHANNEL_MODES = [
+	"email",
+	"telegram",
+	"disabled",
+] as const satisfies ReadonlyArray<Exclude<DeliveryChannelMode, "lambda">>;
 
 /* =============
 Notification options — THE single authored source of the option taxonomy.
@@ -24,15 +30,17 @@ One structure defines every valid (notification_type, content) option:
   - `family` groups daily_notification facets and selects their form-field
     prefix (see NOTIFICATION_FAMILY_FIELD_PREFIX).
 
-Account routing (email | telegram | disabled) lives on `users.delivery_channel`,
-not on each option. Everything else derives from this value or is drift-checked
-against it: the TS unions below, the flat NOTIFICATION_PREFERENCE_CATALOG (and
-each option's form fieldName), the notification-preferences form schema,
-signup defaults (buildDefaultPreferenceRows) and the local seed, dashboard
-field bindings, and the `notification_options` DB table enforcing the same
-pairs via FK (checked by `npm run check:option-catalog` inside db:reset).
-Add, remove, or rename an option HERE — a new option also needs a migration
-inserting its `notification_options` row, which the drift check demands loudly.
+Account routing (email | telegram | disabled; plus service-only `lambda`) lives
+on `users.delivery_channel`, not on each option. Dashboard forms use
+USER_SELECTABLE_DELIVERY_CHANNEL_MODES so users cannot pick `lambda`. Everything
+else derives from this value or is drift-checked against it: the TS unions
+below, the flat NOTIFICATION_PREFERENCE_CATALOG (and each option's form
+fieldName), the notification-preferences form schema, signup defaults
+(buildDefaultPreferenceRows) and the local seed, dashboard field bindings, and
+the `notification_options` DB table enforcing the same pairs via FK (checked by
+`npm run check:option-catalog` inside db:reset). Add, remove, or rename an
+option HERE — a new option also needs a migration inserting its
+`notification_options` row, which the drift check demands loudly.
 
 Facet-less types must use exactly one `""` content key.
 ============= */

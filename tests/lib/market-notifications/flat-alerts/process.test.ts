@@ -78,6 +78,11 @@ vi.mock("../../../../src/lib/market-notifications/flat-alerts/why-queue", async 
 	};
 });
 
+const wakeupAssetBuyerFromFlatAlert = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("../../../../src/lib/market-notifications/flat-alerts/asset-buyer-wakeup", () => ({
+	wakeupAssetBuyerFromFlatAlert,
+}));
+
 vi.mock("../../../../src/lib/market-notifications/flat-alerts/why", () => ({
 	generatePriceMoveWhyWithGrok: vi.fn(async () => null),
 }));
@@ -174,6 +179,7 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	mockEmailSender.mockResolvedValue({ success: true });
 	enqueuePriceMoveWhy.mockResolvedValue(false);
+	wakeupAssetBuyerFromFlatAlert.mockResolvedValue(true);
 });
 
 describe("processFlatPriceAlerts", () => {
@@ -187,6 +193,78 @@ describe("processFlatPriceAlerts", () => {
 		expect(totals.usersChecked).toBe(0);
 		expect(totals.alertsTriggered).toBe(0);
 		expect(mockEmailSender).not.toHaveBeenCalled();
+	});
+
+	it("lambda delivery_channel wakes asset-buyer without email/why enqueue", async () => {
+		const testUser = await createTestUser({
+			trackedAssets: ["AAPL"],
+			timezone: "America/New_York",
+			deliveryChannel: "lambda",
+		});
+		registerTestUserForCleanup(testUser.id);
+		await enableFlatAlerts(testUser.id);
+		// enableFlatAlerts sets delivery_channel=email — restore lambda.
+		const { error: channelError } = await adminClient
+			.from("users")
+			.update({ delivery_channel: "lambda" })
+			.eq("id", testUser.id);
+		if (channelError) throw new Error(channelError.message);
+
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			isMarketOpen: true,
+		});
+
+		expect(totals.alertsTriggered).toBe(1);
+		expect(totals.lambdaWakeups).toBe(1);
+		expect(totals.whyEnqueued).toBe(0);
+		expect(totals.whyInline).toBe(0);
+		expect(totals.emailsSent).toBe(0);
+		expect(mockEmailSender).not.toHaveBeenCalled();
+		expect(enqueuePriceMoveWhy).not.toHaveBeenCalled();
+		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledOnce();
+		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledWith({
+			symbol: "AAPL",
+			triggerPercent: expect.any(Number),
+			isAcceleration: false,
+		});
+		const wakeupCall = wakeupAssetBuyerFromFlatAlert.mock.calls[0] as unknown as
+			| [{ triggerPercent: number }]
+			| undefined;
+		expect(wakeupCall).toBeDefined();
+		if (wakeupCall === undefined) {
+			throw new Error("expected asset-buyer wakeup args");
+		}
+		expect(wakeupCall[0].triggerPercent).toBeGreaterThanOrEqual(5);
+		expect(await getNotificationLogCount(testUser.id)).toBe(0);
+
+		const state = await getStateRow(testUser.id, "AAPL");
+		expect(state?.pending_delivery).toBe(false);
+		expect(Number(state?.last_notification_price)).toBeCloseTo(195.86, 2);
+	});
+
+	it("email delivery_channel does not ping asset-buyer", async () => {
+		const testUser = await createTestUser({
+			trackedAssets: ["AAPL"],
+			timezone: "America/New_York",
+			deliveryChannel: "email",
+		});
+		registerTestUserForCleanup(testUser.id);
+		await enableFlatAlerts(testUser.id);
+
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			isMarketOpen: true,
+		});
+
+		expect(totals.alertsTriggered).toBe(1);
+		expect(totals.lambdaWakeups).toBe(0);
+		expect(wakeupAssetBuyerFromFlatAlert).not.toHaveBeenCalled();
+		expect(enqueuePriceMoveWhy).toHaveBeenCalled();
 	});
 
 	it("User in Pacific timezone receives first alert on AAPL overnight gap", async () => {
