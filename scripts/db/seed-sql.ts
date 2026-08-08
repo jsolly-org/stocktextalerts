@@ -249,7 +249,12 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
   }
 
   const deliveryChannel = user.delivery_channel;
-  if (deliveryChannel === "email" || deliveryChannel === "telegram" || deliveryChannel === "disabled") {
+  if (
+    deliveryChannel === "email" ||
+    deliveryChannel === "telegram" ||
+    deliveryChannel === "disabled" ||
+    deliveryChannel === "lambda"
+  ) {
     insertColumns.push("delivery_channel");
     insertValues.push(`'${deliveryChannel}'::public.delivery_channel_mode`);
     updateFields.push("delivery_channel = EXCLUDED.delivery_channel");

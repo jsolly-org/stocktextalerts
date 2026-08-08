@@ -2,10 +2,14 @@ import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import type { SupabaseAdminClient } from "../../db/supabase";
 import { createLogger } from "../../logging";
+import { isFacetEnabled } from "../../messaging/notification-prefs";
 import type { ChannelDeliveryStats, ExtendedQuoteMap } from "../../types";
+import { wakeupAssetBuyerFromFlatAlert } from "./asset-buyer-wakeup";
 import {
 	fetchFlatPriceAlertState,
 	fetchPriceMoveThresholds,
+	finalizeFlatPriceAlert,
+	releaseFlatPriceAlert,
 	reserveFlatPriceAlert,
 	stateKey,
 } from "./state";
@@ -29,6 +33,8 @@ export interface FlatPriceAlertTotals extends ChannelDeliveryStats {
 	whyEnqueued: number;
 	/** Alerts processed inline when enqueue failed / queue URL missing. */
 	whyInline: number;
+	/** Lambda-channel wakeups (no email/Telegram / no why). */
+	lambdaWakeups: number;
 }
 
 interface EligibleAlert {
@@ -54,6 +60,7 @@ function emptyTotals(): FlatPriceAlertTotals {
 		reTriggerAlerts: 0,
 		whyEnqueued: 0,
 		whyInline: 0,
+		lambdaWakeups: 0,
 		emailsSent: 0,
 		emailsFailed: 0,
 		telegramSent: 0,
@@ -279,9 +286,29 @@ export async function processFlatPriceAlerts(options: {
 	// Fan out to the why worker (one SQS job per user+symbol). On enqueue success the
 	// worker owns why + deliver + finalize — schedule must not double-deliver.
 	// When the queue URL is missing or send fails, fail-open inline (still try why).
+	// Lambda-channel users skip Grok/why entirely: wakeup asset-buyer + finalize.
 	for (const alert of eligibleAlerts) {
 		const quote = quoteMap.get(alert.symbol);
 		if (!quote) continue; // Should never happen given the earlier check, but satisfy TS
+
+		if (alert.user.delivery_channel === "lambda") {
+			if (!isFacetEnabled(alert.user.prefs, "price_move_alerts")) {
+				await releaseFlatPriceAlert(supabase, alert.user.id, alert.symbol);
+				logger.info("Lambda flat alert released: price_move_alerts facet off", {
+					userId: alert.user.id,
+					symbol: alert.symbol,
+				});
+				continue;
+			}
+			await wakeupAssetBuyerFromFlatAlert({
+				symbol: alert.symbol,
+				triggerPercent: alert.triggerPercent,
+				isAcceleration: alert.isAcceleration,
+			});
+			await finalizeFlatPriceAlert(supabase, alert.user.id, alert.symbol);
+			totals.lambdaWakeups++;
+			continue;
+		}
 
 		const payload = {
 			userId: alert.user.id,

@@ -7,8 +7,10 @@ import { getIntradayBarsPreferCache } from "../../market-data/price-history-cach
 import { fetchSparklines } from "../../market-data/sparklines";
 import { resolveOutboundChannel } from "../../messaging/delivery-channel";
 import { attachPrefsToUsers } from "../../messaging/load-prefs";
+import { isFacetEnabled } from "../../messaging/notification-prefs";
 import { createNotificationSenders } from "../../messaging/senders";
 import type { ChannelDeliveryStats, ExtendedAssetQuote } from "../../types";
+import { wakeupAssetBuyerFromFlatAlert } from "./asset-buyer-wakeup";
 import { deliverFlatPriceAlert } from "./delivery";
 import { finalizeFlatPriceAlert, releaseFlatPriceAlert } from "./state";
 import type { FlatPriceAlertUser } from "./users";
@@ -128,6 +130,24 @@ export async function processPriceMoveWhyAlert(options: {
 	if (!user) {
 		await releaseFlatPriceAlert(supabase, userId, symbol);
 		return { delivered: false, stats: emptyChannelStats() };
+	}
+
+	// Safety net: lambda users normally skip SQS in process.ts. If a job still
+	// lands here, wake asset-buyer without Grok/sparklines/human delivery.
+	if (user.delivery_channel === "lambda") {
+		if (!isFacetEnabled(user.prefs, "price_move_alerts")) {
+			await releaseFlatPriceAlert(supabase, userId, symbol);
+			logger.info("Price-move why job released lambda user: facet off", { userId, symbol });
+			return { delivered: false, stats: emptyChannelStats() };
+		}
+		await wakeupAssetBuyerFromFlatAlert({
+			symbol,
+			triggerPercent: message.triggerPercent,
+			isAcceleration: message.isAcceleration,
+		});
+		await finalizeFlatPriceAlert(supabase, userId, symbol);
+		logger.info("Price-move why job lambda wakeup finalized", { userId, symbol });
+		return { delivered: true, stats: emptyChannelStats() };
 	}
 
 	const todayEt = todayEtIso();

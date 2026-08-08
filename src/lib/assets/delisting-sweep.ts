@@ -205,7 +205,7 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 	interface AffectedUser {
 		id: string;
 		email: string;
-		deliveryChannel: "email" | "telegram" | "disabled";
+		deliveryChannel: "email" | "telegram" | "disabled" | "lambda";
 	}
 	const userInfo = new Map<string, AffectedUser>();
 	for (const u of userRows ?? []) {

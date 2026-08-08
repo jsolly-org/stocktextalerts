@@ -152,7 +152,7 @@ Verify asset search, selection, and persistence.
 
 ### Notes
 
-- Max 10 assets per user. Symbols should display in uppercase.
+- Max 50 assets per user. Symbols should display in uppercase.
 
 ---
 

@@ -37,7 +37,7 @@ export type CreateTestUserOptions = {
 	email?: string;
 	password?: string;
 	timezone?: string;
-	deliveryChannel?: "email" | "telegram" | "disabled";
+	deliveryChannel?: "email" | "telegram" | "disabled" | "lambda";
 	/** Required implicitly when deliveryChannel is telegram (CHECK constraint). */
 	telegramChatId?: number;
 	scheduledUpdateTimes?: number[] | null;
