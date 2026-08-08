@@ -1,25 +1,12 @@
 <template>
 	<div class="rounded-lg border border-edge bg-surface-alt p-4">
-		<div class="flex items-start justify-between gap-3">
-			<div class="min-w-0">
-				<h3 class="text-base font-semibold text-heading">Telegram</h3>
-				<p class="mt-0.5 text-sm text-body-secondary">
-					Receive your enabled notifications as Telegram bot messages.
-				</p>
-			</div>
-
-			<span
-				v-if="isConnected"
-				class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-success-bg px-2.5 py-1 text-xs font-medium text-success-text"
-			>
-				<CheckCircleIcon class="size-4" aria-hidden="true" />
-				Connected
-			</span>
+		<div class="min-w-0">
+			<h3 class="text-base font-semibold text-heading">Telegram</h3>
+			<p class="mt-0.5 text-sm text-body-secondary">Get alerts as bot messages.</p>
 		</div>
 
 		<div class="mt-3">
 			<button
-				v-if="!isConnected"
 				type="button"
 				class="btn btn-md btn-primary"
 				:class="{ 'btn-loading': isLinking }"
@@ -28,10 +15,6 @@
 			>
 				{{ isLinking ? "Generating link…" : "Connect Telegram" }}
 			</button>
-
-			<p v-else class="text-sm text-body-secondary">
-				Your account is linked. Telegram appears as a channel option on every notification below.
-			</p>
 		</div>
 
 		<div v-if="linkDetails" class="mt-3 space-y-3 rounded-lg border border-edge bg-surface p-3">
@@ -45,7 +28,7 @@
 					:href="linkDetails.deepLink"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="mt-2 inline-flex items-center gap-1.5 rounded text-sm font-medium text-primary hover:text-primary-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+					class="link-primary mt-2 inline-flex items-center gap-1.5 text-sm"
 				>
 					Open in Telegram app
 					<ExternalLinkIcon class="size-4" aria-hidden="true" />
@@ -60,7 +43,7 @@
 						:href="linkDetails.webUrl"
 						target="_blank"
 						rel="noopener noreferrer"
-						class="rounded font-medium text-primary hover:text-primary-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+						class="link-primary"
 						>web.telegram.org</a
 					>, open <span class="font-medium">@{{ linkDetails.botUsername }}</span>, and send this
 					message:
@@ -88,19 +71,11 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref } from "vue";
+import { ref } from "vue";
 import ExternalLinkIcon from "../../../icons/arrow-top-right-on-square.svg?component";
-// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
-import CheckCircleIcon from "../../../icons/check-circle-20.svg?component";
 import { isUnauthorizedResponse, redirectToSignIn } from "../../../lib/auth/session/session-expired";
 import { rootLogger } from "../../../lib/logging";
 import StatusMessage from "../../StatusMessage.vue";
-import { useDashboardUser } from "../composables/useDashboardUser";
-
-const user = useDashboardUser();
-
-/** Linked when the user has a Telegram chat id (set by the bot /start webhook). */
-const isConnected = computed(() => user.value.telegram_chat_id != null);
 
 /**
  * The link shape returned by `/api/telegram/link`. Browser-only users can't use
@@ -137,8 +112,8 @@ async function copyStartCommand() {
 
 /**
  * Mint a single-use linking deep link and surface it. The bot's /start webhook
- * consumes the token and sets `telegram_chat_id`; in this prototype the connected
- * state flips after the user reloads the dashboard (server re-reads the column).
+ * consumes the token and sets `telegram_chat_id`; the connected state flips after
+ * the user reloads the dashboard (server re-reads the column).
  */
 async function connect() {
 	if (isLinking.value) return;

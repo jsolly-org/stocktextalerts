@@ -8,30 +8,39 @@ import type { TelegramMessage, TelegramSender } from "../types";
 /**
  * Perform the real Telegram send for a single message via grammY's `bot.api`.
  *
- * This is the production send path — `sendPhoto` when a chart Buffer is
- * present, `sendMessage` otherwise.
+ * Dispatches on `message.kind`: `photo` → `sendPhoto`, `text` → `sendMessage`.
  *
  * grammY maps a Bot-API error response to a thrown `GrammyError` (see
  * `core/client.ts#callApi`), which we translate to a `{ success: false, errorCode }`
  * result — error_code 403 ("bot was blocked by the user") is handled by the caller,
- * which maps it to telegram_opted_out (never set opt-out from inbound content).
+ * which sets delivery_channel=disabled when routed to telegram (never from inbound content).
  */
 export async function sendViaBot(bot: Bot, message: TelegramMessage): Promise<DeliveryResult> {
 	try {
-		const sent = message.photo
-			? await bot.api.sendPhoto(message.chatId, new InputFile(message.photo, "chart.png"), {
-					caption: message.text,
-					caption_entities: message.entities,
-					reply_markup: message.replyMarkup,
-					disable_notification: message.disableNotification,
-				})
-			: await bot.api.sendMessage(message.chatId, message.text, {
+		switch (message.kind) {
+			case "photo": {
+				const sent = await bot.api.sendPhoto(
+					message.chatId,
+					new InputFile(message.photo, "chart.png"),
+					{
+						caption: message.text,
+						caption_entities: message.entities,
+						reply_markup: message.replyMarkup,
+						disable_notification: message.disableNotification,
+					},
+				);
+				return { success: true, messageSid: String(sent.message_id) };
+			}
+			case "text": {
+				const sent = await bot.api.sendMessage(message.chatId, message.text, {
 					entities: message.entities,
 					reply_markup: message.replyMarkup,
 					disable_notification: message.disableNotification,
 					link_preview_options: { is_disabled: true },
 				});
-		return { success: true, messageSid: String(sent.message_id) };
+				return { success: true, messageSid: String(sent.message_id) };
+			}
+		}
 	} catch (error) {
 		rootLogger.debug("Telegram send attempt failed", {
 			action: "send_telegram",

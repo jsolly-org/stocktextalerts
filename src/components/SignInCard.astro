@@ -30,17 +30,21 @@ const {
     <StatusMessage class="mb-4" tone="error">
       {errorMessage}
       {errorCode === "invalid_credentials" && REGISTRATION_ENABLED && (
-        <> You can <a href="/auth/register" class="underline hover:no-underline">create an account</a> or <a href="/auth/forgot" class="underline hover:no-underline">reset your password</a>.</>
+        <> You can <a href="/auth/register" class="link-primary">create an account</a> or <a href="/auth/forgot" class="link-primary">reset your password</a>.</>
       )}
       {errorCode === "invalid_credentials" && !REGISTRATION_ENABLED && (
-        <> You can <a href="/auth/forgot" class="underline hover:no-underline">reset your password</a>.</>
+        <> You can <a href="/auth/forgot" class="link-primary">reset your password</a>.</>
       )}
     </StatusMessage>
   )}
   <form class="space-y-6" action="/api/auth/signin" method="post">
-		{redirectPath && (
-			<input type="hidden" name="redirect" value={redirectPath} />
-		)}
+		{/* Always render so client JS can fold window.location.hash into the return path. */}
+		<input
+			type="hidden"
+			name="redirect"
+			value={redirectPath ?? ""}
+			data-signin-redirect
+		/>
     <fieldset class="space-y-4">
       <legend class="sr-only">Sign in credentials</legend>
       <div>
@@ -89,3 +93,12 @@ const {
     </p>
   )}
 </section>
+
+<script>
+	import { mergeLocationHashIntoRedirectValue } from "../lib/auth/redirects";
+
+	const input = document.querySelector("[data-signin-redirect]");
+	if (input instanceof HTMLInputElement) {
+		input.value = mergeLocationHashIntoRedirectValue(input.value, window.location.hash);
+	}
+</script>

@@ -7,7 +7,7 @@ import type { User } from "../../../lib/db/types";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
-import { loadUserPreferenceRows } from "../../../lib/notification-preferences/channels";
+import { loadUserPreferenceRows } from "../../../lib/notification-preferences/preferences";
 import { computeTimezoneUpdatePayload } from "../../../lib/notification-preferences/update-payload";
 
 export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
@@ -69,8 +69,8 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	}
 
 	// Daily notification facets (digest + asset events) live in notification_preferences;
-	// resolve whether any channel facet is on to decide if daily_notification_next_send_at
-	// needs recomputing — not asset-event facets only.
+	// resolve whether any facet is on to decide if daily_notification_next_send_at
+	// needs recomputing.
 	let prefs: Awaited<ReturnType<typeof loadUserPreferenceRows>>;
 	try {
 		prefs = await loadUserPreferenceRows(supabase, authUser.id);
@@ -135,13 +135,6 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			{ status: 500 },
 		);
 	}
-	if (!updatedUser) {
-		logger.error("User update returned null", { userId: authUser.id });
-		return Response.json({ ok: false, message: "user_not_found" } satisfies ApiJsonBody, {
-			status: 404,
-		});
-	}
-
 	return Response.json(
 		{
 			ok: true,

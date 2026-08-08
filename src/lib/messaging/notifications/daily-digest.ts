@@ -1,5 +1,14 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
-import type { buildAssetEventsContent } from "../../asset-events/content";
+import { formatFilingsSectionTelegram } from "../../asset-events/filings-format";
+import {
+	formatFilingsSectionMarkdown,
+	formatFilingsSectionPlainText,
+} from "../../asset-events/format";
+import {
+	formatShortInterestSectionLines,
+	formatShortInterestSectionTitle,
+} from "../../asset-events/short-interest";
+import type { AssetEventsContent } from "../../asset-events/types";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import type { TopMover } from "../../market-data/types";
 import {
@@ -118,7 +127,7 @@ function ensureBlankLineBetweenTickerSnippets(content: string): string {
 	return normalized.join("\n").trim();
 }
 
-type AssetEventsResult = Awaited<ReturnType<typeof buildAssetEventsContent>> | null;
+type AssetEventsResult = AssetEventsContent | null;
 
 /** Show change % on closed-market digests only when a 7-day sparkline anchors it. */
 function shouldShowDigestChangePercent(
@@ -188,7 +197,7 @@ export function formatDailyDigestEmail(options: {
 	/** User's 24-hour-time preference for the market-closed "as of" timestamp.
 	 *  Defaults to 12-hour (the DB default) when omitted; production callers pass it. */
 	is24Hour?: boolean;
-	/** IANA timezone for prediction-market Updated/Closes labels. */
+	/** IANA timezone retained for call-site compatibility (PM cards omit timestamps). */
 	timeZone?: string;
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
@@ -231,6 +240,18 @@ export function formatDailyDigestEmail(options: {
 	const ipos = (ae?.eventsSection?.ipos ?? "").trim();
 	const analyst = (ae?.analystSection ?? "").trim();
 	const insider = (ae?.insiderSection ?? "").trim();
+	const filingsMarkdown = ae?.filingsLines?.length
+		? formatFilingsSectionMarkdown(ae.filingsLines)
+		: null;
+	const filingsPlain = ae?.filingsLines?.length
+		? formatFilingsSectionPlainText(ae.filingsLines)
+		: null;
+	const shortInterestTitle = ae?.shortInterest
+		? formatShortInterestSectionTitle(ae.shortInterest)
+		: null;
+	const shortInterestBody = ae?.shortInterest
+		? formatShortInterestSectionLines(ae.shortInterest)
+		: null;
 	const topMovers = options.extras.topMovers ? renderTopMoversBody(options.extras.topMovers) : "";
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
@@ -274,14 +295,19 @@ export function formatDailyDigestEmail(options: {
 		prices ? `💰 Your Assets\n${prices}` : "",
 		news ? `\n🗞️ News\n${news}` : "",
 		rumors ? `\n🤫 Rumors\n${rumors}` : "",
-		predictionMarketsText ? `\n🎯 Prediction Markets\n${predictionMarketsText}` : "",
 		earnings ? `\n📈 Earnings\n${earnings}` : "",
 		dividends ? `\n💰 Dividends\n${dividends}` : "",
 		splits ? `\n✂️ Splits\n${splits}` : "",
 		ipos ? `\n🆕 Upcoming IPOs\n${ipos}` : "",
 		analyst ? `\n📊 Analyst Consensus\n${analyst}` : "",
 		insider ? `\n🏦 Insider Trades\n${insider}` : "",
+		filingsPlain ? `\n📄 SEC Filings\n${filingsPlain}` : "",
+		shortInterestBody && shortInterestTitle
+			? `\n📉 ${shortInterestTitle}\n${shortInterestBody}`
+			: "",
 		topMovers ? `\n🚀 Top Movers\n${topMovers}` : "",
+		// Prediction Markets last among content sections (after Upcoming IPOs).
+		predictionMarketsText ? `\n🎯 Prediction Markets\n${predictionMarketsText}` : "",
 		`\nManage your notifications: ${urls.dashboardUrl}`,
 		`Manage your delivery schedule: ${urls.scheduleUrl}`,
 		`Unsubscribe from all emails: ${urls.unsubscribeUrl}`,
@@ -311,11 +337,6 @@ export function formatDailyDigestEmail(options: {
 		}
 		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showMassiveLogo: true })}
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
-		${
-			predictionMarketsHtml
-				? renderEmailHtmlSection("🎯", "Prediction Markets", predictionMarketsHtml)
-				: ""
-		}
 		${renderEmailSection("📈", "Earnings", earnings, {
 			showFinnhubLogo: true,
 		})}
@@ -328,7 +349,14 @@ export function formatDailyDigestEmail(options: {
 		})}
 		${renderEmailSection("📊", "Analyst Consensus", analyst, { showFinnhubLogo: true })}
 		${renderEmailSection("🏦", "Insider Trades", insider, { showFinnhubLogo: true })}
+		${renderEmailSection("📄", "SEC Filings", filingsMarkdown ?? "")}
+		${renderEmailSection("📉", shortInterestTitle ?? "Short Interest", shortInterestBody ?? "")}
 		${renderEmailSection("🚀", "Top Movers", topMovers, { showMassiveLogo: true })}
+		${
+			predictionMarketsHtml
+				? renderEmailHtmlSection("🎯", "Prediction Markets", predictionMarketsHtml)
+				: ""
+		}
 		<div style="text-align: center; margin-top: 20px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
 				Manage your notifications →
@@ -354,7 +382,7 @@ export function formatDailyDigestTelegram(opts: {
 	/** User's 24-hour-time preference for the market-closed "as of" timestamp.
 	 *  Defaults to 12-hour (the DB default) when omitted; production callers pass it. */
 	is24Hour?: boolean;
-	/** IANA timezone for prediction-market Updated/Closes labels. */
+	/** IANA timezone retained for call-site compatibility (PM cards omit timestamps). */
 	timeZone?: string;
 	sparklines?: SparklineMap;
 	marketOpen?: boolean;
@@ -396,18 +424,6 @@ export function formatDailyDigestTelegram(opts: {
 	if (opts.extras.rumors) {
 		msg = fmt`${msg}\n\n${FormattedString.bold("💬 Rumors")}\n${FormattedString.blockquote(boldTickerPrefixesTelegram(opts.extras.rumors))}`;
 	}
-	const pmFormatOpts = {
-		timeZone: opts.timeZone ?? US_MARKET_TIMEZONE,
-		use24Hour: opts.is24Hour ?? false,
-	};
-	const predictionMarketsTelegram = opts.extras.predictionMarketsDigest
-		? formatPredictionMarketsDigestTelegram(opts.extras.predictionMarketsDigest, pmFormatOpts)
-		: opts.extras.predictionMarkets
-			? formatPredictionMarketsTelegram(opts.extras.predictionMarkets)
-			: null;
-	if (predictionMarketsTelegram) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("🎯 Prediction Markets")}\n${predictionMarketsTelegram}`;
-	}
 
 	const ae = opts.assetEvents;
 	if (ae?.eventsSection?.earnings) {
@@ -427,6 +443,31 @@ export function formatDailyDigestTelegram(opts: {
 	}
 	if (ae?.analystSection) {
 		msg = fmt`${msg}\n\n${FormattedString.bold("📊 Analyst Consensus (published monthly on the 1st)")}\n${boldTickerPrefixesTelegram(ae.analystSection)}`;
+	}
+	const filingsTelegram = ae?.filingsLines?.length
+		? formatFilingsSectionTelegram(ae.filingsLines)
+		: null;
+	if (filingsTelegram) {
+		msg = fmt`${msg}\n\n${FormattedString.bold("📄 SEC Filings")}\n${filingsTelegram}`;
+	}
+	if (ae?.shortInterest) {
+		const title = formatShortInterestSectionTitle(ae.shortInterest);
+		const body = formatShortInterestSectionLines(ae.shortInterest);
+		msg = fmt`${msg}\n\n${FormattedString.bold(`📉 ${title}`)}\n${boldTickerPrefixesTelegram(body)}`;
+	}
+
+	// Prediction Markets last among content sections (after Upcoming IPOs / asset events).
+	const pmFormatOpts = {
+		timeZone: opts.timeZone ?? US_MARKET_TIMEZONE,
+		use24Hour: opts.is24Hour ?? false,
+	};
+	const predictionMarketsTelegram = opts.extras.predictionMarketsDigest
+		? formatPredictionMarketsDigestTelegram(opts.extras.predictionMarketsDigest, pmFormatOpts)
+		: opts.extras.predictionMarkets
+			? formatPredictionMarketsTelegram(opts.extras.predictionMarkets)
+			: null;
+	if (predictionMarketsTelegram) {
+		msg = fmt`${msg}\n\n${FormattedString.bold("🎯 Prediction Markets")}\n${predictionMarketsTelegram}`;
 	}
 
 	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;

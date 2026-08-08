@@ -4,7 +4,6 @@
 		aria-labelledby="timezone-heading"
 		:data-hydrated="isHydrated || undefined"
 	>
-		<div class="card-accent card-accent-gray"></div>
 		<div class="card-body">
 			<div class="flex items-center gap-3 mb-2">
 				<div class="flex items-center justify-center w-10 h-10 rounded-lg bg-surface-active">
@@ -100,7 +99,7 @@ function buildSavedNotificationPreferences(
 ): NotificationPreferencesSnapshot {
 	const marketScheduledAssetPriceTimes = sourceUser.market_scheduled_asset_price_times;
 	return {
-		email_notifications_enabled: sourceUser.email_notifications_enabled,
+		delivery_channel: sourceUser.delivery_channel,
 		timezone: sourceUser.timezone,
 		market_scheduled_asset_price_times: Array.isArray(marketScheduledAssetPriceTimes)
 			? [...marketScheduledAssetPriceTimes]

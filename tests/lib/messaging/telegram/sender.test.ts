@@ -77,6 +77,7 @@ describe("sendViaBot exercises the real grammY API construction (transformer-moc
 	it("text-only → sendMessage with entities, disabled link preview, and disable_notification", async () => {
 		const { bot, capture } = captureSuccess(42);
 		const result = await sendViaBot(bot, {
+			kind: "text",
 			chatId: 5550001,
 			text: "AAPL up 5.3%",
 			entities: [{ type: "bold", offset: 0, length: 4 }],
@@ -101,6 +102,7 @@ describe("sendViaBot exercises the real grammY API construction (transformer-moc
 	it("with a photo Buffer → sendPhoto carrying an InputFile, caption, and caption_entities", async () => {
 		const { bot, capture } = captureSuccess(99);
 		const result = await sendViaBot(bot, {
+			kind: "photo",
 			chatId: "5550002",
 			text: "LDOS chart",
 			entities: [{ type: "bold", offset: 0, length: 4 }],
@@ -123,7 +125,11 @@ describe("sendViaBot exercises the real grammY API construction (transformer-moc
 
 	it("a 403 Bot-API error response → { success: false, errorCode: '403' }", async () => {
 		const bot = captureError(403, "Forbidden: bot was blocked by the user");
-		const result = await sendViaBot(bot, { chatId: 5550003, text: "blocked-user alert" });
+		const result = await sendViaBot(bot, {
+			kind: "text",
+			chatId: 5550003,
+			text: "blocked-user alert",
+		});
 
 		expect(result.success).toBe(false);
 		if (result.success === false) {
@@ -134,7 +140,7 @@ describe("sendViaBot exercises the real grammY API construction (transformer-moc
 
 	it("returns messageSid stringified from the response message_id", async () => {
 		const { bot } = captureSuccess(123_456);
-		const result = await sendViaBot(bot, { chatId: 5550004, text: "id check" });
+		const result = await sendViaBot(bot, { kind: "text", chatId: 5550004, text: "id check" });
 		expect(result).toEqual({ success: true, messageSid: "123456" });
 	});
 });

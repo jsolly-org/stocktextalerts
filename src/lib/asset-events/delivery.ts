@@ -18,6 +18,7 @@ import type { EmailSender } from "../messaging/types";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../time/types";
 import type { IsoDateString, MinuteOfDay, UserRecord } from "../types";
+import type { SecFilingLine, ShortInterestDigestContent } from "./types";
 
 /* =============
 Delivery: Email
@@ -36,6 +37,8 @@ export async function processAssetEventsEmailDelivery(options: {
 	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
+	filingsLines?: SecFilingLine[] | null;
+	shortInterest?: ShortInterestDigestContent | null;
 	marketClosureInfo?: MarketClosureInfo | null;
 	sendEmail: EmailSender;
 	stats: ScheduledNotificationTotals;
@@ -54,6 +57,8 @@ export async function processAssetEventsEmailDelivery(options: {
 		iposSection,
 		analystSection,
 		insiderSection,
+		filingsLines,
+		shortInterest,
 		sendEmail,
 		stats,
 	} = options;
@@ -95,6 +100,8 @@ export async function processAssetEventsEmailDelivery(options: {
 		iposSection,
 		analystSection,
 		insiderSection,
+		filingsLines,
+		shortInterest,
 		marketClosureInfo: options.marketClosureInfo,
 		delayBannerText: options.delayBannerText,
 		delayBannerHtml: options.delayBannerHtml,
@@ -130,7 +137,7 @@ Delivery: Telegram
  * Deliver a standalone asset-events digest via Telegram and record the attempt.
  *
  * Claims the `telegram` channel of the asset-events slot (retries/advances
- * independently of email) and renders the Telegram-native digest (parse-mode
+ * via the account delivery channel) and renders the Telegram-native digest (parse-mode
  * entities, no chart). The caller filters the sections to only the user's
  * Telegram-enabled facets before this is invoked.
  */
@@ -146,6 +153,8 @@ export async function processAssetEventsTelegramDelivery(options: {
 	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
+	filingsLines?: SecFilingLine[] | null;
+	shortInterest?: ShortInterestDigestContent | null;
 	delayBanner?: string | null;
 	marketClosureInfo?: MarketClosureInfo | null;
 	getTelegramSender: TelegramSenderFactory;
@@ -163,6 +172,8 @@ export async function processAssetEventsTelegramDelivery(options: {
 		iposSection,
 		analystSection,
 		insiderSection,
+		filingsLines,
+		shortInterest,
 		delayBanner,
 		getTelegramSender,
 		stats,
@@ -226,11 +237,14 @@ export async function processAssetEventsTelegramDelivery(options: {
 		iposSection,
 		analystSection,
 		insiderSection,
+		filingsLines,
+		shortInterest,
 		delayBanner,
 		marketClosureInfo: options.marketClosureInfo,
 	});
 
 	const result = await telegramSenderResult.sender({
+		kind: "text",
 		chatId: user.telegram_chat_id,
 		text: formatted.text,
 		entities: formatted.entities,

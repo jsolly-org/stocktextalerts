@@ -19,7 +19,7 @@ import { rootLogger } from "../../../src/lib/logging";
 import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
 import type { EmailSender, TelegramSender } from "../../../src/lib/messaging/types";
 import type { UserRecord } from "../../../src/lib/types";
-import { dashboardButtonUrl } from "../../helpers/messaging-doubles";
+import { dashboardButtonUrl, telegramMessageText } from "../../helpers/messaging-doubles";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser, setTestUserPrefs } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -93,7 +93,7 @@ describe("Telegram daily digest dispatch", () => {
 
 		const { id } = await createTestUser({
 			timezone: "America/New_York",
-			emailNotificationsEnabled: false,
+			deliveryChannel: "telegram",
 			trackedAssets: ["NVDA"],
 			confirmed: true,
 		});
@@ -108,14 +108,13 @@ describe("Telegram daily digest dispatch", () => {
 				daily_notification_time: nineAmLocalMinutes,
 				daily_notification_next_send_at: nowIso,
 				telegram_chat_id: telegramChatId,
-				telegram_opted_out: false,
 			})
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		// Select the daily-digest "prices" facet for the Telegram channel (createTestUser
-		// seeded it off by default; setTestUserPrefs upserts it on).
-		await setTestUserPrefs(id, [["daily_notification", "prices", "telegram", true]]);
+		// Select the daily-digest "prices" facet (createTestUser seeded it on by
+		// default; setTestUserPrefs upserts it on to be explicit).
+		await setTestUserPrefs(id, [["daily_notification", "prices", true]]);
 
 		// Realistic NVDA quote during a regular session.
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
@@ -159,7 +158,7 @@ describe("Telegram daily digest dispatch", () => {
 		// The sender received the linked chat id and a non-empty rendered body.
 		const sentMessage = telegramSender.mock.calls[0]?.[0];
 		expect(sentMessage?.chatId).toBe(telegramChatId);
-		expect(sentMessage?.text).toContain("NVDA");
+		expect(telegramMessageText(sentMessage)).toContain("NVDA");
 		// The "Manage notifications" button deep-links to the Daily Notifications section.
 		expect(dashboardButtonUrl(sentMessage)).toContain("#daily-notifications");
 
@@ -187,16 +186,14 @@ describe("Telegram daily digest dispatch", () => {
 		expect(scheduled?.status).toBe("sent");
 	});
 
-	it("Precompute stages the Telegram digest content so the deliver phase can send it.", async () => {
-		// Regression guard: the precompute/stage path historically persisted only
-		// email, silently dropping Telegram from every staged daily digest.
+	it("Sends the Telegram digest with NVDA prices and the manage-notifications button.", async () => {
 		const now = DateTime.utc();
 		const nowIso = now.toISO();
 		expect(nowIso).toBeTruthy();
 
 		const { id } = await createTestUser({
 			timezone: "America/New_York",
-			emailNotificationsEnabled: false,
+			deliveryChannel: "telegram",
 			trackedAssets: ["NVDA"],
 			confirmed: true,
 		});
@@ -209,12 +206,11 @@ describe("Telegram daily digest dispatch", () => {
 				daily_notification_time: 9 * 60,
 				daily_notification_next_send_at: nowIso,
 				telegram_chat_id: telegramChatId,
-				telegram_opted_out: false,
 			})
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		await setTestUserPrefs(id, [["daily_notification", "prices", "telegram", true]]);
+		await setTestUserPrefs(id, [["daily_notification", "prices", true]]);
 
 		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
 			prices: new Map([["NVDA", { price: 178.42, changePercent: 1.37, prevClose: 176.01 }]]),
@@ -227,7 +223,6 @@ describe("Telegram daily digest dispatch", () => {
 
 		const telegramSender = vi.fn<TelegramSender>(async () => ({ success: true }));
 
-		// stageOnly = precompute: render + persist content, send nothing.
 		await processDailyDigestUser({
 			user: userWithPrefs as unknown as UserRecord,
 			supabase: adminClient,
@@ -235,32 +230,11 @@ describe("Telegram daily digest dispatch", () => {
 			currentTime: now,
 			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
 			getTelegramSender: () => ({ sender: telegramSender }),
-			stageOnly: true,
 		});
 
-		// Nothing is sent during precompute.
-		expect(telegramSender).not.toHaveBeenCalled();
-
-		// The staged row carries fully-rendered Telegram content (text + entities).
-		const { data: stagedRow } = await adminClient
-			.from("staged_notifications")
-			.select("staged_data")
-			.eq("user_id", id)
-			.eq("notification_type", "daily")
-			.single();
-		const staged = stagedRow?.staged_data as {
-			telegram: {
-				text: string;
-				entities: unknown[];
-				replyMarkup?: { inline_keyboard: { url?: string }[][] };
-			} | null;
-		} | null;
-		expect(staged?.telegram).not.toBeNull();
-		expect(staged?.telegram?.text).toContain("NVDA");
-		expect(Array.isArray(staged?.telegram?.entities)).toBe(true);
-		// The staged row persists the deep-linked "Manage notifications" button.
-		expect(staged?.telegram?.replyMarkup?.inline_keyboard[0]?.[0]?.url).toContain(
-			"#daily-notifications",
-		);
+		expect(telegramSender).toHaveBeenCalled();
+		const sent = telegramSender.mock.calls[0]?.[0];
+		expect(telegramMessageText(sent)).toContain("NVDA");
+		expect(dashboardButtonUrl(sent)).toContain("#daily-notifications");
 	});
 });

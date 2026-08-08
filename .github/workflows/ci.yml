@@ -160,8 +160,21 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      # node_modules is 1.1 GB unpacked: too big for actions/cache (downloading and
+      # extracting a tarball that size costs more than the ~19s `npm ci` it would
+      # replace) but a natural fit for a sticky disk, which hot-mounts the tree in
+      # ~3s with no extraction at all. The key is OS+arch only; the lockfile hash
+      # lives in a stamp file inside the disk instead, so a dependency bump reuses
+      # the disk and reinstalls into it rather than cold-starting an empty one.
+      # See scripts/ci-npm-install.sh.
+      - name: Mount node_modules (sticky disk)
+        uses: useblacksmith/stickydisk@v1
+        with:
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ github.workspace }}/node_modules
+
       - name: Install dependencies
-        run: npm ci
+        run: bash scripts/ci-npm-install.sh
 
       - uses: astral-sh/setup-uv@v8.2.0
         with:
@@ -214,11 +227,39 @@ jobs:
     if: needs.gate.outputs.heavy == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404-arm
     timeout-minutes: 30
+    # Shard count trades runner minutes for wall-clock, and each shard re-pays the
+    # full setup cost. Measured on this runner (`blacksmith jobs steps`, jobs
+    # 91739215579 / 91737937065 / 91737576294, after the run-scoped dev server landed):
+    #
+    #   Unit tests                86-88s
+    #   Wait for Supabase bootstrap 60-70s
+    #   setup-node                12-13s   (node_modules mounts from sticky disk in ~1s)
+    #   ---------------------------------
+    #   job total                174-182s  = ~87s setup + ~87s tests
+    #
+    # Setup is now half the job, so a second shard would buy ~44s of wall-clock for
+    # ~87s of extra runner time. It would also buy nothing at the run level: e2e-tests
+    # measures ~221s against this job's ~177s, so e2e alone sets the ceiling and unit
+    # has ~45s of slack under it. This repo is optimizing cost (CI is ~94% of its
+    # Actions spend), so unit stays at 1 shard; if wall-clock ever becomes the binding
+    # constraint, spend the effort on e2e-tests, not here.
+    #
+    # Cost history, for calibration: 6 shards (~75% setup) -> 4 -> 2 (node_modules
+    # sticky disk + seed-only db:ci-seed cut setup ~154s -> ~83s) -> 1 (parallel test
+    # files cut the unit suite ~330s -> 130s) -> run-scoped dev server (dropped the
+    # per-file `astro dev stop` across ~184 files, ~130s -> ~87s). Re-measure before
+    # moving it again.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
-        total: [6]
+        shard: [1]
+        total: [1]
+    env:
+      # The bootstrap ends with db:gen-types, which spawns a one-shot postgres-meta
+      # container `supabase start` never pulls: a cold ~99 MB image pull on the
+      # critical path of every shard. Only shard 1 consumes the regenerated file
+      # (the "Verify generated types are checked in" step below); the rest skip it.
+      DB_RESET_SKIP_GEN_TYPES: ${{ matrix.shard == 1 && '0' || '1' }}
 
     steps:
       - uses: actions/checkout@v7
@@ -229,8 +270,15 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      # node_modules sticky disk: see the static job for the rationale.
+      - name: Mount node_modules (sticky disk)
+        uses: useblacksmith/stickydisk@v1
+        with:
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ github.workspace }}/node_modules
+
       - name: Install dependencies
-        run: npm ci
+        run: bash scripts/ci-npm-install.sh
 
       # Stubs for the test battery. Supabase keys are filled in by the background
       # bootstrap after `supabase status`. The unsubscribe stub is concatenated so
@@ -321,11 +369,24 @@ jobs:
     if: needs.gate.outputs.heavy == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404-arm
     timeout-minutes: 30
+    # Same arithmetic as unit-tests: ~140s of E2E behind ~55s of Supabase bootstrap plus
+    # ~26s of runner/node/Playwright mount = ~221s (jobs 91739215613 / 91737937168 /
+    # 91737576349). The suite runs 2 Playwright workers rather than 1
+    # (playwright.shared.ts), which is where the old second shard's parallelism went.
+    #
+    # This job is the run's critical path: it is ~45s longer than unit-tests and ~114s
+    # longer than static checks. Any wall-clock work belongs here first, and more
+    # Playwright workers on the same runner is the cheaper experiment than a second
+    # shard, which would re-pay the whole ~81s setup.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
-        total: [2]
+        shard: [1]
+        total: [1]
+    env:
+      # E2E never reads the regenerated types — skip db:gen-types (and the cold
+      # postgres-meta image pull it triggers). See unit-tests above.
+      DB_RESET_SKIP_GEN_TYPES: '1'
 
     steps:
       - uses: actions/checkout@v7
@@ -336,8 +397,15 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      # node_modules sticky disk: see the static job for the rationale.
+      - name: Mount node_modules (sticky disk)
+        uses: useblacksmith/stickydisk@v1
+        with:
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ github.workspace }}/node_modules
+
       - name: Install dependencies
-        run: npm ci
+        run: bash scripts/ci-npm-install.sh
 
       # Stubs for the test battery. Supabase keys are filled in by the background
       # bootstrap after `supabase status`. The unsubscribe stub is concatenated so
@@ -489,8 +557,15 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      # node_modules sticky disk: see the static job for the rationale.
+      - name: Mount node_modules (sticky disk)
+        uses: useblacksmith/stickydisk@v1
+        with:
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ github.workspace }}/node_modules
+
       - name: Install dependencies
-        run: npm ci
+        run: bash scripts/ci-npm-install.sh
 
       # Build needs validated env values but should not need a live Supabase stack.
       # Keep these CI-only stubs deterministic and side-effect-free.
@@ -593,3 +668,46 @@ jobs:
           fi
 
           echo "CI fan-out results accepted."
+
+  # Squash-merge green same-repo PRs with REPO_AUTOMATION_TOKEN so the land
+  # creates a normal `push` to main (CI → Deploy). GITHUB_TOKEN /
+  # github-actions[bot] merges suppress workflow runs (observed on #647).
+  # Not a required check; failure leaves the PR open for a human.
+  # Prefer a classic PAT with `repo` (non-admin) — fine-grained tokens often
+  # cannot call mergePullRequest (observed on #648).
+  merge-pr:
+    name: merge pr
+    needs: [ci]
+    if: >-
+      always() &&
+      needs.ci.result == 'success' &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    timeout-minutes: 5
+    steps:
+      - name: Squash-merge with REPO_AUTOMATION_TOKEN
+        env:
+          GH_TOKEN: ${{ secrets.REPO_AUTOMATION_TOKEN }}
+          HAS_AUTOMATION_TOKEN: ${{ secrets.REPO_AUTOMATION_TOKEN != '' }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if [ "$HAS_AUTOMATION_TOKEN" != "true" ]; then
+            echo "REPO_AUTOMATION_TOKEN unset — skip PAT merge (auto-merge.yml may have armed GITHUB_TOKEN --auto)."
+            exit 0
+          fi
+          if gh pr merge --squash --repo "$GITHUB_REPOSITORY" "$PR_NUMBER"; then
+            echo "Merged PR #${PR_NUMBER} with REPO_AUTOMATION_TOKEN (push → main CI → Deploy)."
+            exit 0
+          fi
+          state="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json state --jq .state)"
+          if [ "$state" = "MERGED" ]; then
+            echo "PR #${PR_NUMBER} already merged."
+            exit 0
+          fi
+          echo "::error::gh pr merge failed and PR state is ${state} — confirm REPO_AUTOMATION_TOKEN has Contents + Pull requests write."
+          gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
+          exit 1

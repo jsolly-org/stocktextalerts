@@ -18,7 +18,7 @@ import type {
 	TelegramSender,
 } from "../../../../src/lib/messaging/types";
 import type { ChannelDeliveryStats, ExtendedAssetQuote } from "../../../../src/lib/types";
-import { dashboardButtonUrl } from "../../../helpers/messaging-doubles";
+import { dashboardButtonUrl, telegramMessageText } from "../../../helpers/messaging-doubles";
 import { makePrefRows } from "../../../helpers/user-record-fixture";
 import { expectConsoleError } from "../../../setup";
 
@@ -80,10 +80,11 @@ function makeUser(overrides: Partial<FlatPriceAlertUser> = {}): FlatPriceAlertUs
 	return {
 		id: "00000000-0000-0000-0000-000000000001",
 		email: "test@example.com",
-		email_notifications_enabled: false,
+		delivery_channel: "telegram" as const,
 		use_24_hour_time: false,
-		telegram_chat_id: null,
-		telegram_opted_out: false,
+		telegram_chat_id: 778899,
+		price_move_why_window_start: null,
+		price_move_why_sends_in_window: 0,
 		prefs: [],
 		...overrides,
 	};
@@ -106,6 +107,7 @@ async function deliver(options: {
 		baseline: 194.42,
 		triggerPercent: -11.0,
 		isReTrigger: false,
+		isAcceleration: false,
 		lastNotificationAt: null,
 		nowMs: Date.now(),
 		intraday: null,
@@ -131,7 +133,7 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		const { delivered, inserts, stats } = await deliver({
 			user: makeUser({
 				telegram_chat_id: 778899,
-				prefs: makePrefRows([["price_move_alerts", "", "telegram", true]]),
+				prefs: makePrefRows([["price_move_alerts", "", true]]),
 			}),
 			sendTelegram,
 		});
@@ -140,7 +142,8 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		expect(sendTelegram).toHaveBeenCalledOnce();
 		const sent = sendTelegram.mock.calls[0]![0] as TelegramMessage;
 		expect(sent.chatId).toBe(778899);
-		expect(sent.text).toContain("LDOS");
+		expect(sent.kind).toBe("text");
+		expect(telegramMessageText(sent)).toContain("LDOS");
 		// Price alerts deep-link to the Market Notifications section.
 		expect(dashboardButtonUrl(sent)).toContain("#market-notifications");
 		expect(stats.telegramSent).toBe(1);
@@ -164,7 +167,7 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		const { delivered, inserts, stats, rpcCalls } = await deliver({
 			user: makeUser({
 				telegram_chat_id: 778899,
-				prefs: makePrefRows([["price_move_alerts", "", "telegram", true]]),
+				prefs: makePrefRows([["price_move_alerts", "", true]]),
 			}),
 			sendTelegram,
 		});
@@ -188,7 +191,7 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		const { delivered, inserts, stats, rpcCalls } = await deliver({
 			user: makeUser({
 				telegram_chat_id: 778899,
-				prefs: makePrefRows([["price_move_alerts", "", "telegram", true]]),
+				prefs: makePrefRows([["price_move_alerts", "", true]]),
 			}),
 			sendTelegram,
 			budgetOk: false,
@@ -210,7 +213,7 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		const { inserts, stats } = await deliver({
 			user: makeUser({
 				telegram_chat_id: 778899,
-				prefs: makePrefRows([["price_move_alerts", "", "telegram", false]]),
+				prefs: makePrefRows([["price_move_alerts", "", false]]),
 			}),
 			sendTelegram,
 		});
@@ -228,7 +231,7 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		await deliver({
 			user: makeUser({
 				telegram_chat_id: null,
-				prefs: makePrefRows([["price_move_alerts", "", "telegram", true]]),
+				prefs: makePrefRows([["price_move_alerts", "", true]]),
 			}),
 			sendTelegram,
 		});

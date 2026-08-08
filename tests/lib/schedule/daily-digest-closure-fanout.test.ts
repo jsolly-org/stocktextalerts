@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const dispatchDailyDigestUserMock = vi.fn();
 const fetchDailyNotificationUsersMock = vi.fn();
-const fetchUpcomingDailyDigestUsersMock = vi.fn();
 const getCurrentMarketSessionMock = vi.fn();
 const fetchMarketScheduledUsersMock = vi.fn();
 const processFlatPriceAlertsMock = vi.fn();
@@ -16,10 +15,6 @@ vi.mock("../../../src/lib/daily-digest/dispatch", () => ({
 
 vi.mock("../../../src/lib/daily-notification/query", () => ({
 	fetchDailyNotificationUsers: fetchDailyNotificationUsersMock,
-}));
-
-vi.mock("../../../src/lib/daily-digest/query-upcoming", () => ({
-	fetchUpcomingDailyDigestUsers: fetchUpcomingDailyDigestUsersMock,
 }));
 
 vi.mock("../../../src/lib/market-notifications/scheduled/query", () => ({
@@ -63,28 +58,6 @@ vi.mock("../../../src/lib/market-notifications/scheduled/process", () => ({
 		telegramFailed: 0,
 	}),
 }));
-vi.mock("../../../src/lib/staged-notifications/deliver", () => ({
-	deliverStagedNotifications: vi.fn().mockResolvedValue({
-		stats: {
-			skipped: 0,
-			logFailures: 0,
-			emailsSent: 0,
-			emailsFailed: 0,
-			telegramSent: 0,
-			telegramFailed: 0,
-		},
-		deliveredUserTypes: new Set<string>(),
-	}),
-}));
-
-vi.mock("../../../src/lib/staged-notifications/precompute", () => ({
-	precomputeDailyDigest: vi.fn().mockResolvedValue({
-		skipped: 0,
-		logFailures: 0,
-		emailsSent: 0,
-		emailsFailed: 0,
-	}),
-}));
 
 vi.mock("../../../src/lib/market-notifications/flat-alerts/process", () => ({
 	processFlatPriceAlerts: processFlatPriceAlertsMock,
@@ -104,7 +77,7 @@ vi.mock("../../../src/lib/db/user-assets", async () => {
 	};
 });
 
-describe("A cron fallback pass fans out daily digests without a shared closure label.", () => {
+describe("A cron deliver pass fans out daily digests without a shared closure label.", () => {
 	beforeEach(() => {
 		dispatchDailyDigestUserMock.mockReset();
 		fetchDailyNotificationUsersMock.mockReset();
@@ -114,7 +87,6 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 		getUsMarketClosureInfoForInstantMock.mockReset();
 		fetchAssetPricesWithSessionStateMock.mockReset();
 		batchLoadUserAssetsMock.mockReset();
-		fetchUpcomingDailyDigestUsersMock.mockResolvedValue([]);
 		batchLoadUserAssetsMock.mockResolvedValue(new Map());
 		fetchAssetPricesWithSessionStateMock.mockResolvedValue({
 			prices: new Map(),
@@ -144,8 +116,6 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 		const { runScheduledNotifications } = await import("../../../src/lib/schedule/run");
 
 		fetchDailyNotificationUsersMock.mockResolvedValueOnce([{ id: "daily-user-1" }]);
-		fetchMarketScheduledUsersMock.mockResolvedValue([]);
-		fetchDailyNotificationUsersMock.mockResolvedValueOnce([]);
 		fetchMarketScheduledUsersMock.mockResolvedValueOnce([]);
 		getCurrentMarketSessionMock.mockResolvedValue("closed");
 		getUsMarketClosureInfoForInstantMock.mockResolvedValue({
@@ -181,19 +151,17 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 				marketClosureInfo: expect.anything(),
 			}),
 		);
-		expect(getUsMarketClosureInfoForInstantMock).toHaveBeenCalled();
+		// Daily-only ticks must not pay for unused scheduler-level closure prefetch.
+		expect(getUsMarketClosureInfoForInstantMock).not.toHaveBeenCalled();
 		expect(getCurrentMarketSessionMock).toHaveBeenCalledTimes(1);
 	});
 
-	it("reuses successful market quotes across both scheduler passes without refetching", async () => {
+	it("fetches market quotes once per tick for due market users", async () => {
 		const { runScheduledNotifications } = await import("../../../src/lib/schedule/run");
 		const marketUser = { id: "market-user-1" };
 
-		fetchMarketScheduledUsersMock
-			.mockResolvedValueOnce([marketUser])
-			.mockResolvedValueOnce([marketUser])
-			.mockResolvedValue([]);
-		fetchDailyNotificationUsersMock.mockResolvedValue([]);
+		fetchMarketScheduledUsersMock.mockResolvedValueOnce([marketUser]);
+		fetchDailyNotificationUsersMock.mockResolvedValueOnce([]);
 		getCurrentMarketSessionMock.mockResolvedValue("regular");
 		batchLoadUserAssetsMock.mockResolvedValue(
 			new Map([["market-user-1", [{ symbol: "AAPL", name: "Apple", type: "stock" }]]]),

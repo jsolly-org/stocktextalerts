@@ -28,8 +28,6 @@ export async function dispatchDailyDigestUser(options: {
 	 *  per-user fetch + prefs load. Absent only on the standalone-invoke path. */
 	user?: UserRecord;
 	currentTimeIso: string;
-	/** When true, stage content instead of delivering. */
-	precompute?: boolean;
 	/** Pre-fetched market open status (avoids per-user API calls). */
 	marketOpen?: boolean;
 	/** Pre-fetched market closure info (avoids per-user API calls). */
@@ -40,13 +38,12 @@ export async function dispatchDailyDigestUser(options: {
 	sendEmail?: EmailSender;
 	/** Shared Telegram provider from the cron run (reuses bot/sender cache). */
 	getTelegramSender?: TelegramSenderFactory;
-	/** Shared per-pass logo cache so a symbol's logo is resolved once per pass, not per user. */
+	/** Shared per-invocation logo cache so a symbol's logo is resolved once per tick, not per user. */
 	logoCache?: LogoCache;
 }): Promise<ScheduledNotificationTotals> {
 	const {
 		userId,
 		currentTimeIso,
-		precompute,
 		marketOpen,
 		marketClosureInfo,
 		supabase: supabaseOption,
@@ -94,7 +91,6 @@ export async function dispatchDailyDigestUser(options: {
 			currentTime,
 			sendEmail,
 			getTelegramSender,
-			stageOnly: precompute === true,
 			marketOpen,
 			marketClosureInfo,
 			logoCache: options.logoCache,

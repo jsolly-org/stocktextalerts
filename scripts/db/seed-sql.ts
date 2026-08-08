@@ -9,9 +9,9 @@ export type SeedUser = Omit<Partial<DbUserInsert>, "email"> & {
   email: DbUserInsert["email"];
   password?: string;
   tracked_assets?: string[];
-  // Per-option channel facets now live in notification_preferences, not on `users`.
-  // Seed JSON may still set the scheduled-market facets; emitted as table rows.
-  market_scheduled_asset_price_include_email?: boolean;
+  // Content prefs live in notification_preferences. Seed JSON may still set
+  // the scheduled-market facet; emitted as a table row.
+  market_scheduled_asset_price_include?: boolean;
 };
 
 /**
@@ -248,14 +248,11 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
     );
   }
 
-  const emailNotificationsEnabled = validateOptionalBoolean(
-    user.email_notifications_enabled,
-    "email_notifications_enabled",
-  );
-  if (emailNotificationsEnabled !== undefined) {
-    insertColumns.push("email_notifications_enabled");
-    insertValues.push(String(emailNotificationsEnabled));
-    updateFields.push("email_notifications_enabled = EXCLUDED.email_notifications_enabled");
+  const deliveryChannel = user.delivery_channel;
+  if (deliveryChannel === "email" || deliveryChannel === "telegram" || deliveryChannel === "disabled") {
+    insertColumns.push("delivery_channel");
+    insertValues.push(`'${deliveryChannel}'::public.delivery_channel_mode`);
+    updateFields.push("delivery_channel = EXCLUDED.delivery_channel");
   }
 
   const usersSql = `
@@ -268,9 +265,7 @@ ON CONFLICT (id) DO UPDATE SET
   ${updateFields.join(",\n  ")};
 `;
 
-  // Per-option channel preferences are the single source of truth in
-  // notification_preferences (no per-column flags on `users`). Seed the default row
-  // set for every user, then override the scheduled-market facets from seed JSON.
+  // Content preferences are the single source of truth in notification_preferences.
   return usersSql + buildNotificationPreferencesSql(userId, user);
 }
 
@@ -278,32 +273,30 @@ ON CONFLICT (id) DO UPDATE SET
 const SEED_DEFAULT_PREFERENCE_ROWS = NOTIFICATION_PREFERENCE_CATALOG.map((entry) => ({
   notification_type: entry.notification_type,
   content: entry.content,
-  channel: entry.channel,
   enabled: entry.default,
 }));
 
 /** Build the notification_preferences seed for a user: default rows + JSON overrides. */
 function buildNotificationPreferencesSql(userId: string, user: SeedUser): string {
   const overrides = new Map<string, boolean>();
-  const scheduledEmail = validateOptionalBoolean(
-    user.market_scheduled_asset_price_include_email,
-    "market_scheduled_asset_price_include_email",
+  const scheduledInclude = validateOptionalBoolean(
+    user.market_scheduled_asset_price_include,
+    "market_scheduled_asset_price_include",
   );
-  if (scheduledEmail !== undefined) {
-    overrides.set("market_scheduled_asset_price||email", scheduledEmail);
+  if (scheduledInclude !== undefined) {
+    overrides.set("market_scheduled_asset_price|", scheduledInclude);
   }
-  // override key = `${notification_type}|${content}|${channel}`; content is "" for market types.
 
   const rows = SEED_DEFAULT_PREFERENCE_ROWS.map((row) => {
     const enabled =
-      overrides.get(`${row.notification_type}|${row.content}|${row.channel}`) ?? row.enabled;
-    return `('${userId}'::uuid, '${row.notification_type}', '${escapeSql(row.content)}', '${row.channel}'::public.delivery_method, ${enabled})`;
+      overrides.get(`${row.notification_type}|${row.content}`) ?? row.enabled;
+    return `('${userId}'::uuid, '${row.notification_type}', '${escapeSql(row.content)}', ${enabled})`;
   });
 
   return `
-INSERT INTO public.notification_preferences (user_id, notification_type, content, channel, enabled) VALUES
+INSERT INTO public.notification_preferences (user_id, notification_type, content, enabled) VALUES
   ${rows.join(",\n  ")}
-ON CONFLICT (user_id, notification_type, content, channel) DO UPDATE SET
+ON CONFLICT (user_id, notification_type, content) DO UPDATE SET
   enabled = EXCLUDED.enabled;
 `;
 }

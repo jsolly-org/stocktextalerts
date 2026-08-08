@@ -3,6 +3,7 @@ import { resolveLogoUpstreamUrl } from "../assets/reference/ticker-detail";
 import type { AppSupabaseClient } from "../db/supabase";
 import { type Logger, rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
+import { vendorFetch } from "../vendors/http";
 
 /** In-memory cache of fetched logo base64 data URIs (or null on failure). */
 export type LogoCache = Map<string, string | null>;
@@ -33,7 +34,7 @@ async function fetchLogoFromApi(iconUrl: string): Promise<string | null> {
 		return null;
 	}
 
-	const response = await fetch(upstreamUrl, {
+	const response = await vendorFetch(upstreamUrl, {
 		signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
 	});
 

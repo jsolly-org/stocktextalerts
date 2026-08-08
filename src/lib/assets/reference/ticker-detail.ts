@@ -1,5 +1,6 @@
 import { requireEnv } from "../../db/env";
 import { isRecord } from "../../types";
+import { vendorFetch } from "../../vendors/http";
 import type { TickerDetail } from "../types";
 import { ALLOWED_LOGO_HOSTS, MASSIVE_TICKERS_PATH_PREFIX } from "./constants";
 
@@ -19,7 +20,7 @@ export async function fetchTickerDetail(symbol: string): Promise<TickerDetail> {
 
 	let response: Response;
 	try {
-		response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+		response = await vendorFetch(url, { signal: AbortSignal.timeout(30_000) });
 	} catch {
 		return { ok: false };
 	}

@@ -10,8 +10,8 @@
 /** Universe reconcile: Massive reference pagination + chunked DB round-trips. */
 export const RECONCILE_MIN_REMAINING_MS = 180_000;
 
-/** Delisting sweep: all tracked symbols at bounded concurrency, plus notification writes. */
-export const SWEEP_MIN_REMAINING_MS = 300_000;
+/** Delisting sweep: tracked symbols at bounded concurrency, plus notification writes. */
+export const SWEEP_MIN_REMAINING_MS = 60_000;
 
 /**
  * Prediction-market discovery: all unchecked tracked symbols (Poly + Kalshi +
@@ -25,3 +25,18 @@ export const PM_DISCOVERY_MIN_REMAINING_MS = 240_000;
  * event; needs headroom for Poly/Kalshi rate limits + in-loop abort.
  */
 export const PM_REFRESH_MIN_REMAINING_MS = 300_000;
+
+/**
+ * Next-session Polymarket daily up/down probe for every tracked symbol.
+ * Additive upserts; soft-fail missing slugs.
+ */
+export const PM_DIRECTION_PROBE_MIN_REMAINING_MS = 180_000;
+
+/**
+ * SEC EDGAR filings ingest: company tickers map + one submissions poll per
+ * distinct tracked CIK (polite delay). Soft-fail vendor; remaining-time gate.
+ */
+export const SEC_FILINGS_MIN_REMAINING_MS = 120_000;
+
+/** Short interest daily Asset Events facet step budget (Massive bulk + ticker details). */
+export const SHORT_INTEREST_MIN_REMAINING_MS = 120_000;

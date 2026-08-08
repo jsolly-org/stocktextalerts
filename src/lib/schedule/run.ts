@@ -1,34 +1,14 @@
 /*
- * Two-pass cron scheduler for pre-computed notification delivery.
+ * Per-minute notification scheduler (live deliver only).
  *
- * ARCHITECTURE OVERVIEW
- * --------------------
- * Previously, the cron fired every minute and ran the full pipeline (DB queries,
- * API calls, Grok generation, formatting) before sending each notification. This
- * added seconds of latency between the user's scheduled time and actual delivery.
+ * Each EventBridge tick:
+ *   1. Capture quotes / price-history / flat price alerts (once)
+ *   2. Deliver due market-scheduled + daily-digest users via the full live pipeline
  *
- * Now the cron fires every minute but runs TWO passes, 30 seconds apart:
- *
- *   Pass 1 (~:00)                         Pass 2 (~:30)
- *   ┌─────────────────────────┐           ┌─────────────────────────┐
- *   │ 1. DELIVER staged       │           │ 1. DELIVER staged       │
- *   │ 2. DELIVER fallback     │           │ 2. DELIVER fallback     │
- *   │ 3. PRE-COMPUTE          │           │ 3. PRE-COMPUTE          │
- *   └─────────────────────────┘           └─────────────────────────┘
- *
- * - DELIVER staged: Send pre-rendered content from `staged_notifications` for
- *   users whose `scheduled_for` has arrived. This is near-instant (no API calls).
- * - DELIVER fallback: Users without staged data (new users, staging failures,
- *   first deploy) get processed via the existing full pipeline. The optimization
- *   is purely additive.
- * - PRE-COMPUTE: Look ahead 30s, run the full pipeline for those users, and
- *   write the rendered content to `staged_notifications`. Next pass delivers it.
- *
- * Price staleness from pre-compute is at most ~30 seconds, which is acceptable
- * for informational scheduled notifications.
+ * Daily digests build and send at due time (prices, PM PNGs, email Grok). Failures
+ * retry via scheduled_notifications backoff — there is no look-ahead staging.
  */
 
-import { setTimeout as realDelay } from "node:timers/promises";
 import { DateTime } from "luxon";
 import { DAILY_DISPATCH_BATCH_SIZE } from "../constants";
 import { dispatchDailyDigestUser } from "../daily-digest/dispatch";
@@ -54,15 +34,12 @@ import { createNotificationSenders } from "../messaging/senders";
 import { purgeOldPredictionMarketOdds } from "../prediction-markets/store";
 import { USER_PROCESS_BATCH_SIZE } from "../scheduled-notifications/constants";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
-import { deliverStagedNotifications } from "../staged-notifications/deliver";
-import { precomputeDailyDigest } from "../staged-notifications/precompute";
 import { toIsoOrThrow } from "../time/display";
 import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
 import type { MarketClosureInfo } from "../time/types";
 import type { AssetPriceMap, ExtendedQuoteMap, MarketSession } from "../types";
 import { enqueuePriceHistoryStoreRetry } from "../vendors/backfill/enqueue";
 import { resolveMarketSessionWithFallback } from "./market-session";
-import { getPassDelayMs } from "./pass-delay";
 
 const EMPTY_TOTALS: ScheduledNotificationTotals = {
 	skipped: 0,
@@ -88,7 +65,7 @@ function mergeTotals(
 	};
 }
 
-/** Per-invocation cache of successful live quotes reused across both scheduler passes. */
+/** Per-invocation cache of successful live quotes reused across market users. */
 type SchedulerQuoteCache = {
 	prices: AssetPriceMap;
 	noSessionTrade: Set<string>;
@@ -125,16 +102,16 @@ function mergeSuccessfulQuotesIntoCache(
 	}
 }
 
-/** Run a single pass: deliver staged → fallback → pre-compute. */
-async function runPass(options: {
+/** Deliver due market-scheduled + daily-digest users via the live pipeline. */
+async function deliverDueNotifications(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	sendEmail: NotificationSenders["sendEmail"];
 	getTelegramSender: NotificationSenders["getTelegramSender"];
 	marketSession: MarketSession;
 	schedulerQuoteCache: SchedulerQuoteCache;
-	/** Per-invocation logo cache shared across both passes + all users (resolve each
-	 *  symbol's logo at most once per cron tick, not once per user). */
+	/** Per-invocation logo cache shared across all users (resolve each symbol's
+	 *  logo at most once per cron tick, not once per user). */
 	logoCache: LogoCache;
 }): Promise<ScheduledNotificationTotals> {
 	const {
@@ -147,41 +124,10 @@ async function runPass(options: {
 		logoCache,
 	} = options;
 
-	// Use actual UTC time — NOT rounded to end-of-minute like the old single-pass approach.
 	// Users set times at minute granularity so next_send_at is always at :00 seconds.
-	// The two-pass system at ~:00 and ~:30 naturally covers the full minute window.
 	const currentTime = DateTime.utc();
 	const currentTimeIso = toIsoOrThrow(currentTime, "Failed to format UTC ISO string");
 
-	/* ============= Phase 1: DELIVER staged ============= */
-	let stagedStats = { ...EMPTY_TOTALS };
-	let deliveredUserTypes = new Set<string>();
-	try {
-		const staged = await deliverStagedNotifications({
-			supabase,
-			logger,
-			currentTime,
-			sendEmail,
-			getTelegramSender,
-		});
-		stagedStats = staged.stats;
-		deliveredUserTypes = staged.deliveredUserTypes;
-
-		if (stagedStats.emailsSent > 0 || stagedStats.telegramSent > 0 || stagedStats.skipped > 0) {
-			logger.info("Staged notifications delivered", {
-				action: "staged_deliver",
-				...stagedStats,
-			});
-		}
-	} catch (error) {
-		logger.error(
-			"Staged delivery phase failed (falling back to full pipeline)",
-			{ action: "staged_deliver" },
-			error,
-		);
-	}
-
-	/* ============= Phase 2: DELIVER fallback (full pipeline for non-staged users) ============= */
 	const [marketUsers, dailyUsers] = await Promise.all([
 		fetchMarketScheduledUsers({
 			supabase,
@@ -197,14 +143,9 @@ async function runPass(options: {
 		}),
 	]);
 
-	// Filter out users already delivered from staging so we don't double-send.
-	// The deliveredUserTypes set uses "userId:type" keys (e.g. "abc-123:market").
-	const fallbackMarketUsers = marketUsers.filter((u) => !deliveredUserTypes.has(`${u.id}:market`));
-	const fallbackDailyUsers = dailyUsers.filter((u) => !deliveredUserTypes.has(`${u.id}:daily`));
-
-	// Batch-load user assets for market + asset-events users first (single query).
+	// Batch-load user assets for market users first (single query).
 	// Derive unique symbols from the map for price fetching to avoid a redundant DB round-trip.
-	const userAssetsUserIds = [...fallbackMarketUsers.map((u) => u.id)];
+	const userAssetsUserIds = [...marketUsers.map((u) => u.id)];
 	let userAssetsMap: UserAssetsMap = new Map();
 	if (userAssetsUserIds.length > 0) {
 		try {
@@ -213,7 +154,7 @@ async function runPass(options: {
 			});
 		} catch (error) {
 			logger.error(
-				"Failed to batch-load user assets (aborting fallback pass)",
+				"Failed to batch-load user assets (aborting deliver pass)",
 				{
 					action: "batch_load_user_assets",
 					userCount: userAssetsUserIds.length,
@@ -233,11 +174,10 @@ async function runPass(options: {
 	const marketNoSessionTrade: Set<string> = new Set();
 	const marketOpen = marketSession === "regular";
 
-	let marketUserSymbols: string[] = [];
-	if (fallbackMarketUsers.length > 0) {
-		marketUserSymbols = [
+	if (marketUsers.length > 0) {
+		const marketUserSymbols = [
 			...new Set(
-				fallbackMarketUsers.flatMap((u) => {
+				marketUsers.flatMap((u) => {
 					const assets = userAssetsMap.get(u.id);
 					return assets ? assets.map((a) => a.symbol) : [];
 				}),
@@ -272,9 +212,9 @@ async function runPass(options: {
 		}
 	}
 
-	// Fetch market closure once for market-scheduled banners and daily notifications.
-	const needsClosureInfo =
-		!marketOpen && (fallbackDailyUsers.length > 0 || fallbackMarketUsers.length > 0);
+	// Fetch market closure once for market-scheduled banners. Daily digests classify
+	// closure from each user's dueAt inside processDailyDigestUser.
+	const needsClosureInfo = !marketOpen && marketUsers.length > 0;
 	let marketClosureInfo: MarketClosureInfo | null = null;
 	if (needsClosureInfo) {
 		try {
@@ -290,9 +230,8 @@ async function runPass(options: {
 
 	const results: ScheduledNotificationTotals[] = [];
 
-	// Process fallback market users
-	for (let index = 0; index < fallbackMarketUsers.length; index += USER_PROCESS_BATCH_SIZE) {
-		const batch = fallbackMarketUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
+	for (let index = 0; index < marketUsers.length; index += USER_PROCESS_BATCH_SIZE) {
+		const batch = marketUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
 		const batchResults = await Promise.all(
 			batch.map((user) =>
 				processMarketScheduledUser({
@@ -314,11 +253,9 @@ async function runPass(options: {
 		results.push(...batchResults);
 	}
 
-	// Dispatch each fallback daily notification user in-process
-	// already loaded above so dispatch doesn't re-fetch the user row + prefs per user.
-	if (fallbackDailyUsers.length > 0) {
-		for (let index = 0; index < fallbackDailyUsers.length; index += DAILY_DISPATCH_BATCH_SIZE) {
-			const batch = fallbackDailyUsers.slice(index, index + DAILY_DISPATCH_BATCH_SIZE);
+	if (dailyUsers.length > 0) {
+		for (let index = 0; index < dailyUsers.length; index += DAILY_DISPATCH_BATCH_SIZE) {
+			const batch = dailyUsers.slice(index, index + DAILY_DISPATCH_BATCH_SIZE);
 			const dispatchResults = await Promise.allSettled(
 				batch.map((user) =>
 					dispatchDailyDigestUser({
@@ -356,33 +293,11 @@ async function runPass(options: {
 		}
 	}
 
-	const fallbackTotals = results.reduce((acc, curr) => mergeTotals(acc, curr), {
-		...EMPTY_TOTALS,
-	});
-
-	/* ============= Phase 3: PRE-COMPUTE for upcoming daily-digest users ============= */
-	try {
-		const preDaily = await precomputeDailyDigest({
-			supabase,
-			logger,
-			currentTime,
-			marketOpen,
-		});
-		if (preDaily.skipped > 0) {
-			logger.info("Pre-compute phase completed", {
-				action: "precompute",
-				dailySkipped: preDaily.skipped,
-			});
-		}
-	} catch (error) {
-		logger.warn("Pre-compute phase failed (non-fatal)", { action: "precompute" }, error);
-	}
-
-	return mergeTotals(stagedStats, fallbackTotals);
+	return results.reduce((acc, curr) => mergeTotals(acc, curr), { ...EMPTY_TOTALS });
 }
 
 /**
- * Run the scheduled notification cron (two-pass).
+ * Run the scheduled notification cron (single live-deliver pass).
  */
 export async function runScheduledNotifications(options: {
 	supabase: SupabaseAdminClient;
@@ -394,8 +309,8 @@ export async function runScheduledNotifications(options: {
 > {
 	const { supabase, logger } = options;
 
-	// Resolve market session once per scheduler invocation — passed to price alerts,
-	// both fallback passes, and precompute to avoid redundant Massive status calls.
+	// Resolve market session once per scheduler invocation — passed to price alerts
+	// and live delivery to avoid redundant Massive status calls.
 	// Degrades to the last-known-good session (or "closed") on a Massive blip so a
 	// transient vendor failure can't abort the entire per-minute run.
 	const { session: schedulerMarketSession, degraded: marketSessionDegraded } =
@@ -409,9 +324,9 @@ export async function runScheduledNotifications(options: {
 
 	// Fetch the watched-symbol quote universe for the price-history capture below. The
 	// resulting map is a superset of the price-move-alert symbols, so it both seeds the
-	// scheduler quote cache (both fallback passes) and feeds the flat price-alert check —
-	// no extra Massive call for those. Stays `undefined` when the capture throws, so
-	// the flat-alert step below can tell "fetch failed" apart from "no quotes".
+	// scheduler quote cache and feeds the flat price-alert check — no extra Massive call
+	// for those. Stays `undefined` when the capture throws, so the flat-alert step below
+	// can tell "fetch failed" apart from "no quotes".
 	let capturedQuoteMap: ExtendedQuoteMap | undefined;
 	if (schedulerMarketSession !== "closed") {
 		try {
@@ -514,15 +429,11 @@ export async function runScheduledNotifications(options: {
 	}
 
 	const { sendEmail, getTelegramSender, logoCache } = createNotificationSenders();
-	// Seed from the captured (superset) map so fallback passes reuse the watched-symbol
+	// Seed from the captured (superset) map so live delivery reuses the watched-symbol
 	// quotes the price-history capture already fetched, instead of re-fetching them.
 	const schedulerQuoteCache = createSchedulerQuoteCache(capturedQuoteMap);
 
-	/* ============= Two-pass execution ============= */
-	const passStartTime = Date.now();
-
-	// Pass 1: DELIVER staged + fallback + PRE-COMPUTE
-	const pass1Totals = await runPass({
+	const totals = await deliverDueNotifications({
 		supabase,
 		logger,
 		sendEmail,
@@ -531,31 +442,9 @@ export async function runScheduledNotifications(options: {
 		schedulerQuoteCache,
 		logoCache,
 	});
-
-	// Wait until 30 seconds have elapsed since the start of pass 1
-	const elapsed = Date.now() - passStartTime;
-	const passDelayMs = getPassDelayMs();
-	const waitMs = Math.max(0, passDelayMs - elapsed);
-	if (waitMs > 0) {
-		// Wait silently — pass lifecycle is an implementation detail
-		await realDelay(waitMs);
-	}
-
-	// Pass 2: DELIVER staged + fallback + PRE-COMPUTE
-	const pass2Totals = await runPass({
-		supabase,
-		logger,
-		sendEmail,
-		getTelegramSender,
-		marketSession: schedulerMarketSession,
-		schedulerQuoteCache,
-		logoCache,
-	});
-
-	const combinedTotals = mergeTotals(pass1Totals, pass2Totals);
 
 	return {
-		...combinedTotals,
+		...totals,
 		flatPriceAlerts: flatPriceAlertTotals,
 	};
 }

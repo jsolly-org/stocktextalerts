@@ -6,7 +6,11 @@ import { NOTIFICATION_PREFERENCE_CATALOG } from "../../src/lib/constants";
 import { rootLogger } from "../../src/lib/logging";
 import { TEST_PASSWORD } from "../helpers/constants";
 import { signIn } from "../helpers/e2e/auth";
-import { openChannelMultiselect, waitForAutosave } from "../helpers/e2e/dashboard";
+import {
+	selectDeliveryChannel,
+	waitForAutosave,
+	waitForDeliveryChannel,
+} from "../helpers/e2e/dashboard";
 import { adminClient } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser, setTestUserPrefs } from "../helpers/test-user";
 
@@ -16,20 +20,19 @@ const SCREENSHOT_DIR = path.join(process.cwd(), ".playwright-mcp/cli/telegram-da
 mkdirSync(SCREENSHOT_DIR, { recursive: true });
 const SCREENSHOT_CONNECT = path.join(SCREENSHOT_DIR, "_ui-connect.png");
 const SCREENSHOT_PANEL = path.join(SCREENSHOT_DIR, "_ui-panel.png");
-const SCREENSHOT_DROPDOWN = path.join(SCREENSHOT_DIR, "_ui-dropdown.png");
+const SCREENSHOT_CHANNELS = path.join(SCREENSHOT_DIR, "_ui-channels.png");
 
 // A linked Telegram chat id (set by the bot /start webhook in production). Its
-// presence flips the Connect card to "Connected" and enables the Telegram option
-// in every channel multiselect.
+// presence shows the Connected pill and enables the Telegram delivery option.
 const TELEGRAM_CHAT_ID = 8675309;
 
 /**
- * Read a single Telegram notification-preference row's `enabled` flag.
+ * Read a single notification-preference row's `enabled` flag.
  *
  * daily_digest / asset_events rows carry a content facet ("prices", "calendar", …);
  * the facet-less market types use content='' (the default arg).
  */
-async function getTelegramPreference(
+async function getPreference(
 	userId: string,
 	notificationType: string,
 	content = "",
@@ -40,12 +43,9 @@ async function getTelegramPreference(
 		.eq("user_id", userId)
 		.eq("notification_type", notificationType)
 		.eq("content", content)
-		.eq("channel", "telegram")
 		.maybeSingle();
 	if (error) {
-		throw new Error(
-			`Failed to read telegram preference (${notificationType}/${content}): ${error.message}`,
-		);
+		throw new Error(`Failed to read preference (${notificationType}/${content}): ${error.message}`);
 	}
 	return data?.enabled ?? null;
 }
@@ -66,20 +66,17 @@ test.describe("Telegram dashboard UI", () => {
 		// navigation otherwise — see delivery-times.e2e.spec.ts).
 		await page.goto("/", { waitUntil: "networkidle" });
 
-		// Email-enabled + tracked asset so the daily-digest panel isn't blocked by
-		// the "needs a channel / needs tracked assets" setup notice (which would
-		// disable every multiselect, Telegram included).
 		const user = await createTestUser({
 			confirmed: true,
 			approved: true,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			trackedAssets: ["AAPL"],
 		});
 		userId = user.id;
 		email = user.email;
 
-		// Link Telegram: chat id + linked timestamp ⇒ Connect card shows "Connected"
-		// and the Telegram channel option becomes selectable.
+		// Link Telegram: chat id + linked timestamp ⇒ Connected pill; Telegram
+		// radio becomes selectable.
 		const { error: linkError } = await adminClient
 			.from("users")
 			.update({
@@ -91,11 +88,7 @@ test.describe("Telegram dashboard UI", () => {
 			throw new Error(`Failed to link telegram chat id: ${linkError.message}`);
 		}
 
-		// Pre-select Telegram for the daily-digest "prices" option so the panel
-		// renders one multiselect with Telegram already chosen (server reads this
-		// row into the panel's `telegramPrefs` prop). Upsert because createTestUser
-		// already seeds the (default-off) prices/telegram row.
-		await setTestUserPrefs(userId, [["daily_notification", "prices", "telegram", true]]);
+		await setTestUserPrefs(userId, [["daily_notification", "prices", true]]);
 
 		await signIn(page, email, TEST_PASSWORD);
 	});
@@ -103,8 +96,6 @@ test.describe("Telegram dashboard UI", () => {
 	test.afterAll(async () => {
 		if (userId) {
 			try {
-				// notification_preferences rows are FK'd to users with ON DELETE CASCADE,
-				// so deleting the user row clears the seeded telegram preference too.
 				await cleanupTestUser(userId);
 			} catch (error) {
 				rootLogger.warn("Failed to cleanup telegram-dashboard test user", {
@@ -120,137 +111,117 @@ test.describe("Telegram dashboard UI", () => {
 		}
 	});
 
-	test("renders Connect card + channel multiselects, captures screenshots, persists a Telegram toggle", async () => {
+	test("renders Connected pill + delivery radios, captures screenshots, persists a content toggle", async () => {
 		await page.goto("/dashboard");
+		await page
+			.locator('form[aria-label="Notification preferences"][data-hydrated]')
+			.waitFor({ timeout: 15_000 });
 
-		// --- Connect Telegram card ---------------------------------------------
-		// The card root is the nearest `rounded-lg border` div ancestor of the
-		// <h3>Telegram</h3> heading. That root also holds the "Connected" pill,
-		// which a tighter ancestor (the inner min-w-0 div) would exclude.
-		const connectHeading = page.getByRole("heading", { name: "Telegram", exact: true });
-		await expect(connectHeading).toBeVisible();
-		const connectCard = connectHeading.locator(
-			"xpath=ancestor::div[contains(concat(' ', normalize-space(@class), ' '), ' rounded-lg ')][1]",
-		);
-		// Linked state shows the "Connected" pill + the linked-account copy.
-		await expect(connectCard.getByText("Connected", { exact: true })).toBeVisible();
-		await connectCard.scrollIntoViewIfNeeded();
-		await connectCard.screenshot({ path: SCREENSHOT_CONNECT });
+		// --- Notification Channels (linked Telegram) ---------------------------
+		await expect(page.getByText("Telegram connected", { exact: true })).toBeVisible();
+		const telegramRadio = page.getByRole("radio", { name: "Telegram" });
+		await expect(telegramRadio).toBeVisible();
+		await expect(telegramRadio).toBeEnabled();
+		await telegramRadio.scrollIntoViewIfNeeded();
+		await page
+			.locator("[data-notification-channels-card]")
+			.screenshot({ path: SCREENSHOT_CONNECT });
 
-		// --- Daily Notification panel (multiselect triggers) -------------------
+		const channelGroup = page.getByRole("radiogroup");
+		await channelGroup.screenshot({ path: SCREENSHOT_CHANNELS });
+
+		// --- Daily Notification panel (content toggles) ------------------------
 		const digestForm = page.locator('form[aria-label="Daily Notification"]');
 		await expect(digestForm).toBeVisible();
 
-		const pricesTrigger = page.locator("#daily_digest_include_prices-channel-trigger");
-		const topMoversTrigger = page.locator("#daily_digest_include_top_movers-channel-trigger");
-		await expect(pricesTrigger).toBeVisible();
-		await expect(topMoversTrigger).toBeVisible();
-
-		// The seeded prices/telegram row must surface in the trigger summary text.
-		await expect(pricesTrigger).toHaveAttribute("aria-haspopup", "listbox");
-		await expect(pricesTrigger).toContainText("Telegram");
-
+		const topMoversSwitch = page.getByRole("switch", { name: /Top Movers/i });
+		await expect(topMoversSwitch).toBeVisible();
 		await digestForm.scrollIntoViewIfNeeded();
 		await digestForm.screenshot({ path: SCREENSHOT_PANEL });
 
-		// --- Open one multiselect and screenshot the open listbox --------------
-		const topMoversListbox = await openChannelMultiselect(page, "daily_digest_include_top_movers");
-		await expect(topMoversListbox).toHaveAttribute("role", "listbox");
-		// Both channels render for prices/top_movers (Email, Telegram).
-		const telegramOption = topMoversListbox.getByRole("option", { name: "Telegram" });
-		await expect(telegramOption).toBeVisible();
-		await expect(topMoversListbox.getByRole("option", { name: "Email" })).toBeVisible();
-		await page.screenshot({ path: SCREENSHOT_DROPDOWN });
-
-		// --- Behavior: toggling Telegram on for Top Movers flips the DB row ---
-		// Precondition: top_movers/telegram is seeded off by default (the full
-		// preference catalog is seeded for every user).
-		expect(await getTelegramPreference(userId as string, "daily_notification", "top_movers")).toBe(
-			false,
-		);
+		expect(await getPreference(userId as string, "daily_notification", "top_movers")).toBe(false);
 
 		await waitForAutosave(page, async () => {
-			await telegramOption.click();
+			await topMoversSwitch.click();
 		});
 
-		// The new row persisted as enabled.
-		expect(await getTelegramPreference(userId as string, "daily_notification", "top_movers")).toBe(
-			true,
-		);
-		// The pre-seeded prices/telegram row is untouched (still enabled).
-		expect(await getTelegramPreference(userId as string, "daily_notification", "prices")).toBe(
-			true,
-		);
-
-		// The trigger summary now reflects the new Telegram selection in the UI.
-		await expect(topMoversTrigger).toContainText("Telegram");
-		await page.keyboard.press("Escape");
-		await expect(topMoversListbox).toBeHidden();
+		expect(await getPreference(userId as string, "daily_notification", "top_movers")).toBe(true);
+		expect(await getPreference(userId as string, "daily_notification", "prices")).toBe(true);
 	});
 
-	test("toggling Telegram on a Market panel option and a daily asset-event option each persist a DB row", async () => {
+	test("delivery_channel radio mutes Telegram without unlinking", async () => {
+		test.setTimeout(60_000);
+		// Seed telegram routing in DB so the UI starts muted-from-telegram; avoids
+		// a flaky Email→Telegram UI hop before the mute assertion.
+		const { error: routeError } = await adminClient
+			.from("users")
+			.update({ delivery_channel: "telegram" })
+			.eq("id", userId as string);
+		expect(routeError).toBeNull();
+
+		await page.goto("/dashboard");
+		await page
+			.locator('form[aria-label="Notification preferences"][data-hydrated]')
+			.waitFor({ timeout: 15_000 });
+
+		const telegramRadio = page.getByRole("radio", { name: "Telegram" });
+		await expect(telegramRadio).toBeVisible();
+		await expect(telegramRadio).toBeChecked();
+
+		await selectDeliveryChannel(page, "Disabled");
+		await waitForDeliveryChannel(userId as string, "disabled");
+
+		const { data: muted } = await adminClient
+			.from("users")
+			.select("delivery_channel,telegram_chat_id")
+			.eq("id", userId as string)
+			.single();
+		expect(muted?.delivery_channel).toBe("disabled");
+		expect(muted?.telegram_chat_id).toBe(TELEGRAM_CHAT_ID);
+
+		await selectDeliveryChannel(page, "Telegram");
+		await waitForDeliveryChannel(userId as string, "telegram");
+		await expect(telegramRadio).toBeChecked();
+	});
+
+	test("toggling Market and asset-event content options each persist a DB row", async () => {
 		await page.goto("/dashboard", { waitUntil: "networkidle" });
 		await page.locator("[data-hydrated]").first().waitFor({ state: "attached", timeout: 15_000 });
 
-		// --- Market Notifications: Price Move Alerts (content='') --------------
-		// This facet-less market type keys its telegram pref by notification_type.
 		const marketForm = page.locator('form[aria-label="Market notifications"]');
 		await marketForm.scrollIntoViewIfNeeded();
-		const priceMoveTrigger = page.locator("#price_move_alerts-channel-trigger");
-		await expect(priceMoveTrigger).toBeVisible();
-		await expect(priceMoveTrigger).toHaveAttribute("aria-haspopup", "listbox");
+		const priceMoveSwitch = page.getByRole("switch", { name: /Price Move Alerts/i });
+		await expect(priceMoveSwitch).toBeVisible();
 
-		const priceMoveListbox = await openChannelMultiselect(page, "price_move_alerts");
-		const priceMoveTelegram = priceMoveListbox.getByRole("option", { name: "Telegram" });
-		await expect(priceMoveTelegram).toBeVisible();
-
-		// Precondition: price_move_alerts/telegram is seeded off by default.
-		expect(await getTelegramPreference(userId as string, "price_move_alerts")).toBe(false);
+		expect(await getPreference(userId as string, "price_move_alerts")).toBe(false);
 
 		await waitForAutosave(page, async () => {
-			await priceMoveTelegram.click();
+			await priceMoveSwitch.click();
 		});
 
-		// The new row persisted as enabled (content='' for this market type).
-		expect(await getTelegramPreference(userId as string, "price_move_alerts")).toBe(true);
-		await expect(priceMoveTrigger).toContainText("Telegram");
+		expect(await getPreference(userId as string, "price_move_alerts")).toBe(true);
 
-		// --- Daily notification: Calendar asset event (content='calendar') --------
 		const dailyForm = page.locator('form[aria-label="Daily Notification"]');
 		await dailyForm.scrollIntoViewIfNeeded();
-		const calendarTrigger = page.locator("#asset_events_calendar-channel-trigger");
-		await expect(calendarTrigger).toBeVisible();
+		const calendarSwitch = page.getByRole("switch", { name: /Calendar Events/i });
+		await expect(calendarSwitch).toBeVisible();
 
-		const calendarListbox = await openChannelMultiselect(page, "asset_events_calendar");
-		const calendarTelegram = calendarListbox.getByRole("option", { name: "Telegram" });
-		await expect(calendarTelegram).toBeVisible();
-
-		// Precondition: daily_notification/calendar/telegram is seeded off by default.
-		expect(await getTelegramPreference(userId as string, "daily_notification", "calendar")).toBe(
-			false,
-		);
+		expect(await getPreference(userId as string, "daily_notification", "calendar")).toBe(false);
 
 		await waitForAutosave(page, async () => {
-			await calendarTelegram.click();
+			await calendarSwitch.click();
 		});
 
-		// The new row persisted as enabled, keyed by the calendar content facet.
-		expect(await getTelegramPreference(userId as string, "daily_notification", "calendar")).toBe(
-			true,
-		);
-		await expect(calendarTrigger).toContainText("Telegram");
+		expect(await getPreference(userId as string, "daily_notification", "calendar")).toBe(true);
 	});
 
 	test("dashboard exposes a form control for every catalog option and no stale ones (drift check)", async () => {
 		await page.goto("/dashboard", { waitUntil: "networkidle" });
 		await page.locator("[data-hydrated]").first().waitFor({ state: "attached", timeout: 15_000 });
 
-		// Every option in NOTIFICATION_OPTION_MATRIX must be editable on the
-		// dashboard: a missing control means the catalog gained an option the UI
-		// never renders (add the control + its copy to the matching panel).
 		const renderedNames = new Set<string | null>(
 			await page
-				.locator('[name*="_include_"]')
+				.locator('[name*="_include"]')
 				.evaluateAll((els) => els.map((el) => el.getAttribute("name"))),
 		);
 		const expectedNames = new Set<string>(NOTIFICATION_PREFERENCE_CATALOG.map((e) => e.fieldName));
@@ -258,5 +229,69 @@ test.describe("Telegram dashboard UI", () => {
 		const stale = [...renderedNames].filter((n) => n !== null && !expectedNames.has(n));
 		expect(missing, "catalog options with no dashboard control").toEqual([]);
 		expect(stale, "dashboard controls for options no longer in the catalog").toEqual([]);
+	});
+});
+
+test.describe("Telegram-only notification channel", () => {
+	test("does not show the 'enable a channel' warning when Telegram is the delivery channel", async ({
+		browser,
+	}) => {
+		test.setTimeout(90_000);
+		const context = await browser.newContext();
+		const page = await context.newPage();
+		let userId: string | null = null;
+
+		try {
+			await page.goto("/", { waitUntil: "networkidle" });
+
+			const user = await createTestUser({
+				confirmed: true,
+				approved: true,
+				deliveryChannel: "telegram",
+				trackedAssets: ["AAPL"],
+			});
+			userId = user.id;
+
+			const { error: linkError } = await adminClient
+				.from("users")
+				.update({
+					telegram_chat_id: TELEGRAM_CHAT_ID,
+					telegram_linked_at: new Date().toISOString(),
+				})
+				.eq("id", userId);
+			if (linkError) {
+				throw new Error(`Failed to link telegram chat id: ${linkError.message}`);
+			}
+
+			await signIn(page, user.email, TEST_PASSWORD);
+			await page.goto("/dashboard", { waitUntil: "networkidle" });
+			await page.locator("[data-hydrated]").first().waitFor({ state: "attached", timeout: 15_000 });
+
+			const channelWarning = page.getByText("Choose a delivery method", {
+				exact: false,
+			});
+			await expect(channelWarning).toHaveCount(0);
+
+			const digestForm = page.locator('form[aria-label="Daily Notification"]');
+			await expect(digestForm).toBeVisible();
+			await expect(digestForm.locator("fieldset").first()).not.toHaveAttribute(
+				"aria-disabled",
+				"true",
+			);
+
+			await expect(page.getByRole("radio", { name: "Telegram" })).toBeChecked();
+		} finally {
+			if (userId) {
+				try {
+					await cleanupTestUser(userId);
+				} catch (error) {
+					rootLogger.warn("Failed to cleanup telegram-only channel test user", {
+						context: { error },
+					});
+				}
+			}
+			await page.close();
+			await context.close();
+		}
 	});
 });

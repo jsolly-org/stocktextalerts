@@ -12,25 +12,23 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
  * Telegram-only subscribers are silently never selected.
  */
 describe("fetchDailyNotificationUsers daily-digest candidate selection", () => {
-	it("selects a Telegram-only subscriber (email off, Telegram linked)", async () => {
+	it("selects a Telegram-only subscriber (delivery_channel telegram, chat linked)", async () => {
 		const user = await createTestUser({
-			emailNotificationsEnabled: false,
+			deliveryChannel: "telegram",
 			confirmed: true,
 		});
 		registerTestUserForCleanup(user.id);
 
-		// No usable email channel, but a linked Telegram chat + the daily_digest
-		// prices Telegram facet on — a legitimate Telegram-only digest subscriber.
+		// Routed to Telegram with a linked chat + daily prices facet on.
 		const { error } = await adminClient
 			.from("users")
 			.update({
 				daily_notification_time: 540,
 				telegram_chat_id: 991234567,
-				telegram_opted_out: false,
 			})
 			.eq("id", user.id);
 		expect(error).toBeNull();
-		await setTestUserPrefs(user.id, [["daily_notification", "prices", "telegram", true]]);
+		await setTestUserPrefs(user.id, [["daily_notification", "prices", true]]);
 
 		const users = await fetchDailyNotificationUsers({
 			supabase: adminClient,
@@ -41,21 +39,18 @@ describe("fetchDailyNotificationUsers daily-digest candidate selection", () => {
 
 		const found = users.find((u) => u.id === user.id);
 		expect(found, "telegram-only user must be a daily-digest candidate").toBeDefined();
+		expect(found?.delivery_channel).toBe("telegram");
 		// prefs are attached so downstream per-facet filtering can run.
 		expect(
 			found?.prefs.some(
-				(p) =>
-					p.notification_type === "daily_notification" &&
-					p.content === "prices" &&
-					p.channel === "telegram" &&
-					p.enabled,
+				(p) => p.notification_type === "daily_notification" && p.content === "prices" && p.enabled,
 			),
 		).toBe(true);
 	});
 
 	it("excludes a user with no usable channel (email off, no Telegram)", async () => {
 		const user = await createTestUser({
-			emailNotificationsEnabled: false,
+			deliveryChannel: "disabled",
 			confirmed: true,
 		});
 		registerTestUserForCleanup(user.id);

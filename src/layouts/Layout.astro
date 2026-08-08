@@ -2,6 +2,7 @@
 import { Icon } from "astro-icon/components";
 import "../global.css";
 import { REGISTRATION_ENABLED } from "../lib/constants";
+import { RELEASE_ID } from "../lib/logging/release-id";
 interface Props {
 	title: string;
 	description: string;
@@ -50,6 +51,8 @@ const omitManifestOnVercel =
     <!-- Private app: every page stays out of search indexes. Static pages bypass
          middleware on Vercel, so this build-baked meta is what covers them. -->
     <meta name="robots" content="noindex, nofollow" />
+    <!-- Optional human-readable twin of the x-release-id response header (header is canonical). -->
+    <meta name="release-id" content={RELEASE_ID} />
     <title>{title}</title>
     <link rel="canonical" href={canonicalURL} />
 
@@ -112,7 +115,7 @@ const omitManifestOnVercel =
   <body>
     <a
       href="#main-content"
-      class="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:top-4 focus-visible:left-4 focus-visible:z-50 focus-visible:px-4 focus-visible:py-2 focus-visible:bg-primary focus-visible:text-white focus-visible:rounded-lg focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary focus-visible:shadow-lg"
+      class="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:top-4 focus-visible:left-4 focus-visible:z-50 focus-visible:px-4 focus-visible:py-2 focus-visible:bg-primary focus-visible:text-white focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary focus-visible:shadow-lg"
     >
       Skip to main content
     </a>

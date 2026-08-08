@@ -10,6 +10,8 @@ describe("Telegram asset-events formatting", () => {
 			iposSection: "SKHY V: IPO tomorrow — SK Hynix Inc",
 			analystSection: null,
 			insiderSection: null,
+			filingsLines: null,
+			shortInterest: null,
 		});
 
 		expect(msg.text).toContain("SKHY V: IPO tomorrow — SK Hynix Inc");

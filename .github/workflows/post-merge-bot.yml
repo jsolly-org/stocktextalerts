@@ -1,0 +1,33 @@
+name: Post-merge bot dispatch
+
+# Best-effort only. GITHUB_TOKEN merges often suppress this `closed` trigger as
+# well as `push` (observed on #647). The reliable recovery path is
+# ensure-main-ci.yml (scheduled workflow_dispatch of CI on main).
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    name: dispatch CI
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.merged_by.login == 'github-actions[bot]'
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    timeout-minutes: 5
+    steps:
+      - name: Workflow-dispatch CI on main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          echo "Bot-merged PR #${{ github.event.pull_request.number }} → $MERGE_SHA"
+          echo "Dispatching CI on main (push events were suppressed); Deploy follows green CI."
+          gh workflow run CI --repo "$GITHUB_REPOSITORY" --ref main

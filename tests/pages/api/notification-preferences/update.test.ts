@@ -21,19 +21,19 @@ async function postNotificationPreferencesUpdate(options: {
 }
 
 describe("A signed-in user updates their notification channels.", () => {
-	it("When the user enables their first notification channel, scheduled updates are enabled at the default time.", async () => {
+	it("When the user sets delivery_channel to email, existing schedule fields are preserved.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
-			emailNotificationsEnabled: false,
+			deliveryChannel: "disabled",
 		});
 		registerTestUserForCleanup(testUser.id);
 
 		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
-		formData.append("email_notifications_enabled", "true");
+		formData.append("delivery_channel", "email");
 
 		const response = await postNotificationPreferencesUpdate({
 			formData,
@@ -45,12 +45,14 @@ describe("A signed-in user updates their notification channels.", () => {
 			ok: boolean;
 			message: string;
 			notificationPreferences: {
+				delivery_channel: string;
 				market_scheduled_asset_price_times: number[] | null;
 				market_scheduled_asset_price_next_send_at: string | null;
 			};
 		};
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("settings_updated");
+		expect(payload.notificationPreferences.delivery_channel).toBe("email");
 		expect(payload.notificationPreferences.market_scheduled_asset_price_times).toEqual([
 			DEFAULT_MARKET_UPDATE_TIME_MINUTES,
 		]);
@@ -58,10 +60,13 @@ describe("A signed-in user updates their notification channels.", () => {
 
 		const { data: updatedUser } = await adminClient
 			.from("users")
-			.select("market_scheduled_asset_price_times,market_scheduled_asset_price_next_send_at")
+			.select(
+				"delivery_channel,market_scheduled_asset_price_times,market_scheduled_asset_price_next_send_at",
+			)
 			.eq("id", testUser.id)
 			.single();
 
+		expect(updatedUser?.delivery_channel).toBe("email");
 		expect(updatedUser?.market_scheduled_asset_price_times).toEqual([
 			DEFAULT_MARKET_UPDATE_TIME_MINUTES,
 		]);
@@ -79,7 +84,7 @@ describe("A signed-in user updates their notification channels.", () => {
 		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
-		formData.append("email_notifications_enabled", "true");
+		formData.append("delivery_channel", "email");
 		formData.append("market_scheduled_asset_price_times", JSON.stringify(["12:00"]));
 
 		const response = await postNotificationPreferencesUpdate({
@@ -169,8 +174,8 @@ describe("A signed-in user updates their notification channels.", () => {
 	});
 });
 
-describe("A signed-in user toggles Telegram on their notification options.", () => {
-	async function readTelegramPref(
+describe("A signed-in user toggles content options on notification_preferences.", () => {
+	async function readPref(
 		userId: string,
 		notificationType: string,
 		content: string,
@@ -181,12 +186,11 @@ describe("A signed-in user toggles Telegram on their notification options.", () 
 			.eq("user_id", userId)
 			.eq("notification_type", notificationType)
 			.eq("content", content)
-			.eq("channel", "telegram")
 			.maybeSingle();
 		return data?.enabled ?? null;
 	}
 
-	it("Enabling daily-digest prices for Telegram creates an enabled notification_preferences row.", async () => {
+	it("Enabling daily-digest prices creates an enabled notification_preferences row.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
@@ -197,7 +201,7 @@ describe("A signed-in user toggles Telegram on their notification options.", () 
 		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
-		formData.append("daily_digest_include_prices_telegram", "true");
+		formData.append("daily_digest_include_prices", "true");
 
 		const response = await postNotificationPreferencesUpdate({ formData, cookies });
 
@@ -206,10 +210,10 @@ describe("A signed-in user toggles Telegram on their notification options.", () 
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("settings_updated");
 
-		expect(await readTelegramPref(testUser.id, "daily_notification", "prices")).toBe(true);
+		expect(await readPref(testUser.id, "daily_notification", "prices")).toBe(true);
 	});
 
-	it("Submitting the same option as false sets the Telegram row's enabled to false.", async () => {
+	it("Submitting the same option as false sets the row's enabled to false.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
@@ -221,22 +225,22 @@ describe("A signed-in user toggles Telegram on their notification options.", () 
 
 		// First enable it.
 		const enableForm = new FormData();
-		enableForm.append("daily_digest_include_prices_telegram", "true");
+		enableForm.append("daily_digest_include_prices", "true");
 		expect(
 			(await postNotificationPreferencesUpdate({ formData: enableForm, cookies })).status,
 		).toBe(200);
-		expect(await readTelegramPref(testUser.id, "daily_notification", "prices")).toBe(true);
+		expect(await readPref(testUser.id, "daily_notification", "prices")).toBe(true);
 
 		// Then disable it.
 		const disableForm = new FormData();
-		disableForm.append("daily_digest_include_prices_telegram", "false");
+		disableForm.append("daily_digest_include_prices", "false");
 		const response = await postNotificationPreferencesUpdate({ formData: disableForm, cookies });
 
 		expect(response.status).toBe(200);
-		expect(await readTelegramPref(testUser.id, "daily_notification", "prices")).toBe(false);
+		expect(await readPref(testUser.id, "daily_notification", "prices")).toBe(false);
 	});
 
-	it("A facet-less option (price_move_alerts) persists a Telegram row keyed on empty content.", async () => {
+	it("A facet-less option (price_move_alerts) persists a row keyed on empty content.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
@@ -247,15 +251,15 @@ describe("A signed-in user toggles Telegram on their notification options.", () 
 		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
-		formData.append("price_move_alerts_include_telegram", "true");
+		formData.append("price_move_alerts_include", "true");
 
 		const response = await postNotificationPreferencesUpdate({ formData, cookies });
 
 		expect(response.status).toBe(200);
-		expect(await readTelegramPref(testUser.id, "price_move_alerts", "")).toBe(true);
+		expect(await readPref(testUser.id, "price_move_alerts", "")).toBe(true);
 	});
 
-	it("Submitting an unrelated option does not clobber an existing Telegram row (no-drift).", async () => {
+	it("Submitting an unrelated option does not clobber an existing row (no-drift).", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
@@ -265,17 +269,17 @@ describe("A signed-in user toggles Telegram on their notification options.", () 
 
 		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
-		// Enable Telegram for daily-digest prices.
+		// Enable daily-digest prices.
 		const seedForm = new FormData();
-		seedForm.append("daily_digest_include_prices_telegram", "true");
+		seedForm.append("daily_digest_include_prices", "true");
 		expect((await postNotificationPreferencesUpdate({ formData: seedForm, cookies })).status).toBe(
 			200,
 		);
-		expect(await readTelegramPref(testUser.id, "daily_notification", "prices")).toBe(true);
+		expect(await readPref(testUser.id, "daily_notification", "prices")).toBe(true);
 
-		// Submit a totally unrelated field (Telegram for a different option).
+		// Submit a totally unrelated field.
 		const unrelatedForm = new FormData();
-		unrelatedForm.append("asset_events_include_analyst_telegram", "true");
+		unrelatedForm.append("asset_events_include_analyst", "true");
 		const response = await postNotificationPreferencesUpdate({
 			formData: unrelatedForm,
 			cookies,
@@ -283,41 +287,36 @@ describe("A signed-in user toggles Telegram on their notification options.", () 
 
 		expect(response.status).toBe(200);
 		// The prices row is untouched (still enabled); the analyst row is newly enabled.
-		expect(await readTelegramPref(testUser.id, "daily_notification", "prices")).toBe(true);
-		expect(await readTelegramPref(testUser.id, "daily_notification", "analyst")).toBe(true);
+		expect(await readPref(testUser.id, "daily_notification", "prices")).toBe(true);
+		expect(await readPref(testUser.id, "daily_notification", "analyst")).toBe(true);
 	});
 
-	it("A request mixing an email column write and a Telegram option persists both.", async () => {
+	it("A request mixing delivery_channel and a content option persists both.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
+			deliveryChannel: "disabled",
 		});
 		registerTestUserForCleanup(testUser.id);
 
 		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
-		// Legacy column write (email) alongside a Telegram table write.
-		formData.append("daily_digest_include_prices_email", "true");
-		formData.append("daily_digest_include_prices_telegram", "true");
+		formData.append("delivery_channel", "email");
+		formData.append("daily_digest_include_prices", "true");
 
 		const response = await postNotificationPreferencesUpdate({ formData, cookies });
 
 		expect(response.status).toBe(200);
 
-		// Email lands on the daily notification prices email row in notification_preferences.
-		const { data: emailPref } = await adminClient
-			.from("notification_preferences")
-			.select("enabled")
-			.eq("user_id", testUser.id)
-			.eq("notification_type", "daily_notification")
-			.eq("content", "prices")
-			.eq("channel", "email")
-			.maybeSingle();
-		expect(emailPref?.enabled).toBe(true);
+		const { data: user } = await adminClient
+			.from("users")
+			.select("delivery_channel")
+			.eq("id", testUser.id)
+			.single();
+		expect(user?.delivery_channel).toBe("email");
 
-		// Telegram lands on notification_preferences.
-		expect(await readTelegramPref(testUser.id, "daily_notification", "prices")).toBe(true);
+		expect(await readPref(testUser.id, "daily_notification", "prices")).toBe(true);
 	});
 });

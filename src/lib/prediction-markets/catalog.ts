@@ -11,28 +11,18 @@ import type { CuratedPredictionMarket } from "./types";
  */
 export const CURATED_PREDICTION_MARKETS: readonly CuratedPredictionMarket[] = [
 	{
-		key: "recession_2026",
-		label: "Recession '26",
-		venue: "kalshi",
-		kalshiTicker: "KXRECSSNBER-26",
-	},
-	{
 		key: "fed_cut_by_2027",
 		label: "Fed cut by '27",
 		venue: "kalshi",
 		kalshiTicker: "KXRATECUT-26DEC31",
 	},
 	{
-		key: "fed_cut_by_dec_2026",
-		label: "Fed cut by Dec",
+		key: "spx_opens_up_down",
+		label: "S&P 500 up/down",
 		venue: "polymarket",
-		polymarketSlug: "fed-rate-cut-by-december-2026-meeting",
-	},
-	{
-		key: "spx_best_2026",
-		label: "S&P best '26",
-		venue: "polymarket",
-		polymarketSlug: "will-the-sp-500-have-the-best-performance-in-2026-545",
+		// Dated daily market — rotate the slug when this session resolves.
+		polymarketSlug: "spx-opens-up-or-down-on-july-31-2026",
+		allowInactive: true,
 	},
 	{
 		key: "us_china_tariff_deal",

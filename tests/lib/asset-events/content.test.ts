@@ -1,8 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-	buildAssetEventsContent,
-	buildAssetEventsContentForChannels,
-} from "../../../src/lib/asset-events/content";
+import { buildAssetEventsContent } from "../../../src/lib/asset-events/content";
 import { makePrefRows, makeUserRecord as makeUser } from "../../helpers/user-record-fixture";
 
 type CalendarEventRow = {
@@ -113,6 +110,28 @@ function createAssetEventsSupabase(options: {
 				};
 			}
 
+			if (table === "asset_sec_filings") {
+				return {
+					select() {
+						const query = {
+							in() {
+								return query;
+							},
+							gte() {
+								return query;
+							},
+							order() {
+								return query;
+							},
+							limit() {
+								return Promise.resolve({ data: [], error: null });
+							},
+						};
+						return query;
+					},
+				};
+			}
+
 			throw new Error(`Unexpected table: ${table}`);
 		},
 	};
@@ -202,20 +221,21 @@ describe("buildAssetEventsContent", () => {
 			],
 		});
 
-		const result = await buildAssetEventsContent({
-			user: makeUser({ prefs: makePrefRows([["daily_notification", "ipo", "email", true]]) }),
+		const built = await buildAssetEventsContent({
+			user: makeUser({ prefs: makePrefRows([["daily_notification", "ipo", true]]) }),
 			supabase: supabase as never,
 			logger: logger as never,
 			localDate: "2026-02-10",
 			tickers: [],
 		});
+		const result = built.content;
 
 		expect(result.hasAnyContent).toBe(true);
 		expect(result.eventsSection?.ipos).toContain("ACME: IPO tomorrow");
 		expect(result.eventsSection?.earnings).toBeNull();
 	});
 
-	it("loads insider from DB for the email channel", async () => {
+	it("loads insider from DB when opted in", async () => {
 		const supabase = createAssetEventsSupabase({
 			insiderTransactions: [
 				{
@@ -237,22 +257,22 @@ describe("buildAssetEventsContent", () => {
 			],
 		});
 
-		const result = await buildAssetEventsContentForChannels({
+		const built = await buildAssetEventsContent({
 			user: makeUser({
-				prefs: makePrefRows([["daily_notification", "insider", "email", true]]),
+				prefs: makePrefRows([["daily_notification", "insider", true]]),
 			}),
 			supabase: supabase as never,
 			logger: logger as never,
 			localDate: "2026-02-10",
 			tickers: ["AAPL", "MSFT"],
-			channels: ["email"],
 		});
+		const result = built.content;
 
-		expect(result.email?.insiderSection).toContain("AAPL");
-		expect(result.email?.insiderSection).toContain("MSFT");
+		expect(result.insiderSection).toContain("AAPL");
+		expect(result.insiderSection).toContain("MSFT");
 	});
 
-	it("formats insider on the email channel when opted in", async () => {
+	it("formats insider when opted in", async () => {
 		const supabase = createAssetEventsSupabase({
 			insiderTransactions: [
 				{
@@ -266,18 +286,18 @@ describe("buildAssetEventsContent", () => {
 			],
 		});
 
-		const result = await buildAssetEventsContentForChannels({
+		const built = await buildAssetEventsContent({
 			user: makeUser({
-				prefs: makePrefRows([["daily_notification", "insider", "email", true]]),
+				prefs: makePrefRows([["daily_notification", "insider", true]]),
 			}),
 			supabase: supabase as never,
 			logger: logger as never,
 			localDate: "2026-02-10",
 			tickers: ["AAPL"],
-			channels: ["email"],
 		});
+		const result = built.content;
 
-		expect(result.email?.insiderSection).toContain("AAPL");
+		expect(result.insiderSection).toContain("AAPL");
 	});
 
 	it("sets shouldUpdateAnalystMonth when analyst fetch succeeded with no formatted section", async () => {
@@ -297,38 +317,37 @@ describe("buildAssetEventsContent", () => {
 			],
 		});
 
-		const result = await buildAssetEventsContentForChannels({
+		const built = await buildAssetEventsContent({
 			user: makeUser({
-				prefs: makePrefRows([["daily_notification", "analyst", "email", true]]),
+				prefs: makePrefRows([["daily_notification", "analyst", true]]),
 				asset_events_last_analyst_sent_month: null,
 			}),
 			supabase: supabase as never,
 			logger: logger as never,
 			localDate: "2026-02-10",
 			tickers: ["AAPL"],
-			channels: ["email"],
 		});
+		const result = built.content;
 
-		expect(result.shouldUpdateAnalystMonth).toBe(true);
-		expect(result.email?.analystSection).toBeNull();
+		expect(built.shouldUpdateAnalystMonth).toBe(true);
+		expect(result.analystSection).toBeNull();
 	});
 
 	it("does not set shouldUpdateAnalystMonth when analyst data is missing from DB", async () => {
 		const supabase = createAssetEventsSupabase({});
 
-		const result = await buildAssetEventsContentForChannels({
+		const built = await buildAssetEventsContent({
 			user: makeUser({
-				prefs: makePrefRows([["daily_notification", "analyst", "email", true]]),
+				prefs: makePrefRows([["daily_notification", "analyst", true]]),
 				asset_events_last_analyst_sent_month: null,
 			}),
 			supabase: supabase as never,
 			logger: logger as never,
 			localDate: "2026-02-10",
 			tickers: ["AAPL"],
-			channels: ["email"],
 		});
 
-		expect(result.shouldUpdateAnalystMonth).toBe(false);
+		expect(built.shouldUpdateAnalystMonth).toBe(false);
 	});
 
 	it("sets shouldUpdateAnalystMonth when at least one symbol has fresh analyst data", async () => {
@@ -348,20 +367,20 @@ describe("buildAssetEventsContent", () => {
 			],
 		});
 
-		const result = await buildAssetEventsContentForChannels({
+		const built = await buildAssetEventsContent({
 			user: makeUser({
-				prefs: makePrefRows([["daily_notification", "analyst", "email", true]]),
+				prefs: makePrefRows([["daily_notification", "analyst", true]]),
 				asset_events_last_analyst_sent_month: null,
 			}),
 			supabase: supabase as never,
 			logger: logger as never,
 			localDate: "2026-02-10",
 			tickers: ["AAPL", "MSFT"],
-			channels: ["email"],
 		});
+		const result = built.content;
 
-		expect(result.shouldUpdateAnalystMonth).toBe(true);
-		expect(result.email?.analystSection).toContain("MSFT");
+		expect(built.shouldUpdateAnalystMonth).toBe(true);
+		expect(result.analystSection).toContain("MSFT");
 	});
 
 	it("omits insider transactions older than the last-day window", async () => {
@@ -378,26 +397,26 @@ describe("buildAssetEventsContent", () => {
 			],
 		});
 
-		const result = await buildAssetEventsContentForChannels({
-			user: makeUser({ prefs: makePrefRows([["daily_notification", "insider", "email", true]]) }),
+		const built = await buildAssetEventsContent({
+			user: makeUser({ prefs: makePrefRows([["daily_notification", "insider", true]]) }),
 			supabase: supabase as never,
 			logger: logger as never,
 			localDate: "2026-02-10",
 			tickers: ["AAPL"],
-			channels: ["email"],
 		});
+		const result = built.content;
 
-		expect(result.email?.insiderSection).toBeNull();
-		expect(result.email?.hasAnyContent).toBe(false);
+		expect(result.insiderSection).toBeNull();
+		expect(result.hasAnyContent).toBe(false);
 	});
 });
 
-describe("buildAssetEventsContentForChannels Telegram facets", () => {
+describe("buildAssetEventsContent formats", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
 
-	it("renders a Telegram block gated by the facet selection — enabled facet present, disabled facet absent", async () => {
+	it("formats both email and telegram from the same content prefs", async () => {
 		const supabase = createAssetEventsSupabase({
 			calendarEvents: [
 				{ symbol: "AAPL", event_type: "earnings", event_date: "2026-02-11", data: {} },
@@ -412,44 +431,37 @@ describe("buildAssetEventsContentForChannels Telegram facets", () => {
 			],
 		});
 
-		// Email off entirely (no channels); only the Telegram calendar facet is on.
-		const result = await buildAssetEventsContentForChannels({
-			user: makeUser(),
+		const result = await buildAssetEventsContent({
+			user: makeUser({
+				prefs: makePrefRows([["daily_notification", "calendar", true]]),
+			}),
 			supabase: supabase as never,
 			logger: logger as never,
 			localDate: "2026-02-10",
 			tickers: ["AAPL"],
-			channels: [],
-			telegramFacets: { calendar: true, ipo: false, insider: false, analyst: false },
 		});
 
-		expect(result.telegram).not.toBeNull();
-		expect(result.telegram?.hasAnyContent).toBe(true);
-		// Calendar facet on → earnings present.
-		expect(result.telegram?.eventsSection?.earnings).toContain("AAPL");
+		expect(result.content.hasAnyContent).toBe(true);
+		expect(result.content.eventsSection?.earnings).toContain("AAPL");
 		// IPO facet off → no IPO section, even though an IPO row exists.
-		expect(result.telegram?.eventsSection?.ipos ?? null).toBeNull();
-		// email untouched (no channels requested).
-		expect(result.email).toBeNull();
+		expect(result.content.eventsSection?.ipos ?? null).toBeNull();
 	});
 
-	it("returns null Telegram content when no Telegram facet is enabled", async () => {
+	it("returns empty content when no asset-event facets are enabled", async () => {
 		const supabase = createAssetEventsSupabase({
 			calendarEvents: [
 				{ symbol: "AAPL", event_type: "earnings", event_date: "2026-02-11", data: {} },
 			],
 		});
 
-		const result = await buildAssetEventsContentForChannels({
-			user: makeUser(),
+		const result = await buildAssetEventsContent({
+			user: makeUser({ prefs: [] }),
 			supabase: supabase as never,
 			logger: logger as never,
 			localDate: "2026-02-10",
 			tickers: ["AAPL"],
-			channels: [],
-			telegramFacets: { calendar: false, ipo: false, insider: false, analyst: false },
 		});
 
-		expect(result.telegram).toBeNull();
+		expect(result.content.hasAnyContent).toBe(false);
 	});
 });

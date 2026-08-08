@@ -1,4 +1,14 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
+import { formatFilingsSectionTelegram } from "../../asset-events/filings-format";
+import {
+	formatFilingsSectionMarkdown,
+	formatFilingsSectionPlainText,
+} from "../../asset-events/format";
+import {
+	formatShortInterestSectionLines,
+	formatShortInterestSectionTitle,
+} from "../../asset-events/short-interest";
+import type { SecFilingLine, ShortInterestDigestContent } from "../../asset-events/types";
 import type { MarketClosureInfo } from "../../time/types";
 import { renderEmailSection } from "../email/html-section";
 import { buildEmailUrls, renderEmailFooter } from "../email/layout";
@@ -19,6 +29,8 @@ export function formatAssetEventsEmail(options: {
 	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
+	filingsLines?: SecFilingLine[] | null;
+	shortInterest?: ShortInterestDigestContent | null;
 	marketClosureInfo?: MarketClosureInfo | null;
 	delayBannerText?: string | null;
 	delayBannerHtml?: string | null;
@@ -54,6 +66,17 @@ export function formatAssetEventsEmail(options: {
 		textParts.push(
 			`\n📊 Analyst Consensus (published monthly on the 1st)\n${options.analystSection}`,
 		);
+	}
+	const filingsPlain = options.filingsLines?.length
+		? formatFilingsSectionPlainText(options.filingsLines)
+		: null;
+	if (filingsPlain) {
+		textParts.push(`\n📄 SEC Filings\n${filingsPlain}`);
+	}
+	if (options.shortInterest) {
+		const title = formatShortInterestSectionTitle(options.shortInterest);
+		const body = formatShortInterestSectionLines(options.shortInterest);
+		textParts.push(`\n📉 ${title}\n${body}`);
 	}
 	textParts.push(`\nManage your notifications: ${urls.dashboardUrl}`);
 	textParts.push(`Manage your delivery schedule: ${urls.scheduleUrl}`);
@@ -100,6 +123,17 @@ export function formatAssetEventsEmail(options: {
 			{ showFinnhubLogo: true },
 		);
 	}
+	const filingsMarkdown = options.filingsLines?.length
+		? formatFilingsSectionMarkdown(options.filingsLines)
+		: null;
+	if (filingsMarkdown) {
+		sectionsHtml += renderEmailSection("📄", "SEC Filings", filingsMarkdown);
+	}
+	if (options.shortInterest) {
+		const title = formatShortInterestSectionTitle(options.shortInterest);
+		const body = formatShortInterestSectionLines(options.shortInterest);
+		sectionsHtml += renderEmailSection("📉", title, body);
+	}
 	const html = `
 <!DOCTYPE html>
 <html>
@@ -138,6 +172,8 @@ export function formatAssetEventsTelegram(opts: {
 	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
+	filingsLines?: SecFilingLine[] | null;
+	shortInterest?: ShortInterestDigestContent | null;
 	delayBanner?: string | null;
 	marketClosureInfo?: MarketClosureInfo | null;
 }): FormattedString {
@@ -167,6 +203,17 @@ export function formatAssetEventsTelegram(opts: {
 	}
 	if (opts.analystSection) {
 		msg = fmt`${msg}\n\n${FormattedString.bold("📊 Analyst Consensus (published monthly on the 1st)")}\n${boldTickerPrefixesTelegram(opts.analystSection)}`;
+	}
+	const filingsTelegram = opts.filingsLines?.length
+		? formatFilingsSectionTelegram(opts.filingsLines)
+		: null;
+	if (filingsTelegram) {
+		msg = fmt`${msg}\n\n${FormattedString.bold("📄 SEC Filings")}\n${filingsTelegram}`;
+	}
+	if (opts.shortInterest) {
+		const title = formatShortInterestSectionTitle(opts.shortInterest);
+		const body = formatShortInterestSectionLines(opts.shortInterest);
+		msg = fmt`${msg}\n\n${FormattedString.bold(`📉 ${title}`)}\n${boldTickerPrefixesTelegram(body)}`;
 	}
 	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
 	return msg;

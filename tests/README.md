@@ -105,7 +105,7 @@ Direct Vitest invocation (IDE, `npx vitest`) loads `.env.local` then applies `no
 - Sets `NODE_ENV=test`
 - Clears `EMAIL_SMTP_HOST` (real SMTP + fake timers deadlock unit tests)
 
-`vitest.config.ts` also sets `fileParallelism: false` and `sequence.concurrent: false` because tests share DB state.
+`vitest.config.ts` sets `sequence.concurrent: false`, so tests inside one file always run one at a time. Files run in parallel; see "Parallelism" below.
 
 ## Baseline env stubs
 
@@ -119,21 +119,46 @@ Provider keys (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`, `XAI_API_KEY`, `TELEGRAM_BO
 
 Post-deploy live verification uses the scheduled `stocktextalerts-live-provider-check` Lambda (`src/handlers/maintenance/live-provider-check.ts`).
 
+**This is enforced, not just documented.** `tests/helpers/network-guard.ts` replaces `fetch` (plus `request`/`get` on `node:http` and `node:https`, which is what pre-fetch SDKs such as the AWS SDK use) with a guard that rejects any host outside the local stack, installed in two places: every Vitest file (`tests/network-guard-setup.ts`) and the `MODE=test` Astro dev server (`blockNonLocalFetchPlugin` in `astro.config.ts`, which also covers the server the HTTP page specs use). A spec that forgets a mock, or a route that calls `fetch` directly instead of going through an aliased vendor module, now fails with a message naming the blocked URL. `*.live.test.ts` is the one exception and the guard stands down for it.
+
 ## Email routing (Mailpit)
 
 Test email never hits real SES.
 
 - **Unit tests:** in-process mock sender (`tests/setup.ts` mocks `createEmailSender` unless `EMAIL_SMTP_HOST` is set — Vitest strips it).
 - **E2E / `MODE=test` dev:** `EMAIL_SMTP_HOST=localhost` routes to Mailpit (Supabase bundled Inbucket). Mailpit HTTP API: Supabase API port + 3 (default `54324`). Helpers: `tests/helpers/mailpit.ts`.
+- **Clearing the inbox:** use `clearMailpitFor(recipient)`, never a blanket delete. Mailpit is one shared instance across every worker, so deleting all messages destroys mail another test is waiting on. Address the mailbox you are about to assert against.
+- **Unique recipients:** derive addresses from `randomUUID()`, not `Date.now()` or a fixed string, so two workers cannot collide on one mailbox.
 
 ## Playwright policy
 
-- **Global retries:** `0` in `playwright.shared.ts`. Serial suites that mutate DB/page state must not auto-retry.
+- **Workers:** `2` in `playwright.shared.ts`, sized for the 4-vCPU CI runner (which also carries Astro dev and Supabase). Specs create their own users; the shared Mailpit inbox is cleared per recipient, never globally. **`3` was measured and rejected** (PR #689): the runner is already CPU-saturated, so it bought ~11s of a ~218s job while inflating total test time 35% and the slowest single test from 5.1s to 23.4s. Playwright parallelizes by **file**, so the floor is the longest suite (`dashboard-assets`, ~43s) regardless: check `blacksmith jobs tests <job_id> --summary suites` before touching this.
+- **Global retries:** `0` in `playwright.shared.ts`. Suites that mutate DB/page state must not auto-retry.
 - **Route walker exception:** `tests/e2e/routes.e2e.spec.ts` sets `retries: 1` locally (stateless navigation).
 - **`reuseExistingServer`:** enabled locally, disabled in CI (`playwright.config.ts`).
 - **Web server env:** vendor modules aliased to no-op stubs when `MODE=test` (see `astro.config.ts`); Mailpit SMTP settings inherited from `.env.local`.
+- **Vendor HTTP:** anything the server fetches from a provider must go through `src/lib/vendors/massive.ts`, `finnhub.ts`, or `src/lib/vendors/http.ts`; those three are the aliased modules. A direct `fetch` to a vendor bypasses the stub and makes a live call from CI (the logo proxy and icon probe did exactly that).
+- **What the HTTP stub answers:** `tests/stubs/vendors/http.ts` serves a real 1x1 PNG for logo/branding URLs, so the dashboard logo proxy and the email logo fetcher run their success paths (content-type allowlist, `MAX_LOGO_BYTES`, base64 inlining) instead of collapsing to "vendor unavailable". The Massive **ticker-detail** probe stays 503 on purpose: a 200 makes `checkAndStoreIcon` write `icon_url` + `icon_checked_at` mid-spec and clobber fixture values. Unit specs that want a failing upstream import `tests/stubs/vendors/http-unavailable.ts` instead, which 503s everything.
 - **Origins:** derive from Playwright `baseURL` / `page` origin instead of hardcoding `:4322` where practical.
 - **Waits:** prefer route gates, response barriers, and `expect.poll` over fixed `waitForTimeout`.
+
+## Parallelism
+
+The suite runs test **files** in parallel (tests within a file stay sequential). Two structural rules make that safe, and new tests have to keep them.
+
+**1. Run-wide setup belongs in `tests/global-setup.ts`, not `beforeAll`.** A `beforeAll` in `tests/setup.ts` executes once per *file*. Schema and admin-credential verification were paying that ~180 times for an answer that cannot change mid-run, and the run-wide user wipe was worse than wasteful: it deleted users other workers were actively asserting on. Those three now run once, before any worker starts. Per-test cleanup is unchanged: register users with `registerTestUserForCleanup` and the `afterEach` in `tests/setup.ts` removes exactly yours.
+
+**2. A test owns only the rows it creates.** Under parallelism another worker is always inserting and deleting concurrently, so:
+
+- Assert on *your* rows, not on table totals. `expect(assets).toHaveLength(4)` is a race; `expect(rows.map(r => r.symbol)).toContain("AAPL")` is not.
+- Derive fixture identifiers from `randomUUID()` so two workers cannot pick the same symbol, email, or mailbox.
+- Never delete or clear globally. Scope every teardown to the ids or addresses the test created (this is why `clearMailpitFor` replaced the blanket Mailpit delete).
+
+Some tests cannot follow rule 2 because the whole table *is* the subject: `runUniverseReconcile` counts every asset, and `runScheduledNotifications({ supabase, logger })` processes every user due at time T. Scoping them would change what they cover, so they are listed in [`tests/serial-test-files.ts`](serial-test-files.ts) and run in a second, serial pass after the parallel one. `npm test` runs both passes and fails if either does; a filtered run (`npm test -- some.test.ts`) is a single pass.
+
+**3. Shared processes belong to the run, not to a file.** The `tests/pages/http/**` specs share one Astro dev server on port 4325. They were serialized for a while because the server was started lazily by whichever worker got there first and then stopped by the `afterAll` in `tests/setup.ts`, which runs once per *file*: any file finishing killed the server the others were using. The lifecycle now lives at run level (a cross-worker lock in `tests/helpers/http/server.ts`, teardown in `tests/global-setup.ts`), so those files run in parallel. If you add another shared process, own it the same way.
+
+Keep that list short. An entry is a file that no longer gets any parallelism, so prefer fixing a shared-state assumption over adding one. A test that fails only when run alongside others is telling you it reads something it does not own.
 
 ## Clock-sensitive tests
 

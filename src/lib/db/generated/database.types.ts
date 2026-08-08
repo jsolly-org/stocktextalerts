@@ -275,8 +275,91 @@ export type Database = {
         }
         Relationships: []
       }
+      asset_sec_filings: {
+        Row: {
+          accession_number: string
+          cik: string
+          fetched_at: string
+          filed_at: string
+          form: string
+          id: number
+          primary_document: string | null
+          symbol: string
+        }
+        Insert: {
+          accession_number: string
+          cik: string
+          fetched_at?: string
+          filed_at: string
+          form: string
+          id?: number
+          primary_document?: string | null
+          symbol: string
+        }
+        Update: {
+          accession_number?: string
+          cik?: string
+          fetched_at?: string
+          filed_at?: string
+          form?: string
+          id?: number
+          primary_document?: string | null
+          symbol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_sec_filings_symbol_fkey"
+            columns: ["symbol"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["symbol"]
+          },
+        ]
+      }
+      asset_short_interest: {
+        Row: {
+          avg_daily_volume: number | null
+          days_to_cover: number | null
+          fetched_at: string
+          id: number
+          settlement_date: string
+          share_class_shares_outstanding: number | null
+          short_interest: number
+          symbol: string
+        }
+        Insert: {
+          avg_daily_volume?: number | null
+          days_to_cover?: number | null
+          fetched_at?: string
+          id?: number
+          settlement_date: string
+          share_class_shares_outstanding?: number | null
+          short_interest: number
+          symbol: string
+        }
+        Update: {
+          avg_daily_volume?: number | null
+          days_to_cover?: number | null
+          fetched_at?: string
+          id?: number
+          settlement_date?: string
+          share_class_shares_outstanding?: number | null
+          short_interest?: number
+          symbol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_short_interest_symbol_fkey"
+            columns: ["symbol"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["symbol"]
+          },
+        ]
+      }
       assets: {
         Row: {
+          cik: string | null
           delisted_at: string | null
           icon_base64: string | null
           icon_checked_at: string | null
@@ -288,6 +371,7 @@ export type Database = {
           type: Database["public"]["Enums"]["asset_type"]
         }
         Insert: {
+          cik?: string | null
           delisted_at?: string | null
           icon_base64?: string | null
           icon_checked_at?: string | null
@@ -299,6 +383,7 @@ export type Database = {
           type?: Database["public"]["Enums"]["asset_type"]
         }
         Update: {
+          cik?: string | null
           delisted_at?: string | null
           icon_base64?: string | null
           icon_checked_at?: string | null
@@ -437,17 +522,14 @@ export type Database = {
       }
       notification_options: {
         Row: {
-          channel: Database["public"]["Enums"]["delivery_method"]
           content: string
           notification_type: string
         }
         Insert: {
-          channel: Database["public"]["Enums"]["delivery_method"]
           content: string
           notification_type: string
         }
         Update: {
-          channel?: Database["public"]["Enums"]["delivery_method"]
           content?: string
           notification_type?: string
         }
@@ -455,7 +537,6 @@ export type Database = {
       }
       notification_preferences: {
         Row: {
-          channel: Database["public"]["Enums"]["delivery_method"]
           content: string
           created_at: string
           enabled: boolean
@@ -464,8 +545,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          channel: Database["public"]["Enums"]["delivery_method"]
-          content?: string
+          content: string
           created_at?: string
           enabled?: boolean
           notification_type: string
@@ -473,7 +553,6 @@ export type Database = {
           user_id: string
         }
         Update: {
-          channel?: Database["public"]["Enums"]["delivery_method"]
           content?: string
           created_at?: string
           enabled?: boolean
@@ -484,10 +563,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "notification_preferences_option_fkey"
-            columns: ["notification_type", "content", "channel"]
+            columns: ["notification_type", "content"]
             isOneToOne: false
             referencedRelation: "notification_options"
-            referencedColumns: ["notification_type", "content", "channel"]
+            referencedColumns: ["notification_type", "content"]
           },
           {
             foreignKeyName: "notification_preferences_user_id_fkey"
@@ -632,8 +711,13 @@ export type Database = {
       price_move_alert_state: {
         Row: {
           first_of_day_reservation: boolean
+          last_alert_direction: number | null
           last_notification_at: string
           last_notification_price: number
+          last_why_at: string | null
+          last_why_summary: string | null
+          last_why_verdict: string | null
+          pending_alert_direction: number | null
           pending_delivery: boolean
           pending_new_price: number | null
           reserved_at: string | null
@@ -642,8 +726,13 @@ export type Database = {
         }
         Insert: {
           first_of_day_reservation?: boolean
+          last_alert_direction?: number | null
           last_notification_at?: string
           last_notification_price: number
+          last_why_at?: string | null
+          last_why_summary?: string | null
+          last_why_verdict?: string | null
+          pending_alert_direction?: number | null
           pending_delivery?: boolean
           pending_new_price?: number | null
           reserved_at?: string | null
@@ -652,8 +741,13 @@ export type Database = {
         }
         Update: {
           first_of_day_reservation?: boolean
+          last_alert_direction?: number | null
           last_notification_at?: string
           last_notification_price?: number
+          last_why_at?: string | null
+          last_why_summary?: string | null
+          last_why_verdict?: string | null
+          pending_alert_direction?: number | null
           pending_delivery?: boolean
           pending_new_price?: number | null
           reserved_at?: string | null
@@ -801,41 +895,6 @@ export type Database = {
           },
         ]
       }
-      staged_notifications: {
-        Row: {
-          id: string
-          notification_type: Database["public"]["Enums"]["staged_notification_type"]
-          scheduled_for: string
-          staged_at: string
-          staged_data: Json
-          user_id: string
-        }
-        Insert: {
-          id?: string
-          notification_type: Database["public"]["Enums"]["staged_notification_type"]
-          scheduled_for: string
-          staged_at?: string
-          staged_data: Json
-          user_id: string
-        }
-        Update: {
-          id?: string
-          notification_type?: Database["public"]["Enums"]["staged_notification_type"]
-          scheduled_for?: string
-          staged_at?: string
-          staged_data?: Json
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staged_notifications_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       telegram_link_tokens: {
         Row: {
           consumed_at: string | null
@@ -945,9 +1004,9 @@ export type Database = {
           created_at: string
           daily_notification_next_send_at: string | null
           daily_notification_time: number | null
+          delivery_channel: Database["public"]["Enums"]["delivery_channel_mode"]
           dismiss_timezone_mismatch_prompts: boolean
           email: string
-          email_notifications_enabled: boolean
           grok_sends_in_window: number
           grok_window_start: string | null
           id: string
@@ -955,10 +1014,11 @@ export type Database = {
           market_scheduled_asset_price_enabled: boolean
           market_scheduled_asset_price_next_send_at: string | null
           market_scheduled_asset_price_times: number[] | null
+          price_move_why_sends_in_window: number
+          price_move_why_window_start: string | null
           telegram_chat_id: number | null
           telegram_id: number | null
           telegram_linked_at: string | null
-          telegram_opted_out: boolean
           timezone: string
           updated_at: string
           use_24_hour_time: boolean
@@ -970,9 +1030,9 @@ export type Database = {
           created_at?: string
           daily_notification_next_send_at?: string | null
           daily_notification_time?: number | null
+          delivery_channel?: Database["public"]["Enums"]["delivery_channel_mode"]
           dismiss_timezone_mismatch_prompts?: boolean
           email: string
-          email_notifications_enabled?: boolean
           grok_sends_in_window?: number
           grok_window_start?: string | null
           id?: string
@@ -980,10 +1040,11 @@ export type Database = {
           market_scheduled_asset_price_enabled?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
+          price_move_why_sends_in_window?: number
+          price_move_why_window_start?: string | null
           telegram_chat_id?: number | null
           telegram_id?: number | null
           telegram_linked_at?: string | null
-          telegram_opted_out?: boolean
           timezone?: string
           updated_at?: string
           use_24_hour_time?: boolean
@@ -995,9 +1056,9 @@ export type Database = {
           created_at?: string
           daily_notification_next_send_at?: string | null
           daily_notification_time?: number | null
+          delivery_channel?: Database["public"]["Enums"]["delivery_channel_mode"]
           dismiss_timezone_mismatch_prompts?: boolean
           email?: string
-          email_notifications_enabled?: boolean
           grok_sends_in_window?: number
           grok_window_start?: string | null
           id?: string
@@ -1005,10 +1066,11 @@ export type Database = {
           market_scheduled_asset_price_enabled?: boolean
           market_scheduled_asset_price_next_send_at?: string | null
           market_scheduled_asset_price_times?: number[] | null
+          price_move_why_sends_in_window?: number
+          price_move_why_window_start?: string | null
           telegram_chat_id?: number | null
           telegram_id?: number | null
           telegram_linked_at?: string | null
-          telegram_opted_out?: boolean
           timezone?: string
           updated_at?: string
           use_24_hour_time?: boolean
@@ -1046,6 +1108,10 @@ export type Database = {
           p_threshold_percent: number
           p_user_id: string
         }
+        Returns: boolean
+      }
+      claim_price_move_why_budget: {
+        Args: { p_user_id: string }
         Returns: boolean
       }
       claim_scheduled_notification: {
@@ -1114,11 +1180,11 @@ export type Database = {
     Enums: {
       asset_event_type: "earnings" | "dividend" | "split"
       asset_type: "stock" | "etf"
+      delivery_channel_mode: "email" | "telegram" | "disabled"
       delivery_method: "email" | "telegram"
       price_move_threshold_unit: "percent" | "dollar"
       scheduled_notification_status: "sending" | "sent" | "failed"
       scheduled_notification_type: "market" | "daily" | "asset_events"
-      staged_notification_type: "daily"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1248,11 +1314,11 @@ export const Constants = {
     Enums: {
       asset_event_type: ["earnings", "dividend", "split"],
       asset_type: ["stock", "etf"],
+      delivery_channel_mode: ["email", "telegram", "disabled"],
       delivery_method: ["email", "telegram"],
       price_move_threshold_unit: ["percent", "dollar"],
       scheduled_notification_status: ["sending", "sent", "failed"],
       scheduled_notification_type: ["market", "daily", "asset_events"],
-      staged_notification_type: ["daily"],
     },
   },
 } as const

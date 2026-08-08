@@ -4,8 +4,8 @@ import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import type { EnrichedAlert } from "../../price-alerts/types";
 import type { ChannelDeliveryStats, IntradayCandle } from "../../types";
-import { buildDataRecencyText } from "../parts/data-recency";
-import { TELEGRAM_FOOTER } from "../parts/footer";
+import { buildTelegramPriceFooter } from "../parts/footer";
+import { markdownLinksToTelegram } from "../parts/markdown-links";
 import { renderPriceAlertHeadline } from "../parts/price-alert-sentences";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { TelegramSender } from "../types";
@@ -14,12 +14,72 @@ import { buildDashboardButton } from "./dashboard-button";
 import { optOutIfBotBlocked } from "./opt-out";
 import { renderChartPng } from "./render-png";
 
-/** Rendered Telegram price alert: entity-formatted caption/text + optional candlestick PNG. */
-export interface TelegramPriceAlert {
-	text: string;
-	entities: MessageEntity[];
-	/** Candlestick PNG for `sendPhoto`, or null to send text-only (too few candles / render failed). */
-	photo: Buffer | null;
+/** Telegram sendPhoto caption limit (UTF-16 code units; JS string length). */
+const TELEGRAM_CAPTION_MAX_UTF16 = 1024;
+/** Leave a small margin so entity formatting / edge cases do not exceed the cap. */
+const TELEGRAM_CAPTION_MARGIN = 16;
+
+/** Rendered Telegram price alert — same discriminant as transport `TelegramMessage`. */
+export type TelegramPriceAlert =
+	| { kind: "photo"; text: string; entities: MessageEntity[]; photo: Buffer }
+	| { kind: "text"; text: string; entities: MessageEntity[] };
+
+/** Truncate plain text to at most `maxLen` UTF-16 code units, appending an ellipsis when cut. */
+function truncateUtf16(text: string, maxLen: number): string {
+	if (maxLen <= 0) return "";
+	if (text.length <= maxLen) return text;
+	if (maxLen <= 1) return "…";
+	return `${text.slice(0, maxLen - 1)}…`;
+}
+
+function fitWhyForCaption(options: {
+	prefix: string;
+	why: string;
+	footer: string;
+	hasPhoto: boolean;
+}): string | null {
+	const { prefix, why, footer, hasPhoto } = options;
+	const whyTrimmed = why.trim();
+	if (whyTrimmed === "") return null;
+
+	const withWhy = (whyPart: string) => `${prefix}\n\n${whyPart}\n\n${footer}`;
+	if (!hasPhoto) {
+		return whyTrimmed;
+	}
+
+	const budget =
+		TELEGRAM_CAPTION_MAX_UTF16 - TELEGRAM_CAPTION_MARGIN - `${prefix}\n\n\n\n${footer}`.length;
+	if (budget < 12) {
+		return null;
+	}
+
+	const truncated = truncateUtf16(whyTrimmed, budget);
+	if (withWhy(truncated).length <= TELEGRAM_CAPTION_MAX_UTF16 - TELEGRAM_CAPTION_MARGIN) {
+		return truncated;
+	}
+	return null;
+}
+
+/** Fit a already-rendered why FormattedString into a photo caption budget. */
+function fitWhyFormattedForCaption(options: {
+	prefix: string;
+	why: FormattedString;
+	footer: string;
+	hasPhoto: boolean;
+}): FormattedString | null {
+	const fittedText = fitWhyForCaption({
+		prefix: options.prefix,
+		why: options.why.text,
+		footer: options.footer,
+		hasPhoto: options.hasPhoto,
+	});
+	if (fittedText === null) return null;
+	if (fittedText === options.why.text) return options.why;
+
+	// Truncated with an ellipsis — slice entities to the kept prefix, then re-append "…".
+	const keepLen = fittedText.endsWith("…") ? fittedText.length - 1 : fittedText.length;
+	const sliced = options.why.slice(0, keepLen);
+	return fittedText.endsWith("…") ? fmt`${sliced}…` : sliced;
 }
 
 /**
@@ -42,9 +102,7 @@ export async function formatPriceAlertTelegram(
 	// "AAPL is up 2.5% today ($228.50)" — the same sentence the email produces.
 	const boldTicker = FormattedString.bold(`🚨 ${alert.symbol}`);
 	let msg = fmt`${boldTicker}\n${renderPriceAlertHeadline(alert.priceMove)}`;
-	msg = fmt`${msg}\n${buildDataRecencyText()}`;
-
-	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
+	const footer = buildTelegramPriceFooter();
 
 	let photo: Buffer | null = null;
 	if (candles.length >= 2) {
@@ -64,7 +122,34 @@ export async function formatPriceAlertTelegram(
 		}
 	}
 
-	return { text: msg.text, entities: msg.entities, photo };
+	// Convert markdown citations before caption fitting so truncation cannot bisect
+	// `[[Label]](https://…)` into raw unrendered copy.
+	const whyFormatted =
+		alert.why && alert.why.trim() !== "" ? markdownLinksToTelegram(alert.why.trim()) : null;
+	const whyFit = whyFormatted
+		? fitWhyFormattedForCaption({
+				prefix: msg.text,
+				why: whyFormatted,
+				footer,
+				hasPhoto: photo !== null,
+			})
+		: null;
+	if (whyFit) {
+		msg = fmt`${msg}\n\n${whyFit}`;
+	}
+
+	msg = fmt`${msg}\n\n${footer}`;
+
+	// Final safety: if a photo caption still exceeds the hard limit, drop why and rebuild.
+	if (photo !== null && msg.text.length > TELEGRAM_CAPTION_MAX_UTF16) {
+		const boldTickerRetry = FormattedString.bold(`🚨 ${alert.symbol}`);
+		msg = fmt`${boldTickerRetry}\n${renderPriceAlertHeadline(alert.priceMove)}`;
+		msg = fmt`${msg}\n\n${footer}`;
+	}
+
+	return photo !== null
+		? { kind: "photo", text: msg.text, entities: msg.entities, photo }
+		: { kind: "text", text: msg.text, entities: msg.entities };
 }
 
 /**
@@ -73,7 +158,7 @@ export async function formatPriceAlertTelegram(
  * Tail of the price-move alert pipeline:
  * format → send → stats + failure log → bot-blocked opt-out →
  * notification_log. Callers must gate on channel usability
- * (isTelegramChannelUsable / shouldSendTelegram) BEFORE calling — the chatId
+ * (resolveOutboundChannel / wantsTelegramDelivery) BEFORE calling — the chatId
  * non-null cast relies on that invariant. Returns whether the send succeeded.
  */
 export async function deliverTelegramPriceAlert(options: {
@@ -85,19 +170,13 @@ export async function deliverTelegramPriceAlert(options: {
 }): Promise<boolean> {
 	const { alert, user, sendTelegram, supabase, stats } = options;
 
-	const { text, entities, photo } = await formatPriceAlertTelegram(
-		alert,
-		alert.intradayCandles ?? [],
-	);
+	const content = await formatPriceAlertTelegram(alert, alert.intradayCandles ?? []);
+	const chatId = user.telegram_chat_id as number;
+	const replyMarkup = buildDashboardButton("marketNotifications");
 	const result = await sendTelegram({
-		// telegram_chat_id is non-null here: every caller gates on isTelegramChannelUsable.
-		chatId: user.telegram_chat_id as number,
-		text,
-		entities,
-		// Rides both the candlestick sendPhoto path and the text fallback (sendViaBot
-		// forwards reply_markup on both). Price alerts live under Market Notifications.
-		replyMarkup: buildDashboardButton("marketNotifications"),
-		...(photo ? { photo } : {}),
+		...content,
+		chatId,
+		replyMarkup,
 	});
 
 	if (result.success) {
@@ -123,7 +202,7 @@ export async function deliverTelegramPriceAlert(options: {
 		type: "flat_price_alert",
 		delivery_method: "telegram",
 		message_delivered: result.success,
-		message: text,
+		message: content.text,
 		...deliveryResultToLogFields(result),
 	});
 	if (!logged) stats.logFailures++;

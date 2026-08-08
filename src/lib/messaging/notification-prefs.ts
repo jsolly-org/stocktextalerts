@@ -1,15 +1,10 @@
 /* =============
 Canonical notification-preference model.
 
-`notification_preferences` is the single source of truth for ALL channels
-(email, telegram). One row per (user_id, notification_type, content, channel).
+`notification_preferences` is the single source of truth for content toggles.
+One row per (user_id, notification_type, content). Account routing lives on
+`users.delivery_channel` (email | telegram | disabled), not on each option.
 `content = ""` for facet-less notification types (the market/price types).
-
-This module replaces the wall of per-option `*_include_{email,telegram}` columns
-that used to live on `public.users`. Channels are uniform peers — adding one is just
-rows, not schema. The eligibility helpers below are channel-parametric (the old
-telegram-only helpers generalized): a channel is "wanted" for a type when its
-global enable is on AND at least one facet row is enabled for (type, channel).
 ============= */
 
 import type {
@@ -18,12 +13,8 @@ import type {
 	FacetlessNotificationType,
 	NotificationPreferenceType,
 } from "../constants";
-import {
-	NOTIFICATION_OPTION_MATRIX,
-	NOTIFICATION_PREFERENCE_CATALOG,
-	PREF_CHANNELS,
-} from "../constants";
-import type { PrefChannel, PrefRow } from "../types";
+import { NOTIFICATION_OPTION_MATRIX, NOTIFICATION_PREFERENCE_CATALOG } from "../constants";
+import type { PrefRow } from "../types";
 
 // Validation lists derived from the authored option matrix (single source).
 const NOTIFICATION_PREFERENCE_TYPES = Object.keys(
@@ -42,10 +33,6 @@ function isNotificationPreferenceType(value: string): value is NotificationPrefe
 	return (NOTIFICATION_PREFERENCE_TYPES as readonly string[]).includes(value);
 }
 
-function isPrefChannel(value: string): value is PrefChannel {
-	return (PREF_CHANNELS as readonly string[]).includes(value);
-}
-
 function isDailyNotificationContent(value: string): value is DailyNotificationContent {
 	return (DAILY_NOTIFICATION_CONTENTS as readonly string[]).includes(value);
 }
@@ -54,18 +41,17 @@ function isFacetlessNotificationType(value: string): value is FacetlessNotificat
 	return (FACETLESS_NOTIFICATION_TYPES as readonly string[]).includes(value);
 }
 
-/** Parse a DB/API preference row; null when type/content/channel is invalid. */
+/** Parse a DB/API preference row; null when type/content is invalid. */
 export function parsePrefRow(row: {
 	notification_type: string;
 	content: string;
-	channel: string;
 	enabled: boolean;
 }): PrefRow | null {
-	if (!isNotificationPreferenceType(row.notification_type) || !isPrefChannel(row.channel)) {
+	if (!isNotificationPreferenceType(row.notification_type)) {
 		return null;
 	}
 
-	const base = { channel: row.channel, enabled: row.enabled };
+	const base = { enabled: row.enabled };
 
 	if (row.notification_type === "daily_notification") {
 		if (!isDailyNotificationContent(row.content)) {
@@ -97,64 +83,53 @@ export function buildDefaultPreferenceRows(userId: string): Array<{
 	user_id: string;
 	notification_type: NotificationPreferenceType;
 	content: DailyNotificationContent | FacetlessContent;
-	channel: PrefChannel;
 	enabled: boolean;
 }> {
 	return NOTIFICATION_PREFERENCE_CATALOG.map((entry) => ({
 		user_id: userId,
 		notification_type: entry.notification_type,
 		content: entry.content,
-		channel: entry.channel,
 		enabled: entry.default,
 	}));
 }
 
-/* ============= Eligibility helpers (channel-parametric) ============= */
+/* ============= Eligibility helpers ============= */
 
 /**
- * True when a specific facet is enabled for a channel.
+ * True when a specific facet is enabled.
  * `content` defaults to "" for facet-less notification types.
  */
 export function isFacetEnabled(
 	prefs: readonly PrefRow[],
 	notificationType: NotificationPreferenceType,
-	channel: PrefChannel,
 	content: DailyNotificationContent | FacetlessContent = "",
 ): boolean {
 	return prefs.some(
-		(p) =>
-			p.notification_type === notificationType &&
-			p.channel === channel &&
-			p.content === content &&
-			p.enabled,
+		(p) => p.notification_type === notificationType && p.content === content && p.enabled,
 	);
 }
 
 /**
- * The set of content facets enabled for a channel for a given notification type
- * (e.g. {"prices","top_movers"} for daily_digest email). Facet-less types use "".
+ * The set of content facets enabled for a given notification type
+ * (e.g. {"prices","top_movers"} for daily_notification). Facet-less types use "".
  */
 export function enabledFacets(
 	prefs: readonly PrefRow[],
 	notificationType: NotificationPreferenceType,
-	channel: PrefChannel,
 ): Set<DailyNotificationContent | FacetlessContent> {
 	const facets = new Set<DailyNotificationContent | FacetlessContent>();
 	for (const p of prefs) {
-		if (p.notification_type === notificationType && p.channel === channel && p.enabled) {
+		if (p.notification_type === notificationType && p.enabled) {
 			facets.add(p.content);
 		}
 	}
 	return facets;
 }
 
-/** True when at least one facet is enabled for (type, channel). */
+/** True when at least one facet is enabled for a notification type. */
 export function anyFacetEnabled(
 	prefs: readonly PrefRow[],
 	notificationType: NotificationPreferenceType,
-	channel: PrefChannel,
 ): boolean {
-	return prefs.some(
-		(p) => p.notification_type === notificationType && p.channel === channel && p.enabled,
-	);
+	return prefs.some((p) => p.notification_type === notificationType && p.enabled);
 }

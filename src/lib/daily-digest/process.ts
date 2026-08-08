@@ -1,8 +1,7 @@
 import type { DateTime } from "luxon";
-import { buildAssetEventsContentForChannels } from "../asset-events/content";
-import type { AssetEventsContent, AssetEventsTelegramFacets } from "../asset-events/types";
+import { buildAssetEventsContent } from "../asset-events/content";
+import type { AssetEventsContent } from "../asset-events/types";
 import {
-	anyDailyAssetEventFacetEnabled,
 	enabledDailyNotificationFacets,
 	hasAnyDailyAssetEventFacet,
 	isDailyNotificationFacetEnabled,
@@ -15,10 +14,10 @@ import { createErrorForLogging } from "../logging/errors";
 import { fetchAssetPricesWithSessionState } from "../market-data/prices";
 import { getCurrentMarketSession } from "../market-data/session";
 import { fetchIntradaySparklines, fetchSparklines } from "../market-data/sparklines";
+import { resolveOutboundChannel } from "../messaging/delivery-channel";
 import { type LogoCache, safePrefetchLogos } from "../messaging/logo-fetcher";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/parts/delay";
 import type { SparklineMap } from "../messaging/parts/sparkline";
-import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { EmailSender, NotificationExtras } from "../messaging/types";
 import { buildPredictionMarketsDigestContent } from "../prediction-markets/content";
@@ -39,9 +38,8 @@ import {
 	recordDailyDigestProcessingFailure,
 	shouldAdvanceDailyDigestSchedule,
 } from "./schedule-state";
-import { stageDailyDigestContent } from "./stage";
 
-/** Process one user's daily digest notification (deliver now or stage for later). */
+/** Process one user's daily digest notification (build and send live). */
 export async function processDailyDigestUser(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
@@ -49,13 +47,11 @@ export async function processDailyDigestUser(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getTelegramSender: TelegramSenderFactory;
-	/** When true, stage content for later delivery instead of sending now. */
-	stageOnly?: boolean;
 	/** Pre-fetched market open status (avoids per-user API calls in fan-out). */
 	marketOpen?: boolean;
 	/** Pre-fetched market closure info (avoids per-user API calls in fan-out). */
 	marketClosureInfo?: MarketClosureInfo | null;
-	/** Shared per-pass logo cache so a symbol's logo is resolved once per pass, not per user. */
+	/** Shared per-invocation logo cache so a symbol's logo is resolved once per tick, not per user. */
 	logoCache?: LogoCache;
 }): Promise<ScheduledNotificationTotals> {
 	const stats: ScheduledNotificationTotals = {
@@ -73,7 +69,6 @@ export async function processDailyDigestUser(options: {
 		currentTime,
 		sendEmail,
 		getTelegramSender,
-		stageOnly,
 		marketOpen: marketOpenParam,
 		marketClosureInfo: marketClosureInfoParam,
 	} = options;
@@ -101,8 +96,8 @@ export async function processDailyDigestUser(options: {
 			userTimezone: user.timezone,
 			use24Hour: user.use_24_hour_time,
 		};
-		const delayBannerText = stageOnly ? null : buildDelayBannerText(delayBannerOpts);
-		const delayBannerHtml = stageOnly ? null : buildDelayBannerHtml(delayBannerOpts);
+		const delayBannerText = buildDelayBannerText(delayBannerOpts);
+		const delayBannerHtml = buildDelayBannerHtml(delayBannerOpts);
 
 		const hasAnyAssetEventsOption = hasAnyDailyAssetEventFacet(user.prefs);
 
@@ -111,20 +106,14 @@ export async function processDailyDigestUser(options: {
 		});
 		const tickers = userAssets.map((s) => s.symbol);
 
-		const emailEnabled = user.email_notifications_enabled;
-
-		// All channel preferences (incl. Telegram) live in notification_preferences,
-		// carried on user.prefs. Telegram still gates on the usable-channel check
-		// (linked + not opted out) in addition to a per-option facet row.
-		const telegramFacets = enabledDailyNotificationFacets(user.prefs, "telegram");
-		const telegramEnabled = isTelegramChannelUsable(user) && telegramFacets.size > 0;
-		const wantsTopMoversTelegram = telegramEnabled && telegramFacets.has("top_movers");
-		const includePricesTelegram = telegramEnabled && telegramFacets.has("prices");
-
+		const outbound = resolveOutboundChannel(user);
+		const facets = enabledDailyNotificationFacets(user.prefs);
+		const includePrices = facets.has("prices");
+		const wantsTopMovers = facets.has("top_movers");
+		const wantsPredictionMarkets = facets.has("prediction_markets");
 		const needsGrok =
-			emailEnabled &&
-			(isDailyNotificationFacetEnabled(user.prefs, "email", "news") ||
-				isDailyNotificationFacetEnabled(user.prefs, "email", "rumors"));
+			isDailyNotificationFacetEnabled(user.prefs, "news") ||
+			isDailyNotificationFacetEnabled(user.prefs, "rumors");
 		const { grokAllowed } = resolveGrokEligibility(
 			user,
 			needsGrok,
@@ -134,30 +123,18 @@ export async function processDailyDigestUser(options: {
 			scheduledMinutes,
 		);
 
-		const wantsTopMoversEmail =
-			isDailyNotificationFacetEnabled(user.prefs, "email", "top_movers") && emailEnabled;
-		const wantsTopMovers = wantsTopMoversEmail || wantsTopMoversTelegram;
-		const wantsPredictionMarketsEmail =
-			emailEnabled && isDailyNotificationFacetEnabled(user.prefs, "email", "prediction_markets");
-		const wantsPredictionMarketsTelegram =
-			telegramEnabled && telegramFacets.has("prediction_markets");
-		const wantsPredictionMarkets = wantsPredictionMarketsEmail || wantsPredictionMarketsTelegram;
-
-		if (!emailEnabled && !telegramEnabled) {
+		if (!outbound) {
 			stats.skipped++;
-			if (!stageOnly) {
-				await updateUserDailyNotificationNextSendAt({
-					user,
-					supabase,
-					logger,
-					currentTime,
-				});
-			}
+			await updateUserDailyNotificationNextSendAt({
+				user,
+				supabase,
+				logger,
+				currentTime,
+			});
 			return stats;
 		}
 
-		const includePricesEmail = isDailyNotificationFacetEnabled(user.prefs, "email", "prices");
-		const needsPrices = (includePricesEmail && emailEnabled) || includePricesTelegram;
+		const needsPrices = includePrices;
 
 		// Resolve the market session once for this user so the price fetch
 		// below and the marketOpen derivation later share a single
@@ -241,7 +218,7 @@ export async function processDailyDigestUser(options: {
 
 		const { getLogoHtml } = await safePrefetchLogos({
 			assets: userAssets,
-			shouldPrefetch: needsPrices && emailEnabled,
+			shouldPrefetch: needsPrices && outbound === "email",
 			supabase,
 			logger,
 			logContext: { action: "daily_run", userId: user.id },
@@ -289,7 +266,7 @@ export async function processDailyDigestUser(options: {
 
 		// Check whether the US market is closed today (weekend / holiday).
 		// Use the user's scheduled send instant (not job execution time) so digests
-		// near US midnight classify the correct market day during precompute.
+		// near US midnight classify the correct market day.
 		const closureRefInstant = dueAt;
 		const marketClosureInfo =
 			marketClosureInfoParam !== undefined
@@ -299,26 +276,22 @@ export async function processDailyDigestUser(options: {
 		const marketOpen = session === "regular";
 
 		/* =============
-		Fetch Massive news for Grok (email-only; skip when not opted in)
+		Fetch Massive news for Grok (skip when not opted in)
 		============= */
 		let newsContext: string | undefined;
 		const wantsNewsContext =
-			emailEnabled &&
-			grokAllowed &&
-			isDailyNotificationFacetEnabled(user.prefs, "email", "news") &&
-			tickers.length > 0;
+			grokAllowed && isDailyNotificationFacetEnabled(user.prefs, "news") && tickers.length > 0;
 		if (wantsNewsContext) {
 			const newsBySymbol = await fetchDigestNewsForGrok(tickers);
 			newsContext = buildNewsContextForGrok(newsBySymbol) || undefined;
 		}
 
-		// Grok news/rumors are email-only.
 		let newsResult: GrokSectionResult | null = null;
 		let rumorsResult: GrokSectionResult | null = null;
 
-		if (grokAllowed && emailEnabled) {
+		if (grokAllowed) {
 			[newsResult, rumorsResult] = await Promise.all([
-				isDailyNotificationFacetEnabled(user.prefs, "email", "news")
+				isDailyNotificationFacetEnabled(user.prefs, "news")
 					? generateNewsWithGrok({
 							tickers,
 							localDateIso: scheduledDate,
@@ -326,7 +299,7 @@ export async function processDailyDigestUser(options: {
 							providerNewsContext: newsContext || undefined,
 						})
 					: Promise.resolve(null),
-				isDailyNotificationFacetEnabled(user.prefs, "email", "rumors")
+				isDailyNotificationFacetEnabled(user.prefs, "rumors")
 					? generateRumorsWithGrok({
 							tickers,
 							localDateIso: scheduledDate,
@@ -337,7 +310,7 @@ export async function processDailyDigestUser(options: {
 		}
 
 		/* =============
-		Fetch market-wide top movers (email/Telegram when opted in)
+		Fetch market-wide top movers when opted in
 		============= */
 		const topMoversSection = wantsTopMovers ? await buildTopMoversData() : null;
 		const predictionMarketsDigest = wantsPredictionMarkets
@@ -366,105 +339,53 @@ export async function processDailyDigestUser(options: {
 		const dueAtLocal = dueAt.setZone(user.timezone);
 		const localDate = dueAtLocal.toISODate() ?? "";
 
-		let emailAssetEvents: AssetEventsContent | null = null;
-		let telegramAssetEvents: AssetEventsContent | null = null;
+		let assetEvents: AssetEventsContent | null = null;
 		let shouldUpdateAnalystMonth = false;
 
 		if (hasAnyAssetEventsOption) {
-			const wantsAssetEventsEmail =
-				emailEnabled && anyDailyAssetEventFacetEnabled(user.prefs, "email");
-			const telegramAssetEventFacets: AssetEventsTelegramFacets = {
-				calendar: telegramFacets.has("calendar"),
-				ipo: telegramFacets.has("ipo"),
-				insider: telegramFacets.has("insider"),
-				analyst: telegramFacets.has("analyst"),
-			};
-			const wantsAssetEventsTelegram =
-				telegramEnabled &&
-				(telegramAssetEventFacets.calendar ||
-					telegramAssetEventFacets.ipo ||
-					telegramAssetEventFacets.insider ||
-					telegramAssetEventFacets.analyst);
-
-			const assetEventChannels: Array<"email"> = [];
-			if (wantsAssetEventsEmail) assetEventChannels.push("email");
-
-			if (assetEventChannels.length > 0 || wantsAssetEventsTelegram) {
-				const built = await buildAssetEventsContentForChannels({
-					user,
-					supabase,
-					logger,
-					localDate,
-					tickers,
-					channels: assetEventChannels,
-					telegramFacets: wantsAssetEventsTelegram ? telegramAssetEventFacets : undefined,
-				});
-				emailAssetEvents = built.email;
-				telegramAssetEvents = built.telegram;
-				shouldUpdateAnalystMonth = built.shouldUpdateAnalystMonth;
-			}
+			const built = await buildAssetEventsContent({
+				user,
+				supabase,
+				logger,
+				localDate,
+				tickers,
+			});
+			assetEvents = built.content;
+			shouldUpdateAnalystMonth = built.shouldUpdateAnalystMonth;
 		}
 
 		/* =============
-		Build email extras
+		Assemble channel-agnostic extras (delivery formatters render them)
 		============= */
-		const emailExtras: NotificationExtras | null = emailEnabled
-			? {
-					news: newsResult?.content ?? null,
-					rumors: rumorsResult?.content ?? null,
-					predictionMarketsDigest: wantsPredictionMarketsEmail ? predictionMarketsDigest : null,
-					analyst: null,
-					insider: null,
-					topMovers: wantsTopMoversEmail ? topMoversSection : null,
-					citations: mergedCitations.length > 0 ? mergedCitations : undefined,
-				}
-			: null;
+		const extras: NotificationExtras = {
+			news: newsResult?.content ?? null,
+			rumors: rumorsResult?.content ?? null,
+			predictionMarketsDigest: wantsPredictionMarkets ? predictionMarketsDigest : null,
+			analyst: null,
+			insider: null,
+			topMovers: wantsTopMovers ? topMoversSection : null,
+			citations: mergedCitations.length > 0 ? mergedCitations : undefined,
+		};
 
-		// Telegram extras: prices + top movers + prediction markets when those
-		// facets are on. Grok news/rumors are intentionally omitted on Telegram —
-		// see the dispatch wiring note. Reuses the rich (email-style) topMovers
-		// section already fetched above.
-		const telegramExtras: NotificationExtras | null = telegramEnabled
-			? {
-					news: null,
-					rumors: null,
-					predictionMarketsDigest: wantsPredictionMarketsTelegram ? predictionMarketsDigest : null,
-					analyst: null,
-					insider: null,
-					topMovers: wantsTopMoversTelegram ? topMoversSection : null,
-				}
-			: null;
-
-		const emailPriceAssets = includePricesEmail ? userAssets : [];
-		const emailPriceMap = includePricesEmail ? assetPrices : new Map();
-		const telegramPriceAssets = includePricesTelegram ? userAssets : [];
-		const telegramPriceMap = includePricesTelegram ? assetPrices : new Map();
-		const hasEmailContent = !!(
-			(includePricesEmail && userAssets.length > 0 && emailEnabled) ||
-			emailExtras?.news ||
-			emailExtras?.rumors ||
-			emailExtras?.predictionMarketsDigest ||
-			emailExtras?.predictionMarkets ||
-			emailExtras?.topMovers ||
-			emailAssetEvents?.hasAnyContent
-		);
-		const hasTelegramContent = !!(
-			(includePricesTelegram && userAssets.length > 0) ||
-			telegramExtras?.topMovers ||
-			telegramExtras?.predictionMarketsDigest ||
-			telegramExtras?.predictionMarkets ||
-			telegramAssetEvents?.hasAnyContent
+		const priceAssets = includePrices ? userAssets : [];
+		const priceMap = includePrices ? assetPrices : new Map();
+		const hasContent = !!(
+			(includePrices && userAssets.length > 0) ||
+			extras.news ||
+			extras.rumors ||
+			extras.predictionMarketsDigest ||
+			extras.predictionMarkets ||
+			extras.topMovers ||
+			assetEvents?.hasAnyContent
 		);
 
-		// Shared Telegram date label for both the stage-only render and the live delivery
-		// below — defined once so the date format can't drift between the two paths. The
-		// market-closed banner is now rendered by formatDailyDigestTelegram itself from raw
-		// data (marketClosureInfo + is24 + the Telegram price map).
+		// Telegram date label for live delivery. The market-closed banner is rendered by
+		// formatDailyDigestTelegram from raw data (marketClosureInfo + is24 + price map).
 		const telegramDateLabel = dueAtLocal.isValid
 			? dueAtLocal.toFormat("ccc, LLL d")
 			: (scheduledDate ?? "");
 
-		if (!hasEmailContent && !hasTelegramContent) {
+		if (!hasContent) {
 			logger.info("Skipping daily digest: no content available", {
 				action: "daily_run",
 				reason: "no_content",
@@ -473,68 +394,26 @@ export async function processDailyDigestUser(options: {
 				scheduledMinutes,
 			});
 			stats.skipped++;
-			if (!stageOnly) {
-				await updateUserDailyNotificationNextSendAt({
-					user,
-					supabase,
-					logger,
-					currentTime,
-				});
-			}
-			return stats;
-		}
-
-		/* ============= Stage-only: write to staging table and return ============= */
-		// Pre-compute path: render the full digest (prices, Grok, asset events) now
-		// and store it in staged_notifications for near-instant delivery later.
-		// We do NOT advance next_send_at, update Grok counters, or update the
-		// analyst month here — the delivery phase (staged-notifications/deliver.ts)
-		// handles all post-delivery side-effects using metadata captured below
-		// (grokAllowed, hasAnyAssetEventsOption, shouldUpdateAnalyst, analystMonth).
-		if (stageOnly) {
-			await stageDailyDigestContent({
+			await updateUserDailyNotificationNextSendAt({
 				user,
 				supabase,
 				logger,
 				currentTime,
-				stats,
-				scheduledDate,
-				scheduledMinutes,
-				dueAtLocal,
-				hasEmailContent,
-				hasTelegramContent,
-				emailExtras,
-				telegramExtras,
-				emailPriceAssets,
-				emailPriceMap,
-				telegramPriceAssets,
-				telegramPriceMap,
-				emailAssetEvents,
-				telegramAssetEvents,
-				sparklines,
-				marketOpen,
-				marketClosureInfo,
-				getLogoHtml,
-				telegramDateLabel,
-				delayBannerText,
-				grokAllowed,
-				hasAnyAssetEventsOption,
-				shouldUpdateAnalystMonth,
 			});
 			return stats;
 		}
 
-		if (hasEmailContent && emailExtras) {
+		if (outbound === "email") {
 			await processDailyDigestEmailDelivery({
 				user,
 				supabase,
 				logger,
 				scheduledDate,
 				scheduledMinutes,
-				userAssets: emailPriceAssets,
-				assetPrices: emailPriceMap,
-				extras: emailExtras,
-				assetEvents: emailAssetEvents,
+				userAssets: priceAssets,
+				assetPrices: priceMap,
+				extras,
+				assetEvents,
 				sparklines,
 				marketOpen,
 				marketClosureInfo,
@@ -546,17 +425,17 @@ export async function processDailyDigestUser(options: {
 			});
 		}
 
-		if (hasTelegramContent && telegramExtras) {
+		if (outbound === "telegram") {
 			await processDailyDigestTelegramDelivery({
 				user,
 				supabase,
 				logger,
 				scheduledDate,
 				scheduledMinutes,
-				userAssets: telegramPriceAssets,
-				assetPrices: telegramPriceMap,
-				extras: telegramExtras,
-				assetEvents: telegramAssetEvents,
+				userAssets: priceAssets,
+				assetPrices: priceMap,
+				extras,
+				assetEvents,
 				dateLabel: telegramDateLabel,
 				delayBanner: delayBannerText,
 				marketClosureInfo,
@@ -581,15 +460,13 @@ export async function processDailyDigestUser(options: {
 		/* =============
 		Advance next-send-at for daily + asset events (only when delivery is terminal)
 		============= */
-		const emailRequired = hasEmailContent && emailEnabled;
-		const telegramRequired = hasTelegramContent && telegramEnabled;
+		const requiredChannel = hasContent ? outbound : null;
 		const canAdvance = await shouldAdvanceDailyDigestSchedule({
 			supabase,
 			user,
 			scheduledDate,
 			scheduledMinutes,
-			emailRequired,
-			telegramRequired,
+			requiredChannel,
 		});
 
 		if (canAdvance) {
@@ -605,8 +482,7 @@ export async function processDailyDigestUser(options: {
 				userId: user.id,
 				scheduledDate,
 				scheduledMinutes,
-				emailRequired,
-				telegramRequired,
+				requiredChannel,
 			});
 		}
 
@@ -639,7 +515,7 @@ export async function processDailyDigestUser(options: {
 			logLabel: " (daily)",
 			action: "daily_run",
 		});
-		if (!stageOnly && scheduleCtxOnError) {
+		if (scheduleCtxOnError) {
 			await recordDailyDigestProcessingFailure({
 				supabase,
 				user,

@@ -74,10 +74,27 @@ async function getMailpitMessage(id: string): Promise<MailpitMessage> {
 	};
 }
 
-/** Delete every message in Mailpit. Call in beforeEach. */
-export async function clearMailpit(): Promise<void> {
+/**
+ * Delete the messages already delivered to `recipient`.
+ *
+ * Callers use this to drop a *previous* mail to the same address so the next
+ * `waitForMailpitMessageTo` cannot match it (registration confirm, then approval, both
+ * addressed to the same user). That only ever needs one mailbox, and deleting only one
+ * mailbox is what makes the e2e suite safe to run multi-worker: Mailpit is a single shared
+ * instance, so a blanket delete throws away mail another worker is still waiting for.
+ */
+export async function clearMailpitFor(recipient: string): Promise<void> {
+	const target = recipient.toLowerCase();
+	const rows = await listMailpitMessages();
+	const ids = rows
+		.filter((row) => (row.To ?? []).some((to) => (to.Address ?? "").toLowerCase() === target))
+		.map((row) => row.ID);
+	if (ids.length === 0) return;
+
 	const response = await fetch(`${MAILPIT_BASE}/api/v1/messages`, {
 		method: "DELETE",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ IDs: ids }),
 	});
 	if (!response.ok) {
 		throw new Error(`Mailpit clear failed: ${response.status} ${await response.text()}`);

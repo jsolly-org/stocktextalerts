@@ -40,7 +40,7 @@ const MESSAGE_ALLOWLIST = {
 	failed_to_update_assets: "Failed to update tracked assets. Please try again.",
 	update_failed: "Failed to update. Please try again.",
 	server_error: "An error occurred. Please try again",
-	notifications_not_configured: "Enable at least one notification channel to send updates.",
+	notifications_not_configured: "Choose a delivery method (Email or Telegram) to send updates.",
 	user_not_found: "User not found",
 	delete_failed: "Failed to delete account. Please try again.",
 	delete_partial:

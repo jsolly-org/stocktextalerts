@@ -2,40 +2,40 @@ import type { Database } from "./db/generated/database.types";
 import { Constants } from "./db/generated/database.types";
 
 /* =============
-Notification channels
+Delivery pipes
 ============= */
 
-type DeliveryChannel = Database["public"]["Enums"]["delivery_method"];
+/** Outbound send/log channel (DB `delivery_method` enum) — email | telegram. */
+export type DeliveryMethod = Database["public"]["Enums"]["delivery_method"];
 
-/** Every delivery channel, in canonical order (derived from the DB `delivery_method` enum). */
-export const PREF_CHANNELS = Constants.public.Enums.delivery_method;
+/** Account-level routing mode (DB `delivery_channel_mode` enum). */
+export type DeliveryChannelMode = Database["public"]["Enums"]["delivery_channel_mode"];
+
+/** Every account delivery mode, in canonical order. */
+export const DELIVERY_CHANNEL_MODES = Constants.public.Enums.delivery_channel_mode;
 
 /* =============
 Notification options — THE single authored source of the option taxonomy.
 
-One structure defines every valid (notification_type, content, channel) option:
+One structure defines every valid (notification_type, content) option:
 
   - object keys author the valid `notification_type` and `content` values;
-  - `channels` keys author which delivery channels the option exists on —
-    an absent channel key means that combo is INVALID, not disabled;
-  - `channels` values author the new-user signup default;
+  - `default` authors the new-user signup default for that content toggle;
   - `family` groups daily_notification facets and selects their form-field
     prefix (see NOTIFICATION_FAMILY_FIELD_PREFIX).
 
-Everything else derives from this value or is drift-checked against it: the TS
-unions below, the flat NOTIFICATION_PREFERENCE_CATALOG (and each option's form
-fieldName), the notification-preferences form schema,
+Account routing (email | telegram | disabled) lives on `users.delivery_channel`,
+not on each option. Everything else derives from this value or is drift-checked
+against it: the TS unions below, the flat NOTIFICATION_PREFERENCE_CATALOG (and
+each option's form fieldName), the notification-preferences form schema,
 signup defaults (buildDefaultPreferenceRows) and the local seed, dashboard
 field bindings, and the `notification_options` DB table enforcing the same
-triples via FK (checked by `npm run check:option-catalog` inside db:reset).
+pairs via FK (checked by `npm run check:option-catalog` inside db:reset).
 Add, remove, or rename an option HERE — a new option also needs a migration
 inserting its `notification_options` row, which the drift check demands loudly.
 
 Facet-less types must use exactly one `""` content key.
 ============= */
-
-/** Per-channel presence (= combo validity) and new-user default for one option. */
-type OptionChannelDefaults = Partial<Record<DeliveryChannel, boolean>>;
 
 /** Daily-notification facet families → their dashboard form-field prefix. */
 const NOTIFICATION_FAMILY_FIELD_PREFIX = {
@@ -48,27 +48,23 @@ export type NotificationFamily = keyof typeof NOTIFICATION_FAMILY_FIELD_PREFIX;
 
 export const NOTIFICATION_OPTION_MATRIX = {
 	daily_notification: {
-		prices: { family: "digest", channels: { email: true, telegram: false } },
-		top_movers: { family: "digest", channels: { email: false, telegram: false } },
-		news: { family: "digest", channels: { email: false, telegram: false } },
-		rumors: { family: "digest", channels: { email: false, telegram: false } },
-		prediction_markets: { family: "digest", channels: { email: false, telegram: false } },
-		calendar: { family: "asset_events", channels: { email: false, telegram: false } },
-		ipo: { family: "asset_events", channels: { email: false, telegram: false } },
-		analyst: { family: "asset_events", channels: { email: false, telegram: false } },
-		insider: { family: "asset_events", channels: { email: false, telegram: false } },
+		prices: { family: "digest", default: true },
+		top_movers: { family: "digest", default: false },
+		news: { family: "digest", default: false },
+		rumors: { family: "digest", default: false },
+		prediction_markets: { family: "digest", default: false },
+		calendar: { family: "asset_events", default: false },
+		ipo: { family: "asset_events", default: false },
+		analyst: { family: "asset_events", default: false },
+		insider: { family: "asset_events", default: false },
+		filings: { family: "asset_events", default: false },
+		short_interest: { family: "asset_events", default: false },
 	},
-	market_scheduled_asset_price: { "": { channels: { email: false, telegram: false } } },
-	price_move_alerts: { "": { channels: { email: false, telegram: false } } },
+	market_scheduled_asset_price: { "": { default: false } },
+	price_move_alerts: { "": { default: false } },
 } as const satisfies {
-	daily_notification: Record<
-		string,
-		{ family: NotificationFamily; channels: OptionChannelDefaults }
-	>;
-} & Record<
-	string,
-	Record<string, { family?: NotificationFamily; channels: OptionChannelDefaults }>
->;
+	daily_notification: Record<string, { family: NotificationFamily; default: boolean }>;
+} & Record<string, Record<string, { family?: NotificationFamily; default: boolean }>>;
 
 type OptionMatrix = typeof NOTIFICATION_OPTION_MATRIX;
 
@@ -96,24 +92,16 @@ export type FacetlessNotificationType = Exclude<NotificationPreferenceType, "dai
 type OptionFieldNameFor<
 	T extends NotificationPreferenceType,
 	C extends keyof OptionMatrix[T] & string,
-	Ch extends string,
 > = C extends ""
-	? `${T}_include_${Ch}`
+	? `${T}_include`
 	: OptionMatrix[T][C] extends { family: infer F extends NotificationFamily }
-		? `${(typeof NOTIFICATION_FAMILY_FIELD_PREFIX)[F]}_include_${C}_${Ch}`
+		? `${(typeof NOTIFICATION_FAMILY_FIELD_PREFIX)[F]}_include_${C}`
 		: never;
-
-type OptionChannelsOf<
-	T extends NotificationPreferenceType,
-	C extends keyof OptionMatrix[T],
-> = OptionMatrix[T][C] extends { channels: infer Chs } ? Chs : never;
 
 /** Every per-option boolean form field, derived from the matrix. */
 export type NotificationOptionFieldName = {
 	[T in NotificationPreferenceType]: {
-		[C in keyof OptionMatrix[T] & string]: {
-			[Ch in keyof OptionChannelsOf<T, C> & string]: OptionFieldNameFor<T, C, Ch>;
-		}[keyof OptionChannelsOf<T, C> & string];
+		[C in keyof OptionMatrix[T] & string]: OptionFieldNameFor<T, C>;
 	}[keyof OptionMatrix[T] & string];
 }[NotificationPreferenceType];
 
@@ -121,21 +109,19 @@ export type NotificationOptionFieldName = {
 function notificationOptionFieldName(
 	type: NotificationPreferenceType,
 	content: DailyNotificationContent | FacetlessContent,
-	channel: DeliveryChannel,
 ): NotificationOptionFieldName {
 	if (content === "") {
-		return `${type}_include_${channel}` as NotificationOptionFieldName;
+		return `${type}_include` as NotificationOptionFieldName;
 	}
 	const family = NOTIFICATION_OPTION_MATRIX.daily_notification[content].family;
-	return `${NOTIFICATION_FAMILY_FIELD_PREFIX[family]}_include_${content}_${channel}` as NotificationOptionFieldName;
+	return `${NOTIFICATION_FAMILY_FIELD_PREFIX[family]}_include_${content}` as NotificationOptionFieldName;
 }
 
-/** One flat catalog entry: a valid (type, content, channel) option, its new-user
+/** One flat catalog entry: a valid (type, content) option, its new-user
  *  default, its facet family (daily_notification only), and its form field name. */
 export type FacetCatalogEntry = {
 	notification_type: NotificationPreferenceType;
 	content: DailyNotificationContent | FacetlessContent;
-	channel: DeliveryChannel;
 	default: boolean;
 	family?: NotificationFamily;
 	fieldName: NotificationOptionFieldName;
@@ -145,21 +131,17 @@ export type FacetCatalogEntry = {
 export const NOTIFICATION_PREFERENCE_CATALOG: readonly FacetCatalogEntry[] = Object.entries(
 	NOTIFICATION_OPTION_MATRIX,
 ).flatMap(([type, contents]) =>
-	Object.entries(contents).flatMap(([content, option]) =>
-		Object.entries(option.channels).map(([channel, defaultEnabled]) => {
-			const notification_type = type as NotificationPreferenceType;
-			const facet = content as DailyNotificationContent | FacetlessContent;
-			const prefChannel = channel as DeliveryChannel;
-			return {
-				notification_type,
-				content: facet,
-				channel: prefChannel,
-				default: defaultEnabled as boolean,
-				...("family" in option ? { family: option.family as NotificationFamily } : {}),
-				fieldName: notificationOptionFieldName(notification_type, facet, prefChannel),
-			};
-		}),
-	),
+	Object.entries(contents).map(([content, option]) => {
+		const notification_type = type as NotificationPreferenceType;
+		const facet = content as DailyNotificationContent | FacetlessContent;
+		return {
+			notification_type,
+			content: facet,
+			default: option.default,
+			...("family" in option ? { family: option.family as NotificationFamily } : {}),
+			fieldName: notificationOptionFieldName(notification_type, facet),
+		};
+	}),
 );
 
 // Guard the one authoring mistake the type system can't catch: a faceted
@@ -309,7 +291,7 @@ export const DEFAULT_TIMEZONE = "America/New_York";
 Scheduler tuning
 ============= */
 
-/** Daily fan-out batch size for digest dispatch/precompute. Override via SCHEDULE_DAILY_DISPATCH_BATCH_SIZE. */
+/** Daily fan-out batch size for digest dispatch. Override via SCHEDULE_DAILY_DISPATCH_BATCH_SIZE. */
 export const DAILY_DISPATCH_BATCH_SIZE = (() => {
 	// Guard `process` so this shared module stays browser-safe: it's imported by
 	// client Vue islands (e.g. DEFAULT_TIMEZONE) where `process` is undefined, and

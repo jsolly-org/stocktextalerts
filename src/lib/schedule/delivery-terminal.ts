@@ -1,5 +1,4 @@
 import type { SupabaseAdminClient } from "../db/supabase";
-import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { MAX_NOTIFICATION_RETRIES } from "../scheduled-notifications/constants";
 import type {
 	DeliveryMethod,
@@ -50,55 +49,33 @@ function channelDeliveryIsTerminal(
 }
 
 /**
- * True when every required delivery channel for this slot is sent or retries are exhausted.
- * Failed channels with a future retry window remain non-terminal.
+ * True when the single required outbound channel for this slot is sent or
+ * retries are exhausted. Pass `requiredChannel: null` when nothing was
+ * attempted (no content / disabled) — schedule may advance.
  */
 export async function shouldAdvanceScheduledNotificationSchedule(
 	options: {
 		supabase: SupabaseAdminClient;
 		user: UserRecord;
 		notificationType: ScheduledNotificationType;
-		emailRequired: boolean;
-		telegramRequired?: boolean;
+		/** The one account delivery pipe that was (or would be) used for this slot. */
+		requiredChannel: DeliveryMethod | null;
 	} & ScheduledSlotKey,
 ): Promise<boolean> {
-	const {
+	const { supabase, user, notificationType, scheduledDate, scheduledMinutes, requiredChannel } =
+		options;
+
+	if (requiredChannel == null) {
+		return true;
+	}
+
+	const state = await getChannelDeliveryState({
 		supabase,
-		user,
+		userId: user.id,
 		notificationType,
 		scheduledDate,
 		scheduledMinutes,
-		emailRequired,
-		telegramRequired,
-	} = options;
-
-	if (emailRequired) {
-		const email = await getChannelDeliveryState({
-			supabase,
-			userId: user.id,
-			notificationType,
-			scheduledDate,
-			scheduledMinutes,
-			channel: "email",
-		});
-		if (!channelDeliveryIsTerminal(email.status, email.attemptCount)) {
-			return false;
-		}
-	}
-
-	if (telegramRequired && isTelegramChannelUsable(user)) {
-		const telegram = await getChannelDeliveryState({
-			supabase,
-			userId: user.id,
-			notificationType,
-			scheduledDate,
-			scheduledMinutes,
-			channel: "telegram",
-		});
-		if (!channelDeliveryIsTerminal(telegram.status, telegram.attemptCount)) {
-			return false;
-		}
-	}
-
-	return true;
+		channel: requiredChannel,
+	});
+	return channelDeliveryIsTerminal(state.status, state.attemptCount);
 }

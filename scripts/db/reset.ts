@@ -109,7 +109,16 @@ function main(): void {
 		process.exit(1);
 	}
 
-	if (run("npm", ["run", "db:gen-types"]) !== 0) {
+	// db:gen-types shells out to a one-shot postgres-meta container whose image
+	// `supabase start` never pulls, so it costs a cold ~99 MB pull at the tail of
+	// every reset. CI jobs that never read the regenerated file (every test shard
+	// except the one asserting it is checked in) opt out with
+	// DB_RESET_SKIP_GEN_TYPES=1; the committed types stay untouched there.
+	if (process.env.DB_RESET_SKIP_GEN_TYPES === "1") {
+		rootLogger.info("db:reset — skipping db:gen-types (DB_RESET_SKIP_GEN_TYPES=1)", {
+			action: "db_reset_skip_gen_types",
+		});
+	} else if (run("npm", ["run", "db:gen-types"]) !== 0) {
 		process.exit(1);
 	}
 

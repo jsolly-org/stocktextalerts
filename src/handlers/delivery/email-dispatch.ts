@@ -13,6 +13,7 @@ import { parseAdminEmails } from "../../lib/auth/approval/admin";
 import { readEnv, requireEnv } from "../../lib/db/env";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";
 import { createLogger } from "../../lib/logging";
+import { RELEASE_ID } from "../../lib/logging/release-id";
 import { runLambda } from "../../lib/logging/request-context";
 import { verifyEmailDispatchSignature } from "../../lib/messaging/email/dispatch-auth";
 import {
@@ -105,6 +106,10 @@ export async function handler(
 		const logger = createLogger({
 			source: "lambda",
 			function: "email-dispatch",
+		});
+		logger.info("Lambda invoke", {
+			action: "lambda_invoke",
+			releaseId: RELEASE_ID,
 		});
 
 		if (event.requestContext.http.method !== "POST") {

@@ -4,7 +4,7 @@ import { mintLinkToken } from "../../../../src/lib/auth/deep-link-token";
 import type { TelegramMessage } from "../../../../src/lib/messaging/types";
 import { POST } from "../../../../src/pages/api/messaging/telegram";
 import { createApiContext } from "../../../helpers/api-context";
-import { dashboardButtonUrl } from "../../../helpers/messaging-doubles";
+import { dashboardButtonUrl, telegramMessageText } from "../../../helpers/messaging-doubles";
 import { adminClient } from "../../../helpers/test-env";
 import { createTestUser } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
@@ -83,7 +83,7 @@ function buildWebhookRequest(update: unknown, secret: string | null): Request {
 async function getTelegramFields(userId: string) {
 	const { data, error } = await adminClient
 		.from("users")
-		.select("telegram_chat_id,telegram_id,telegram_linked_at,telegram_opted_out")
+		.select("telegram_chat_id,telegram_id,telegram_linked_at,delivery_channel")
 		.eq("id", userId)
 		.single();
 	if (error) throw new Error(error.message);
@@ -111,14 +111,19 @@ function buildCommandUpdate(options: {
 }
 
 /** Directly link a chat to a user (the post-/start state), so command tests start linked. */
-async function linkChat(userId: string, chatId: number, fromId: number): Promise<void> {
+async function linkChat(
+	userId: string,
+	chatId: number,
+	fromId: number,
+	deliveryChannel: "email" | "telegram" | "disabled" = "telegram",
+): Promise<void> {
 	const { error } = await adminClient
 		.from("users")
 		.update({
 			telegram_chat_id: chatId,
 			telegram_id: fromId,
 			telegram_linked_at: new Date().toISOString(),
-			telegram_opted_out: false,
+			delivery_channel: deliveryChannel,
 		})
 		.eq("id", userId);
 	if (error) throw new Error(error.message);
@@ -153,7 +158,8 @@ describe("The Telegram bot webhook links accounts and resists abuse.", () => {
 		expect(fields.telegram_chat_id).toBe(chatId);
 		expect(fields.telegram_id).toBe(fromId);
 		expect(fields.telegram_linked_at).not.toBeNull();
-		expect(fields.telegram_opted_out).toBe(false);
+		// /start links only — does not change delivery_channel (default email).
+		expect(fields.delivery_channel).toBe("email");
 	});
 
 	it("A missing secret header is rejected with 401 and mutates nothing.", async () => {
@@ -319,7 +325,7 @@ describe("The Telegram bot honors /stop, /unlink, and /help on a linked chat.", 
 		registerTestUserForCleanup(user.id);
 		const chatId = uniqueId();
 		const fromId = uniqueId();
-		await linkChat(user.id, chatId, fromId);
+		await linkChat(user.id, chatId, fromId, "telegram");
 
 		const response = await postCommand(
 			buildCommandUpdate({ updateId: uniqueId(), text: "/stop", chatId, fromId }),
@@ -327,19 +333,34 @@ describe("The Telegram bot honors /stop, /unlink, and /help on a linked chat.", 
 		expect(response.status).toBe(200);
 
 		const fields = await getTelegramFields(user.id);
-		expect(fields.telegram_opted_out).toBe(true);
+		expect(fields.delivery_channel).toBe("disabled");
 		// Link is preserved so the user can resume from the dashboard.
 		expect(fields.telegram_chat_id).toBe(chatId);
 	});
 
-	it("/unlink disconnects the chat and resets the opt-out flag.", async () => {
+	it("/stop does not change routing when delivery_channel is email.", async () => {
 		const user = await createTestUser({ confirmed: true });
 		registerTestUserForCleanup(user.id);
 		const chatId = uniqueId();
 		const fromId = uniqueId();
-		await linkChat(user.id, chatId, fromId);
-		// Pre-set opted_out to prove /unlink resets it for a clean re-link.
-		await adminClient.from("users").update({ telegram_opted_out: true }).eq("id", user.id);
+		await linkChat(user.id, chatId, fromId, "email");
+
+		const response = await postCommand(
+			buildCommandUpdate({ updateId: uniqueId(), text: "/stop", chatId, fromId }),
+		);
+		expect(response.status).toBe(200);
+
+		const fields = await getTelegramFields(user.id);
+		expect(fields.delivery_channel).toBe("email");
+		expect(fields.telegram_chat_id).toBe(chatId);
+	});
+
+	it("/unlink disconnects the chat and disables telegram routing.", async () => {
+		const user = await createTestUser({ confirmed: true });
+		registerTestUserForCleanup(user.id);
+		const chatId = uniqueId();
+		const fromId = uniqueId();
+		await linkChat(user.id, chatId, fromId, "telegram");
 
 		const response = await postCommand(
 			buildCommandUpdate({ updateId: uniqueId(), text: "/unlink", chatId, fromId }),
@@ -350,7 +371,26 @@ describe("The Telegram bot honors /stop, /unlink, and /help on a linked chat.", 
 		expect(fields.telegram_chat_id).toBeNull();
 		expect(fields.telegram_id).toBeNull();
 		expect(fields.telegram_linked_at).toBeNull();
-		expect(fields.telegram_opted_out).toBe(false);
+		expect(fields.delivery_channel).toBe("disabled");
+	});
+
+	it("/unlink clears the link but keeps email routing.", async () => {
+		const user = await createTestUser({ confirmed: true });
+		registerTestUserForCleanup(user.id);
+		const chatId = uniqueId();
+		const fromId = uniqueId();
+		await linkChat(user.id, chatId, fromId, "email");
+
+		const response = await postCommand(
+			buildCommandUpdate({ updateId: uniqueId(), text: "/unlink", chatId, fromId }),
+		);
+		expect(response.status).toBe(200);
+
+		const fields = await getTelegramFields(user.id);
+		expect(fields.telegram_chat_id).toBeNull();
+		expect(fields.telegram_id).toBeNull();
+		expect(fields.telegram_linked_at).toBeNull();
+		expect(fields.delivery_channel).toBe("email");
 	});
 
 	it("a command's @botusername suffix is tolerated (group-style /stop@Bot).", async () => {
@@ -358,7 +398,7 @@ describe("The Telegram bot honors /stop, /unlink, and /help on a linked chat.", 
 		registerTestUserForCleanup(user.id);
 		const chatId = uniqueId();
 		const fromId = uniqueId();
-		await linkChat(user.id, chatId, fromId);
+		await linkChat(user.id, chatId, fromId, "telegram");
 
 		const response = await postCommand(
 			buildCommandUpdate({
@@ -369,7 +409,7 @@ describe("The Telegram bot honors /stop, /unlink, and /help on a linked chat.", 
 			}),
 		);
 		expect(response.status).toBe(200);
-		expect((await getTelegramFields(user.id)).telegram_opted_out).toBe(true);
+		expect((await getTelegramFields(user.id)).delivery_channel).toBe("disabled");
 	});
 
 	it("/help returns 200 and mutates nothing.", async () => {
@@ -377,7 +417,7 @@ describe("The Telegram bot honors /stop, /unlink, and /help on a linked chat.", 
 		registerTestUserForCleanup(user.id);
 		const chatId = uniqueId();
 		const fromId = uniqueId();
-		await linkChat(user.id, chatId, fromId);
+		await linkChat(user.id, chatId, fromId, "telegram");
 
 		const response = await postCommand(
 			buildCommandUpdate({ updateId: uniqueId(), text: "/help", chatId, fromId }),
@@ -386,7 +426,7 @@ describe("The Telegram bot honors /stop, /unlink, and /help on a linked chat.", 
 
 		const fields = await getTelegramFields(user.id);
 		expect(fields.telegram_chat_id).toBe(chatId);
-		expect(fields.telegram_opted_out).toBe(false);
+		expect(fields.delivery_channel).toBe("telegram");
 	});
 
 	it("/stop from a chat linked to no account is a harmless 200 no-op.", async () => {
@@ -410,7 +450,7 @@ describe("The Telegram bot honors /stop, /unlink, and /help on a linked chat.", 
 		expect(response.status).toBe(200);
 
 		const reply = sentMessages.find((m) => m.chatId === chatId);
-		expect(reply?.text).toContain("dashboard");
+		expect(telegramMessageText(reply)).toContain("dashboard");
 		// The button deep-links to the notification-channels section.
 		expect(dashboardButtonUrl(reply)).toContain("#notification-channels");
 	});
@@ -424,6 +464,6 @@ describe("The Telegram bot honors /stop, /unlink, and /help on a linked chat.", 
 		expect(response.status).toBe(200);
 
 		const reply = sentMessages.find((m) => m.chatId === chatId);
-		expect(reply?.text).toContain("/dashboard");
+		expect(telegramMessageText(reply)).toContain("/dashboard");
 	});
 });

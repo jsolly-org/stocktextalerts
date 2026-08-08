@@ -1,6 +1,7 @@
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import type { EmailSender } from "../messaging/types";
+import type { TickerReferenceStatus } from "./reference/delistings";
 
 // --- Universe reconcile ---
 
@@ -11,8 +12,8 @@ export interface ActiveTicker {
 	type: "stock" | "etf";
 	/**
 	 * Massive's `last_updated_utc` from the list feed (ISO), when present.
-	 * Used by reconcile to gate full ticker refreshes; null when the provider
-	 * omitted it (name-only refresh still applies).
+	 * Vendor freshness watermark — stamped on advance; not a detail/branding cue.
+	 * Null when omitted (name-only refresh still applies).
 	 */
 	lastUpdatedUtc: string | null;
 }
@@ -45,8 +46,13 @@ export interface StoredAsset {
 export interface UniverseReconcileDeps {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	/** Icon-probe seam (new listings + watermark-advanced refreshes). */
+	/** Icon-probe seam for newly inserted listings only. */
 	ensureIconChecked?: (deps: EnsureAssetIconCheckedDeps) => Promise<EnsureAssetIconCheckedResult>;
+	/**
+	 * `active=false` confirm seam for untracked absence candidates.
+	 * Defaults to `fetchTickerReferences`.
+	 */
+	confirmUntrackedDelistings?: (symbols: string[]) => Promise<TickerReferenceStatus[]>;
 }
 
 /** Summary counters returned by `runUniverseReconcile`. */
@@ -61,7 +67,7 @@ export interface UniverseReconcileResult {
 	namesUpdated: number;
 	/**
 	 * Existing active rows whose Massive `last_updated_utc` advanced — name/type
-	 * stamped and icon force-probed.
+	 * and watermark stamped from the list feed (no icon probe).
 	 */
 	tickersRefreshed: number;
 	/** Existing active rows that received a first-time `reference_updated_utc` stamp (no icon probe). */
@@ -70,8 +76,12 @@ export interface UniverseReconcileResult {
 	insertChunksFailed: number;
 	/** Previously-flagged rows set back to `delisted_at = null` (reappeared). */
 	delistedCleared: number;
-	/** Untracked stored symbols absent from the active superset, newly flagged delisted. */
+	/** Untracked symbols absent from the active set that were considered for delist confirm. */
+	untrackedDelistCandidates: number;
+	/** Candidates confirmed `active=false` and newly flagged delisted. */
 	untrackedDelistedFlagged: number;
+	/** Candidates left unflagged (`unknown` / `provider_error`) for a later run. */
+	untrackedDelistUnconfirmed: number;
 	/** True when step 3 skipped flagging because the active set was implausibly small. */
 	delistFlagSkippedShrunkActive: boolean;
 	/** New symbols successfully enqueued for warmup. */
@@ -90,8 +100,9 @@ export interface EnsureAssetIconCheckedDeps {
 	logger: Logger;
 	symbol: string;
 	/**
-	 * When true, re-probe even if `icon_checked_at` is already set (Massive
-	 * reference watermark advanced). Still no-ops for missing/delisted rows.
+	 * When true, re-probe even if `icon_checked_at` is already set.
+	 * Explicit callers/tests only — reconcile does not force-probe on watermark advance.
+	 * Still no-ops for missing/delisted rows.
 	 */
 	force?: boolean;
 	/** Detail-fetch seam, injectable for tests. Defaults to `fetchTickerDetail`. */

@@ -1,9 +1,11 @@
+import { markdownLinksToHtml } from "../../messaging/email/html-section";
 import { renderIntradaySparklineImg } from "../../messaging/email/intraday-sparkline";
 import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
 import { toSvgSparklineImg } from "../../messaging/email/svg-sparkline";
 import { formatUsdPrice, getChangeColor } from "../../messaging/parts/asset-price-list";
 import { buildDataRecencyHtml, buildDataRecencyText } from "../../messaging/parts/data-recency";
 import { escapeHtml } from "../../messaging/parts/html-utils";
+import { markdownLinksToPlainText } from "../../messaging/parts/markdown-links";
 import { EMAIL_SPARKLINE_LABEL, type SparklineData } from "../../messaging/parts/sparkline";
 import type { ExtendedAssetQuote, IntradayBarsResult } from "../../types";
 import type { FlatPriceAlertUser } from "./users";
@@ -132,14 +134,19 @@ export function buildSubject(options: {
 	currentPrice: number;
 	triggerPercent: number;
 	isReTrigger: boolean;
+	isAcceleration?: boolean;
 }): string {
-	const { symbol, currentPrice, triggerPercent, isReTrigger } = options;
+	const { symbol, currentPrice, triggerPercent, isReTrigger, isAcceleration } = options;
 	const arrow = triggerPercent >= 0 ? "↑" : "↓";
 	// Alert SUBJECT rounds change% to 1 decimal for readability — deliberately coarser
 	// than the 2-decimal precision on multi-asset price lines (asset-formatting.ts), mirroring
 	// the price-alert headline (renderPriceAlertHeadline in parts/price-alert-sentences.ts).
 	const absPct = Math.abs(triggerPercent).toFixed(1);
-	const suffix = isReTrigger ? "since last alert" : "today";
+	const suffix = isAcceleration
+		? "accelerating since last alert"
+		: isReTrigger
+			? "since last alert"
+			: "today";
 	return `${symbol} ${arrow} ${absPct}% ${suffix} — ${formatUsdPrice(currentPrice)}`;
 }
 
@@ -156,6 +163,7 @@ export function formatFlatPriceAlertEmail(options: {
 	intraday: IntradayBarsResult | null;
 	sevenDaySparkline: SparklineData | null;
 	logoHtml: string | undefined;
+	whyText?: string | null;
 }): { text: string; html: string } {
 	const {
 		user,
@@ -168,6 +176,7 @@ export function formatFlatPriceAlertEmail(options: {
 		intraday,
 		sevenDaySparkline,
 		logoHtml,
+		whyText,
 	} = options;
 
 	const currentPrice = quote.price;
@@ -203,6 +212,11 @@ export function formatFlatPriceAlertEmail(options: {
 	textLines.push("");
 	for (const row of rows) {
 		textLines.push(formatPriceRowTextLine(row));
+	}
+	const whyTrimmed = whyText?.trim() ?? "";
+	if (whyTrimmed !== "") {
+		textLines.push("");
+		textLines.push(markdownLinksToPlainText(whyTrimmed));
 	}
 	textLines.push("");
 	textLines.push(`View Dashboard: ${urls.dashboardUrl}`);
@@ -257,6 +271,12 @@ export function formatFlatPriceAlertEmail(options: {
 			</div>`
 		: "";
 
+	const whyBlock =
+		whyTrimmed !== ""
+			? `
+		<p style="color: #374151; font-size: 14px; line-height: 1.5; margin: 16px 0 0 0;">${markdownLinksToHtml(whyTrimmed)}</p>`
+			: "";
+
 	// Identity row: logo + ticker + name sit below the title so a long company
 	// name cannot flex-shrink the logo (the old single-line h2 layout did).
 	const logoCell = logoBlock
@@ -280,7 +300,7 @@ export function formatFlatPriceAlertEmail(options: {
 		<table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
 			<tbody>${rowsHtml}
 			</tbody>
-		</table>${intradayBlock}
+		</table>${intradayBlock}${whyBlock}
 		<div style="text-align: center; margin-top: 28px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">View Dashboard →</a>
 		</div>`,

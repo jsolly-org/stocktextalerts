@@ -5,7 +5,6 @@
  * typed via `Database["public"]["Enums"]` in `src/lib/db/types.ts`.
  */
 
-import type { InlineKeyboardMarkup, MessageEntity } from "grammy/types";
 import type {
 	DailyNotificationContent,
 	FacetlessContent,
@@ -13,7 +12,6 @@ import type {
 } from "./constants";
 import type { Database } from "./db/generated/database.types";
 import { Constants } from "./db/generated/database.types";
-import type { StagedNotificationType } from "./db/types";
 
 declare const brand: unique symbol;
 type Brand<B extends string> = { readonly [brand]: B };
@@ -81,34 +79,17 @@ Dates & timestamps
 
 /** ISO calendar date `YYYY-MM-DD` (`scheduled_date`, `event_date`, etc.). */
 export type IsoDateString = string & Brand<"IsoDateString">;
-/** ISO-8601 UTC timestamp (`next_send_at`, `scheduled_for`, etc.). */
-type IsoTimestampString = string & Brand<"IsoTimestampString">;
-/** `YYYY-MM` month key (`asset_events_last_analyst_sent_month`). */
-export type YearMonthString = string & Brand<"YearMonthString">;
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const YEAR_MONTH_RE = /^\d{4}-\d{2}$/;
 
 function asIsoDateString(value: string): IsoDateString | null {
 	return ISO_DATE_RE.test(value) ? (value as IsoDateString) : null;
-}
-
-function asYearMonthString(value: string): YearMonthString | null {
-	return YEAR_MONTH_RE.test(value) ? (value as YearMonthString) : null;
 }
 
 export function assertIsoDateString(value: string): IsoDateString {
 	const parsed = asIsoDateString(value);
 	if (!parsed) {
 		throw new Error(`Invalid ISO date: ${value}`);
-	}
-	return parsed;
-}
-
-export function assertYearMonthString(value: string): YearMonthString {
-	const parsed = asYearMonthString(value);
-	if (!parsed) {
-		throw new Error(`Invalid year-month: ${value}`);
 	}
 	return parsed;
 }
@@ -159,11 +140,7 @@ derived from NOTIFICATION_OPTION_MATRIX and live beside it in `./constants` —
 that matrix is the single authored source of the option taxonomy.
 ============= */
 
-/** A delivery channel (the DB `delivery_method` enum). */
-export type PrefChannel = Database["public"]["Enums"]["delivery_method"];
-
 type PrefRowBase = {
-	channel: PrefChannel;
 	enabled: boolean;
 };
 
@@ -194,9 +171,8 @@ type GrokRumorsPreferences = {
 
 /** User fields required for notification delivery, scheduling, and formatting.
  *
- * Per-option channel preferences live in `notification_preferences` (carried as
- * `prefs`), NOT on per-column flags. Channel-level enables (`email_notifications_enabled`,
- * etc.) stay on the users row. */
+ * Content toggles live in `notification_preferences` (carried as `prefs`).
+ * Account routing is `users.delivery_channel` (email | telegram | disabled). */
 export type UserRecord = Pick<
 	DbUserRow,
 	| "id"
@@ -204,7 +180,7 @@ export type UserRecord = Pick<
 	| "timezone"
 	| "use_24_hour_time"
 	| "market_scheduled_asset_price_next_send_at"
-	| "email_notifications_enabled"
+	| "delivery_channel"
 > & {
 	market_scheduled_asset_price_enabled: boolean;
 	market_scheduled_asset_price_times: number[] | null;
@@ -212,8 +188,7 @@ export type UserRecord = Pick<
 	daily_notification_next_send_at: string | null;
 	asset_events_last_analyst_sent_month: string | null;
 	telegram_chat_id: number | null;
-	telegram_opted_out: boolean;
-	/** Per-option channel preferences (the single source of truth for all channels). */
+	/** Content toggles (channel-agnostic). */
 	prefs: PrefRow[];
 } & GrokRumorsPreferences;
 
@@ -325,48 +300,3 @@ export type TimezoneOption = Pick<
 	Database["public"]["Tables"]["timezones"]["Row"],
 	"value" | "label" | "display_order"
 >;
-
-/* =============
-Staged notifications
-============= */
-
-interface StagedEmailContent {
-	subject: string;
-	text: string;
-	html: string;
-}
-
-/** Fully-rendered Telegram message: plain text plus out-of-band parse-mode entities. */
-interface StagedTelegramContent {
-	text: string;
-	entities: MessageEntity[];
-	/** Deep-linked "Manage notifications" button. Optional: rows staged before this
-	 *  field shipped deserialize with `replyMarkup: undefined` and send buttonless. */
-	replyMarkup?: InlineKeyboardMarkup;
-}
-
-export interface StagedDailyData extends ScheduledSlotKey {
-	type: "daily";
-	email: StagedEmailContent | null;
-	telegram: StagedTelegramContent | null;
-
-	// Post-delivery metadata: these fields capture decisions made during
-	// the pre-compute phase so the delivery phase can perform cleanup
-	// (Grok counter updates, next_send_at advances, analyst month tracking)
-	// without re-running eligibility checks or re-querying user preferences.
-	grokAllowed: boolean;
-	hasAnyAssetEventsOption: boolean;
-	shouldUpdateAnalyst: boolean;
-	analystMonth: YearMonthString | null;
-}
-
-export type StagedData = StagedDailyData;
-
-export interface StagedNotificationRow {
-	id: string;
-	user_id: string;
-	notification_type: StagedNotificationType;
-	scheduled_for: IsoTimestampString;
-	staged_at: IsoTimestampString;
-	staged_data: StagedData;
-}

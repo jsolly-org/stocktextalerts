@@ -20,6 +20,12 @@ describe("formatMarketScheduledTelegram", () => {
 		expect(message.text).toContain("AAPL");
 		expect(message.text).toContain("$210.50");
 		expect(message.text).toContain("Prices delayed up to 15 minutes.");
+		expect(message.text.indexOf("AAPL")).toBeLessThan(
+			message.text.indexOf("Prices delayed up to 15 minutes."),
+		);
+		expect(
+			message.text.endsWith("Prices delayed up to 15 minutes. Send /stop to pause alerts."),
+		).toBe(true);
 	});
 
 	it("labels after-hours no-session-trade symbols", () => {

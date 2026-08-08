@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildAssetEventsContentForChannels } from "../../../src/lib/asset-events/content";
+import { buildAssetEventsContent } from "../../../src/lib/asset-events/content";
 import {
 	processAssetEventsEmailDelivery,
 	processAssetEventsTelegramDelivery,
@@ -20,7 +20,7 @@ vi.mock("../../../src/lib/asset-events/content", async () => {
 	const actual = await vi.importActual("../../../src/lib/asset-events/content");
 	return {
 		...actual,
-		buildAssetEventsContentForChannels: vi.fn(),
+		buildAssetEventsContent: vi.fn(),
 	};
 });
 
@@ -50,7 +50,7 @@ import { makePrefRows, makeUserRecord } from "../../helpers/user-record-fixture"
 
 function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
 	return makeUserRecord({
-		prefs: makePrefRows([["daily_notification", "ipo", "email", true]]),
+		prefs: makePrefRows([["daily_notification", "ipo", true]]),
 		daily_notification_next_send_at: "2026-02-10T10:00:00.000Z",
 		...overrides,
 	});
@@ -63,8 +63,8 @@ describe("processAssetEventsUser", () => {
 
 	it("continues processing IPO notifications even with zero tracked assets", async () => {
 		vi.mocked(loadUserAssets).mockResolvedValue([]);
-		vi.mocked(buildAssetEventsContentForChannels).mockResolvedValue({
-			email: {
+		vi.mocked(buildAssetEventsContent).mockResolvedValue({
+			content: {
 				eventsSection: {
 					earnings: null,
 					dividends: null,
@@ -73,9 +73,10 @@ describe("processAssetEventsUser", () => {
 				},
 				insiderSection: null,
 				analystSection: null,
+				filingsLines: null,
+				shortInterest: null,
 				hasAnyContent: true,
 			},
-			telegram: null,
 			analystFetchAttempted: false,
 			shouldUpdateAnalystMonth: false,
 		});
@@ -114,19 +115,15 @@ describe("processAssetEventsUser", () => {
 		expect(vi.mocked(processAssetEventsEmailDelivery)).toHaveBeenCalledOnce();
 	});
 
-	it("loads asset events once when both email and Telegram are enabled", async () => {
+	it("loads asset events once and delivers on the active channel only", async () => {
 		vi.mocked(loadUserAssets).mockResolvedValue([{ symbol: "AAPL" } as never]);
-		vi.mocked(buildAssetEventsContentForChannels).mockResolvedValue({
-			email: {
+		vi.mocked(buildAssetEventsContent).mockResolvedValue({
+			content: {
 				eventsSection: null,
 				insiderSection: "AAPL: insider",
 				analystSection: null,
-				hasAnyContent: true,
-			},
-			telegram: {
-				eventsSection: null,
-				insiderSection: "AAPL: insider",
-				analystSection: null,
+				filingsLines: null,
+				shortInterest: null,
 				hasAnyContent: true,
 			},
 			analystFetchAttempted: false,
@@ -136,12 +133,9 @@ describe("processAssetEventsUser", () => {
 		vi.mocked(processAssetEventsTelegramDelivery).mockResolvedValue();
 
 		const user = makeUser({
+			delivery_channel: "telegram",
 			telegram_chat_id: 123456,
-			telegram_opted_out: false,
-			prefs: makePrefRows([
-				["daily_notification", "insider", "email", true],
-				["daily_notification", "insider", "telegram", true],
-			]),
+			prefs: makePrefRows([["daily_notification", "insider", true]]),
 		});
 		const supabase = {
 			from() {
@@ -168,7 +162,7 @@ describe("processAssetEventsUser", () => {
 			getTelegramSender: vi.fn(() => ({ sender: vi.fn() })) as never,
 		});
 
-		expect(vi.mocked(processAssetEventsEmailDelivery)).toHaveBeenCalledOnce();
+		expect(vi.mocked(processAssetEventsEmailDelivery)).not.toHaveBeenCalled();
 		expect(vi.mocked(processAssetEventsTelegramDelivery)).toHaveBeenCalledOnce();
 	});
 });

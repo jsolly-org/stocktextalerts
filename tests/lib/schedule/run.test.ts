@@ -13,6 +13,12 @@ vi.mock("../../../src/lib/time/market/calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
 
+// Email logos are not what these scenarios assert on, and the vendor URL is a third-party
+// host (tests/helpers/network-guard.ts blocks it). The unavailable stub, not the MODE=test
+// one: the logo fetcher takes the "no logo" branch it already took in CI against the
+// placeholder key, and never writes icon_base64 on shared asset rows.
+vi.mock("../../../src/lib/vendors/http", () => import("../../stubs/vendors/http-unavailable"));
+
 const { getCurrentMarketSessionMock } = vi.hoisted(() => ({
 	getCurrentMarketSessionMock: vi.fn(),
 }));
@@ -141,9 +147,10 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 
 		const { id } = await createTestUser({
 			timezone,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceInclude: true,
 		});
 		registerTestUserForCleanup(id);
 
@@ -182,9 +189,10 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 
 		const { id } = await createTestUser({
 			timezone,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceInclude: true,
 		});
 		registerTestUserForCleanup(id);
 
@@ -198,7 +206,6 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		expect(updateError).toBeNull();
 
 		getCurrentMarketSessionMock.mockResolvedValue("pre");
-
 		const logger = {
 			debug: vi.fn(),
 			info: vi.fn(),
@@ -238,9 +245,10 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 
 		const { id } = await createTestUser({
 			timezone,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceInclude: true,
 		});
 		registerTestUserForCleanup(id);
 
@@ -297,9 +305,10 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 
 		const { id } = await createTestUser({
 			timezone,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceInclude: true,
 		});
 		registerTestUserForCleanup(id);
 
@@ -358,9 +367,10 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 
 		const { id } = await createTestUser({
 			timezone,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceInclude: true,
 		});
 		registerTestUserForCleanup(id);
 

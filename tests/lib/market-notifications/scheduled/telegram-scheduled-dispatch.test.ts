@@ -19,7 +19,7 @@ import { processMarketScheduledUser } from "../../../../src/lib/market-notificat
 import { attachPrefsToUsers } from "../../../../src/lib/messaging/load-prefs";
 import type { EmailSender, TelegramSender } from "../../../../src/lib/messaging/types";
 import type { UserRecord } from "../../../../src/lib/types";
-import { dashboardButtonUrl } from "../../../helpers/messaging-doubles";
+import { dashboardButtonUrl, telegramMessageText } from "../../../helpers/messaging-doubles";
 import { adminClient } from "../../../helpers/test-env";
 import { createTestUser, setTestUserPrefs } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
@@ -63,7 +63,7 @@ async function seedTelegramScheduledUser(prefEnabled: boolean) {
 	const now = DateTime.fromISO("2026-06-15T15:30:00.000Z", { zone: "utc" });
 	const { id } = await createTestUser({
 		timezone: "America/New_York",
-		emailNotificationsEnabled: false,
+		deliveryChannel: "telegram",
 		trackedAssets: ["NVDA"],
 		confirmed: true,
 	});
@@ -76,14 +76,13 @@ async function seedTelegramScheduledUser(prefEnabled: boolean) {
 			// 11:00 ET regular-hours slot, due now.
 			market_scheduled_asset_price_next_send_at: now.toISO(),
 			telegram_chat_id: telegramChatId,
-			telegram_opted_out: false,
 		})
 		.eq("id", id);
 	expect(updateError).toBeNull();
 
 	// Per-option prefs live in notification_preferences. createTestUser already seeded
-	// market_scheduled email off; enable (or not) the Telegram facet here.
-	await setTestUserPrefs(id, [["market_scheduled_asset_price", "", "telegram", prefEnabled]]);
+	// market_scheduled off; enable (or not) the content toggle here.
+	await setTestUserPrefs(id, [["market_scheduled_asset_price", "", prefEnabled]]);
 
 	const { data: userRow, error: selectError } = await adminClient
 		.from("users")
@@ -126,7 +125,7 @@ describe("Telegram scheduled market-price dispatch", () => {
 
 		const sent = telegramSender.mock.calls[0]?.[0];
 		expect(sent?.chatId).toBe(telegramChatId);
-		expect(sent?.text).toContain("NVDA");
+		expect(telegramMessageText(sent)).toContain("NVDA");
 		// The "Manage notifications" button deep-links to the Market Notifications section.
 		expect(dashboardButtonUrl(sent)).toContain("#market-notifications");
 
@@ -204,12 +203,12 @@ describe("Telegram scheduled market-price dispatch", () => {
 		expect(stats.telegramFailed).toBe(1);
 		expect(stats.telegramSent).toBe(0);
 
-		// End-to-end: the verified 403 flips telegram_opted_out so future ticks skip this user.
+		// End-to-end: the verified 403 sets delivery_channel=disabled so future ticks skip this user.
 		const { data: user } = await adminClient
 			.from("users")
-			.select("telegram_opted_out")
+			.select("delivery_channel")
 			.eq("id", id)
 			.single();
-		expect(user?.telegram_opted_out).toBe(true);
+		expect(user?.delivery_channel).toBe("disabled");
 	});
 });

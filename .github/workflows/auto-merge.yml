@@ -7,27 +7,38 @@ on:
       - reopened
       - synchronize
       - ready_for_review
-      - labeled
 
 permissions:
   contents: write
   pull-requests: write
-  issues: write
 
 jobs:
   auto-merge:
     # ARM: cheapest tier; this job is a single bare `gh` call — arch-irrelevant.
     runs-on: blacksmith-2vcpu-ubuntu-2404-arm
-    # Gate at the job level so events on PRs without the ship-auto-merge label skip
-    # with ZERO billed runner minutes, instead of spinning a runner just to `gh pr view`
-    # the labels and exit. The label lives in the webhook payload, so no API round-trip.
+    # Gate at the job level so Dependabot / fork / draft events skip with ZERO
+    # billed runner minutes. Same-repo maintainer + agent PRs arm immediately;
+    # Dependabot stays off (janitor arms via `gh` after prep).
+    # Fork PRs never auto-merge.
     if: >-
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      contains(github.event.pull_request.labels.*.name, 'ship-auto-merge')
+      github.event.pull_request.user.login != 'dependabot[bot]'
     steps:
-      - name: Enable auto-merge when orchestrated
+      - name: Arm merge path for same-repo non-Dependabot PRs
         env:
+          # Prefer REPO_AUTOMATION_TOKEN (shared with janitor). When set, skip
+          # GitHub --auto — CI's merge-pr job squash-merges with that PAT after
+          # green `ci`, which creates a normal push → main CI → Deploy.
+          # Token needs Contents + Pull requests write (merge is Contents-gated).
+          HAS_AUTOMATION_TOKEN: ${{ secrets.REPO_AUTOMATION_TOKEN != '' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: gh pr merge --auto --squash --repo "$GITHUB_REPOSITORY" "$PR_NUMBER"
+        run: |
+          set -euo pipefail
+          if [ "$HAS_AUTOMATION_TOKEN" = "true" ]; then
+            echo "REPO_AUTOMATION_TOKEN set — CI merge-pr will squash-merge after green ci (PAT merge creates push → Deploy)."
+            exit 0
+          fi
+          echo "::warning::REPO_AUTOMATION_TOKEN unset — arming GitHub auto-merge with GITHUB_TOKEN; main push workflows will be suppressed (ensure-main-ci.yml is the recovery path)."
+          gh pr merge --auto --squash --repo "$GITHUB_REPOSITORY" "$PR_NUMBER"

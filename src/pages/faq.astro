@@ -16,16 +16,16 @@ const faqs = [
 	{
 		question: "How do asset updates work?",
 		answer: REGISTRATION_ENABLED
-			? 'Once you <a href="/auth/register" class="link-primary">create an account</a> and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market asset price notifications, optional Asset Price Alerts, plus an optional daily digest and asset events notifications. You can choose whether each notification type is delivered by email or Telegram.'
-			: 'Once you <a href="/auth/signin" class="link-primary">sign in</a> and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market asset price notifications, optional Asset Price Alerts, plus an optional daily digest and asset events notifications. You can choose whether each notification type is delivered by email or Telegram.'
+			? 'Once you <a href="/auth/register" class="link-primary">create an account</a> and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market asset price notifications, optional Asset Price Alerts, plus an optional daily digest and asset events notifications. You pick one delivery channel for the account (email or Telegram); content toggles control what goes into each alert.'
+			: 'Once you <a href="/auth/signin" class="link-primary">sign in</a> and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market asset price notifications, optional Asset Price Alerts, plus an optional daily digest and asset events notifications. You pick one delivery channel for the account (email or Telegram); content toggles control what goes into each alert.'
 	},
 	{
 		question: "What are Price Move Alerts?",
 		answer: "Price Move Alerts notify you when a tracked stock moves past a threshold you set — as a percent or a dollar change in a single US trading day. Set a threshold per stock (they're off until you do). The move is measured from yesterday's close on the first alert, then re-triggered on each additional move of that size, and delivery is limited to protect against noise during busy sessions."
 	},
 	{
-		question: "Can I choose which channel each notification uses?",
-		answer: "Yes. Enable email and/or Telegram, then choose which notification types are delivered to each channel (including Asset Price Alerts and Asset Events). News and Rumors are available on both channels. Pause Telegram with /stop in the bot, or unlink Telegram in your settings. Manage email from your dashboard or via unsubscribe links in messages."
+		question: "How do delivery channels work?",
+		answer: "Your account has one active delivery channel — Email, Telegram, or Disabled. Every content toggle you enable is sent on that channel."
 	},
 	{
 		question: "I didn\u2019t receive my verification email. What should I do?",
@@ -57,11 +57,11 @@ const faqs = [
 	},
 	{
 		question: "What is the Daily Digest?",
-		answer: "The Daily Digest is a once-daily summary of your tracked asset prices that\u2019s separate from asset price alerts. You can add optional extras like News and Rumors for the assets you track. News and Rumors are available by email and Telegram, and may include clickable source links."
+		answer: "The Daily Digest is a once-daily summary of your tracked asset prices that\u2019s separate from asset price alerts. You can add optional extras like News and Rumors for the assets you track. News and Rumors (AI summaries) are included when Email is your delivery channel, and may include clickable source links."
 	},
 	{
 		question: "What are Asset Events?",
-		answer: "Asset Events is a daily notification that can include calendar events (earnings/dividends/splits), upcoming IPOs, insider trades, and analyst consensus. Each section has its own email and Telegram toggle, so you can choose exactly what is delivered by channel. (Analyst consensus is typically sent up to once per month.)"
+		answer: "Asset Events is a daily notification that can include calendar events (earnings/dividends/splits), upcoming IPOs, insider trades, and analyst consensus. Each section has its own content toggle; everything you enable is delivered on your account's single delivery channel (Email or Telegram). (Analyst consensus is typically sent up to once per month.)"
 	},
 	{
 		question: "What information is included in the updates?",

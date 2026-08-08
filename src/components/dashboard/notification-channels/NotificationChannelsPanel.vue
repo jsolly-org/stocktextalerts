@@ -24,12 +24,10 @@
 				:id="DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID"
 			/>
 
-			<div class="card-accent card-accent-primary"></div>
 			<div class="card-body">
 
 			<NotificationChannelsFieldset
-				v-model:email-enabled="emailEnabledModel"
-				:email-notifications-enabled-id="emailNotificationsEnabledId"
+				v-model:delivery-channel="deliveryChannelModel"
 				:notification-channels-desc-id="notificationChannelsDescId"
 				:daily-delivery-time-input="dailyDeliveryTimeInput"
 				:daily-delivery-time-minutes="dailyDeliveryTimeMinutes"
@@ -44,23 +42,21 @@
 			<div v-if="isHydrated && nextDailyDeliveryText" class="mt-4">
 				<p class="inline-flex items-center gap-2 text-sm text-body-secondary">
 					<BellAlertIcon class="size-4 shrink-0 text-success-strong" aria-hidden="true" />
-					<span>Next delivery <span class="font-medium text-heading">{{ nextDailyDeliveryText }}</span>.</span>
+					<span>Next delivery <span class="font-medium text-heading">{{ nextDailyDeliveryText }}</span>. It can take a minute or two for the notification to arrive.</span>
 				</p>
 			</div>
 			</div>
 		</section>
 	</form>
 
-	<!-- Notification Preview -->
 	<section class="card">
-		<div class="card-accent card-accent-gray"></div>
 		<div class="card-body">
 			<header class="mb-4">
 				<h2 class="text-xl sm:text-2xl font-bold text-heading">
 					Notification Preview
 				</h2>
 				<p class="text-sm text-body-secondary mt-1">
-					See how your asset updates appear when delivered. Sent to whichever channels you enable — email or Telegram.
+					See how your asset updates appear when delivered on your selected channel.
 				</p>
 			</header>
 
@@ -86,9 +82,10 @@
 
 <script lang="ts" setup>
 import { DateTime } from "luxon";
-import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
-// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
+import type { DeliveryChannelMode } from "../../../lib/constants";
+import { needsNotificationChannelSelection } from "../../../lib/messaging/delivery-channel";
 import { etMinuteToUserLocal, getUsBeforeOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
 	formatCountdownWithSeconds,
@@ -113,17 +110,12 @@ import { DEMO_ASSETS } from "./preview/preview-data";
 import type { PreviewAsset } from "./preview/types";
 
 interface Props {
-	emailEnabled: boolean;
 	initialAssets: InitialAsset[];
 	hasTrackedAssets: boolean;
 }
 
 const props = defineProps<Props>();
-const { emailEnabled: emailEnabledProp } = toRefs(props);
 
-const emit = defineEmits<(event: "update:emailEnabled", value: boolean) => void>();
-
-// Inject the shared mutable user ref from DashboardPanels
 const user = useDashboardUser();
 
 const isHydrated = useHydrated();
@@ -142,7 +134,6 @@ onUnmounted(() => {
 	intervalId = null;
 });
 
-/* ============= Auto-save composable ============= */
 const notificationPreferencesFormElement = ref<HTMLFormElement | null>(null);
 const {
 	handleFormChange,
@@ -157,46 +148,31 @@ const {
 	formRef: notificationPreferencesFormElement,
 });
 
-/* ============= Channel state ============= */
-const emailNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-email_notifications_enabled`;
 const notificationChannelsDescId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-notification-channels-desc`;
 
-const emailEnabledModel = computed({
-	get: () => emailEnabledProp.value,
-	set: (value: boolean) => emit("update:emailEnabled", value),
+const deliveryChannelModel = computed({
+	get: () => user.value.delivery_channel,
+	set: (value: DeliveryChannelMode) => {
+		user.value = { ...user.value, delivery_channel: value };
+		notifyChange();
+	},
 });
 
-watch(emailEnabledModel, () => {
-	notifyChange();
-});
-
-// Watch savedData and update shared user ref directly (no more event bubbling)
 watch(
 	() => savedNotificationPreferencesData.value,
 	(newData) => {
 		if (newData) {
-			// Update shared user ref directly
 			user.value = {
 				...user.value,
-				email_notifications_enabled: newData.email_notifications_enabled,
+				delivery_channel: newData.delivery_channel,
 				daily_notification_time: newData.daily_notification_time,
 				daily_notification_next_send_at: newData.daily_notification_next_send_at,
 				market_scheduled_asset_price_next_send_at: newData.market_scheduled_asset_price_next_send_at,
 			};
-			// Sync channel state with parent
-			emit("update:emailEnabled", newData.email_notifications_enabled);
 		}
 	},
 );
 
-/* ============= Daily Delivery Time ============= */
-
-/**
- * Stored `market_scheduled_asset_price_times` are ET-canonical minutes (Phase 9
- * migration). Convert each to user-local before deriving the earliest, so the
- * fallback delivery-time display matches what the user sees in the market
- * notifications picker.
- */
 function getEarliestMarketNotificationTime(): number | null {
 	const times = user.value.market_scheduled_asset_price_times;
 	if (!times || times.length === 0) return null;
@@ -242,7 +218,6 @@ function handleSetBeforeOpen() {
 	notifyChange();
 }
 
-// Sync delivery time from user state (e.g. after save from another panel)
 watch(
 	() => user.value.daily_notification_time,
 	(value) => {
@@ -258,7 +233,6 @@ watch(
 	},
 );
 
-/* ============= Next delivery countdown ============= */
 const nextDailyDeliveryText = computed(() => {
 	if (!isHydrated.value) return null;
 	void tick.value;
@@ -277,9 +251,8 @@ const nextDailyDeliveryText = computed(() => {
 	return secondsUntil <= 0 ? "is due soon" : `in ${formatCountdownWithSeconds(secondsUntil)}`;
 });
 
-/* ============= Notification Preview ============= */
 const needsTrackedAssets = computed(() => !props.hasTrackedAssets);
-const needsChannelSelection = computed(() => !emailEnabledProp.value);
+const needsChannelSelection = computed(() => needsNotificationChannelSelection(user.value));
 const notificationSetupBlocked = computed(
 	() => needsChannelSelection.value || needsTrackedAssets.value,
 );
@@ -302,4 +275,3 @@ const previewAssets = computed<PreviewAsset[]>(() => {
 	});
 });
 </script>
-

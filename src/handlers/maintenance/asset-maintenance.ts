@@ -13,20 +13,27 @@ import type { Context, ScheduledEvent } from "aws-lambda";
 import { DateTime } from "luxon";
 import { fetchAndStoreFinnhubEnrichment } from "../../lib/asset-events/enrichment-store";
 import { fetchAndStoreAssetEvents } from "../../lib/asset-events/fetch";
+import { fetchAndStoreSecFilings } from "../../lib/asset-events/sec-filings";
+import { fetchAndStoreShortInterest } from "../../lib/asset-events/short-interest";
 import type { AssetEventProvider } from "../../lib/asset-events/types";
 import { runDelistingSweep } from "../../lib/assets/delisting-sweep";
 import { runUniverseReconcile } from "../../lib/assets/universe-reconcile";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";
 import { createLogger, type Logger } from "../../lib/logging";
+import { RELEASE_ID } from "../../lib/logging/release-id";
 import { runLambda } from "../../lib/logging/request-context";
 import { createEmailSender } from "../../lib/messaging/email/utils";
+import { runNextSessionDirectionProbe } from "../../lib/prediction-markets/direction-probe";
 import { runPredictionMarketDiscoveryDrip } from "../../lib/prediction-markets/pipeline";
 import { refreshActivePredictionMarketSnapshots } from "../../lib/prediction-markets/refresh";
 import { enqueueAssetEventsIngestRetry } from "../../lib/vendors/backfill/enqueue";
 import {
+	PM_DIRECTION_PROBE_MIN_REMAINING_MS,
 	PM_DISCOVERY_MIN_REMAINING_MS,
 	PM_REFRESH_MIN_REMAINING_MS,
 	RECONCILE_MIN_REMAINING_MS,
+	SEC_FILINGS_MIN_REMAINING_MS,
+	SHORT_INTEREST_MIN_REMAINING_MS,
 	SWEEP_MIN_REMAINING_MS,
 } from "./constants";
 
@@ -61,6 +68,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			action: "lambda_invoke",
 			eventId: event.id,
 			eventTime: event.time,
+			releaseId: RELEASE_ID,
 		});
 		const supabase = createSupabaseAdminClient();
 
@@ -140,6 +148,30 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			);
 		}
 
+		if (stepFitsRemainingTime(context, logger, "sec_filings", SEC_FILINGS_MIN_REMAINING_MS)) {
+			try {
+				await fetchAndStoreSecFilings({ supabase, logger });
+			} catch (error) {
+				logger.error(
+					"SEC filings ingest failed (continuing with short-interest ingest)",
+					{ action: "fetch_sec_filings" },
+					error,
+				);
+			}
+		}
+
+		if (stepFitsRemainingTime(context, logger, "short_interest", SHORT_INTEREST_MIN_REMAINING_MS)) {
+			try {
+				await fetchAndStoreShortInterest({ supabase, logger });
+			} catch (error) {
+				logger.error(
+					"Short interest ingest failed (continuing with prediction-market refresh)",
+					{ action: "fetch_short_interest" },
+					error,
+				);
+			}
+		}
+
 		// Refresh all active matched prediction-market event/outcome snapshots so
 		// digests stay DB-read-only against fresh odds. Soft-fails keep last good.
 		// Unbounded event count; remaining-time abort is the only backstop.
@@ -158,6 +190,36 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				logger.error(
 					"Prediction-market snapshot refresh failed",
 					{ action: "daily_pm_refresh" },
+					error,
+				);
+			}
+		}
+
+		// Rotating Polymarket daily up/down markets are created ~noon UTC the day
+		// before the session. One-shot discovery never sees them — probe the
+		// deterministic slug for every tracked symbol and upsert additively.
+		if (
+			stepFitsRemainingTime(
+				context,
+				logger,
+				"pm_direction_probe",
+				PM_DIRECTION_PROBE_MIN_REMAINING_MS,
+			)
+		) {
+			try {
+				const probeResult = await runNextSessionDirectionProbe({
+					supabase,
+					logger,
+					getRemainingTimeInMillis: () => context.getRemainingTimeInMillis(),
+				});
+				logger.info("Prediction-market next-session direction probe complete", {
+					action: "daily_pm_direction_probe",
+					...probeResult,
+				});
+			} catch (error) {
+				logger.error(
+					"Prediction-market next-session direction probe failed",
+					{ action: "daily_pm_direction_probe" },
 					error,
 				);
 			}
@@ -221,23 +283,10 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			}
 		}
 
-		// Nightly universe reconcile. Independent try/catch so a reconcile failure
-		// never invalidates the calendar-events job or the delisting sweep. Ordered
-		// before the sweep so it operates on a freshly reconciled universe.
-		if (stepFitsRemainingTime(context, logger, "universe_reconcile", RECONCILE_MIN_REMAINING_MS)) {
-			try {
-				const reconcileResult = await runUniverseReconcile({ supabase, logger });
-				logger.info("Universe reconcile complete", {
-					action: "daily_universe_reconcile",
-					...reconcileResult,
-				});
-			} catch (error) {
-				logger.error("Universe reconcile failed", { action: "daily_universe_reconcile" }, error);
-			}
-		}
-
 		// Independent try/catch so sweep failures never invalidate the calendar-
-		// events job's success — the sweep runs again tomorrow.
+		// events job's success — the sweep runs again tomorrow. Ordered BEFORE
+		// universe reconcile: tracked confirms do not depend on reconcile, and a
+		// slow Massive list night must not starve user-facing delist work.
 		if (stepFitsRemainingTime(context, logger, "delisting_sweep", SWEEP_MIN_REMAINING_MS)) {
 			try {
 				const sendEmail = createEmailSender();
@@ -252,6 +301,20 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				});
 			} catch (error) {
 				logger.error("Delisting sweep failed", { action: "daily_delisting_sweep" }, error);
+			}
+		}
+
+		// Nightly universe reconcile. Independent try/catch so a reconcile failure
+		// never invalidates the calendar-events job or the delisting sweep.
+		if (stepFitsRemainingTime(context, logger, "universe_reconcile", RECONCILE_MIN_REMAINING_MS)) {
+			try {
+				const reconcileResult = await runUniverseReconcile({ supabase, logger });
+				logger.info("Universe reconcile complete", {
+					action: "daily_universe_reconcile",
+					...reconcileResult,
+				});
+			} catch (error) {
+				logger.error("Universe reconcile failed", { action: "daily_universe_reconcile" }, error);
 			}
 		}
 	});

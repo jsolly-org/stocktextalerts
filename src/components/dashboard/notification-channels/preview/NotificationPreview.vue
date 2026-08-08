@@ -68,9 +68,10 @@ import { buildPreviewAlert, buildPreviewTelegramLines } from "./preview-data";
 import type { PreviewAsset } from "./types";
 
 // The preview is its own presentation artifact (channels own their formatting), so it
-// carries its own footer constant — just the opt-out hint — rather than importing the
-// shared TELEGRAM_FOOTER. Deliberately decoupled so preview copy never rides channel wiring.
-const PREVIEW_FOOTER = "Send /stop to pause alerts.";
+// carries its own footer constant rather than importing shared footer helpers.
+// Deliberately decoupled so preview copy never rides channel wiring — keep this in sync
+// with buildTelegramPriceFooter() when that string changes.
+const PREVIEW_FOOTER = "Prices delayed up to 15 minutes. Send /stop to pause alerts.";
 
 interface Props {
 	assets: PreviewAsset[];

@@ -1,4 +1,6 @@
-import type { PredictionMarketEventCard, PredictionMarketVenue } from "./types";
+import { DateTime } from "luxon";
+import { US_MARKET_TIMEZONE } from "../constants";
+import type { PredictionMarketEventCard } from "./types";
 import { PREDICTION_MARKET_STALE_MS } from "./types";
 
 function isFutureClose(closesAt: string | null, nowMs: number): boolean {
@@ -12,82 +14,76 @@ function isFresh(refreshedAt: string, nowMs: number): boolean {
 	return Number.isFinite(ts) && nowMs - ts <= PREDICTION_MARKET_STALE_MS;
 }
 
-function median(values: readonly number[]): number | null {
-	if (values.length === 0) return null;
-	const sorted = [...values].sort((a, b) => a - b);
-	const mid = Math.floor(sorted.length / 2);
-	const even = sorted.length % 2 === 0;
-	const a = sorted[mid - 1];
-	const b = sorted[mid];
-	if (even && a !== undefined && b !== undefined) return (a + b) / 2;
-	return b ?? a ?? null;
+/** Next-day / session direction markets (e.g. "AAPL Up or Down on July 31?"). */
+function isDailyDirectionMarket(card: PredictionMarketEventCard): boolean {
+	return /\bup or down\b/i.test(card.title);
 }
 
-function titleSalient(card: PredictionMarketEventCard): boolean {
-	// Ongoing lane requires a title-level identity match (not outcome-only).
-	// Callers set matchKind/confidence; we approximate via symbol appearing in title
-	// or an explicit highlight on any outcome.
-	if (!card.symbol) return true;
-	const sym = card.symbol.toLowerCase();
-	if (card.title.toLowerCase().includes(sym)) return true;
-	return card.outcomes.some((o) => o.highlighted === true);
+/** ET calendar date of the market's session (from closesAt, typically 4pm ET). */
+function sessionDateEt(card: PredictionMarketEventCard): string | null {
+	if (!card.closesAt) return null;
+	const dt = DateTime.fromISO(card.closesAt, { zone: "utc" }).setZone(US_MARKET_TIMEZONE);
+	return dt.isValid ? dt.toISODate() : null;
+}
+
+function todayDateEt(nowMs: number): string | null {
+	const dt = DateTime.fromMillis(nowMs, { zone: "utc" }).setZone(US_MARKET_TIMEZONE);
+	return dt.isValid ? dt.toISODate() : null;
+}
+
+function soonestCloseFirst(a: PredictionMarketEventCard, b: PredictionMarketEventCard): number {
+	const aTs = a.closesAt ? Date.parse(a.closesAt) : Number.POSITIVE_INFINITY;
+	const bTs = b.closesAt ? Date.parse(b.closesAt) : Number.POSITIVE_INFINITY;
+	if (aTs !== bTs) return aTs - bTs;
+	return b.volume - a.volume;
 }
 
 /**
- * Per-asset selection:
- * - dated lane: up to 2 soonest future closes (reject expired)
- * - ongoing lane: up to 2 undated high-volume cards when title-salient and
- *   volume beats same-venue median of that asset's dated candidates
- * - no global cap
+ * Per-asset selection — at most one prediction-market card per ticker:
+ * only the soonest daily up/down for a *future* ET session (tomorrow+, never today).
+ * KPI / company-subject / price-target / ongoing markets are never shown.
+ * Macro/curated markets are selected separately and are unaffected.
  */
 export function selectAssetEventCards(
 	cards: readonly PredictionMarketEventCard[],
-	options: { nowMs?: number; datedLimit?: number; ongoingLimit?: number } = {},
+	options: { nowMs?: number } = {},
 ): PredictionMarketEventCard[] {
 	const nowMs = options.nowMs ?? Date.now();
-	const datedLimit = options.datedLimit ?? 2;
-	const ongoingLimit = options.ongoingLimit ?? 2;
+	const todayEt = todayDateEt(nowMs);
+	if (todayEt === null) return [];
 
-	const freshOpen = cards.filter(
-		(c) =>
-			c.outcomes.length > 0 &&
-			isFresh(c.refreshedAt, nowMs) &&
-			// Reject expired dated markets; undated stay eligible for ongoing lane.
-			(c.closesAt === null || isFutureClose(c.closesAt, nowMs)),
-	);
-
-	const dated = freshOpen
-		.filter((c) => c.closesAt !== null)
-		.sort((a, b) => Date.parse(a.closesAt ?? "") - Date.parse(b.closesAt ?? ""))
-		.slice(0, datedLimit);
-
-	const datedByVenue = new Map<PredictionMarketVenue, number[]>();
-	for (const c of dated) {
-		const list = datedByVenue.get(c.venue) ?? [];
-		list.push(c.volume);
-		datedByVenue.set(c.venue, list);
-	}
-
-	const ongoing = freshOpen
-		.filter((c) => c.closesAt === null)
-		.filter((c) => titleSalient(c))
+	const bestDirection = [...cards]
+		.filter(
+			(c) =>
+				isDailyDirectionMarket(c) &&
+				c.outcomes.length > 0 &&
+				isFresh(c.refreshedAt, nowMs) &&
+				(c.closesAt === null || isFutureClose(c.closesAt, nowMs)),
+		)
 		.filter((c) => {
-			const med = median(datedByVenue.get(c.venue) ?? []);
-			if (med === null) {
-				// No dated baseline for this venue — require positive volume only.
-				return c.volume > 0;
-			}
-			return c.volume > med;
+			const session = sessionDateEt(c);
+			// Next-day (or next available session): strictly after today in ET.
+			return session !== null && session > todayEt;
 		})
-		.sort((a, b) => b.volume - a.volume)
-		.slice(0, ongoingLimit);
+		.sort(soonestCloseFirst)[0];
 
-	return [...dated, ...ongoing];
+	return bestDirection ? [bestDirection] : [];
+}
+
+/**
+ * True when cards already include a fresh daily up/down for a future ET session
+ * (the only digest asset lane). Used to skip live direction probes.
+ */
+export function hasFutureDailyDirectionMarket(
+	cards: readonly PredictionMarketEventCard[],
+	options: { nowMs?: number } = {},
+): boolean {
+	return selectAssetEventCards(cards, options).length > 0;
 }
 
 /**
  * Order asset cards by watchlist order (newest-first symbols), then within
- * each symbol keep selection order (soonest dated, then ongoing).
+ * each symbol keep selection order (at most one card per symbol).
  */
 export function orderCardsByWatchlist(
 	cardsBySymbol: ReadonlyMap<string, readonly PredictionMarketEventCard[]>,

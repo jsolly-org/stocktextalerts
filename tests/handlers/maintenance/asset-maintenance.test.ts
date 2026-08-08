@@ -2,10 +2,10 @@
  * Orchestration tests for the daily asset-maintenance Lambda: the nightly
  * universe-reconcile cadence and the per-step remaining-time budget guards.
  *
- * Every step implementation (ingest, enrichment, reconcile, sweep, pm discovery,
- * pm refresh) is mocked — the handler is thin orchestration, and what these
- * tests pin is WHICH steps run under which clock/budget conditions, plus the
- * pageable error logs when a step is skipped.
+ * Every step implementation (ingest, enrichment, SEC filings, reconcile, sweep,
+ * pm discovery, pm refresh) is mocked — the handler is thin orchestration, and
+ * what these tests pin is WHICH steps run under which clock/budget conditions,
+ * plus the pageable error logs when a step is skipped.
  */
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
@@ -16,6 +16,12 @@ vi.mock("../../../src/lib/asset-events/enrichment-store", () => ({
 }));
 vi.mock("../../../src/lib/asset-events/fetch", () => ({
 	fetchAndStoreAssetEvents: vi.fn(),
+}));
+vi.mock("../../../src/lib/asset-events/sec-filings", () => ({
+	fetchAndStoreSecFilings: vi.fn(),
+}));
+vi.mock("../../../src/lib/asset-events/short-interest", () => ({
+	fetchAndStoreShortInterest: vi.fn(),
 }));
 vi.mock("../../../src/lib/assets/delisting-sweep", () => ({
 	runDelistingSweep: vi.fn(),
@@ -38,20 +44,29 @@ vi.mock("../../../src/lib/prediction-markets/pipeline", () => ({
 vi.mock("../../../src/lib/prediction-markets/refresh", () => ({
 	refreshActivePredictionMarketSnapshots: vi.fn(),
 }));
+vi.mock("../../../src/lib/prediction-markets/direction-probe", () => ({
+	runNextSessionDirectionProbe: vi.fn(),
+}));
 
 import { handler } from "../../../src/handlers/maintenance/asset-maintenance";
 import {
+	PM_DIRECTION_PROBE_MIN_REMAINING_MS,
 	PM_DISCOVERY_MIN_REMAINING_MS,
 	PM_REFRESH_MIN_REMAINING_MS,
 	RECONCILE_MIN_REMAINING_MS,
+	SEC_FILINGS_MIN_REMAINING_MS,
+	SHORT_INTEREST_MIN_REMAINING_MS,
 	SWEEP_MIN_REMAINING_MS,
 } from "../../../src/handlers/maintenance/constants";
 import { fetchAndStoreFinnhubEnrichment } from "../../../src/lib/asset-events/enrichment-store";
 import { fetchAndStoreAssetEvents } from "../../../src/lib/asset-events/fetch";
+import { fetchAndStoreSecFilings } from "../../../src/lib/asset-events/sec-filings";
+import { fetchAndStoreShortInterest } from "../../../src/lib/asset-events/short-interest";
 import { runDelistingSweep } from "../../../src/lib/assets/delisting-sweep";
 import { runUniverseReconcile } from "../../../src/lib/assets/universe-reconcile";
 import { createSupabaseAdminClient } from "../../../src/lib/db/supabase";
 import { createEmailSender } from "../../../src/lib/messaging/email/utils";
+import { runNextSessionDirectionProbe } from "../../../src/lib/prediction-markets/direction-probe";
 import { runPredictionMarketDiscoveryDrip } from "../../../src/lib/prediction-markets/pipeline";
 import { refreshActivePredictionMarketSnapshots } from "../../../src/lib/prediction-markets/refresh";
 import { enqueueAssetEventsIngestRetry } from "../../../src/lib/vendors/backfill/enqueue";
@@ -69,6 +84,9 @@ const STARVED_REMAINING_MS =
 		SWEEP_MIN_REMAINING_MS,
 		PM_DISCOVERY_MIN_REMAINING_MS,
 		PM_REFRESH_MIN_REMAINING_MS,
+		PM_DIRECTION_PROBE_MIN_REMAINING_MS,
+		SEC_FILINGS_MIN_REMAINING_MS,
+		SHORT_INTEREST_MIN_REMAINING_MS,
 	) - 60_000;
 
 const event = { id: "evt-asset-maint-1", time: "2026-07-05T00:00:00Z" } as ScheduledEvent;
@@ -92,6 +110,16 @@ function stubHealthySteps(): void {
 		insiderUpserted: 7,
 		enrichmentFailures: [],
 	});
+	vi.mocked(fetchAndStoreSecFilings).mockResolvedValue({
+		cikUpdated: 2,
+		filingsUpserted: 5,
+		ciksPolled: 3,
+		failures: [],
+	});
+	vi.mocked(fetchAndStoreShortInterest).mockResolvedValue({
+		upserted: 8,
+		failures: [],
+	});
 	vi.mocked(runUniverseReconcile).mockResolvedValue({
 		activeTickersFetched: 11234,
 		allActiveSymbols: 26890,
@@ -101,7 +129,9 @@ function stubHealthySteps(): void {
 		referenceWatermarksBootstrapped: 0,
 		insertChunksFailed: 0,
 		delistedCleared: 2,
+		untrackedDelistCandidates: 5,
 		untrackedDelistedFlagged: 5,
+		untrackedDelistUnconfirmed: 0,
 		delistFlagSkippedShrunkActive: false,
 		warmupEnqueued: 18,
 		warmupEnqueueFailed: 0,
@@ -130,6 +160,12 @@ function stubHealthySteps(): void {
 		failed: 0,
 		skipped: 0,
 	});
+	vi.mocked(runNextSessionDirectionProbe).mockResolvedValue({
+		processed: 5,
+		matched: 4,
+		failed: 0,
+		skipped: 0,
+	});
 	vi.mocked(enqueueAssetEventsIngestRetry).mockResolvedValue(true);
 }
 
@@ -150,16 +186,22 @@ describe("asset-maintenance Lambda orchestration", () => {
 		infoSpy.mockRestore();
 	});
 
-	it("On a Sunday tick the nightly universe reconcile runs before the sweep", async () => {
+	it("On a Sunday tick the nightly delisting sweep runs before universe reconcile", async () => {
 		vi.setSystemTime(SUNDAY_UTC);
 
 		await handler(event, makeContext(AMPLE_REMAINING_MS));
 
+		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
 		expect(runUniverseReconcile).toHaveBeenCalledTimes(1);
+		const sweepOrder = vi.mocked(runDelistingSweep).mock.invocationCallOrder[0];
+		const reconcileOrder = vi.mocked(runUniverseReconcile).mock.invocationCallOrder[0];
+		expect(sweepOrder).toBeDefined();
+		expect(reconcileOrder).toBeDefined();
+		expect(sweepOrder as number).toBeLessThan(reconcileOrder as number);
 		expect(loggedMessages(infoSpy)).toContainEqual("Universe reconcile complete");
 		expect(refreshActivePredictionMarketSnapshots).toHaveBeenCalledTimes(1);
+		expect(runNextSessionDirectionProbe).toHaveBeenCalledTimes(1);
 		expect(runPredictionMarketDiscoveryDrip).toHaveBeenCalledTimes(1);
-		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
 	});
 
 	it("On a Wednesday tick the reconcile and every other nightly step run", async () => {
@@ -170,14 +212,18 @@ describe("asset-maintenance Lambda orchestration", () => {
 		expect(runUniverseReconcile).toHaveBeenCalledTimes(1);
 		expect(loggedMessages(infoSpy)).toContainEqual("Universe reconcile complete");
 		expect(refreshActivePredictionMarketSnapshots).toHaveBeenCalledTimes(1);
+		expect(runNextSessionDirectionProbe).toHaveBeenCalledTimes(1);
 		expect(runPredictionMarketDiscoveryDrip).toHaveBeenCalledTimes(1);
 		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
 	});
 
-	it("A starved invocation (remaining time below every step budget) skips reconcile, pm refresh, pm discovery, and sweep with pageable error logs", async () => {
+	it("A starved invocation (remaining time below every step budget) skips reconcile, SEC filings, short interest, pm refresh, pm discovery, and sweep with pageable error logs", async () => {
 		vi.setSystemTime(SUNDAY_UTC);
 		expectConsoleError(/Skipping universe_reconcile/);
+		expectConsoleError(/Skipping sec_filings/);
+		expectConsoleError(/Skipping short_interest/);
 		expectConsoleError(/Skipping pm_refresh/);
+		expectConsoleError(/Skipping pm_direction_probe/);
 		expectConsoleError(/Skipping pm_discovery/);
 		expectConsoleError(/Skipping delisting_sweep/);
 
@@ -185,13 +231,19 @@ describe("asset-maintenance Lambda orchestration", () => {
 
 		// The unguarded calendar ingest still ran; every budget-guarded step did not.
 		expect(fetchAndStoreAssetEvents).toHaveBeenCalledTimes(2);
+		expect(fetchAndStoreSecFilings).not.toHaveBeenCalled();
+		expect(fetchAndStoreShortInterest).not.toHaveBeenCalled();
 		expect(runUniverseReconcile).not.toHaveBeenCalled();
 		expect(refreshActivePredictionMarketSnapshots).not.toHaveBeenCalled();
+		expect(runNextSessionDirectionProbe).not.toHaveBeenCalled();
 		expect(runPredictionMarketDiscoveryDrip).not.toHaveBeenCalled();
 		expect(runDelistingSweep).not.toHaveBeenCalled();
 		// The skip is not silent: each guarded step left an ERROR log (ErrorLogAlarm pages).
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping universe_reconcile"));
+		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping sec_filings"));
+		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping short_interest"));
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping pm_refresh"));
+		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping pm_direction_probe"));
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping pm_discovery"));
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping delisting_sweep"));
 	});
@@ -212,7 +264,10 @@ describe("asset-maintenance Lambda orchestration", () => {
 			expect.objectContaining({ weekStart: "2026-07-06", weekEnd: "2026-07-10" }),
 		);
 		expect(fetchAndStoreFinnhubEnrichment).toHaveBeenCalledTimes(1);
+		expect(fetchAndStoreSecFilings).toHaveBeenCalledTimes(1);
+		expect(fetchAndStoreShortInterest).toHaveBeenCalledTimes(1);
 		expect(refreshActivePredictionMarketSnapshots).toHaveBeenCalledTimes(1);
+		expect(runNextSessionDirectionProbe).toHaveBeenCalledTimes(1);
 		expect(runPredictionMarketDiscoveryDrip).toHaveBeenCalledTimes(1);
 		expect(runUniverseReconcile).toHaveBeenCalledTimes(1);
 		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
@@ -222,6 +277,7 @@ describe("asset-maintenance Lambda orchestration", () => {
 		const summaries = loggedMessages(infoSpy);
 		expect(summaries).toContainEqual("Daily asset events fetch complete");
 		expect(summaries).toContainEqual("Prediction-market snapshot refresh complete");
+		expect(summaries).toContainEqual("Prediction-market next-session direction probe complete");
 		expect(summaries).toContainEqual("Prediction-market discovery complete");
 		expect(summaries).toContainEqual("Universe reconcile complete");
 		expect(summaries).toContainEqual("Delisting sweep complete");

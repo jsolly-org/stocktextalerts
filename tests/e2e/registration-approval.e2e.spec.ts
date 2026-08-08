@@ -6,7 +6,7 @@ import { TEST_PASSWORD } from "../helpers/constants";
 import { addAuthCookies, signInAndExpectPath } from "../helpers/e2e/auth";
 import { waitForPasswordSignInReady } from "../helpers/e2e/fixtures";
 import { extractLinks, rewriteLinkOrigin } from "../helpers/e2e/mail";
-import { clearMailpit, waitForMailpitMessageTo } from "../helpers/mailpit";
+import { clearMailpitFor, waitForMailpitMessageTo } from "../helpers/mailpit";
 import { adminClient } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../helpers/test-user";
 
@@ -74,7 +74,7 @@ test("registration approval workflow sends admin and user emails", async ({ brow
 		await userPage.goto("/", { waitUntil: "networkidle" });
 		const baseOrigin = new URL(userPage.url()).origin;
 
-		await clearMailpit();
+		await clearMailpitFor(userEmail);
 		await userPage.goto("/auth/register");
 		await userPage.locator("#email").fill(userEmail);
 		await userPage.locator("#password").fill(TEST_PASSWORD);
@@ -122,7 +122,7 @@ test("registration approval workflow sends admin and user emails", async ({ brow
 		const dashboardResponse = await adminPage.goto("/dashboard");
 		expect(dashboardResponse?.status()).toBe(200);
 
-		await clearMailpit();
+		await clearMailpitFor(userEmail);
 		await adminPage.goto("/admin/users");
 		const row = adminPage.locator("li", { hasText: userEmail });
 		await expect(row).toBeVisible();

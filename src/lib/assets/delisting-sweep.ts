@@ -45,7 +45,7 @@ const EMPTY_RESULT: DelistingSweepResult = {
  *      are cleanup-safe.
  *  10. DELETE user_assets rows for the (user, symbol) pairs.
  *
- * Users with email opted out still get cleanup — their data is removed
+ * Users not routed to email still get cleanup — their data is removed
  * silently and the notification_log records why no outbound message went out.
  */
 export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<DelistingSweepResult> {
@@ -191,7 +191,7 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 	// 6. Load recipient info (email eligibility fields).
 	const { data: userRows, error: usersErr } = await supabase
 		.from("users")
-		.select("id, email, email_notifications_enabled")
+		.select("id, email, delivery_channel")
 		.in("id", affectedUserIds);
 	if (usersErr) {
 		logger.error(
@@ -205,14 +205,14 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 	interface AffectedUser {
 		id: string;
 		email: string;
-		emailNotificationsEnabled: boolean;
+		deliveryChannel: "email" | "telegram" | "disabled";
 	}
 	const userInfo = new Map<string, AffectedUser>();
 	for (const u of userRows ?? []) {
 		userInfo.set(u.id, {
 			id: u.id,
 			email: u.email,
-			emailNotificationsEnabled: u.email_notifications_enabled,
+			deliveryChannel: u.delivery_channel,
 		});
 	}
 
@@ -260,25 +260,8 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 		let hasTransientFailure = false;
 		let deliveredOnAnyChannel = false;
 
-		// --- Email channel ---
-		if (!user.emailNotificationsEnabled) {
-			const { error: optOutLogErr } = await supabase.from("notification_log").insert({
-				user_id: userId,
-				type: "delisting",
-				delivery_method: "email",
-				message_delivered: false,
-				message: summary,
-				error: "email_notifications_disabled",
-				error_code: null,
-			});
-			if (optOutLogErr) {
-				logger.error(
-					"Delisting sweep failed to record email opt-out notification_log",
-					{ action: "delisting_sweep", userId },
-					optOutLogErr,
-				);
-				hasTransientFailure = true;
-			}
+		// --- Delivery (email only today; skip cleanly for other routing) ---
+		if (user.deliveryChannel !== "email") {
 			result.emailsSkippedOptOut += 1;
 		} else if (!emailDeduped.has(userId)) {
 			const { subject, text, html } = formatDelistingEmail(

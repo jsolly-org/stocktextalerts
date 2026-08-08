@@ -1,6 +1,7 @@
-import type { buildAssetEventsContent } from "../asset-events/content";
+import type { AssetEventsContent } from "../asset-events/types";
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
+import { wantsTelegramDelivery } from "../messaging/delivery-channel";
 import { sendUserEmail } from "../messaging/email/index";
 import {
 	formatDailyDigestEmail,
@@ -14,7 +15,6 @@ import {
 	resolveScheduledSender,
 } from "../messaging/scheduled-channel";
 import { buildDashboardButton } from "../messaging/telegram/dashboard-button";
-import { isTelegramChannelUsable } from "../messaging/telegram/eligibility";
 import { optOutIfBotBlocked } from "../messaging/telegram/opt-out";
 import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory";
 import type { EmailSender, NotificationExtras } from "../messaging/types";
@@ -22,7 +22,7 @@ import type { ScheduledNotificationTotals } from "../scheduled-notifications/typ
 import type { MarketClosureInfo } from "../time/types";
 import type { AssetPriceMap, IsoDateString, MinuteOfDay, UserAssetRow, UserRecord } from "../types";
 
-type AssetEventsResult = Awaited<ReturnType<typeof buildAssetEventsContent>> | null;
+type AssetEventsResult = AssetEventsContent | null;
 
 /** Deliver a daily digest via email and record the result. */
 export async function processDailyDigestEmailDelivery(options: {
@@ -128,11 +128,11 @@ export async function processDailyDigestEmailDelivery(options: {
 /**
  * Deliver a daily digest via Telegram and record the result.
  *
- * Renders the Telegram-native digest (parse-mode entities) and sends a single
- * message via the Telegram sender. v1 content is prices (+ top movers when the
- * user enabled that facet for Telegram); Grok news/rumors are intentionally
- * omitted from `extras` by the caller. Claims the `telegram` channel of the daily
- * slot so it retries and advances independently of email.
+ * Renders the Telegram-native digest (parse-mode entities), including prediction
+ * markets as Unicode probability bars inline in the text (same structure as email
+ * cards — Telegram cannot embed HTML/images mid-message). Grok news/rumors are
+ * intentionally omitted from `extras` by the caller. Claims the `telegram`
+ * channel of the daily slot so it retries and advances independently of email.
  */
 export async function processDailyDigestTelegramDelivery(options: {
 	user: UserRecord;
@@ -174,9 +174,13 @@ export async function processDailyDigestTelegramDelivery(options: {
 		stats,
 	} = options;
 
-	// Channel usability is re-checked here (chat linked + not opted out) so a
-	// concurrent opt-out between content prep and delivery is honored.
-	if (!isTelegramChannelUsable(user) || user.telegram_chat_id == null) {
+	// Re-check account routing so a concurrent /stop or unlink between content
+	// prep and delivery is honored.
+	if (!wantsTelegramDelivery(user)) {
+		return;
+	}
+	const chatId = user.telegram_chat_id;
+	if (chatId == null) {
 		return;
 	}
 
@@ -227,6 +231,9 @@ export async function processDailyDigestTelegramDelivery(options: {
 		return;
 	}
 
+	const timeZone = user.timezone;
+	const use24Hour = is24Hour ?? user.use_24_hour_time;
+
 	const formatted = formatDailyDigestTelegram({
 		userAssets,
 		assetPrices,
@@ -235,14 +242,15 @@ export async function processDailyDigestTelegramDelivery(options: {
 		dateLabel,
 		delayBanner,
 		marketClosureInfo,
-		is24Hour,
-		timeZone: user.timezone,
+		is24Hour: use24Hour,
+		timeZone,
 		sparklines,
 		marketOpen,
 	});
 
 	const result = await telegramSenderResult.sender({
-		chatId: user.telegram_chat_id,
+		kind: "text",
+		chatId,
 		text: formatted.text,
 		entities: formatted.entities,
 		replyMarkup: buildDashboardButton("dailyNotifications"),

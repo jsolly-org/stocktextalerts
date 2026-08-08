@@ -27,20 +27,31 @@ export interface EmailRequest {
 
 export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 
-/** A fully-rendered outbound Telegram message (text carries out-of-band entities). */
-export interface TelegramMessage {
+type TelegramMessageBase = {
 	chatId: number | string;
-	/** Plain text; formatting travels via `entities`, not parse_mode. */
-	text: string;
-	/** Entity markers (offset/length) from the parse-mode `fmt` builder. */
-	entities?: MessageEntity[];
-	/** When present, send as a photo with `text` as the caption (≤1024 chars). */
-	photo?: Buffer;
-	/** Inline keyboard for actionable alerts. */
-	replyMarkup?: InlineKeyboardMarkup;
 	/** Silent delivery (e.g. routine digest) — maps to Telegram's disable_notification. */
 	disableNotification?: boolean;
-}
+};
+
+/** Plain-text `sendMessage` (formatting via out-of-band entities). */
+type TelegramTextMessage = TelegramMessageBase & {
+	kind: "text";
+	text: string;
+	entities?: MessageEntity[];
+	replyMarkup?: InlineKeyboardMarkup;
+};
+
+/** Single `sendPhoto` with `text` as the caption (≤1024 chars). */
+type TelegramPhotoMessage = TelegramMessageBase & {
+	kind: "photo";
+	photo: Buffer;
+	text: string;
+	entities?: MessageEntity[];
+	replyMarkup?: InlineKeyboardMarkup;
+};
+
+/** Fully-rendered outbound Telegram message — mutually exclusive send modes. */
+export type TelegramMessage = TelegramTextMessage | TelegramPhotoMessage;
 
 export type TelegramSender = (message: TelegramMessage) => Promise<DeliveryResult>;
 

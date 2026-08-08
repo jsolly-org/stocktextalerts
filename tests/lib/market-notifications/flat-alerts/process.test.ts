@@ -67,6 +67,21 @@ vi.mock("../../../../src/lib/messaging/logo-fetcher", () => ({
 	renderLogoImg: vi.fn(() => ""),
 }));
 
+const enqueuePriceMoveWhy = vi.hoisted(() => vi.fn(async () => false));
+vi.mock("../../../../src/lib/market-notifications/flat-alerts/why-queue", async () => {
+	const actual = await vi.importActual<
+		typeof import("../../../../src/lib/market-notifications/flat-alerts/why-queue")
+	>("../../../../src/lib/market-notifications/flat-alerts/why-queue");
+	return {
+		...actual,
+		enqueuePriceMoveWhy,
+	};
+});
+
+vi.mock("../../../../src/lib/market-notifications/flat-alerts/why", () => ({
+	generatePriceMoveWhyWithGrok: vi.fn(async () => null),
+}));
+
 import { processFlatPriceAlerts } from "../../../../src/lib/market-notifications/flat-alerts/process";
 
 function makeQuote(overrides: Partial<ExtendedAssetQuote>): ExtendedAssetQuote {
@@ -83,17 +98,16 @@ function makeQuote(overrides: Partial<ExtendedAssetQuote>): ExtendedAssetQuote {
 	};
 }
 
-async function enableFlatAlerts(userId: string, channels: { email?: boolean } = {}): Promise<void> {
-	const wantEmail = channels.email ?? true;
+async function enableFlatAlerts(userId: string, opts: { enabled?: boolean } = {}): Promise<void> {
+	const enabled = opts.enabled ?? true;
 	const { error } = await adminClient
 		.from("users")
-		.update({ email_notifications_enabled: wantEmail })
+		.update({ delivery_channel: enabled ? "email" : "disabled" })
 		.eq("id", userId);
 	if (error) throw new Error(`Failed to enable flat alerts: ${error.message}`);
 
-	// Per-option price_move_alerts facets live in notification_preferences
-	// (default off); enable the email channel this test requested.
-	await setTestUserPrefs(userId, [["price_move_alerts", "", "email", wantEmail]]);
+	// Content toggle lives in notification_preferences (default off).
+	await setTestUserPrefs(userId, [["price_move_alerts", "", enabled]]);
 
 	// Opt every tracked asset into price-move alerts at the default 5% threshold —
 	// row presence is what enables the alert now (the pre-redesign behavior the
@@ -148,7 +162,7 @@ async function getNotificationLogCount(userId: string): Promise<number> {
 async function getStateRow(userId: string, symbol: string) {
 	const { data, error } = await adminClient
 		.from("price_move_alert_state")
-		.select("last_notification_price, last_notification_at, pending_delivery")
+		.select("last_notification_price, last_notification_at, pending_delivery, last_alert_direction")
 		.eq("user_id", userId)
 		.eq("symbol", symbol)
 		.maybeSingle();
@@ -159,6 +173,7 @@ async function getStateRow(userId: string, symbol: string) {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockEmailSender.mockResolvedValue({ success: true });
+	enqueuePriceMoveWhy.mockResolvedValue(false);
 });
 
 describe("processFlatPriceAlerts", () => {
@@ -202,6 +217,36 @@ describe("processFlatPriceAlerts", () => {
 		const state = await getStateRow(testUser.id, "AAPL");
 		expect(state).not.toBeNull();
 		expect(Number(state?.last_notification_price)).toBeCloseTo(195.86, 2);
+		expect(state?.last_alert_direction).toBe(1);
+		expect(totals.whyInline).toBe(1);
+		expect(totals.whyEnqueued).toBe(0);
+	});
+
+	it("when why enqueue succeeds, schedule does not deliver or finalize", async () => {
+		enqueuePriceMoveWhy.mockResolvedValue(true);
+		const testUser = await createTestUser({
+			trackedAssets: ["AAPL"],
+			timezone: "America/Los_Angeles",
+		});
+		registerTestUserForCleanup(testUser.id);
+		await enableFlatAlerts(testUser.id);
+
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			isMarketOpen: true,
+		});
+
+		expect(totals.alertsTriggered).toBe(1);
+		expect(totals.whyEnqueued).toBe(1);
+		expect(totals.whyInline).toBe(0);
+		expect(totals.emailsSent).toBe(0);
+		expect(mockEmailSender).not.toHaveBeenCalled();
+		expect(await getNotificationLogCount(testUser.id)).toBe(0);
+
+		const state = await getStateRow(testUser.id, "AAPL");
+		expect(state?.pending_delivery).toBe(true);
 	});
 
 	it("Sub-threshold +4.99% move does not trigger an alert", async () => {
@@ -263,6 +308,126 @@ describe("processFlatPriceAlerts", () => {
 
 			const state = await getStateRow(testUser.id, "AAPL");
 			expect(Number(state?.last_notification_price)).toBeCloseTo(206.04, 2);
+			expect(state?.last_alert_direction).toBe(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("Same-direction half-step acceleration fires when last direction is known", async () => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(new Date("2026-05-09T18:00:00.000Z")); // 14:00 ET
+
+		try {
+			const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+			registerTestUserForCleanup(testUser.id);
+			await enableFlatAlerts(testUser.id);
+
+			const twentySevenMinAgo = new Date(Date.now() - 27 * 60_000).toISOString();
+			await adminClient.from("price_move_alert_state").insert({
+				user_id: testUser.id,
+				symbol: "AAPL",
+				last_notification_price: 200.0,
+				last_notification_at: twentySevenMinAgo,
+				last_alert_direction: 1,
+			});
+
+			// +2.6% from $200 — below full 5%, above half-step 2.5%
+			const quoteMap = new Map([["AAPL", makeQuote({ price: 205.2, prevClose: 186.0 })]]);
+
+			const totals = await processFlatPriceAlerts({
+				supabase: adminClient,
+				quoteMap,
+				isMarketOpen: true,
+			});
+
+			expect(totals.alertsTriggered).toBe(1);
+			expect(totals.reTriggerAlerts).toBe(1);
+			expect(totals.emailsSent).toBe(1);
+			expect(mockEmailSender.mock.calls[0]?.[0]?.subject ?? "").toContain("accelerating");
+
+			const state = await getStateRow(testUser.id, "AAPL");
+			expect(Number(state?.last_notification_price)).toBeCloseTo(205.2, 2);
+			expect(state?.last_alert_direction).toBe(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("Opposite-direction recovery still requires the full threshold", async () => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(new Date("2026-05-09T18:00:00.000Z")); // 14:00 ET
+
+		try {
+			const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+			registerTestUserForCleanup(testUser.id);
+			await enableFlatAlerts(testUser.id);
+
+			const twentySevenMinAgo = new Date(Date.now() - 27 * 60_000).toISOString();
+			await adminClient.from("price_move_alert_state").insert({
+				user_id: testUser.id,
+				symbol: "AAPL",
+				last_notification_price: 200.0,
+				last_notification_at: twentySevenMinAgo,
+				last_alert_direction: 1,
+			});
+
+			// −2.6% from $200 — enough for acceleration half-step, not for recovery
+			const quoteMap = new Map([["AAPL", makeQuote({ price: 194.8, prevClose: 186.0 })]]);
+
+			const totals = await processFlatPriceAlerts({
+				supabase: adminClient,
+				quoteMap,
+				isMarketOpen: true,
+			});
+
+			expect(totals.alertsTriggered).toBe(0);
+			expect(totals.emailsSent).toBe(0);
+			expect(mockEmailSender).not.toHaveBeenCalled();
+
+			const state = await getStateRow(testUser.id, "AAPL");
+			expect(Number(state?.last_notification_price)).toBeCloseTo(200.0, 2);
+			expect(state?.last_alert_direction).toBe(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("Full opposite-direction recovery fires and flips last_alert_direction", async () => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(new Date("2026-05-09T18:00:00.000Z")); // 14:00 ET
+
+		try {
+			const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+			registerTestUserForCleanup(testUser.id);
+			await enableFlatAlerts(testUser.id);
+
+			const twentySevenMinAgo = new Date(Date.now() - 27 * 60_000).toISOString();
+			await adminClient.from("price_move_alert_state").insert({
+				user_id: testUser.id,
+				symbol: "AAPL",
+				last_notification_price: 200.0,
+				last_notification_at: twentySevenMinAgo,
+				last_alert_direction: 1,
+			});
+
+			// −5.2% from $200 — full recovery threshold
+			const quoteMap = new Map([["AAPL", makeQuote({ price: 189.6, prevClose: 186.0 })]]);
+
+			const totals = await processFlatPriceAlerts({
+				supabase: adminClient,
+				quoteMap,
+				isMarketOpen: true,
+			});
+
+			expect(totals.alertsTriggered).toBe(1);
+			expect(totals.reTriggerAlerts).toBe(1);
+			expect(totals.emailsSent).toBe(1);
+			expect(mockEmailSender.mock.calls[0]?.[0]?.subject ?? "").not.toContain("accelerating");
+
+			const state = await getStateRow(testUser.id, "AAPL");
+			expect(Number(state?.last_notification_price)).toBeCloseTo(189.6, 2);
+			expect(state?.last_alert_direction).toBe(-1);
 		} finally {
 			vi.useRealTimers();
 		}
@@ -497,7 +662,7 @@ describe("processFlatPriceAlerts", () => {
 	it("Reserve RPC permission error skips delivery instead of sending without idempotency", async () => {
 		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
 		registerTestUserForCleanup(testUser.id);
-		await enableFlatAlerts(testUser.id, { email: true });
+		await enableFlatAlerts(testUser.id, { enabled: true });
 
 		const failingSupabase = new Proxy(adminClient, {
 			get(target, prop, receiver) {

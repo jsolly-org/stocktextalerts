@@ -8,13 +8,20 @@ export type CuratedPredictionMarket =
 			venue: "kalshi";
 			/** Kalshi market ticker (binary Yes contract). */
 			kalshiTicker: string;
+			/**
+			 * When true, live-provider-check may skip this key if the venue has no
+			 * active card (dated / rotating daily markets pending hand-rotation).
+			 */
+			allowInactive?: boolean;
 	  }
 	| {
 			key: string;
 			label: string;
 			venue: "polymarket";
-			/** Polymarket Gamma market slug (binary Yes/No). */
+			/** Polymarket Gamma market slug (binary Yes/No or Up/Down). */
 			polymarketSlug: string;
+			/** See Kalshi variant — rotating dated slugs. */
+			allowInactive?: boolean;
 	  };
 
 export type PredictionMarketVenue = CuratedPredictionMarket["venue"];

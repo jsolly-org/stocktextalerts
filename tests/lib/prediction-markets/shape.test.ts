@@ -32,6 +32,52 @@ describe("detectPredictionMarketShape", () => {
 		expect(result).toEqual({ shape: "binary", validated: true });
 	});
 
+	it("classifies Up/Down pairs as binary", () => {
+		const result = detectPredictionMarketShape({
+			outcomes: [
+				{
+					venueContractId: "1",
+					label: "Down",
+					probabilityPercent: 40,
+					sortOrder: 0,
+					strikeValue: null,
+					volume: 1,
+				},
+				{
+					venueContractId: "2",
+					label: "Up",
+					probabilityPercent: 60,
+					sortOrder: 1,
+					strikeValue: null,
+					volume: 1,
+				},
+			],
+		});
+		expect(result).toEqual({ shape: "binary", validated: true });
+		const ensured = ensureBinaryOutcomes(
+			[
+				{
+					venueContractId: "1",
+					label: "Down",
+					probabilityPercent: 40,
+					sortOrder: 0,
+					strikeValue: null,
+					volume: 1,
+				},
+				{
+					venueContractId: "2",
+					label: "Up",
+					probabilityPercent: 60,
+					sortOrder: 1,
+					strikeValue: null,
+					volume: 1,
+				},
+			],
+			"evt",
+		);
+		expect(ensured.map((o) => o.label)).toEqual(["Up", "Down"]);
+	});
+
 	it("classifies ordered strike ladders as threshold", () => {
 		const result = detectPredictionMarketShape({
 			outcomes: [

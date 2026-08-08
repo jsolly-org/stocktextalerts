@@ -4,9 +4,9 @@ import type { ApiJsonBody } from "../../../lib/client/types";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import {
-	buildChannelPreferenceSnapshot,
+	buildNotificationPreferencesApiSnapshot,
 	loadUserPreferenceRows,
-} from "../../../lib/notification-preferences/channels";
+} from "../../../lib/notification-preferences/preferences";
 
 /**
  * Read the authenticated user's current notification-preferences.
@@ -43,26 +43,13 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 			});
 		}
 
-		// Per-option channel facets live in notification_preferences (the source of
-		// truth); reconstruct the flat per-option snapshot the UI consumes.
 		const prefs = await loadUserPreferenceRows(supabase, user.id);
 
 		return Response.json(
 			{
 				ok: true,
 				message: "ok",
-				notificationPreferences: {
-					market_scheduled_asset_price_enabled: dbUser.market_scheduled_asset_price_enabled,
-					email_notifications_enabled: dbUser.email_notifications_enabled,
-					timezone: dbUser.timezone,
-					market_scheduled_asset_price_times: dbUser.market_scheduled_asset_price_times,
-					daily_notification_time: dbUser.daily_notification_time,
-					daily_notification_next_send_at: dbUser.daily_notification_next_send_at,
-					market_scheduled_asset_price_next_send_at:
-						dbUser.market_scheduled_asset_price_next_send_at,
-					dismiss_timezone_mismatch_prompts: dbUser.dismiss_timezone_mismatch_prompts,
-					...buildChannelPreferenceSnapshot(prefs),
-				},
+				notificationPreferences: buildNotificationPreferencesApiSnapshot(dbUser, prefs),
 			} satisfies ApiJsonBody,
 			{ status: 200 },
 		);

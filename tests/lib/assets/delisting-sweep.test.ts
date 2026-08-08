@@ -124,7 +124,7 @@ describe("runDelistingSweep", () => {
 		const user = await createTestUser({
 			email: `delist-detect-${randomUUID()}@example.com`,
 			confirmed: true,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 			timezone: "America/Los_Angeles",
 		});
 		registerTestUserForCleanup(user.id);
@@ -210,7 +210,7 @@ describe("runDelistingSweep", () => {
 		const user = await createTestUser({
 			email: `delist-all-unchecked-${randomUUID()}@example.com`,
 			confirmed: true,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 		});
 		registerTestUserForCleanup(user.id);
 		for (const symbol of uncheckedSymbols) {
@@ -243,7 +243,7 @@ describe("runDelistingSweep", () => {
 		const user = await createTestUser({
 			email: `delist-multi-${randomUUID()}@example.com`,
 			confirmed: true,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 		});
 		registerTestUserForCleanup(user.id);
 		for (const s of symbolsToDelist) {
@@ -297,7 +297,7 @@ describe("runDelistingSweep", () => {
 		const user = await createTestUser({
 			email: `delist-dedupe-${randomUUID()}@example.com`,
 			confirmed: true,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 		});
 		registerTestUserForCleanup(user.id);
 		await attachUserAsset(user.id, delistedSymbol);
@@ -345,7 +345,7 @@ describe("runDelistingSweep", () => {
 		expect(userAssets ?? []).toHaveLength(0);
 	});
 
-	it("Respects email_notifications_enabled: false — skips send, still cleans up.", async () => {
+	it('Respects delivery_channel "disabled" — skips send, still cleans up.', async () => {
 		const delistedSymbol = `${TEST_PREFIX}O1`;
 		createdSymbols.push(delistedSymbol);
 		await insertAsset(delistedSymbol, "Test OptOut Holdings");
@@ -353,7 +353,7 @@ describe("runDelistingSweep", () => {
 		const user = await createTestUser({
 			email: `delist-optout-${randomUUID()}@example.com`,
 			confirmed: true,
-			emailNotificationsEnabled: false,
+			deliveryChannel: "disabled",
 		});
 		registerTestUserForCleanup(user.id);
 		await attachUserAsset(user.id, delistedSymbol);
@@ -379,7 +379,7 @@ describe("runDelistingSweep", () => {
 			sendEmail: fakeEmail.sender,
 		});
 
-		// Email opted out: no send, skip row logged, cleanup runs.
+		// Disabled routing: no send, no fake email opt-out log, cleanup still runs.
 		expect(fakeEmail.captured).toHaveLength(0);
 		expect(result.emailsSkippedOptOut).toBe(1);
 		expect(result.usersNotified).toBe(0);
@@ -389,12 +389,8 @@ describe("runDelistingSweep", () => {
 			.from("notification_log")
 			.select("delivery_method, message_delivered, error")
 			.eq("user_id", user.id)
-			.eq("type", "delisting")
-			.order("delivery_method");
-		expect(logRows ?? []).toHaveLength(1);
-		const emailRow = logRows?.find((r) => r.delivery_method === "email");
-		expect(emailRow?.message_delivered).toBe(false);
-		expect(emailRow?.error).toBe("email_notifications_disabled");
+			.eq("type", "delisting");
+		expect(logRows ?? []).toHaveLength(0);
 	});
 
 	it("Retains user_assets when the email send fails, so the next run can retry.", async () => {
@@ -405,7 +401,7 @@ describe("runDelistingSweep", () => {
 		const user = await createTestUser({
 			email: `delist-fail-${randomUUID()}@example.com`,
 			confirmed: true,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 		});
 		registerTestUserForCleanup(user.id);
 		await attachUserAsset(user.id, delistedSymbol);
@@ -486,7 +482,7 @@ describe("runDelistingSweep", () => {
 		const user = await createTestUser({
 			email: `delist-unknown-${randomUUID()}@example.com`,
 			confirmed: true,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 		});
 		registerTestUserForCleanup(user.id);
 		await attachUserAsset(user.id, unknownSymbol);
@@ -525,7 +521,7 @@ describe("runDelistingSweep", () => {
 		const user = await createTestUser({
 			email: `delist-perror-${randomUUID()}@example.com`,
 			confirmed: true,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 		});
 		registerTestUserForCleanup(user.id);
 		await attachUserAsset(user.id, flakySymbol);
@@ -566,7 +562,7 @@ describe("runDelistingSweep", () => {
 		const user = await createTestUser({
 			email: `delist-prior-${randomUUID()}@example.com`,
 			confirmed: true,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 		});
 		registerTestUserForCleanup(user.id);
 		await attachUserAsset(user.id, preFlaggedSymbol);

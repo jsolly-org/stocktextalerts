@@ -1,7 +1,17 @@
 name: Deploy
 
+# After green CI on main (workflow_run) — same trigger shape as the jsolly aws-sam fleet.
+# Body stays STA-specific (migrations, live-provider, Blacksmith, Production env).
+# Preferred land path: CI merge-pr with REPO_AUTOMATION_TOKEN → normal push → CI → Deploy.
+# If a GITHUB_TOKEN bot merge slips through, ensure-main-ci.yml workflow_dispatches CI.
+# Human workflow_dispatch is break-glass. No Deploy `push` trigger — that would race
+# ahead of (or parallel) main CI.
+# Deploy SHA: workflow_run → CI head_sha; workflow_dispatch → github.sha.
+
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -16,7 +26,14 @@ concurrency:
 jobs:
   deploy:
     name: production
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    # Only deploy on green CI that was a push to main (or bot-dispatched CI).
+    # Skip failed CI and pull_request CI whose head branch is also named main.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       (github.event.workflow_run.event == 'push' ||
+        github.event.workflow_run.event == 'workflow_dispatch'))
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 45
     environment: Production
     env:
@@ -24,30 +41,32 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION }}
       DATABASE_URL_PROD: ${{ secrets.DATABASE_URL_PROD }}
       PRODUCTION_SITE_URL: ${{ vars.PRODUCTION_SITE_URL }}
+      DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.sha }}
-          # Depth 2 so "Refuse infra-only deploys" can diff HEAD against its parent.
+          # workflow_run default checkout is the workflow file's default branch tip,
+          # not the CI commit — pin to the SHA that just passed CI.
+          ref: ${{ env.DEPLOY_SHA }}
+          # Depth 2 so "Classify deploy scope" can diff HEAD against its parent.
           # At the default depth 1 the parent object is absent and `git diff-tree HEAD`
           # prints NOTHING — the gate passed vacuously for every commit (caught 2026-07-03
           # when a template.yaml-touching commit sailed through).
           fetch-depth: 2
 
       - name: Refuse stale deploy
-        if: github.event_name == 'push'
+        if: github.event_name == 'workflow_run'
         run: |
           set -euo pipefail
           # Read main's tip via ls-remote — NOT `git fetch origin main --depth=1`.
           # When tip == deploy_sha (HEAD is main's tip), a --depth=1 fetch re-shallows the
           # checkout to depth 1, dropping HEAD's parent — which the next step's
           # `git diff-tree HEAD` needs. Concurrency is cancel-in-progress:false, so several
-          # main pushes can queue; this drops any deploy whose commit main has moved past.
+          # main deploys can queue; this drops any whose commit main has moved past.
           tip="$(git ls-remote origin refs/heads/main | cut -f1)"
-          deploy_sha="${{ github.sha }}"
-          if [ "$tip" != "$deploy_sha" ]; then
-            echo "Deploy triggered for $deploy_sha but main is now at $tip; refusing stale deploy."
+          if [ "$tip" != "$DEPLOY_SHA" ]; then
+            echo "Deploy triggered for $DEPLOY_SHA but main is now at $tip; refusing stale deploy."
             exit 1
           fi
 
@@ -76,7 +95,12 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Refuse infra-only deploys
+      # Pure infra commits (template.yaml / deploy.sh only) must not red the Deploy
+      # workflow — code deploy is a no-op for them, and a failed conclusion looks like
+      # a production outage. Skip code + live-provider; still run infra-drift so a
+      # forgotten `npm run deploy:infra` fails closed (Timeout/MemorySize parity).
+      - name: Classify deploy scope
+        id: deploy_scope
         run: |
           set -euo pipefail
           changed="$(git diff-tree --no-commit-id --name-only -r HEAD)"
@@ -87,24 +111,55 @@ jobs:
             echo "git diff-tree returned no files (shallow checkout?) — cannot verify the landed commit; refusing deploy."
             exit 1
           fi
+          # Pure infra (template/deploy.sh and nothing else): skip code deploy green.
+          # Mixed commits that also land app/handler/migration changes must still run
+          # code+migration deploy — blocking those left Lambdas stale until a later
+          # tip deploy (and blocked migrations entirely for that commit).
+          # CloudFormation still needs a manual `npm run deploy:infra`; the infra-drift
+          # check below + update-function-code failures on brand-new functions catch that.
+          skip_code_deploy=false
           if grep -Eq '^aws/(template\.yaml|deploy\.sh)$' <<<"$changed"; then
-            echo "aws/template.yaml or aws/deploy.sh changed in the landed commit."
-            echo "Run npm run deploy:infra manually with admin credentials, then re-run this workflow."
-            exit 1
+            non_infra="$(grep -Ev '^aws/(template\.yaml|deploy\.sh)$' <<<"$changed" || true)"
+            if [ -z "$non_infra" ]; then
+              skip_code_deploy=true
+              echo "::notice::Pure infra commit (aws/template.yaml and/or aws/deploy.sh only)."
+              echo "Skipping migrations + Lambda code update + live-provider check."
+              echo "Run npm run deploy:infra manually with admin credentials if not already applied."
+              echo "Infra-drift check still runs to verify Timeout/MemorySize parity."
+            else
+              echo "::warning::aws/template.yaml or aws/deploy.sh changed alongside app code."
+              echo "Proceeding with migrations + Lambda code update. Still run npm run deploy:infra"
+              echo "for new resources / env / IAM / schedule changes. Infra-drift check only"
+              echo "enforces Timeout/MemorySize parity — it will not catch env or IAM drift."
+            fi
           fi
+          echo "skip_code_deploy=${skip_code_deploy}" >> "$GITHUB_OUTPUT"
 
       - name: Deploy migrations and Lambdas
+        if: steps.deploy_scope.outputs.skip_code_deploy != 'true'
         run: bash aws/deploy-web.sh --deploy-ci
 
       # Fails red when the deployed Lambda config (Timeout/MemorySize) drifts from
       # aws/template.yaml — i.e. a committed infra change whose manual `deploy:infra`
       # hasn't run yet. Code deploys ride this workflow; infra does not, so this is
       # the only automated signal for the "code half deployed, infra half pending"
-      # gap (the 2026-07-07 asset-maintenance timeout incident).
+      # gap (the 2026-07-07 asset-maintenance timeout incident). Also the sole Deploy
+      # assert for pure-infra commits (code deploy skipped above).
       - name: Infra drift check
         run: npm run check:infra-drift
 
+      # The CLI defaults (60s read timeout, 3 attempts) are wrong for a synchronous
+      # invoke of a function with a 300s Timeout: anything past 60s is killed
+      # client-side and then *re-invoked*, so a slow-but-healthy check burns 180s and
+      # three rounds of real Massive/Finnhub/Telegram calls before reporting
+      # "Read timeout on endpoint URL" (deploy run 30833307422, which passed on a
+      # plain re-run in 1m36s). Wait once for the Lambda's own budget instead, and let
+      # a genuine hang go red rather than hammer the providers.
       - name: Live provider check
+        if: steps.deploy_scope.outputs.skip_code_deploy != 'true'
+        timeout-minutes: 7
+        env:
+          AWS_MAX_ATTEMPTS: 1
         run: |
           set -euo pipefail
           payload="{\"id\":\"github-actions-deploy\",\"time\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
@@ -112,6 +167,8 @@ jobs:
             --function-name stocktextalerts-live-provider-check \
             --payload "$payload" \
             --cli-binary-format raw-in-base64-out \
+            --cli-connect-timeout 10 \
+            --cli-read-timeout 310 \
             --query '{StatusCode:StatusCode,FunctionError:FunctionError}' \
             --output json \
             /tmp/live-provider-check.json)"
@@ -122,3 +179,26 @@ jobs:
             python3 -m json.tool /tmp/live-provider-check.json || true
             exit 1
           fi
+          # Fail closed if the just-uploaded bundle's stamped RELEASE_ID does not match
+          # this deploy's commit — catches a silent no-op update or wrong artifact.
+          expected_release="$(printf '%s' "$DEPLOY_SHA" | cut -c1-12)"
+          EXPECTED_RELEASE="$expected_release" python3 - <<'PY'
+          import json, os, sys
+          body = json.load(open("/tmp/live-provider-check.json"))
+          if body.get("ok") is not True:
+              print(
+                  f"Deploy freshness mismatch: expected ok=true, got {body!r}",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+          release = body.get("releaseId") or ""
+          expected = os.environ["EXPECTED_RELEASE"]
+          if release != expected:
+              print(
+                  f"Deploy freshness mismatch: Lambda releaseId={release!r} expected {expected!r}",
+                  file=sys.stderr,
+              )
+              print(json.dumps(body, indent=2), file=sys.stderr)
+              sys.exit(1)
+          print(f"✓ live-provider-check releaseId={release} matches deploy SHA")
+          PY

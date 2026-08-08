@@ -21,17 +21,47 @@ type AssetFixture = {
 	reference_updated_utc?: string | null;
 };
 
+/**
+ * `assets` is shared across Vitest workers, so two fixture statements can lock overlapping
+ * rows in different orders and Postgres kills one side as the deadlock victim (`40P01`).
+ *
+ * The one that actually produced this on CI (job 91724627441, `icon-check.test.ts` next to
+ * `schedule/helpers.test.ts`) was a table-wide `UPDATE public.assets ... WHERE
+ * icon_checked_at IS NULL`, which locked every unchecked row against another file's
+ * two-symbol `DELETE`. That statement is gone: it was a leftover from the removed nightly
+ * icon drip, and every spec that ran it only ever read rows it seeded itself. What remains
+ * here writes only the caller's symbols.
+ *
+ * The retry stays as the net for the overlap that is still possible (two files touching
+ * intersecting symbol sets). A deadlock victim only needs to try again, since the winner
+ * has already committed by the time the error surfaces, and every statement below is a
+ * single idempotent statement. Serialization failures (`40001`) get the same treatment.
+ */
+const RETRYABLE_PG_CODES = new Set(["40P01", "40001"]);
+const MAX_PG_ATTEMPTS = 5;
+
+function isRetryablePgError(err: unknown): boolean {
+	const code = (err as { code?: unknown } | null | undefined)?.code;
+	return typeof code === "string" && RETRYABLE_PG_CODES.has(code);
+}
+
 async function withPgClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
 	const databaseUrl = process.env.DATABASE_URL;
 	if (!databaseUrl) {
 		throw new Error("Missing DATABASE_URL");
 	}
-	const client = new Client({ connectionString: databaseUrl });
-	await client.connect();
-	try {
-		return await run(client);
-	} finally {
-		await client.end();
+	for (let attempt = 1; ; attempt++) {
+		const client = new Client({ connectionString: databaseUrl });
+		await client.connect();
+		try {
+			return await run(client);
+		} catch (err) {
+			if (attempt >= MAX_PG_ATTEMPTS || !isRetryablePgError(err)) throw err;
+		} finally {
+			await client.end();
+		}
+		// Jittered backoff so both sides of a deadlock do not re-collide immediately.
+		await new Promise((resolve) => setTimeout(resolve, 25 * attempt + Math.random() * 25));
 	}
 }
 
@@ -66,21 +96,6 @@ export async function upsertAssets(records: AssetFixture[]): Promise<void> {
 					    )
 			`,
 			[JSON.stringify(records)],
-		);
-	});
-}
-
-/**
- * Stamp `icon_checked_at` on every currently-unchecked `assets` row, so only
- * fixtures a test seeds afterwards (with a NULL `icon_checked_at`) qualify as
- * icon-backfill candidates. Without this, the ~10k-row seed universe (all
- * unchecked, sorting before Z-prefixed fixtures) fills PostgREST's max_rows-
- * clamped probe window and fixture symbols are never selected.
- */
-export async function markAllAssetIconsChecked(): Promise<void> {
-	await withPgClient(async (client) => {
-		await client.query(
-			`UPDATE public.assets SET icon_checked_at = now() WHERE icon_checked_at IS NULL`,
 		);
 	});
 }

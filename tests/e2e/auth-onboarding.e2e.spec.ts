@@ -6,7 +6,7 @@ import { NEW_PASSWORD, TEST_PASSWORD } from "../helpers/constants";
 import { expectCurrentPath, fillEmailInput, signIn, signOut } from "../helpers/e2e/auth";
 import { createApprovedE2eUser, openSignedInPage } from "../helpers/e2e/fixtures";
 import { extractLinks, rewriteLinkOrigin, waitForEmail } from "../helpers/e2e/mail";
-import { clearMailpit } from "../helpers/mailpit";
+import { clearMailpitFor } from "../helpers/mailpit";
 import { adminClient } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../helpers/test-user";
 
@@ -112,7 +112,7 @@ test.describe("auth onboarding", () => {
 			await page.goto("/", { waitUntil: "domcontentloaded" });
 			const baseOrigin = new URL(page.url()).origin;
 
-			await clearMailpit();
+			await clearMailpitFor(recoverEmail);
 			await page.goto("/auth/forgot", { waitUntil: "networkidle" });
 			await fillEmailInput(page, recoverEmail);
 			const forgotResponse = page.waitForResponse(

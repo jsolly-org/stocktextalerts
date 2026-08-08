@@ -56,7 +56,9 @@ export async function postForm(
 export function locationPath(response: Response): string | null {
 	const location = response.headers.get("Location");
 	if (!location) return null;
-	return location.startsWith("http")
-		? new URL(location).pathname + new URL(location).search
-		: location;
+	if (!location.startsWith("http")) {
+		return location;
+	}
+	const url = new URL(location);
+	return `${url.pathname}${url.search}${url.hash}`;
 }

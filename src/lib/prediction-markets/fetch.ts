@@ -3,10 +3,14 @@ import { isRecord } from "../types";
 import { kalshiFetch } from "../vendors/kalshi";
 import { polymarketFetch } from "../vendors/polymarket";
 import { CURATED_PREDICTION_MARKETS } from "./catalog";
-import type { CuratedPredictionMarket, PredictionMarketEventCard } from "./types";
+import type {
+	CuratedPredictionMarket,
+	PredictionMarketEventCard,
+	PredictionMarketOutcome,
+} from "./types";
 import { kalshiMarketUrl, polymarketMarketUrl } from "./urls";
 
-function parseYesProbabilityPercent(raw: unknown): number | null {
+function parseProbabilityPercent(raw: unknown): number | null {
 	if (typeof raw === "number" && Number.isFinite(raw)) {
 		const asPercent = raw <= 1 ? raw * 100 : raw;
 		if (asPercent < 0 || asPercent > 100) return null;
@@ -14,31 +18,40 @@ function parseYesProbabilityPercent(raw: unknown): number | null {
 	}
 	if (typeof raw === "string" && raw.trim() !== "") {
 		const n = Number(raw);
-		return Number.isFinite(n) ? parseYesProbabilityPercent(n) : null;
+		return Number.isFinite(n) ? parseProbabilityPercent(n) : null;
 	}
 	return null;
 }
 
-function parsePolymarketYesPrice(market: Record<string, unknown>): number | null {
-	const outcomePrices = market.outcomePrices;
-	let prices: unknown = outcomePrices;
-	if (typeof outcomePrices === "string") {
+function parseJsonArray(raw: unknown): unknown[] | null {
+	if (Array.isArray(raw)) return raw;
+	if (typeof raw === "string") {
 		try {
-			prices = JSON.parse(outcomePrices) as unknown;
+			const parsed = JSON.parse(raw) as unknown;
+			return Array.isArray(parsed) ? parsed : null;
 		} catch {
 			return null;
 		}
 	}
-	if (!Array.isArray(prices) || prices.length === 0) {
-		return parseYesProbabilityPercent(market.lastTradePrice ?? market.bestBid);
-	}
-	return parseYesProbabilityPercent(prices[0]);
+	return null;
+}
+
+function parseOutcomeLabels(market: Record<string, unknown>): string[] {
+	const outcomes = parseJsonArray(market.outcomes);
+	if (!outcomes) return [];
+	return outcomes.filter((x): x is string => typeof x === "string" && x.trim() !== "");
+}
+
+function parseOutcomePrices(market: Record<string, unknown>): number[] {
+	const prices = parseJsonArray(market.outcomePrices);
+	if (!prices) return [];
+	return prices.map((p) => parseProbabilityPercent(p)).filter((p): p is number => p !== null);
 }
 
 type VenueReading = {
-	probabilityPercent: number;
 	url: string;
 	closesAt: string | null;
+	outcomes: PredictionMarketOutcome[];
 };
 
 function polymarketEventSlug(row: Record<string, unknown>): string | null {
@@ -51,6 +64,65 @@ function polymarketEventSlug(row: Record<string, unknown>): string | null {
 		if (typeof slug === "string" && slug.trim() !== "") return slug.trim();
 	}
 	return null;
+}
+
+function binaryOutcomesFromSide(
+	marketKey: string,
+	primaryLabel: string,
+	secondaryLabel: string,
+	primaryPercent: number,
+): PredictionMarketOutcome[] {
+	const secondary = Math.round((100 - primaryPercent) * 10) / 10;
+	return [
+		{
+			venueContractId: `${marketKey}:${primaryLabel.toLowerCase()}`,
+			label: primaryLabel,
+			probabilityPercent: primaryPercent,
+			sortOrder: 0,
+			strikeValue: null,
+			volume: 0,
+		},
+		{
+			venueContractId: `${marketKey}:${secondaryLabel.toLowerCase()}`,
+			label: secondaryLabel,
+			probabilityPercent: secondary,
+			sortOrder: 1,
+			strikeValue: null,
+			volume: 0,
+		},
+	];
+}
+
+function binaryOutcomesFromPolymarketRow(
+	marketKey: string,
+	row: Record<string, unknown>,
+): PredictionMarketOutcome[] | null {
+	const labels = parseOutcomeLabels(row);
+	const prices = parseOutcomePrices(row);
+	if (labels.length >= 2 && prices.length >= 2 && prices[0] != null && prices[1] != null) {
+		return [
+			{
+				venueContractId: `${marketKey}:0`,
+				label: labels[0] ?? "Yes",
+				probabilityPercent: prices[0],
+				sortOrder: 0,
+				strikeValue: null,
+				volume: 0,
+			},
+			{
+				venueContractId: `${marketKey}:1`,
+				label: labels[1] ?? "No",
+				probabilityPercent: prices[1],
+				sortOrder: 1,
+				strikeValue: null,
+				volume: 0,
+			},
+		];
+	}
+
+	const primary = prices[0] ?? parseProbabilityPercent(row.lastTradePrice ?? row.bestBid);
+	if (primary === null) return null;
+	return binaryOutcomesFromSide(marketKey, "Yes", "No", primary);
 }
 
 async function fetchPolymarketReading(
@@ -78,9 +150,12 @@ async function fetchPolymarketReading(
 		});
 		return null;
 	}
-	const probabilityPercent = parsePolymarketYesPrice(row);
-	if (probabilityPercent === null) {
-		logger.warn("Polymarket curated market missing Yes price", { marketKey: market.key, slug });
+	const outcomes = binaryOutcomesFromPolymarketRow(market.key, row);
+	if (outcomes === null) {
+		logger.warn("Polymarket curated market missing outcome prices", {
+			marketKey: market.key,
+			slug,
+		});
 		return null;
 	}
 	const closesAt =
@@ -90,7 +165,7 @@ async function fetchPolymarketReading(
 				? row.end_date_iso
 				: null;
 	return {
-		probabilityPercent,
+		outcomes,
 		url: polymarketMarketUrl(slug, polymarketEventSlug(row)),
 		closesAt,
 	};
@@ -121,15 +196,15 @@ async function fetchKalshiReading(
 		return null;
 	}
 
-	const yesBid = parseYesProbabilityPercent(row.yes_bid_dollars);
-	const yesAsk = parseYesProbabilityPercent(row.yes_ask_dollars);
+	const yesBid = parseProbabilityPercent(row.yes_bid_dollars);
+	const yesAsk = parseProbabilityPercent(row.yes_ask_dollars);
 	const probabilityPercent =
 		yesBid !== null && yesAsk !== null
 			? Math.round(((yesBid + yesAsk) / 2) * 10) / 10
-			: (parseYesProbabilityPercent(row.last_price_dollars) ??
+			: (parseProbabilityPercent(row.last_price_dollars) ??
 				yesBid ??
 				yesAsk ??
-				parseYesProbabilityPercent(row.yes_bid) ??
+				parseProbabilityPercent(row.yes_bid) ??
 				null);
 	if (probabilityPercent === null) {
 		logger.warn("Kalshi curated market missing Yes price", { marketKey: market.key, ticker });
@@ -144,7 +219,7 @@ async function fetchKalshiReading(
 				? row.expected_expiration_time
 				: null;
 	return {
-		probabilityPercent,
+		outcomes: binaryOutcomesFromSide(market.key, "Yes", "No", probabilityPercent),
 		url: kalshiMarketUrl(ticker, eventTicker),
 		closesAt,
 	};
@@ -154,8 +229,6 @@ function toBinaryCard(
 	market: CuratedPredictionMarket,
 	reading: VenueReading,
 ): PredictionMarketEventCard {
-	const yes = reading.probabilityPercent;
-	const no = Math.round((100 - yes) * 10) / 10;
 	return {
 		key: market.key,
 		title: market.label,
@@ -166,24 +239,7 @@ function toBinaryCard(
 		refreshedAt: new Date().toISOString(),
 		volume: 0,
 		shapeValidated: true,
-		outcomes: [
-			{
-				venueContractId: `${market.key}:yes`,
-				label: "Yes",
-				probabilityPercent: yes,
-				sortOrder: 0,
-				strikeValue: null,
-				volume: 0,
-			},
-			{
-				venueContractId: `${market.key}:no`,
-				label: "No",
-				probabilityPercent: no,
-				sortOrder: 1,
-				strikeValue: null,
-				volume: 0,
-			},
-		],
+		outcomes: reading.outcomes,
 	};
 }
 

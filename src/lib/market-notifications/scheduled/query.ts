@@ -1,11 +1,12 @@
 import type { SupabaseAdminClient } from "../../db/supabase";
 import { fetchUsersWithRetry } from "../../db/user-query";
 import type { Logger } from "../../logging";
+import { HAS_ACTIVE_DELIVERY_OR } from "../../messaging/delivery-channel";
 import { attachPrefsToUsers } from "../../messaging/load-prefs";
 import type { UserRecord, UserRecordWithoutPrefs } from "../../types";
 
-/** User column projection for market-scheduled queries (channel-level columns only;
- *  per-option facets live in notification_preferences, attached separately). */
+/** User column projection for market-scheduled queries (account routing fields;
+ *  content prefs live in notification_preferences, attached separately). */
 const MARKET_SCHEDULED_USER_SELECT = `
 	id,
 	email,
@@ -16,19 +17,13 @@ const MARKET_SCHEDULED_USER_SELECT = `
 	daily_notification_time,
 	daily_notification_next_send_at,
 	market_scheduled_asset_price_next_send_at,
-	email_notifications_enabled,
+	delivery_channel,
 	asset_events_last_analyst_sent_month,
 	telegram_chat_id,
-	telegram_opted_out,
 	last_grok_rumors_at,
 	grok_window_start,
 	grok_sends_in_window
 `;
-
-/** Candidate filter: user has at least one usable delivery channel (email global on,
- *  or a linked Telegram chat). The per-option market_scheduled_asset_price facet is
- *  checked per-channel in process.ts. */
-const HAS_DELIVERY_CHANNEL_OR = "email_notifications_enabled.eq.true,telegram_chat_id.not.is.null";
 
 /**
  * Fetch users eligible for a scheduled asset price update run.
@@ -55,7 +50,7 @@ export async function fetchMarketScheduledUsers(options: {
 				.select(MARKET_SCHEDULED_USER_SELECT)
 				.eq("market_scheduled_asset_price_enabled", true)
 				.not("market_scheduled_asset_price_times", "is", null)
-				.or(HAS_DELIVERY_CHANNEL_OR);
+				.or(HAS_ACTIVE_DELIVERY_OR);
 
 			if (!options.forceSend) {
 				query = query

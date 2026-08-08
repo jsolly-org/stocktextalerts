@@ -9,13 +9,13 @@ import type {
 
 /**
  * Probe Massive for a single asset's logo when it has never been checked, or
- * when `force` is set (Massive reference watermark advanced).
+ * when `force` is set for an explicit re-probe.
  *
- * Used on watchlist add, universe reconcile new listings, and watermark-gated
- * refreshes. No-ops when the row is missing or delisted; without `force`, also
- * no-ops when already stamped. Failures are non-throwing for the caller —
- * transport/write issues leave the row unchecked (and are logged here). There
- * is no nightly drip; a later add/reconcile retry is the only automatic path.
+ * Used on watchlist add and universe reconcile new listings. No-ops when the
+ * row is missing or delisted; without `force`, also no-ops when already
+ * stamped. Failures are non-throwing for the caller — transport/write issues
+ * leave the row unchecked (and are logged here). There is no nightly drip; a
+ * later add or new-listing reconcile probe is the only automatic path.
  */
 export async function ensureAssetIconChecked(
 	deps: EnsureAssetIconCheckedDeps,

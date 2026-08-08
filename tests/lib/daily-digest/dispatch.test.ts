@@ -18,7 +18,7 @@ const mockSupabaseUser = {
 	use_24_hour_time: false,
 	daily_notification_time: 540,
 	daily_notification_next_send_at: null,
-	email_notifications_enabled: true,
+	delivery_channel: "email" as const,
 	asset_events_last_analyst_sent_month: null,
 	last_grok_rumors_at: null,
 	grok_window_start: null,
@@ -66,7 +66,6 @@ describe("Daily digest dispatch (direct function call)", () => {
 		const stats = await dispatchDailyDigestUser({
 			userId: "00000000-0000-0000-0000-000000000123",
 			currentTimeIso: "2026-01-14T15:00:00.000Z",
-			precompute: true,
 			marketClosureInfo: { reason: "holiday", holidayName: "Presidents' Day" },
 		});
 
@@ -79,13 +78,13 @@ describe("Daily digest dispatch (direct function call)", () => {
 		expect(processDailyDigestUserMock).toHaveBeenCalledTimes(1);
 		expect(processDailyDigestUserMock).toHaveBeenCalledWith(
 			expect.objectContaining({
-				stageOnly: true,
 				marketClosureInfo: {
 					reason: "holiday",
 					holidayName: "Presidents' Day",
 				},
 			}),
 		);
+		expect(processDailyDigestUserMock.mock.calls[0]?.[0]).not.toHaveProperty("stageOnly");
 	});
 
 	it("returns skipped stats when user is not found", async () => {
@@ -111,7 +110,7 @@ describe("Daily digest dispatch (direct function call)", () => {
 	});
 
 	it("returns skipped stats when Supabase fetch fails", async () => {
-		expectConsoleError("Failed to fetch user for daily dispatch");
+		expectConsoleError("Daily digest dispatch failed");
 		const { dispatchDailyDigestUser } = await import("../../../src/lib/daily-digest/dispatch");
 
 		mockMaybeSingle.mockResolvedValueOnce({

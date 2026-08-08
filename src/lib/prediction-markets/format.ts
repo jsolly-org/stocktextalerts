@@ -1,5 +1,4 @@
 import { FormattedString, fmt } from "@grammyjs/parse-mode";
-import { DateTime } from "luxon";
 import { escapeHtml, getSafeHrefUrl } from "../messaging/parts/html-utils";
 import { type CompressedEventBody, compressEventOutcomes } from "./shape";
 import type { PredictionMarketEventCard, PredictionMarketsDigestContent } from "./types";
@@ -21,23 +20,10 @@ function unicodeBar(probabilityPercent: number, width = BAR_WIDTH): string {
 	return `${"█".repeat(filled)}${"░".repeat(width - filled)}`;
 }
 
-function venueLabel(venue: PredictionMarketEventCard["venue"]): string {
-	if (venue === "kalshi") return "Kalshi";
-	if (venue === "polymarket") return "Polymarket";
-	return venue;
-}
-
-function formatCloseLabel(closesAt: string | null, timeZone: string, use24Hour: boolean): string {
-	if (!closesAt) return "No fixed close";
-	const dt = DateTime.fromISO(closesAt, { zone: "utc" }).setZone(timeZone);
-	if (!dt.isValid) return "No fixed close";
-	return `Closes ${dt.toFormat(use24Hour ? "MMM d, HH:mm" : "MMM d, h:mm a")} ${dt.offsetNameShort}`;
-}
-
-function formatUpdatedLabel(refreshedAt: string, timeZone: string, use24Hour: boolean): string {
-	const dt = DateTime.fromISO(refreshedAt, { zone: "utc" }).setZone(timeZone);
-	if (!dt.isValid) return "Updated —";
-	return `Updated ${dt.toFormat(use24Hour ? "MMM d, HH:mm" : "MMM d, h:mm a")}`;
+/** Asset ticker only — venue (Kalshi/Polymarket) is omitted; the link is enough. */
+function cardMetaHeader(card: PredictionMarketEventCard): string | null {
+	const symbol = card.symbol?.trim();
+	return symbol ? symbol : null;
 }
 
 function compressCard(
@@ -59,6 +45,7 @@ function highlightAliasFor(card: PredictionMarketEventCard): string | null {
 }
 
 export type FormatCardOptions = {
+	/** Retained for call-site compatibility; close/updated timestamps are omitted. */
 	timeZone?: string;
 	use24Hour?: boolean;
 };
@@ -66,18 +53,12 @@ export type FormatCardOptions = {
 /** Plain-text body for one event card. */
 export function formatEventCardText(
 	card: PredictionMarketEventCard,
-	options: FormatCardOptions = {},
+	_options: FormatCardOptions = {},
 ): string {
-	const timeZone = options.timeZone ?? "America/New_York";
-	const use24Hour = options.use24Hour ?? false;
 	const body = compressCard(card, highlightAliasFor(card));
-	const header = [
-		card.symbol ? `${card.symbol} · ${venueLabel(card.venue)}` : venueLabel(card.venue),
-		formatCloseLabel(card.closesAt, timeZone, use24Hour),
-		formatUpdatedLabel(card.refreshedAt, timeZone, use24Hour),
-	].join(" · ");
+	const header = cardMetaHeader(card);
 
-	const lines = [header, card.title];
+	const lines = header ? [header, card.title] : [card.title];
 	for (const row of body.rows) {
 		if (row.kind === "outcome") {
 			const mark = row.highlighted ? "★ " : "";
@@ -98,18 +79,14 @@ export function formatEventCardText(
 /** Telegram body for one event card. */
 function formatEventCardTelegram(
 	card: PredictionMarketEventCard,
-	options: FormatCardOptions = {},
+	_options: FormatCardOptions = {},
 ): FormattedString {
-	const timeZone = options.timeZone ?? "America/New_York";
-	const use24Hour = options.use24Hour ?? false;
 	const body = compressCard(card, highlightAliasFor(card));
-	const meta = [
-		card.symbol ? `${card.symbol} · ${venueLabel(card.venue)}` : venueLabel(card.venue),
-		formatCloseLabel(card.closesAt, timeZone, use24Hour),
-		formatUpdatedLabel(card.refreshedAt, timeZone, use24Hour),
-	].join(" · ");
+	const header = cardMetaHeader(card);
 
-	let msg = fmt`${FormattedString.bold(meta)}\n${card.title}`;
+	let msg = header
+		? fmt`${FormattedString.bold(header)}\n${card.title}`
+		: fmt`${FormattedString.bold(card.title)}`;
 	for (const row of body.rows) {
 		if (row.kind === "outcome") {
 			const mark = row.highlighted ? "★ " : "";
@@ -134,19 +111,13 @@ function formatEventCardTelegram(
 /** Email HTML for one event card. */
 export function formatEventCardEmailHtml(
 	card: PredictionMarketEventCard,
-	options: FormatCardOptions = {},
+	_options: FormatCardOptions = {},
 ): string {
-	const timeZone = options.timeZone ?? "America/New_York";
-	const use24Hour = options.use24Hour ?? false;
 	const body = compressCard(card, highlightAliasFor(card));
-	const venue = venueLabel(card.venue);
-	const meta = escapeHtml(
-		[
-			card.symbol ? `${card.symbol} · ${venue}` : venue,
-			formatCloseLabel(card.closesAt, timeZone, use24Hour),
-			formatUpdatedLabel(card.refreshedAt, timeZone, use24Hour),
-		].join(" · "),
-	);
+	const header = cardMetaHeader(card);
+	const metaHtml = header
+		? `<div style="font-size: 11px; color: #6b7280; margin: 0 0 4px;">${escapeHtml(header)}</div>`
+		: "";
 
 	const rowHtml = body.rows
 		.map((row) => {
@@ -190,7 +161,7 @@ export function formatEventCardEmailHtml(
 		: "";
 
 	return `<div style="border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; margin: 0 0 12px; background: #ffffff;">
-  <div style="font-size: 11px; color: #6b7280; margin: 0 0 4px;">${meta}</div>
+  ${metaHtml}
   <div style="font-size: 15px; font-weight: 700; color: #111827; line-height: 1.35; margin: 0 0 10px;">${escapeHtml(card.title)}</div>
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">${rowHtml}</table>
   ${footnote}

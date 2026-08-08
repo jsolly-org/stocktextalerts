@@ -2,23 +2,18 @@ import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import type { SupabaseAdminClient } from "../../db/supabase";
 import { createLogger } from "../../logging";
-import { getIntradayBarsPreferCache } from "../../market-data/price-history-cache";
-import { fetchSparklines } from "../../market-data/sparklines";
-import type { SparklineData } from "../../messaging/parts/sparkline";
-import { createNotificationSenders } from "../../messaging/senders";
-import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
-import type { ChannelDeliveryStats, ExtendedQuoteMap, IntradayBarsResult } from "../../types";
-import { deliverFlatPriceAlert } from "./delivery";
+import type { ChannelDeliveryStats, ExtendedQuoteMap } from "../../types";
 import {
 	fetchFlatPriceAlertState,
 	fetchPriceMoveThresholds,
-	finalizeFlatPriceAlert,
-	releaseFlatPriceAlert,
 	reserveFlatPriceAlert,
 	stateKey,
 } from "./state";
+import { effectivePriceMoveThreshold, priceMoveDirection } from "./threshold";
 import type { PriceMoveThreshold } from "./types";
 import { type FlatPriceAlertUser, fetchFlatPriceAlertUsers } from "./users";
+import { runPriceMoveWhyInline } from "./why-job";
+import { enqueuePriceMoveWhy } from "./why-queue";
 
 const logger = createLogger({ module: "flat-price-alerts" });
 
@@ -30,6 +25,10 @@ export interface FlatPriceAlertTotals extends ChannelDeliveryStats {
 	claimLost: number;
 	firstOfDayAlerts: number;
 	reTriggerAlerts: number;
+	/** Alerts handed to the price-move why SQS worker (schedule must not deliver). */
+	whyEnqueued: number;
+	/** Alerts processed inline when enqueue failed / queue URL missing. */
+	whyInline: number;
 }
 
 interface EligibleAlert {
@@ -41,6 +40,7 @@ interface EligibleAlert {
 	baseline: number;
 	triggerPercent: number;
 	isReTrigger: boolean;
+	isAcceleration: boolean;
 	lastNotificationAt: Date | null;
 }
 
@@ -52,6 +52,8 @@ function emptyTotals(): FlatPriceAlertTotals {
 		claimLost: 0,
 		firstOfDayAlerts: 0,
 		reTriggerAlerts: 0,
+		whyEnqueued: 0,
+		whyInline: 0,
 		emailsSent: 0,
 		emailsFailed: 0,
 		telegramSent: 0,
@@ -82,7 +84,7 @@ function etIsoDateOf(date: Date): string {
  * Process the price-move-alert pipeline: load enabled users and their per-symbol
  * thresholds, compute baselines from cached state vs. prev close, check each
  * asset's configured threshold (percent or dollar), claim eligible alerts
- * atomically, and deliver across channels.
+ * atomically, and deliver on the account delivery channel.
  *
  * Reuses the scheduler's captured watched-symbol `quoteMap` (a superset of the
  * threshold symbols) to avoid a duplicate Massive snapshot call. Only runs when
@@ -209,13 +211,21 @@ export async function processFlatPriceAlerts(options: {
 		}
 
 		// Unit-aware threshold check against the per-stock configured value.
-		// movePct is always computed for display, regardless of the trigger unit.
+		// Same-direction re-triggers use half (acceleration); reverse moves and
+		// first-of-day keep the full value. movePct is always computed for display.
 		const movePct = ((quote.price - baseline) / baseline) * 100;
 		const moveDollar = quote.price - baseline;
+		const moveDirection = priceMoveDirection(quote.price, baseline);
+		const { value: effectiveValue, isAcceleration } = effectivePriceMoveThreshold({
+			configuredValue: threshold.value,
+			isReTrigger,
+			lastAlertDirection: stateRow?.lastAlertDirection ?? null,
+			moveDirection,
+		});
 		const meetsThreshold =
 			threshold.unit === "percent"
-				? Math.abs(movePct) >= threshold.value
-				: Math.abs(moveDollar) >= threshold.value;
+				? Math.abs(movePct) >= effectiveValue
+				: Math.abs(moveDollar) >= effectiveValue;
 		if (!meetsThreshold) {
 			continue;
 		}
@@ -226,7 +236,7 @@ export async function processFlatPriceAlerts(options: {
 			symbol,
 			baselinePrice: baseline,
 			newPrice: quote.price,
-			thresholdValue: threshold.value,
+			thresholdValue: effectiveValue,
 			thresholdUnit: threshold.unit,
 		});
 		if (!claimed) {
@@ -249,6 +259,7 @@ export async function processFlatPriceAlerts(options: {
 			baseline,
 			triggerPercent: movePct,
 			isReTrigger,
+			isAcceleration,
 			lastNotificationAt,
 		});
 
@@ -265,73 +276,48 @@ export async function processFlatPriceAlerts(options: {
 		return totals;
 	}
 
-	// Batch-fetch sparkline data for triggered symbols (deduped)
-	const triggeredSymbols = [...new Set(eligibleAlerts.map((e) => e.symbol))];
-
-	// 7-day sparklines (batched with worker pool inside fetchSparklines)
-	let sevenDaySparklines = new Map<string, SparklineData | null>();
-	try {
-		sevenDaySparklines = await fetchSparklines(triggeredSymbols);
-	} catch (err) {
-		logger.info(
-			"Failed to fetch 7-day sparklines; emails will render without them",
-			{ symbolCount: triggeredSymbols.length },
-			err,
-		);
-	}
-
-	// Intraday bars — prefer self-sourced candles from the minute capture, falling back to a
-	// live vendor fetch only when the cache is still thin. One call per unique symbol.
-	const intradayMap = new Map<string, IntradayBarsResult | null>();
-	for (const symbol of triggeredSymbols) {
-		try {
-			intradayMap.set(symbol, await getIntradayBarsPreferCache(supabase, symbol));
-		} catch (err) {
-			logger.info(
-				"Failed to resolve intraday bars; email will render without sparkline",
-				{ symbol },
-				err,
-			);
-			intradayMap.set(symbol, null);
-		}
-	}
-
-	// Delivery
-	const { sendEmail, getTelegramSender, logoCache } = createNotificationSenders();
-	const anyTelegramUsable = eligibleAlerts.some((a) => isTelegramChannelUsable(a.user));
-	const sendTelegram = anyTelegramUsable ? getTelegramSender().sender : null;
-	const nowMs = Date.now();
-
+	// Fan out to the why worker (one SQS job per user+symbol). On enqueue success the
+	// worker owns why + deliver + finalize — schedule must not double-deliver.
+	// When the queue URL is missing or send fails, fail-open inline (still try why).
 	for (const alert of eligibleAlerts) {
 		const quote = quoteMap.get(alert.symbol);
 		if (!quote) continue; // Should never happen given the earlier check, but satisfy TS
 
-		const delivered = await deliverFlatPriceAlert({
-			user: alert.user,
+		const payload = {
+			userId: alert.user.id,
 			symbol: alert.symbol,
 			companyName: alert.companyName,
-			quote,
+			quote: {
+				price: quote.price,
+				prevClose: quote.prevClose,
+				dayOpen: quote.dayOpen,
+				changePercent: quote.changePercent,
+			},
 			baseline: alert.baseline,
 			triggerPercent: alert.triggerPercent,
 			isReTrigger: alert.isReTrigger,
-			lastNotificationAt: alert.lastNotificationAt,
-			nowMs,
-			intraday: intradayMap.get(alert.symbol) ?? null,
-			sevenDaySparkline: sevenDaySparklines.get(alert.symbol) ?? null,
+			isAcceleration: alert.isAcceleration,
+			lastNotificationAt: alert.lastNotificationAt ? alert.lastNotificationAt.toISOString() : null,
 			iconUrl: alert.iconUrl,
-			iconBase64: alert.iconBase64,
-			supabase,
-			sendEmail,
-			sendTelegram,
-			logoCache,
-			stats: totals,
-		});
+		};
 
-		if (delivered) {
-			await finalizeFlatPriceAlert(supabase, alert.user.id, alert.symbol);
-		} else {
-			await releaseFlatPriceAlert(supabase, alert.user.id, alert.symbol);
+		const enqueued = await enqueuePriceMoveWhy(payload);
+		if (enqueued) {
+			totals.whyEnqueued++;
+			continue;
 		}
+
+		totals.whyInline++;
+		const inline = await runPriceMoveWhyInline({
+			supabase,
+			message: { kind: "price-move-why", ...payload },
+			logger,
+		});
+		totals.emailsSent += inline.stats.emailsSent;
+		totals.emailsFailed += inline.stats.emailsFailed;
+		totals.telegramSent += inline.stats.telegramSent;
+		totals.telegramFailed += inline.stats.telegramFailed;
+		totals.logFailures += inline.stats.logFailures;
 	}
 
 	logger.info("Flat price alerts run complete", { ...totals });

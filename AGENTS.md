@@ -1,10 +1,21 @@
 ## Ship
 
 Ship profile: `aws-sam`
-Integration model: `pr-auto-merge`
-CI owner: `github-handoff`
+
+**Integration: branch → PR → CI-gated auto-merge (canonical).**
+
+**CI owner: github-handoff.** GitHub Actions owns the full test battery (~12 min). Local gate subset is lint/types/static only. After `/ship` opens the PR, still babysit CI until merge (watch failures and fix forward). There is no fire-and-forget path.
+
+Merge → CI on `main` → Deploy updates Lambdas; `/ship` babysits Deploy; PR CI does not deploy.
+
 Production URL: <https://stocktextalerts.com>
-Deploy deltas: Vercel Git owns the web tier; `.github/workflows/deploy.yml` owns production migrations, Lambda code, and live-provider verification after merge. `npm run deploy:code` is break-glass only; changes to `aws/template.yaml` or `aws/deploy.sh` require a manual `npm run deploy:infra`.
+Deploy deltas: Vercel Git owns the web tier; `.github/workflows/deploy.yml` owns production migrations, Lambda code, and live-provider verification after **green CI on `main`** (`workflow_run`) — babysit with `gh run watch`. `npm run deploy:code` is break-glass only; changes to `aws/template.yaml` or `aws/deploy.sh` require a manual `npm run deploy:infra`.
+**Prod verify:** `/ship` requires `x-release-id` on the production URL ≥ the PR merge SHA (ancestor check). HTTP 200 alone is insufficient.
+
+```bash
+curl -sSIL https://stocktextalerts.com/ | rg -i '^x-release-id:'
+```
+
 Repository-specific CI, branch-protection, and deploy behavior: [docs/github-ci.md](docs/github-ci.md).
 
 ## Commands
@@ -62,10 +73,10 @@ See [docs/architecture-tiers.md](docs/architecture-tiers.md), [docs/tooling-setu
 
 ## Supabase
 
-- **Local files are source of truth.** Create with `supabase migration new <name>`, write SQL, commit, merge. The GitHub production deploy workflow (`.github/workflows/deploy.yml` → `aws/deploy-web.sh --deploy-ci`) runs `supabase db push` on push to `main` (i.e. after merge).
+- **Local files are source of truth.** Create with `supabase migration new <name>`, write SQL, commit, merge. The GitHub production deploy workflow (`.github/workflows/deploy.yml` → `aws/deploy-web.sh --deploy-ci`) runs `supabase db push` after green CI on `main`.
 - **Apply migrations to production only via the GitHub deploy workflow's `supabase db push`**. Local-only paths: `supabase migration new <name>` then commit. (No MCP against prod, no manual `db push`, no dashboard DDL.)
 - After changing a migration, run `npm run db:gen-types`; `src/lib/db/generated/database.types.ts` is generated and overwritten.
-- **Notification options have ONE authored source: `NOTIFICATION_OPTION_MATRIX` in `src/lib/constants.ts`.** Every valid `(notification_type, content, channel)` option, its facet family, and its signup default is authored there; TS unions, the flat catalog + form field names, the form schema, signup/seed defaults, and dashboard bindings all derive from it. The `notification_options` DB table (FK'd from `notification_preferences`) is its DB twin: adding/removing/renaming an option = edit the matrix **plus** a migration syncing `notification_options`. `npm run check:option-catalog` (in `db:reset` + CI) fails on any drift between the table and the matrix; a dashboard E2E (`telegram-dashboard.e2e.spec.ts`) fails if the UI is missing a control for any catalog option.
+- **Notification options have ONE authored source: `NOTIFICATION_OPTION_MATRIX` in `src/lib/constants.ts`.** Every valid `(notification_type, content)` option, its facet family, and its signup default is authored there; TS unions, the flat catalog + form field names, the form schema, signup/seed defaults, and dashboard bindings all derive from it. Account routing is separate: `users.delivery_channel` (`email` | `telegram` | `disabled`) — enabled content all goes to that single pipe. The `notification_options` DB table (FK'd from `notification_preferences`) is its DB twin: adding/removing/renaming an option = edit the matrix **plus** a migration syncing `notification_options`. `npm run check:option-catalog` (in `db:reset` + CI) fails on any drift between the table and the matrix; a dashboard E2E (`telegram-dashboard.e2e.spec.ts`) fails if the UI is missing a control for any catalog option.
 - **Explicit grants required for functions, tables, and sequences.** `public` default privileges are empty in both local and production (parity established by `20260610182813_tighten_table_privileges`) — an object created without an explicit `GRANT` is usable by nobody but `postgres` (a missing function grant caused a duplicate-notification incident). Every migration that creates a Data-API (`.rpc(...)`) function must include `GRANT EXECUTE ON FUNCTION ... TO <role>` (server-only → `service_role`; session-scoped → `authenticated`, `service_role`) and the function must be classified in `scripts/db/privilege-contract.ts`. Every migration that creates a table or sequence must grant exactly what code needs (server-only → `service_role`; session-visible → `authenticated`/`anon`). `npm run check:db-privileges` (in `db:reset` + GitHub CI) and `npm run check:migration-grants` enforce the function side; `npm run audit:db-parity` diffs the full local permission structure against production (read-only). Test fixtures needing writes beyond prod grants use the `pg` client (`tests/helpers/asset-db.ts`), not `adminClient`. `supabase db diff` does not surface `ALTER DEFAULT PRIVILEGES`; review grants manually.
 
 ### Production DB agent block (enforced)
@@ -95,7 +106,7 @@ Vendor clients live in `src/lib/vendors/` — Massive owns batch snapshot quotes
 
 **Telegram bot:** the **fleet-shared "SollyClaw"** identity (username `@SollyClawBot`, minted 2026-07-07 — it replaced `@StockTextAlertsBot`, which was deleted the same day, revoking that token; existing account links survived the swap because a private chat's ID is the user's Telegram ID, bot-independent — users just `/start` the new bot), owned by the user's **personal** Telegram account (deliberate at current scale; bot ownership is non-transferable — formalize a dedicated owner account **before ~50–100 linked users**, while re-linking is still cheap). **Shared-bot contract:** misc-notifications sends its morning briefing via the *same bot token*; this repo owns the bot's only webhook, so `/start` pairing, the command menu, and all inbound handling live here — `/stop`/`/unlink` gate *stock alerts only* (Supabase prefs), never the morning briefing (configured out-of-band in misc-notifications). Token rotation touches **three places**: `/stocktextalerts/telegram-bot-token` (SSM), `/misc-notifications/telegram-bot-token` (SSM), and the Vercel `TELEGRAM_BOT_TOKEN` env. The transport core (`src/lib/messaging/telegram/sender.ts` `createTelegramBot`) is the fleet-canonical reference; misc-notifications carries a documented copy. For Telegram-channel work, a first-class experience outranks dependency-minimalism (user decision 2026-06-19) — deps that materially improve UX are fine, overriding the general fewer-dependencies default. Candlestick charts render on Lambda via `@resvg/resvg-wasm` (pure WASM — the `.wasm` + Roboto TTFs ship into every bundle via `aws/chart-assets.sh` on both deploy paths, verified post-deploy by the live-provider-check `chart:render-png` step; see `docs/plans/2026-07-03-beautiful-telegram-notifications.md`).
 
-- GitHub Actions owns the full test battery. The local pre-commit hook runs lint/types/static checks and the Lambda bundle only — no unit/E2E, local Supabase, or deploy. Schema-affecting web changes must stay backward-compatible until the parallel GitHub deploy applies migrations. Details and known flakes: [docs/github-ci.md](docs/github-ci.md).
+- GitHub Actions owns the full test battery. The local pre-commit hook runs lint/types/static checks and the Lambda bundle only — no unit/E2E, local Supabase, or deploy. Schema-affecting web changes must stay backward-compatible until the GitHub Deploy workflow (after green main CI) applies migrations. Details and known flakes: [docs/github-ci.md](docs/github-ci.md).
 
 - `agent-deploy` — scoped deploy role (S3, CloudFront, ECR, `lambda:UpdateFunctionCode`, `cloudformation:DescribeStackResource`, plus `lambda:InvokeFunction` on `*-live-provider-check` only — for the post-deploy live check). Used locally via the `fleet-deploy` profile for code-only deploys. Defined fleet-wide in `shared-infra/aws/template.yaml`.
 - `github-actions-deploy` — scoped GitHub OIDC role for production code deploys from `birthmilk/stocktextalerts` on `main`. It reuses the code-only deploy policy and has no CloudFormation/SAM infra mutation permissions.
@@ -121,10 +132,12 @@ Auth-gated product UI. Follow `rules/frontend-verification.md` (fleet smoke: des
 
 ## Cursor Cloud specific instructions
 
-Full runbook: [docs/cursor-cloud.md](docs/cursor-cloud.md). The startup update script runs only `bash -lc 'npm ci'`; everything below is not automated and must be done in-session.
+Full runbook: [docs/cursor-cloud.md](docs/cursor-cloud.md).
 
-- **Node 24 via login shell:** `~/.bashrc` prepends the nvm Node 24 bin and exports `DOCKER_HOST=unix:///var/run/docker.sock`. Non-login shells (`bash -c`, `sh -c`) still resolve `/exec-daemon/node` (v22), which trips `engine-strict`. Run npm/dev/test/db commands through a login shell (`bash -lc '…'`) or a normal interactive terminal.
-- **Docker daemon (once per fresh pod):** `sudo dockerd > /tmp/dockerd.log 2>&1 &`, then `docker info`. If the socket denies access, `sudo chmod 666 /var/run/docker.sock` (the `ubuntu` user is not always in the `docker` group on a fresh pod).
+**Automated via `.cursor/environment.json`:** `install` runs skills + `.cursor/cloud-agent-install.sh` (Docker CE with fuse-overlayfs, Node 24, `npm ci`, local file bootstrap). `start` runs `.cursor/cloud-agent-start.sh` (`dockerd` + `db:start`, key sync, one-shot `db:reset` if `db:doctor` fails). Prefer those hooks over rediscovering setup.
+
+- **Node 24 via login shell:** `~/.bashrc` (written by install) prepends the nvm Node 24 bin and exports `DOCKER_HOST=unix:///var/run/docker.sock`. Non-login shells (`bash -c`, `sh -c`) still resolve `/exec-daemon/node` (v22), which trips `engine-strict`. Run npm/dev/test/db commands through a login shell (`bash -lc '…'`) or a normal interactive terminal.
+- **Docker:** base images do **not** ship Docker. Install provisions it; `start` launches `dockerd` (PID 1 is `tini`, not systemd). If the socket denies access, `sudo chmod 666 /var/run/docker.sock`.
 - **Docker 29 + fuse-overlayfs:** `/etc/docker/daemon.json` must set `"storage-driver": "fuse-overlayfs"` **and** `"features": { "containerd-snapshotter": false }` — Docker 29 defaults to the containerd snapshotter, which ignores the fuse-overlayfs driver this kernel needs. `docker info` should report `Storage Driver: fuse-overlayfs`.
-- **Gitignored local files** (`.env.local`, `scripts/data/users.json`, `supabase/seed.sql`) persist via the snapshot, not the update script. If missing on a fresh pod: `cp scripts/data/sample-users.json scripts/data/users.json`, create `.env.local` from `env.example` (Supabase keys come from `supabase status -o json` after `npm run db:start` — map `ANON_KEY`→`SUPABASE_PUBLISHABLE_KEY`, `SERVICE_ROLE_KEY`→`SUPABASE_SECRET_KEY`, set `EMAIL_SMTP_HOST=localhost` and a local `DEFAULT_PASSWORD`), then `npm run db:generate-seed && npm run db:reset`.
-- **Bring the stack up:** `npm run db:start` → `npm run db:reset` (reseed) → `npm run dev` (<http://localhost:4321>). `db:doctor`'s `auth container not inspectable (podman ENOENT)` warning is benign under Docker.
+- **Gitignored local files** (`.env.local`, `scripts/data/users.json`, `supabase/seed.sql`) are created by install/start (and persist in environment snapshots). Manual repair: `bash .cursor/cloud-agent-install.sh && bash .cursor/cloud-agent-start.sh`.
+- **Bring the stack up:** after `start`, `npm run dev` (<http://localhost:4321>). `db:doctor`'s `auth container not inspectable (podman ENOENT)` warning is benign under Docker.

@@ -1,4 +1,5 @@
 import type { InsiderTransaction, RecommendationTrend } from "../types";
+import type { SecFilingLine } from "./types";
 
 /**
  * Format a revenue estimate compactly for display.
@@ -103,17 +104,16 @@ function formatAssetEventsSectionRich(events: AssetEvent[]): AssetEventsSections
 	};
 }
 
-/** Email-formatted asset-events section (rich, with estimates/pay dates/issuers). */
-export function formatAssetEventsSectionEmail(events: AssetEvent[]): AssetEventsSections {
+/**
+ * Rich rendering of asset events grouped by type.
+ *
+ * Includes estimates, pay dates, frequencies, split-type labels, and issuer
+ * names. Shared by email and Telegram delivery — content is channel-agnostic.
+ */
+export function formatAssetEventsSection(events: AssetEvent[]): AssetEventsSections {
 	return formatAssetEventsSectionRich(events);
 }
 
-/** Telegram-formatted asset-events section (rich rendering, matching email). */
-export function formatAssetEventsSectionTelegram(events: AssetEvent[]): AssetEventsSections {
-	return formatAssetEventsSectionRich(events);
-}
-
-/** Rich (email/Telegram-style) analyst recommendation trend rendering. */
 function formatAnalystSectionRich(data: Map<string, RecommendationTrend | null>): string | null {
 	const lines: string[] = [];
 	for (const [symbol, trend] of data) {
@@ -125,17 +125,8 @@ function formatAnalystSectionRich(data: Map<string, RecommendationTrend | null>)
 	return lines.length > 0 ? lines.join("\n") : null;
 }
 
-/** Format analyst recommendation trends as a rich email text block. */
-export function formatAnalystSectionEmail(
-	data: Map<string, RecommendationTrend | null>,
-): string | null {
-	return formatAnalystSectionRich(data);
-}
-
-/** Format analyst recommendation trends as a rich Telegram text block (matching email). */
-export function formatAnalystSectionTelegram(
-	data: Map<string, RecommendationTrend | null>,
-): string | null {
+/** Rich analyst recommendation trend rendering. */
+export function formatAnalystSection(data: Map<string, RecommendationTrend | null>): string | null {
 	return formatAnalystSectionRich(data);
 }
 
@@ -168,14 +159,22 @@ function formatInsiderSectionWithCap(
 	return null;
 }
 
-/** Format insider transactions as a rich email text block (up to 5 per ticker). */
-export function formatInsiderSectionEmail(data: Map<string, InsiderTransaction[]>): string | null {
+/** Format insider transactions as a rich text block (up to 5 per ticker). */
+export function formatInsiderSection(data: Map<string, InsiderTransaction[]>): string | null {
 	return formatInsiderSectionWithCap(data, 5);
 }
 
-/** Format insider transactions as a rich Telegram text block (up to 5 per ticker, matching email). */
-export function formatInsiderSectionTelegram(
-	data: Map<string, InsiderTransaction[]>,
-): string | null {
-	return formatInsiderSectionWithCap(data, 5);
+/** Plain-text filings block (label + URL per line) for email text parts. */
+export function formatFilingsSectionPlainText(lines: SecFilingLine[]): string | null {
+	if (lines.length === 0) return null;
+	return lines.map((line) => `${line.label}\n${line.url}`).join("\n");
+}
+
+/**
+ * Markdown filings block for email HTML via `renderEmailSection` /
+ * `markdownLinksToHtml` — the entire label is the link text.
+ */
+export function formatFilingsSectionMarkdown(lines: SecFilingLine[]): string | null {
+	if (lines.length === 0) return null;
+	return lines.map((line) => `[${line.label}](${line.url})`).join("\n");
 }

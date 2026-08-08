@@ -4,12 +4,12 @@ import { loadUserAssets, type UserAssetsMap } from "../../db/user-assets";
 import type { Logger } from "../../logging";
 import { createErrorForLogging, extractErrorMessage } from "../../logging/errors";
 import { fetchIntradaySparklines } from "../../market-data/sparklines";
+import { resolveOutboundChannel } from "../../messaging/delivery-channel";
 import { type LogoCache, safePrefetchLogos } from "../../messaging/logo-fetcher";
-import { anyFacetEnabled, isFacetEnabled } from "../../messaging/notification-prefs";
+import { isFacetEnabled } from "../../messaging/notification-prefs";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../../messaging/parts/delay";
 import type { SparklineMap } from "../../messaging/parts/sparkline";
 import { recordNotification } from "../../messaging/shared";
-import { isTelegramChannelUsable } from "../../messaging/telegram/eligibility";
 import type { TelegramSenderFactory } from "../../messaging/telegram/sender-factory";
 import type { EmailSender } from "../../messaging/types";
 import type {
@@ -164,6 +164,28 @@ export async function processMarketScheduledUser(options: {
 			return stats;
 		}
 
+		const contentEnabled = isFacetEnabled(user.prefs, "market_scheduled_asset_price");
+		const outbound = resolveOutboundChannel(user);
+		if (contentEnabled && !outbound) {
+			logger.info(
+				"Skipping scheduled market delivery — content on but no resolvable outbound channel",
+				{
+					action: "market_notifications_run",
+					userId: user.id,
+					deliveryChannel: user.delivery_channel,
+					telegramChatId: user.telegram_chat_id,
+				},
+			);
+			stats.skipped++;
+			await updateUserMarketScheduledNextSendAt({
+				user,
+				supabase,
+				logger,
+				currentTime,
+			});
+			return stats;
+		}
+
 		const delayBannerOpts = {
 			scheduledFor: dueAt,
 			now: currentTime,
@@ -214,12 +236,7 @@ export async function processMarketScheduledUser(options: {
 		}
 		const getSparkline = (symbol: string) => sparklines.get(symbol) ?? null;
 
-		const scheduledIncludeEmail = isFacetEnabled(
-			user.prefs,
-			"market_scheduled_asset_price",
-			"email",
-		);
-		const shouldPrepareEmail = user.email_notifications_enabled && scheduledIncludeEmail;
+		const shouldPrepareEmail = outbound === "email" && contentEnabled;
 		const { getLogoHtml } = await safePrefetchLogos({
 			assets: userAssets,
 			shouldPrefetch: shouldPrepareEmail,
@@ -229,19 +246,13 @@ export async function processMarketScheduledUser(options: {
 			cache: options.logoCache,
 		});
 
-		// All channel preferences (incl. Telegram) live in notification_preferences,
-		// carried on user.prefs. Telegram gates on the usable-channel check + facet row.
-		const telegramEnabled =
-			isTelegramChannelUsable(user) &&
-			anyFacetEnabled(user.prefs, "market_scheduled_asset_price", "telegram");
-
 		const sessionFirstLine = {
 			scheduledEtMinutes: userLocalToEtMinute(scheduledMinutes, user.timezone),
 			is24: user.use_24_hour_time,
 		};
 
 		/* ============= Process Email ============= */
-		if (user.email_notifications_enabled && scheduledIncludeEmail) {
+		if (outbound === "email" && contentEnabled) {
 			attemptedDeliveryMethod = "email";
 			await processMarketScheduledEmailDelivery({
 				user,
@@ -267,7 +278,7 @@ export async function processMarketScheduledUser(options: {
 		}
 
 		/* ============= Process Telegram ============= */
-		if (telegramEnabled) {
+		if (outbound === "telegram" && contentEnabled) {
 			attemptedDeliveryMethod = "telegram";
 			await processMarketScheduledTelegramDelivery({
 				user,
@@ -287,15 +298,13 @@ export async function processMarketScheduledUser(options: {
 			});
 		}
 
-		const emailRequired = user.email_notifications_enabled && scheduledIncludeEmail;
-		const telegramRequired = telegramEnabled;
+		const requiredChannel = contentEnabled ? outbound : null;
 		const canAdvance = await shouldAdvanceMarketScheduledSchedule({
 			supabase,
 			user,
 			scheduledDate,
 			scheduledMinutes,
-			emailRequired,
-			telegramRequired,
+			requiredChannel,
 		});
 
 		if (canAdvance) {
@@ -311,7 +320,7 @@ export async function processMarketScheduledUser(options: {
 				userId: user.id,
 				scheduledDate,
 				scheduledMinutes,
-				emailRequired,
+				requiredChannel,
 			});
 		}
 

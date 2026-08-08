@@ -19,8 +19,8 @@ export async function createApprovedE2eUser(prefix = "e2e"): Promise<ApprovedE2e
 		password: TEST_PASSWORD,
 		confirmed: true,
 		approved: true,
-		emailNotificationsEnabled: true,
-		marketScheduledAssetPriceIncludeEmail: false,
+		deliveryChannel: "email",
+		marketScheduledAssetPriceInclude: false,
 	});
 	await waitForPasswordSignInReady(email, TEST_PASSWORD);
 	return { id: user.id, email, password: TEST_PASSWORD };

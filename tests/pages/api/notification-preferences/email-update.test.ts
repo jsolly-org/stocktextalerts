@@ -6,20 +6,20 @@ import { adminClient, createAuthenticatedCookies } from "../../../helpers/test-e
 import { createTestUser } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 
-describe("A signed-in user updates their email notification preference.", () => {
-	it("The user enables email notifications.", async () => {
+describe("A signed-in user updates their account delivery channel.", () => {
+	it("The user routes delivery to email.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
-			emailNotificationsEnabled: false,
+			deliveryChannel: "disabled",
 		});
 		registerTestUserForCleanup(testUser.id);
 
 		const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 		const formData = new FormData();
-		formData.append("email_notifications_enabled", "true");
+		formData.append("delivery_channel", "email");
 
 		const request = new Request("http://localhost/api/notification-preferences/update", {
 			method: "POST",
@@ -32,28 +32,28 @@ describe("A signed-in user updates their email notification preference.", () => 
 
 		const { data: updatedUser } = await adminClient
 			.from("users")
-			.select("email_notifications_enabled")
+			.select("delivery_channel")
 			.eq("id", testUser.id)
 			.single();
 
 		expect(updatedUser).not.toBeNull();
 		if (!updatedUser) throw new Error("expected user row");
-		expect(updatedUser.email_notifications_enabled).toBe(true);
+		expect(updatedUser.delivery_channel).toBe("email");
 	});
 
-	it("The user disables email notifications.", async () => {
+	it("The user disables delivery.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
-			emailNotificationsEnabled: true,
+			deliveryChannel: "email",
 		});
 		registerTestUserForCleanup(testUser.id);
 
 		const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 		const formData = new FormData();
-		formData.append("email_notifications_enabled", "false");
+		formData.append("delivery_channel", "disabled");
 
 		const request = new Request("http://localhost/api/notification-preferences/update", {
 			method: "POST",
@@ -66,12 +66,12 @@ describe("A signed-in user updates their email notification preference.", () => 
 
 		const { data: updatedUser } = await adminClient
 			.from("users")
-			.select("email_notifications_enabled")
+			.select("delivery_channel")
 			.eq("id", testUser.id)
 			.single();
 
 		expect(updatedUser).not.toBeNull();
 		if (!updatedUser) throw new Error("expected user row");
-		expect(updatedUser.email_notifications_enabled).toBe(false);
+		expect(updatedUser.delivery_channel).toBe("disabled");
 	});
 });
