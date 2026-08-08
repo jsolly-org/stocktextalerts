@@ -130,9 +130,29 @@ async function main(): Promise<void> {
 		throw new Error(`notification_preferences upsert failed: ${prefError.message}`);
 	}
 
+	const { data: existingAssets, error: assetsLookupError } = await admin
+		.from("assets")
+		.select("symbol")
+		.in("symbol", [...STOCK_BUYER_TICKERS]);
+	if (assetsLookupError) {
+		throw new Error(`assets lookup failed: ${assetsLookupError.message}`);
+	}
+	const known = new Set((existingAssets ?? []).map((row) => row.symbol));
+	const missing = STOCK_BUYER_TICKERS.filter((symbol) => !known.has(symbol));
+	const symbols = STOCK_BUYER_TICKERS.filter((symbol) => known.has(symbol));
+	if (missing.length > 0) {
+		rootLogger.warn("Skipping tickers missing from public.assets", {
+			missing,
+			knownCount: symbols.length,
+		});
+	}
+	if (symbols.length === 0) {
+		throw new Error("No STOCK_BUYER_TICKERS exist in public.assets");
+	}
+
 	const { error: replaceError } = await admin.rpc("replace_user_assets", {
 		user_id: userId,
-		symbols: [...STOCK_BUYER_TICKERS],
+		symbols,
 	});
 	if (replaceError) {
 		throw new Error(
@@ -140,7 +160,7 @@ async function main(): Promise<void> {
 		);
 	}
 
-	const thresholds = STOCK_BUYER_TICKERS.map((symbol) => ({
+	const thresholds = symbols.map((symbol) => ({
 		user_id: userId,
 		symbol,
 		threshold_value: 5,
@@ -157,7 +177,8 @@ async function main(): Promise<void> {
 		userId,
 		email: STOCK_BUYER_EMAIL,
 		delivery_channel: "lambda",
-		tickerCount: STOCK_BUYER_TICKERS.length,
+		tickerCount: symbols.length,
+		missingFromAssets: missing,
 		thresholdPercent: 5,
 	});
 }
