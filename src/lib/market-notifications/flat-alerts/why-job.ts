@@ -140,11 +140,16 @@ export async function processPriceMoveWhyAlert(options: {
 			logger.info("Price-move why job released lambda user: facet off", { userId, symbol });
 			return { delivered: false, stats: emptyChannelStats() };
 		}
-		await wakeupAssetBuyerFromFlatAlert({
+		const woke = await wakeupAssetBuyerFromFlatAlert({
 			symbol,
 			triggerPercent: message.triggerPercent,
 			isAcceleration: message.isAcceleration,
 		});
+		if (!woke) {
+			await releaseFlatPriceAlert(supabase, userId, symbol);
+			logger.warn("Price-move why job released lambda user: wakeup failed", { userId, symbol });
+			return { delivered: false, stats: emptyChannelStats() };
+		}
 		await finalizeFlatPriceAlert(supabase, userId, symbol);
 		logger.info("Price-move why job lambda wakeup finalized", { userId, symbol });
 		return { delivered: true, stats: emptyChannelStats() };

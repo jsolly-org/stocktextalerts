@@ -14,8 +14,6 @@ import { rootLogger } from "../src/lib/logging";
 import { buildDefaultPreferenceRows } from "../src/lib/messaging/notification-prefs";
 
 const STOCK_BUYER_EMAIL = "stock-buyer@internal.stocktextalerts";
-const STOCK_BUYER_PASSWORD =
-	process.env.STOCK_BUYER_SEED_PASSWORD?.trim() || "stock-buyer-internal-only";
 
 /** Asset-buyer watchlist (41 tickers) — keep in sync with asset-buyer WATCHLIST. */
 export const STOCK_BUYER_TICKERS = [
@@ -73,19 +71,28 @@ async function main(): Promise<void> {
 		auth: { autoRefreshToken: false, persistSession: false },
 	});
 
-	const { data: listed, error: listError } = await admin.auth.admin.listUsers({
-		page: 1,
-		perPage: 1000,
-	});
-	if (listError) {
-		throw new Error(`listUsers failed: ${listError.message}`);
+	let userId: string | undefined;
+	for (let page = 1; page <= 20; page++) {
+		const { data: listed, error: listError } = await admin.auth.admin.listUsers({
+			page,
+			perPage: 1000,
+		});
+		if (listError) {
+			throw new Error(`listUsers failed: ${listError.message}`);
+		}
+		userId = listed.users.find((u) => u.email === STOCK_BUYER_EMAIL)?.id;
+		if (userId || listed.users.length < 1000) break;
 	}
-
-	let userId = listed.users.find((u) => u.email === STOCK_BUYER_EMAIL)?.id;
 	if (!userId) {
+		const password = process.env.STOCK_BUYER_SEED_PASSWORD?.trim();
+		if (!password || password.length < 32) {
+			throw new Error(
+				"STOCK_BUYER_SEED_PASSWORD is required (≥32 chars) when creating the stock-buyer user",
+			);
+		}
 		const { data: created, error: createError } = await admin.auth.admin.createUser({
 			email: STOCK_BUYER_EMAIL,
-			password: STOCK_BUYER_PASSWORD,
+			password,
 			email_confirm: true,
 		});
 		if (createError || !created.user) {

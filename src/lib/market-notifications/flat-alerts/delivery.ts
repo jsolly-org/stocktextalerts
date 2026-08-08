@@ -83,11 +83,20 @@ export async function deliverFlatPriceAlert(options: {
 			});
 			return false;
 		}
-		await wakeupAssetBuyerFromFlatAlert({
+		const woke = await wakeupAssetBuyerFromFlatAlert({
 			symbol,
 			triggerPercent,
 			isAcceleration,
 		});
+		if (!woke) {
+			rootLogger.warn("Lambda flat alert wakeup failed", {
+				userId: user.id,
+				symbol,
+				triggerPercent,
+				isAcceleration,
+			});
+			return false;
+		}
 		rootLogger.info("Lambda flat alert wakeup completed (no human notification_log)", {
 			userId: user.id,
 			symbol,

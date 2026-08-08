@@ -151,4 +151,50 @@ describe("deliverFlatPriceAlert lambda channel", () => {
 		expect(delivered).toBe(false);
 		expect(wakeupAssetBuyerFromFlatAlert).not.toHaveBeenCalled();
 	});
+
+	it("returns false when wakeup fails", async () => {
+		wakeupAssetBuyerFromFlatAlert.mockClear();
+		wakeupAssetBuyerFromFlatAlert.mockResolvedValueOnce(false);
+		const { client } = makeSupabaseMock();
+		const user: FlatPriceAlertUser = {
+			id: "00000000-0000-0000-0000-000000000099",
+			email: "stock-buyer@internal.stocktextalerts",
+			delivery_channel: "lambda",
+			use_24_hour_time: false,
+			telegram_chat_id: null,
+			price_move_why_window_start: null,
+			price_move_why_sends_in_window: 0,
+			prefs: makePrefRows([["price_move_alerts", "", true]]),
+		};
+
+		const delivered = await deliverFlatPriceAlert({
+			user,
+			symbol: "AMD",
+			companyName: "AMD",
+			quote: {
+				price: 110,
+				prevClose: 100,
+				changePercent: 10,
+				dayOpen: 101,
+				timestamp: 0,
+			} as ExtendedAssetQuote,
+			baseline: 100,
+			triggerPercent: 10,
+			isReTrigger: false,
+			isAcceleration: false,
+			lastNotificationAt: null,
+			nowMs: Date.now(),
+			intraday: null,
+			sevenDaySparkline: null,
+			iconUrl: null,
+			iconBase64: null,
+			supabase: client,
+			sendEmail: vi.fn(async (): Promise<DeliveryResult> => ({ success: true })),
+			logoCache: createLogoCache(),
+			stats: makeStats(),
+		});
+
+		expect(delivered).toBe(false);
+		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledOnce();
+	});
 });

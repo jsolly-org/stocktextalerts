@@ -300,11 +300,19 @@ export async function processFlatPriceAlerts(options: {
 				});
 				continue;
 			}
-			await wakeupAssetBuyerFromFlatAlert({
+			const woke = await wakeupAssetBuyerFromFlatAlert({
 				symbol: alert.symbol,
 				triggerPercent: alert.triggerPercent,
 				isAcceleration: alert.isAcceleration,
 			});
+			if (!woke) {
+				await releaseFlatPriceAlert(supabase, alert.user.id, alert.symbol);
+				logger.warn("Lambda flat alert released: asset-buyer wakeup failed", {
+					userId: alert.user.id,
+					symbol: alert.symbol,
+				});
+				continue;
+			}
 			await finalizeFlatPriceAlert(supabase, alert.user.id, alert.symbol);
 			totals.lambdaWakeups++;
 			continue;
