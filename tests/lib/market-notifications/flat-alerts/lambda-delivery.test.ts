@@ -7,8 +7,11 @@ import type { AppSupabaseClient } from "../../../../src/lib/db/supabase";
 import { deliverFlatPriceAlert } from "../../../../src/lib/market-notifications/flat-alerts/delivery";
 import type { FlatPriceAlertUser } from "../../../../src/lib/market-notifications/flat-alerts/users";
 import { createLogoCache } from "../../../../src/lib/messaging/logo-fetcher";
-import type { EmailSender, TelegramSender } from "../../../../src/lib/messaging/types";
-import type { ChannelDeliveryStats, ExtendedAssetQuote } from "../../../../src/lib/types";
+import type {
+	ChannelDeliveryStats,
+	DeliveryResult,
+	ExtendedAssetQuote,
+} from "../../../../src/lib/types";
 import { makePrefRows } from "../../../helpers/user-record-fixture";
 
 const wakeupAssetBuyerFromFlatAlert = vi.hoisted(() => vi.fn(async () => true));
@@ -48,8 +51,8 @@ describe("deliverFlatPriceAlert lambda channel", () => {
 	it("invokes wakeup, skips email/Telegram and notification_log", async () => {
 		wakeupAssetBuyerFromFlatAlert.mockClear();
 		const { client, inserts } = makeSupabaseMock();
-		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
-		const sendTelegram = vi.fn<TelegramSender>(async () => ({ success: true }));
+		const sendEmail = vi.fn(async (): Promise<DeliveryResult> => ({ success: true }));
+		const sendTelegram = vi.fn(async (): Promise<DeliveryResult> => ({ success: true }));
 		const stats = makeStats();
 
 		const user: FlatPriceAlertUser = {
@@ -102,5 +105,50 @@ describe("deliverFlatPriceAlert lambda channel", () => {
 		expect(inserts.some((i) => i.table === "notification_log")).toBe(false);
 		expect(stats.emailsSent).toBe(0);
 		expect(stats.telegramSent).toBe(0);
+	});
+
+	it("skips wakeup when price_move_alerts facet is off", async () => {
+		wakeupAssetBuyerFromFlatAlert.mockClear();
+		const { client } = makeSupabaseMock();
+		const user: FlatPriceAlertUser = {
+			id: "00000000-0000-0000-0000-000000000099",
+			email: "stock-buyer@internal.stocktextalerts",
+			delivery_channel: "lambda",
+			use_24_hour_time: false,
+			telegram_chat_id: null,
+			price_move_why_window_start: null,
+			price_move_why_sends_in_window: 0,
+			prefs: makePrefRows([["price_move_alerts", "", false]]),
+		};
+
+		const delivered = await deliverFlatPriceAlert({
+			user,
+			symbol: "MSFT",
+			companyName: "Microsoft",
+			quote: {
+				price: 420,
+				prevClose: 400,
+				changePercent: 5,
+				dayOpen: 401,
+				timestamp: 0,
+			} as ExtendedAssetQuote,
+			baseline: 400,
+			triggerPercent: 5,
+			isReTrigger: false,
+			isAcceleration: false,
+			lastNotificationAt: null,
+			nowMs: Date.now(),
+			intraday: null,
+			sevenDaySparkline: null,
+			iconUrl: null,
+			iconBase64: null,
+			supabase: client,
+			sendEmail: vi.fn(async (): Promise<DeliveryResult> => ({ success: true })),
+			logoCache: createLogoCache(),
+			stats: makeStats(),
+		});
+
+		expect(delivered).toBe(false);
+		expect(wakeupAssetBuyerFromFlatAlert).not.toHaveBeenCalled();
 	});
 });
