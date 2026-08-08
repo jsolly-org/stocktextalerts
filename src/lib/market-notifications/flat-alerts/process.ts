@@ -3,7 +3,7 @@ import { US_MARKET_TIMEZONE } from "../../constants";
 import type { SupabaseAdminClient } from "../../db/supabase";
 import { createLogger } from "../../logging";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
-import type { ChannelDeliveryStats, ExtendedQuoteMap } from "../../types";
+import type { ChannelDeliveryStats, ExtendedQuoteMap, MarketSession } from "../../types";
 import { wakeupAssetBuyerFromFlatAlert } from "./asset-buyer-wakeup";
 import {
 	fetchFlatPriceAlertState,
@@ -18,6 +18,22 @@ import type { PriceMoveThreshold } from "./types";
 import { type FlatPriceAlertUser, fetchFlatPriceAlertUsers } from "./users";
 import { runPriceMoveWhyInline } from "./why-job";
 import { enqueuePriceMoveWhy } from "./why-queue";
+
+/** Equity trade window for stock-buyer lambda wakes (matches asset-buyer 04:00–20:00 ET). */
+function isEquityTradeSession(session: MarketSession): boolean {
+	return session === "pre" || session === "regular" || session === "after";
+}
+
+/** Human flat alerts stay RTH-only; lambda (stock-buyer) runs all equity sessions. */
+function shouldEvaluateFlatAlertUser(
+	user: FlatPriceAlertUser,
+	marketSession: MarketSession,
+): boolean {
+	if (user.delivery_channel === "lambda") {
+		return isEquityTradeSession(marketSession);
+	}
+	return marketSession === "regular";
+}
 
 const logger = createLogger({ module: "flat-price-alerts" });
 
@@ -94,22 +110,26 @@ function etIsoDateOf(date: Date): string {
  * atomically, and deliver on the account delivery channel.
  *
  * Reuses the scheduler's captured watched-symbol `quoteMap` (a superset of the
- * threshold symbols) to avoid a duplicate Massive snapshot call. Only runs when
- * the US market is open.
+ * threshold symbols) to avoid a duplicate Massive snapshot call.
+ *
+ * Session gating: email/telegram only during RTH (`regular`); `lambda`
+ * (stock-buyer) during the full equity trade session (`pre`/`regular`/`after`).
  */
 export async function processFlatPriceAlerts(options: {
 	supabase: SupabaseAdminClient;
 	quoteMap: ExtendedQuoteMap;
-	isMarketOpen: boolean;
+	marketSession: MarketSession;
 }): Promise<FlatPriceAlertTotals> {
-	const { supabase, quoteMap, isMarketOpen } = options;
+	const { supabase, quoteMap, marketSession } = options;
 	const totals = emptyTotals();
 
-	if (!isMarketOpen) {
+	if (marketSession === "closed") {
 		return totals;
 	}
 
-	const users = await fetchFlatPriceAlertUsers(supabase);
+	const users = (await fetchFlatPriceAlertUsers(supabase)).filter((u) =>
+		shouldEvaluateFlatAlertUser(u, marketSession),
+	);
 	if (users.length === 0) {
 		return totals;
 	}

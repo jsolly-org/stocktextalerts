@@ -398,31 +398,36 @@ export async function runScheduledNotifications(options: {
 	// gating from the resolved session, so there is no extra live-quote fetch.
 	// An `undefined` map means the quote capture FAILED (not "no quotes") — skip the
 	// pass and log it explicitly so a blind alerting tick is observable, not silent.
-	// Error level during regular hours on purpose: it means the market is open and
-	// the headline alert feature cannot see prices, which should page.
+	// Error when equity session is open (pre/RTH/AH): stock-buyer lambda wakes need
+	// quotes too; RTH also covers human email/telegram flat alerts.
 	let flatPriceAlertTotals: FlatPriceAlertTotals | undefined;
+	const equitySessionOpen =
+		schedulerMarketSession === "pre" ||
+		schedulerMarketSession === "regular" ||
+		schedulerMarketSession === "after";
 	if (capturedQuoteMap !== undefined) {
 		try {
 			flatPriceAlertTotals = await processFlatPriceAlerts({
 				supabase,
 				quoteMap: capturedQuoteMap,
-				isMarketOpen: schedulerMarketSession === "regular",
+				marketSession: schedulerMarketSession,
 			});
 
 			logger.info("Flat price alerts processed", {
 				action: "flat_price_alerts",
+				session: schedulerMarketSession,
 				...flatPriceAlertTotals,
 			});
 		} catch (error) {
 			logger.warn(
 				"Flat price alerts processing failed (non-fatal)",
-				{ action: "flat_price_alerts" },
+				{ action: "flat_price_alerts", session: schedulerMarketSession },
 				error,
 			);
 		}
-	} else if (schedulerMarketSession === "regular") {
+	} else if (equitySessionOpen) {
 		logger.error(
-			"Flat price alerts skipped: quote capture unavailable during market hours",
+			"Flat price alerts skipped: quote capture unavailable during equity session",
 			{ action: "flat_price_alerts", session: schedulerMarketSession },
 			new Error("Quote capture failed; price-move alerting is blind this tick"),
 		);
