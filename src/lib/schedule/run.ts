@@ -398,19 +398,25 @@ export async function runScheduledNotifications(options: {
 	// gating from the resolved session, so there is no extra live-quote fetch.
 	// An `undefined` map means the quote capture FAILED (not "no quotes") — skip the
 	// pass and log it explicitly so a blind alerting tick is observable, not silent.
-	// Error level during regular hours on purpose: it means the market is open and
-	// the headline alert feature cannot see prices, which should page.
+	// Error level when any channel would alert: human RTH and/or lambda extended session.
+	const humanFlatAlertsOpen = schedulerMarketSession === "regular";
+	const lambdaFlatAlertsOpen =
+		schedulerMarketSession === "pre" ||
+		schedulerMarketSession === "regular" ||
+		schedulerMarketSession === "after";
 	let flatPriceAlertTotals: FlatPriceAlertTotals | undefined;
 	if (capturedQuoteMap !== undefined) {
 		try {
 			flatPriceAlertTotals = await processFlatPriceAlerts({
 				supabase,
 				quoteMap: capturedQuoteMap,
-				isMarketOpen: schedulerMarketSession === "regular",
+				humanMarketOpen: humanFlatAlertsOpen,
+				lambdaMarketOpen: lambdaFlatAlertsOpen,
 			});
 
 			logger.info("Flat price alerts processed", {
 				action: "flat_price_alerts",
+				session: schedulerMarketSession,
 				...flatPriceAlertTotals,
 			});
 		} catch (error) {
@@ -420,7 +426,7 @@ export async function runScheduledNotifications(options: {
 				error,
 			);
 		}
-	} else if (schedulerMarketSession === "regular") {
+	} else if (humanFlatAlertsOpen || lambdaFlatAlertsOpen) {
 		logger.error(
 			"Flat price alerts skipped: quote capture unavailable during market hours",
 			{ action: "flat_price_alerts", session: schedulerMarketSession },

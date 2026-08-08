@@ -94,22 +94,29 @@ function etIsoDateOf(date: Date): string {
  * atomically, and deliver on the account delivery channel.
  *
  * Reuses the scheduler's captured watched-symbol `quoteMap` (a superset of the
- * threshold symbols) to avoid a duplicate Massive snapshot call. Only runs when
- * the US market is open.
+ * threshold symbols) to avoid a duplicate Massive snapshot call.
+ *
+ * Session gates (dual pacemaker with asset-buyer):
+ * - `humanMarketOpen` — email/telegram (RTH / `regular` only)
+ * - `lambdaMarketOpen` — stock-buyer wakes (`pre` | `regular` | `after`)
  */
 export async function processFlatPriceAlerts(options: {
 	supabase: SupabaseAdminClient;
 	quoteMap: ExtendedQuoteMap;
-	isMarketOpen: boolean;
+	humanMarketOpen: boolean;
+	lambdaMarketOpen: boolean;
 }): Promise<FlatPriceAlertTotals> {
-	const { supabase, quoteMap, isMarketOpen } = options;
+	const { supabase, quoteMap, humanMarketOpen, lambdaMarketOpen } = options;
 	const totals = emptyTotals();
 
-	if (!isMarketOpen) {
+	if (!humanMarketOpen && !lambdaMarketOpen) {
 		return totals;
 	}
 
-	const users = await fetchFlatPriceAlertUsers(supabase);
+	const users = (await fetchFlatPriceAlertUsers(supabase)).filter((user) => {
+		if (user.delivery_channel === "lambda") return lambdaMarketOpen;
+		return humanMarketOpen;
+	});
 	if (users.length === 0) {
 		return totals;
 	}

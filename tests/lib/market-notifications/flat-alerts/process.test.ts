@@ -187,11 +187,40 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap: new Map(),
-			isMarketOpen: false,
+			humanMarketOpen: false,
+			lambdaMarketOpen: false,
 		});
 
 		expect(totals.usersChecked).toBe(0);
 		expect(totals.alertsTriggered).toBe(0);
+		expect(mockEmailSender).not.toHaveBeenCalled();
+	});
+
+	it("lambda wakes during extended session when human RTH gate is closed", async () => {
+		const testUser = await createTestUser({
+			trackedAssets: ["AAPL"],
+			timezone: "America/New_York",
+			deliveryChannel: "lambda",
+		});
+		registerTestUserForCleanup(testUser.id);
+		await enableFlatAlerts(testUser.id);
+		const { error: channelError } = await adminClient
+			.from("users")
+			.update({ delivery_channel: "lambda" })
+			.eq("id", testUser.id);
+		if (channelError) throw new Error(channelError.message);
+
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			humanMarketOpen: false,
+			lambdaMarketOpen: true,
+		});
+
+		expect(totals.usersChecked).toBe(1);
+		expect(totals.lambdaWakeups).toBe(1);
+		expect(totals.whyEnqueued).toBe(0);
 		expect(mockEmailSender).not.toHaveBeenCalled();
 	});
 
@@ -214,7 +243,8 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			humanMarketOpen: true,
+			lambdaMarketOpen: true,
 		});
 
 		expect(totals.alertsTriggered).toBe(1);
@@ -258,7 +288,8 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			humanMarketOpen: true,
+			lambdaMarketOpen: true,
 		});
 
 		expect(totals.alertsTriggered).toBe(1);
@@ -281,7 +312,8 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			humanMarketOpen: true,
+			lambdaMarketOpen: true,
 		});
 
 		expect(totals.alertsTriggered).toBe(1);
@@ -313,7 +345,8 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			humanMarketOpen: true,
+			lambdaMarketOpen: true,
 		});
 
 		expect(totals.alertsTriggered).toBe(1);
@@ -338,7 +371,8 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			humanMarketOpen: true,
+			lambdaMarketOpen: true,
 		});
 
 		expect(totals.alertsTriggered).toBe(0);
@@ -376,7 +410,8 @@ describe("processFlatPriceAlerts", () => {
 			const totals = await processFlatPriceAlerts({
 				supabase: adminClient,
 				quoteMap,
-				isMarketOpen: true,
+				humanMarketOpen: true,
+				lambdaMarketOpen: true,
 			});
 
 			expect(totals.alertsTriggered).toBe(1);
@@ -416,7 +451,8 @@ describe("processFlatPriceAlerts", () => {
 			const totals = await processFlatPriceAlerts({
 				supabase: adminClient,
 				quoteMap,
-				isMarketOpen: true,
+				humanMarketOpen: true,
+				lambdaMarketOpen: true,
 			});
 
 			expect(totals.alertsTriggered).toBe(1);
@@ -456,7 +492,8 @@ describe("processFlatPriceAlerts", () => {
 			const totals = await processFlatPriceAlerts({
 				supabase: adminClient,
 				quoteMap,
-				isMarketOpen: true,
+				humanMarketOpen: true,
+				lambdaMarketOpen: true,
 			});
 
 			expect(totals.alertsTriggered).toBe(0);
@@ -495,7 +532,8 @@ describe("processFlatPriceAlerts", () => {
 			const totals = await processFlatPriceAlerts({
 				supabase: adminClient,
 				quoteMap,
-				isMarketOpen: true,
+				humanMarketOpen: true,
+				lambdaMarketOpen: true,
 			});
 
 			expect(totals.alertsTriggered).toBe(1);
@@ -522,7 +560,8 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			humanMarketOpen: true,
+			lambdaMarketOpen: true,
 		});
 
 		// The candidate query is now channel-level (other channel-enabled users may be
@@ -555,7 +594,8 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			humanMarketOpen: true,
+			lambdaMarketOpen: true,
 		});
 
 		expect(totals.alertsTriggered).toBe(1);
@@ -585,7 +625,8 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			humanMarketOpen: true,
+			lambdaMarketOpen: true,
 		});
 
 		expect(totals.alertsTriggered).toBe(1);
@@ -628,7 +669,8 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			humanMarketOpen: true,
+			lambdaMarketOpen: true,
 		});
 
 		expect(totals.alertsTriggered).toBe(1);
@@ -652,7 +694,8 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			humanMarketOpen: true,
+			lambdaMarketOpen: true,
 		});
 
 		expect(totals.alertsTriggered).toBe(0);
@@ -675,7 +718,8 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			humanMarketOpen: true,
+			lambdaMarketOpen: true,
 		});
 
 		// The alert still fires and the email still sends — just without the
@@ -725,7 +769,8 @@ describe("processFlatPriceAlerts", () => {
 			await processFlatPriceAlerts({
 				supabase: failingSupabase as typeof adminClient,
 				quoteMap,
-				isMarketOpen: true,
+				humanMarketOpen: true,
+				lambdaMarketOpen: true,
 			});
 		} catch (_err) {
 			threw = true;
@@ -770,7 +815,8 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: failingSupabase as typeof adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			humanMarketOpen: true,
+			lambdaMarketOpen: true,
 		});
 
 		expect(totals.claimLost).toBe(1);
@@ -795,7 +841,8 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			humanMarketOpen: true,
+			lambdaMarketOpen: true,
 		});
 
 		expect(totals.alertsTriggered).toBe(1);
@@ -817,7 +864,8 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			humanMarketOpen: true,
+			lambdaMarketOpen: true,
 		});
 
 		expect(totals.alertsTriggered).toBe(0);
@@ -841,7 +889,8 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			humanMarketOpen: true,
+			lambdaMarketOpen: true,
 		});
 
 		expect(totals.alertsTriggered).toBe(0);
