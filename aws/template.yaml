@@ -171,9 +171,9 @@ Resources:
       FunctionName: stocktextalerts-asset-maintenance
       Handler: asset-maintenance.handler
       CodeUri: src/handlers
-      # 600s: measured ~258–270s after dropping watermark-driven icon fanout
-      # (2026-08-01 manual invokes). Headroom covers Polymarket discovery slowdowns
-      # and vendor jitter; remaining-time guards still skip steps that can't fit.
+      # 600s: integrity steps (delist + reconcile) run before O(n) Finnhub /
+      # Polymarket work. Discovery pages are capped; remaining-time guards skip
+      # best-effort steps that can't fit. Do not raise timeout to "fix" O(n).
       Timeout: 600
       MemorySize: 512
       LoggingConfig:

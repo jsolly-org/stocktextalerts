@@ -5,6 +5,10 @@
  * affected users). Enqueues vendor-backfill retries on partial ingest failures.
  * New-listing icon probes run inside universe reconcile (not a separate drip).
  *
+ * Integrity work (delisting sweep + universe reconcile) runs before unbounded
+ * prediction-market steps so Polymarket rate limits / discovery page walks cannot
+ * starve user-facing delist emails or the nightly universe sync.
+ *
  * Steps that spend vendor budget check the Lambda's remaining time first and skip
  * WITH AN ERROR LOG when they cannot fit, avoiding a partial step that ends in an
  * opaque Lambda timeout.
@@ -133,6 +137,40 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			results.push({ weekStart, weekEnd, ...result });
 		}
 
+		// Delisting + reconcile before Finnhub O(n) enrichment and unbounded PM
+		// work. Tracked-symbol growth (and Polymarket discovery page walks) must
+		// not starve user-facing delist emails or the universe sync — same class
+		// of bug as the 2026-08 icon-fanout starvation (#668), with PM as the
+		// consumer instead of Massive icons.
+		if (stepFitsRemainingTime(context, logger, "delisting_sweep", SWEEP_MIN_REMAINING_MS)) {
+			try {
+				const sendEmail = createEmailSender();
+				const sweepResult = await runDelistingSweep({
+					supabase,
+					logger,
+					sendEmail,
+				});
+				logger.info("Delisting sweep complete", {
+					action: "daily_delisting_sweep",
+					...sweepResult,
+				});
+			} catch (error) {
+				logger.error("Delisting sweep failed", { action: "daily_delisting_sweep" }, error);
+			}
+		}
+
+		if (stepFitsRemainingTime(context, logger, "universe_reconcile", RECONCILE_MIN_REMAINING_MS)) {
+			try {
+				const reconcileResult = await runUniverseReconcile({ supabase, logger });
+				logger.info("Universe reconcile complete", {
+					action: "daily_universe_reconcile",
+					...reconcileResult,
+				});
+			} catch (error) {
+				logger.error("Universe reconcile failed", { action: "daily_universe_reconcile" }, error);
+			}
+		}
+
 		let enrichmentResult: Awaited<ReturnType<typeof fetchAndStoreFinnhubEnrichment>> = {
 			analystUpserted: 0,
 			insiderUpserted: 0,
@@ -142,7 +180,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			enrichmentResult = await fetchAndStoreFinnhubEnrichment({ supabase, logger });
 		} catch (error) {
 			logger.error(
-				"Finnhub enrichment ingest failed (continuing with prediction-market discovery)",
+				"Finnhub enrichment ingest failed (continuing with SEC filings ingest)",
 				{ action: "fetch_finnhub_enrichment" },
 				error,
 			);
@@ -172,9 +210,8 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			}
 		}
 
-		// Refresh all active matched prediction-market event/outcome snapshots so
-		// digests stay DB-read-only against fresh odds. Soft-fails keep last good.
-		// Unbounded event count; remaining-time abort is the only backstop.
+		// Best-effort PM work last: soft-fails + remaining-time abort are fine;
+		// digest odds can lag a day without missing delist/reconcile integrity.
 		if (stepFitsRemainingTime(context, logger, "pm_refresh", PM_REFRESH_MIN_REMAINING_MS)) {
 			try {
 				const refreshResult = await refreshActivePredictionMarketSnapshots({
@@ -225,8 +262,9 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			}
 		}
 
-		// All unchecked tracked symbols (pm_discovery_checked_at IS NULL). No symbol
-		// cap — remaining-time abort is the only backstop.
+		// Unchecked tracked symbols (pm_discovery_checked_at IS NULL). Remaining-time
+		// abort + checked_at stamps are the backstops; Polymarket search pages are
+		// capped so popular-ticker noise cannot monopolize the invoke.
 		if (stepFitsRemainingTime(context, logger, "pm_discovery", PM_DISCOVERY_MIN_REMAINING_MS)) {
 			try {
 				const pmResult = await runPredictionMarketDiscoveryDrip({
@@ -280,41 +318,6 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 						new Error("SQS enqueue failed"),
 					);
 				}
-			}
-		}
-
-		// Independent try/catch so sweep failures never invalidate the calendar-
-		// events job's success — the sweep runs again tomorrow. Ordered BEFORE
-		// universe reconcile: tracked confirms do not depend on reconcile, and a
-		// slow Massive list night must not starve user-facing delist work.
-		if (stepFitsRemainingTime(context, logger, "delisting_sweep", SWEEP_MIN_REMAINING_MS)) {
-			try {
-				const sendEmail = createEmailSender();
-				const sweepResult = await runDelistingSweep({
-					supabase,
-					logger,
-					sendEmail,
-				});
-				logger.info("Delisting sweep complete", {
-					action: "daily_delisting_sweep",
-					...sweepResult,
-				});
-			} catch (error) {
-				logger.error("Delisting sweep failed", { action: "daily_delisting_sweep" }, error);
-			}
-		}
-
-		// Nightly universe reconcile. Independent try/catch so a reconcile failure
-		// never invalidates the calendar-events job or the delisting sweep.
-		if (stepFitsRemainingTime(context, logger, "universe_reconcile", RECONCILE_MIN_REMAINING_MS)) {
-			try {
-				const reconcileResult = await runUniverseReconcile({ supabase, logger });
-				logger.info("Universe reconcile complete", {
-					action: "daily_universe_reconcile",
-					...reconcileResult,
-				});
-			} catch (error) {
-				logger.error("Universe reconcile failed", { action: "daily_universe_reconcile" }, error);
 			}
 		}
 	});

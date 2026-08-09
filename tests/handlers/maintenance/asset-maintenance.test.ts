@@ -186,7 +186,7 @@ describe("asset-maintenance Lambda orchestration", () => {
 		infoSpy.mockRestore();
 	});
 
-	it("On a Sunday tick the nightly delisting sweep runs before universe reconcile", async () => {
+	it("On a Sunday tick delisting + reconcile run before enrichment and PM steps", async () => {
 		vi.setSystemTime(SUNDAY_UTC);
 
 		await handler(event, makeContext(AMPLE_REMAINING_MS));
@@ -195,9 +195,16 @@ describe("asset-maintenance Lambda orchestration", () => {
 		expect(runUniverseReconcile).toHaveBeenCalledTimes(1);
 		const sweepOrder = vi.mocked(runDelistingSweep).mock.invocationCallOrder[0];
 		const reconcileOrder = vi.mocked(runUniverseReconcile).mock.invocationCallOrder[0];
+		const enrichmentOrder = vi.mocked(fetchAndStoreFinnhubEnrichment).mock.invocationCallOrder[0];
+		const pmRefreshOrder = vi.mocked(refreshActivePredictionMarketSnapshots).mock
+			.invocationCallOrder[0];
 		expect(sweepOrder).toBeDefined();
 		expect(reconcileOrder).toBeDefined();
+		expect(enrichmentOrder).toBeDefined();
+		expect(pmRefreshOrder).toBeDefined();
 		expect(sweepOrder as number).toBeLessThan(reconcileOrder as number);
+		expect(reconcileOrder as number).toBeLessThan(enrichmentOrder as number);
+		expect(enrichmentOrder as number).toBeLessThan(pmRefreshOrder as number);
 		expect(loggedMessages(infoSpy)).toContainEqual("Universe reconcile complete");
 		expect(refreshActivePredictionMarketSnapshots).toHaveBeenCalledTimes(1);
 		expect(runNextSessionDirectionProbe).toHaveBeenCalledTimes(1);

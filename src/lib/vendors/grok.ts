@@ -2,8 +2,16 @@ import { setTimeout as realDelay } from "node:timers/promises";
 import { readEnv } from "../db/env";
 import { rootLogger } from "../logging";
 import type { XaiAnnotation } from "./grok-citations";
+import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "./optional-vendors";
 
 const BASE_RETRY_DELAY_MS = 1_000;
+
+/**
+ * Process-local short-circuit after a non-retriable auth/credits failure.
+ * Nightly PM discovery can hit dozens of symbols; retrying 403 three times each
+ * burns Lambda wall-clock without recovering.
+ */
+let grokAuthExhaustedThisProcess = false;
 
 /**
  * Exponential backoff helper for Grok retries.
@@ -12,6 +20,15 @@ const BASE_RETRY_DELAY_MS = 1_000;
  * `vi.useFakeTimers()` has replaced the global `setTimeout`.
  */
 const delay = (attempt: number) => realDelay(BASE_RETRY_DELAY_MS * 2 ** (attempt - 1));
+
+/**
+ * Clear the process-local Grok auth short-circuit. Called from `runLambda` at
+ * the start of every invoke so a warm container does not skip Grok forever
+ * after one 401/403. Tests also call this between cases.
+ */
+export function resetGrokAuthExhausted(): void {
+	grokAuthExhaustedThisProcess = false;
+}
 
 export type GrokResponsesRequest = {
 	model: string;
@@ -71,6 +88,14 @@ export async function fetchGrokResponse(options: {
 		return null;
 	}
 
+	if (grokAuthExhaustedThisProcess) {
+		rootLogger.warn("Skipping Grok — auth/credits exhausted earlier this process", {
+			...options.logContext,
+			reason: "auth_exhausted_this_process",
+		});
+		return null;
+	}
+
 	const MAX_RETRIES = 3;
 
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -113,6 +138,15 @@ export async function fetchGrokResponse(options: {
 					statusText: response.statusText,
 					...(bodyPreview !== undefined ? { bodyPreview } : {}),
 				};
+				// 401/403 (bad key, credits, spending limit) never recover on retry.
+				if (response.status === 401 || response.status === 403) {
+					grokAuthExhaustedThisProcess = true;
+					rootLogger.warn("Grok auth/credits rejected — skipping further Grok calls", {
+						...failureContext,
+						category: OPTIONAL_VENDOR_DEGRADED_CATEGORY,
+					});
+					return null;
+				}
 				// 429 is an expected rejection even on exhaustion — rate
 				// limiting isn't pageable. Other final-attempt failures
 				// log at error so genuine outages surface; tag with

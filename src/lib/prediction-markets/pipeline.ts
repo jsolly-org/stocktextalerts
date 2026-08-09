@@ -144,7 +144,9 @@ export async function runPredictionMarketDiscoveryForSymbol(options: {
 
 /**
  * Nightly discovery: every tracked symbol with pm_discovery_checked_at IS NULL.
- * No artificial symbol cap — Lambda remaining-time is the only backstop.
+ * Remaining-time abort + Polymarket page caps bound wall-clock; successful
+ * (including empty) discoveries stamp checked_at so soft-fail loops cannot
+ * monopolize subsequent nights.
  */
 export async function runPredictionMarketDiscoveryDrip(options: {
 	supabase: SupabaseAdminClient;
