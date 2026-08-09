@@ -1,4 +1,5 @@
 import type { SupabaseAdminClient } from "../db/supabase";
+import { loadDistinctContentTrackedSymbols } from "../db/user-assets";
 import type { Logger } from "../logging";
 import { fetchDividends, fetchIpos, fetchSplits } from "./corporate-actions";
 import { fetchEarnings } from "./earnings";
@@ -11,8 +12,8 @@ const ALL_ASSET_EVENT_PROVIDERS: AssetEventProvider[] = ["earnings", "dividends"
 
 /**
  * Fetch earnings (Finnhub) plus dividends/splits/IPOs (Massive) for the given week,
- * filter calendar events to symbols tracked by any user, and upsert into the
- * `asset_events` table. IPOs go into `market_events` (no FK to `assets`).
+ * filter calendar events to content-tracked symbols (email/telegram holders), and
+ * upsert into the `asset_events` table. IPOs go into `market_events` (no FK to `assets`).
  *
  * Deduplication is handled by DB unique indexes via upsert, so this function
  * is safe to call repeatedly for the same week.
@@ -29,17 +30,16 @@ export async function fetchAndStoreAssetEvents(options: {
 	const requestedProviders = providers ?? ALL_ASSET_EVENT_PROVIDERS;
 	const shouldFetch = (provider: AssetEventProvider) => requestedProviders.includes(provider);
 
-	// Get distinct symbols tracked by any user
-	const { data: trackedSymbols, error: symbolsError } = await supabase
-		.from("user_assets")
-		.select("symbol");
-
-	if (symbolsError) {
+	// Content-tracked only (email/telegram) — exclude stock-buyer lambda watchlist.
+	let symbolSet: Set<string>;
+	try {
+		symbolSet = new Set(await loadDistinctContentTrackedSymbols({ supabase }));
+	} catch (symbolsError) {
 		logger.error("Failed to load tracked symbols", { action: "fetch_asset_events" }, symbolsError);
-		throw new Error(`Failed to load tracked symbols: ${symbolsError.message}`);
+		throw symbolsError instanceof Error
+			? symbolsError
+			: new Error(`Failed to load tracked symbols: ${String(symbolsError)}`);
 	}
-
-	const symbolSet = new Set((trackedSymbols ?? []).map((row) => row.symbol));
 	const hasTrackedSymbols = symbolSet.size > 0;
 
 	// Earnings (Finnhub) first — it can block ~80s on retry exhaustion. Massive

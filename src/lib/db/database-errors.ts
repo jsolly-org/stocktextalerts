@@ -15,7 +15,7 @@ Database Error Constants
 Database Limits
 ============= */
 
-export const MAX_TRACKED_ASSETS = 10;
+export const MAX_TRACKED_ASSETS = 50;
 
 /* =============
 Error Message Text

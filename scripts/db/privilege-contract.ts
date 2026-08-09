@@ -175,6 +175,7 @@ export const INTERNAL_FUNCTIONS: string[] = [
 	"is_approved()",
 	"is_valid_market_scheduled_asset_price_times(times integer[])",
 	"prevent_user_approval_self_change()",
+	"prevent_user_lambda_channel_self_change()",
 	"update_updated_at_column()",
 ];
 

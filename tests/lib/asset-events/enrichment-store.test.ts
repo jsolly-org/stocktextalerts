@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	fetchInsiderTransactions,
 	fetchRecommendationTrends,
@@ -8,11 +8,19 @@ import {
 	fetchAndStoreFinnhubEnrichment,
 	loadStoredFinnhubExtras,
 } from "../../../src/lib/asset-events/enrichment-store";
+import { loadDistinctContentTrackedSymbols } from "../../../src/lib/db/user-assets";
 
 vi.mock("../../../src/lib/asset-events/enrichment", () => ({
 	fetchRecommendationTrends: vi.fn(),
 	fetchInsiderTransactions: vi.fn(),
 }));
+vi.mock("../../../src/lib/db/user-assets", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../../../src/lib/db/user-assets")>();
+	return {
+		...actual,
+		loadDistinctContentTrackedSymbols: vi.fn(),
+	};
+});
 
 const logger = {
 	info: vi.fn(),
@@ -21,6 +29,10 @@ const logger = {
 };
 
 describe("fetchAndStoreFinnhubEnrichment", () => {
+	beforeEach(() => {
+		vi.mocked(loadDistinctContentTrackedSymbols).mockResolvedValue(["AAPL"]);
+	});
+
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
@@ -52,13 +64,6 @@ describe("fetchAndStoreFinnhubEnrichment", () => {
 
 		const supabase = {
 			from(table: string) {
-				if (table === "user_assets") {
-					return {
-						select() {
-							return Promise.resolve({ data: [{ symbol: "AAPL" }], error: null });
-						},
-					};
-				}
 				if (table === "asset_analyst_consensus") {
 					return {
 						upsert(row: Record<string, unknown>) {
@@ -125,13 +130,6 @@ describe("fetchAndStoreFinnhubEnrichment", () => {
 
 		const supabase = {
 			from(table: string) {
-				if (table === "user_assets") {
-					return {
-						select() {
-							return Promise.resolve({ data: [{ symbol: "AAPL" }], error: null });
-						},
-					};
-				}
 				if (table === "asset_analyst_consensus") {
 					return {
 						select() {
@@ -195,13 +193,6 @@ describe("fetchAndStoreFinnhubEnrichment", () => {
 
 		const supabase = {
 			from(table: string) {
-				if (table === "user_assets") {
-					return {
-						select() {
-							return Promise.resolve({ data: [{ symbol: "AAPL" }], error: null });
-						},
-					};
-				}
 				if (table === "asset_analyst_consensus") {
 					return {
 						select() {
@@ -252,13 +243,6 @@ describe("fetchAndStoreFinnhubEnrichment", () => {
 
 		const supabase = {
 			from(table: string) {
-				if (table === "user_assets") {
-					return {
-						select() {
-							return Promise.resolve({ data: [{ symbol: "AAPL" }], error: null });
-						},
-					};
-				}
 				if (table === "asset_insider_transactions") {
 					return {
 						delete() {

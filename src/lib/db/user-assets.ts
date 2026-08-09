@@ -1,5 +1,75 @@
+import { CONTENT_DELIVERY_CHANNELS } from "../messaging/delivery-channel";
 import type { UserAssetRow } from "../types";
 import type { AppSupabaseClient } from "./supabase";
+
+/** PostgREST page size for distinct tracked-symbol scans. */
+const TRACKED_SYMBOL_PAGE_SIZE = 1000;
+
+export type ContentTrackedAsset = {
+	symbol: string;
+	name: string;
+	pm_discovery_checked_at: string | null;
+};
+
+/**
+ * Distinct non-delisted symbols held by ≥1 email/telegram user.
+ *
+ * Excludes holdings that exist only on `lambda` (stock-buyer wakeup) or
+ * `disabled` accounts so content maintenance (PM discovery, Finnhub
+ * enrichment, SEC, short interest, calendar filter) does not scale with
+ * system watchlists. Flat-alert quote capture and delisting still use all
+ * `user_assets` rows.
+ */
+export async function loadDistinctContentTrackedAssets(options: {
+	supabase: AppSupabaseClient;
+}): Promise<ContentTrackedAsset[]> {
+	const { supabase } = options;
+	const seen = new Set<string>();
+	const out: ContentTrackedAsset[] = [];
+
+	for (let from = 0; ; from += TRACKED_SYMBOL_PAGE_SIZE) {
+		const { data, error } = await supabase
+			.from("user_assets")
+			.select(
+				"symbol, users!inner(delivery_channel), assets!inner(name, pm_discovery_checked_at, delisted_at)",
+			)
+			.in("users.delivery_channel", [...CONTENT_DELIVERY_CHANNELS])
+			.is("assets.delisted_at", null)
+			.order("symbol", { ascending: true })
+			.range(from, from + TRACKED_SYMBOL_PAGE_SIZE - 1);
+
+		if (error) throw error;
+
+		const rows = data ?? [];
+		for (const row of rows) {
+			if (seen.has(row.symbol)) continue;
+			const assets = row.assets as unknown as {
+				name: string;
+				pm_discovery_checked_at: string | null;
+				delisted_at: string | null;
+			};
+			// Belt-and-suspenders: `.is("assets.delisted_at", null)` should already filter.
+			if (!assets || assets.delisted_at !== null) continue;
+			seen.add(row.symbol);
+			out.push({
+				symbol: row.symbol,
+				name: assets.name,
+				pm_discovery_checked_at: assets.pm_discovery_checked_at,
+			});
+		}
+		if (rows.length < TRACKED_SYMBOL_PAGE_SIZE) break;
+	}
+
+	return out;
+}
+
+/** Symbol-only view of {@link loadDistinctContentTrackedAssets}. */
+export async function loadDistinctContentTrackedSymbols(options: {
+	supabase: AppSupabaseClient;
+}): Promise<string[]> {
+	const assets = await loadDistinctContentTrackedAssets(options);
+	return assets.map((a) => a.symbol);
+}
 
 /**
  * Load a user's tracked assets (symbol + asset name) from the database.

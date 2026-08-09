@@ -1180,7 +1180,7 @@ export type Database = {
     Enums: {
       asset_event_type: "earnings" | "dividend" | "split"
       asset_type: "stock" | "etf"
-      delivery_channel_mode: "email" | "telegram" | "disabled"
+      delivery_channel_mode: "email" | "telegram" | "disabled" | "lambda"
       delivery_method: "email" | "telegram"
       price_move_threshold_unit: "percent" | "dollar"
       scheduled_notification_status: "sending" | "sent" | "failed"
@@ -1314,7 +1314,7 @@ export const Constants = {
     Enums: {
       asset_event_type: ["earnings", "dividend", "split"],
       asset_type: ["stock", "etf"],
-      delivery_channel_mode: ["email", "telegram", "disabled"],
+      delivery_channel_mode: ["email", "telegram", "disabled", "lambda"],
       delivery_method: ["email", "telegram"],
       price_move_threshold_unit: ["percent", "dollar"],
       scheduled_notification_status: ["sending", "sent", "failed"],

@@ -3,6 +3,7 @@
  */
 import { DateTime } from "luxon";
 import type { SupabaseAdminClient } from "../db/supabase";
+import { loadDistinctContentTrackedSymbols } from "../db/user-assets";
 import type { Logger } from "../logging";
 import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "../vendors/optional-vendors";
 import {
@@ -54,20 +55,19 @@ export async function fetchAndStoreSecFilings(options: {
 	const { supabase, logger } = options;
 	const failures: string[] = [];
 
-	const { data: trackedRows, error: symbolsError } = await supabase
-		.from("user_assets")
-		.select("symbol");
-
-	if (symbolsError) {
+	let symbols: string[];
+	try {
+		symbols = await loadDistinctContentTrackedSymbols({ supabase });
+	} catch (symbolsError) {
 		logger.error(
 			"Failed to load tracked symbols for SEC filings",
 			{ action: "fetch_sec_filings" },
 			symbolsError,
 		);
-		throw new Error(`Failed to load tracked symbols: ${symbolsError.message}`);
+		throw symbolsError instanceof Error
+			? symbolsError
+			: new Error(`Failed to load tracked symbols: ${String(symbolsError)}`);
 	}
-
-	const symbols = [...new Set((trackedRows ?? []).map((row) => row.symbol))];
 	if (symbols.length === 0) {
 		return { cikUpdated: 0, filingsUpserted: 0, ciksPolled: 0, failures: [] };
 	}

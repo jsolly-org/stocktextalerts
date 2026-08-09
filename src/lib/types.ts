@@ -172,7 +172,7 @@ type GrokRumorsPreferences = {
 /** User fields required for notification delivery, scheduling, and formatting.
  *
  * Content toggles live in `notification_preferences` (carried as `prefs`).
- * Account routing is `users.delivery_channel` (email | telegram | disabled). */
+ * Account routing is `users.delivery_channel` (email | telegram | disabled | lambda). */
 export type UserRecord = Pick<
 	DbUserRow,
 	| "id"

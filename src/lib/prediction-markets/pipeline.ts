@@ -1,4 +1,5 @@
 import type { SupabaseAdminClient } from "../db/supabase";
+import { loadDistinctContentTrackedAssets } from "../db/user-assets";
 import type { Logger } from "../logging";
 import { enrichAliasesWithGrok, loadPersistedAliases, storePersistedAliases } from "./alias-enrich";
 import { buildAssetIdentity, buildDeterministicAliases, normalizeIdentityText } from "./aliases";
@@ -45,14 +46,11 @@ export async function runPredictionMarketDiscoveryForSymbol(options: {
 			enrichAliases &&
 			(!persisted || persisted.status === "pending" || persisted.status === "failed")
 		) {
-			const { data: tracked } = await supabase
-				.from("user_assets")
-				.select("symbol, assets!inner(name)");
+			const tracked = await loadDistinctContentTrackedAssets({ supabase });
 			const otherNorm = new Set<string>();
-			for (const row of tracked ?? []) {
+			for (const row of tracked) {
 				if (row.symbol === sym) continue;
-				const assetName = (row.assets as unknown as { name?: string } | null)?.name ?? "";
-				for (const a of buildDeterministicAliases(row.symbol, assetName)) {
+				for (const a of buildDeterministicAliases(row.symbol, row.name)) {
 					otherNorm.add(normalizeIdentityText(a));
 				}
 			}
@@ -144,7 +142,9 @@ export async function runPredictionMarketDiscoveryForSymbol(options: {
 
 /**
  * Nightly discovery: every tracked symbol with pm_discovery_checked_at IS NULL.
- * No artificial symbol cap — Lambda remaining-time is the only backstop.
+ * Remaining-time abort + Polymarket page caps bound wall-clock; successful
+ * (including empty) discoveries stamp checked_at so soft-fail loops cannot
+ * monopolize subsequent nights.
  */
 export async function runPredictionMarketDiscoveryDrip(options: {
 	supabase: SupabaseAdminClient;

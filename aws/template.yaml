@@ -41,6 +41,12 @@ Parameters:
     Type: String
     Default: /stocktextalerts/backup/connection-string
     Description: SSM SecureString param name holding the backup_readonly connection string
+  # Optional: empty disables STA→asset-buyer wakeups (code fail-opens). Production
+  # sets this from SSM `/asset-buyer/heartbeat-arn` via sam-params / deploy override.
+  AssetBuyerHeartbeatArn:
+    Type: String
+    Default: ""
+    Description: ARN of asset-buyer heartbeat Lambda for flat-alert wakeups (optional)
 
 Globals:
   Function:
@@ -111,18 +117,28 @@ Resources:
               Action:
                 - sqs:SendMessage
               Resource: !GetAtt PriceMoveWhyQueue.Arn
+            # Async-invoke asset-buyer heartbeat for lambda-channel flat alerts.
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource:
+                - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:asset-buyer-heartbeat"
+                - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:asset-buyer-heartbeat:*"
             # Read this app's runtime secrets (SSM SecureString). One namespace
             # wildcard rather than 11 per-secret ARNs — same-app boundary. No
             # kms:Decrypt grant needed for the AWS-managed alias/aws/ssm key.
             - Effect: Allow
               Action: ssm:GetParameter
-              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*"
+              Resource:
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*"
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/asset-buyer/heartbeat-arn"
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
           EMAIL_FROM: !Ref EmailFrom
           VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
           PRICE_MOVE_WHY_QUEUE_URL: !Ref PriceMoveWhyQueue
+          ASSET_BUYER_HEARTBEAT_ARN: !Ref AssetBuyerHeartbeatArn
           MASSIVE_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/massive-api-key"
           XAI_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/xai-api-key"
           TELEGRAM_BOT_TOKEN_SSM_PARAM: !Sub "${SsmPrefix}/telegram-bot-token"
@@ -155,9 +171,9 @@ Resources:
       FunctionName: stocktextalerts-asset-maintenance
       Handler: asset-maintenance.handler
       CodeUri: src/handlers
-      # 600s: measured ~258–270s after dropping watermark-driven icon fanout
-      # (2026-08-01 manual invokes). Headroom covers Polymarket discovery slowdowns
-      # and vendor jitter; remaining-time guards still skip steps that can't fit.
+      # 600s: integrity (delist+reconcile) first; content-tracked symbols exclude
+      # lambda/stock-buyer; Polymarket pages capped; remaining-time guards skip
+      # best-effort steps. Do not raise timeout to "fix" O(n) vendor walks.
       Timeout: 600
       MemorySize: 512
       LoggingConfig:
@@ -279,7 +295,8 @@ Resources:
       FunctionName: stocktextalerts-compute-daily-stats
       Handler: compute-daily-stats.handler
       CodeUri: src/handlers
-      Timeout: 600
+      # Measured max ~6s over 7d; 120s leaves headroom for tracked-universe growth.
+      Timeout: 120
       MemorySize: 256
       LoggingConfig:
         LogGroup: !Ref ComputeDailyStatsLogGroup
@@ -356,6 +373,8 @@ Resources:
       FunctionName: stocktextalerts-price-move-why
       Handler: price-move-why.handler
       CodeUri: src/handlers
+      # Keep 300s: Grok why worst-case (~138s timeouts+backoff) + chart render.
+      # Measured steady-state max ~12s; do not cut below Grok headroom.
       Timeout: 300
       MemorySize: 512
       LoggingConfig:
@@ -371,13 +390,22 @@ Resources:
                 - ses:SendRawEmail
               Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${SesIdentityDomain}"
             - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource:
+                - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:asset-buyer-heartbeat"
+                - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:asset-buyer-heartbeat:*"
+            - Effect: Allow
               Action: ssm:GetParameter
-              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*"
+              Resource:
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*"
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/asset-buyer/heartbeat-arn"
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
           EMAIL_FROM: !Ref EmailFrom
           PRICE_MOVE_WHY_QUEUE_URL: !Ref PriceMoveWhyQueue
+          ASSET_BUYER_HEARTBEAT_ARN: !Ref AssetBuyerHeartbeatArn
           MASSIVE_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/massive-api-key"
           XAI_API_KEY_SSM_PARAM: !Sub "${SsmPrefix}/xai-api-key"
           TELEGRAM_BOT_TOKEN_SSM_PARAM: !Sub "${SsmPrefix}/telegram-bot-token"
@@ -408,6 +436,7 @@ Resources:
       FunctionName: stocktextalerts-vendor-backfill
       Handler: vendor-backfill.handler
       CodeUri: src/handlers
+      # Keep 600s: 14d max ~425s on large daily-closes / warmup batches.
       Timeout: 600
       MemorySize: 512
       LoggingConfig:
@@ -709,7 +738,8 @@ Resources:
       FunctionName: stocktextalerts-backup-user-settings
       Handler: backup-user-settings.handler
       CodeUri: src/handlers
-      Timeout: 120
+      # Measured max ~2s; dump is small at current user count.
+      Timeout: 30
       MemorySize: 256
       LoggingConfig:
         LogGroup: !Ref BackupUserSettingsLogGroup

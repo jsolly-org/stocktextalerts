@@ -17,8 +17,9 @@ export interface FlatPriceAlertUser {
 }
 
 /**
- * Fetch users whose account delivery_channel is email or telegram.
- * The `price_move_alerts` content toggle is enforced in `deliverFlatPriceAlert`.
+ * Fetch users whose account delivery_channel is email, telegram, or lambda.
+ * The `price_move_alerts` content toggle is enforced in `deliverFlatPriceAlert`
+ * (and the lambda wakeup path in process/why-job).
  */
 export async function fetchFlatPriceAlertUsers(
 	supabase: SupabaseAdminClient,
@@ -28,7 +29,7 @@ export async function fetchFlatPriceAlertUsers(
 		.select(
 			"id, email, delivery_channel, use_24_hour_time, telegram_chat_id, price_move_why_window_start, price_move_why_sends_in_window",
 		)
-		.in("delivery_channel", ["email", "telegram"]);
+		.in("delivery_channel", ["email", "telegram", "lambda"]);
 
 	if (error) {
 		rootLogger.error(

@@ -78,6 +78,11 @@ vi.mock("../../../../src/lib/market-notifications/flat-alerts/why-queue", async 
 	};
 });
 
+const wakeupAssetBuyerFromFlatAlert = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("../../../../src/lib/market-notifications/flat-alerts/asset-buyer-wakeup", () => ({
+	wakeupAssetBuyerFromFlatAlert,
+}));
+
 vi.mock("../../../../src/lib/market-notifications/flat-alerts/why", () => ({
 	generatePriceMoveWhyWithGrok: vi.fn(async () => null),
 }));
@@ -174,6 +179,7 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	mockEmailSender.mockResolvedValue({ success: true });
 	enqueuePriceMoveWhy.mockResolvedValue(false);
+	wakeupAssetBuyerFromFlatAlert.mockResolvedValue(true);
 });
 
 describe("processFlatPriceAlerts", () => {
@@ -181,12 +187,145 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap: new Map(),
-			isMarketOpen: false,
+			marketSession: "closed",
 		});
 
 		expect(totals.usersChecked).toBe(0);
 		expect(totals.alertsTriggered).toBe(0);
 		expect(mockEmailSender).not.toHaveBeenCalled();
+	});
+
+	it("lambda delivery_channel wakes asset-buyer without email/why enqueue", async () => {
+		const testUser = await createTestUser({
+			trackedAssets: ["AAPL"],
+			timezone: "America/New_York",
+			deliveryChannel: "lambda",
+		});
+		registerTestUserForCleanup(testUser.id);
+		await enableFlatAlerts(testUser.id);
+		// enableFlatAlerts sets delivery_channel=email — restore lambda.
+		const { error: channelError } = await adminClient
+			.from("users")
+			.update({ delivery_channel: "lambda" })
+			.eq("id", testUser.id);
+		if (channelError) throw new Error(channelError.message);
+
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			marketSession: "regular",
+		});
+
+		expect(totals.alertsTriggered).toBe(1);
+		expect(totals.lambdaWakeups).toBe(1);
+		expect(totals.whyEnqueued).toBe(0);
+		expect(totals.whyInline).toBe(0);
+		expect(totals.emailsSent).toBe(0);
+		expect(mockEmailSender).not.toHaveBeenCalled();
+		expect(enqueuePriceMoveWhy).not.toHaveBeenCalled();
+		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledOnce();
+		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledWith({
+			symbol: "AAPL",
+			triggerPercent: expect.any(Number),
+			isAcceleration: false,
+		});
+		const wakeupCall = wakeupAssetBuyerFromFlatAlert.mock.calls[0] as unknown as
+			| [{ triggerPercent: number }]
+			| undefined;
+		expect(wakeupCall).toBeDefined();
+		if (wakeupCall === undefined) {
+			throw new Error("expected asset-buyer wakeup args");
+		}
+		expect(wakeupCall[0].triggerPercent).toBeGreaterThanOrEqual(5);
+		expect(await getNotificationLogCount(testUser.id)).toBe(0);
+
+		const state = await getStateRow(testUser.id, "AAPL");
+		expect(state?.pending_delivery).toBe(false);
+		expect(Number(state?.last_notification_price)).toBeCloseTo(195.86, 2);
+	});
+
+	it("email delivery_channel does not ping asset-buyer", async () => {
+		const testUser = await createTestUser({
+			trackedAssets: ["AAPL"],
+			timezone: "America/New_York",
+			deliveryChannel: "email",
+		});
+		registerTestUserForCleanup(testUser.id);
+		await enableFlatAlerts(testUser.id);
+
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			marketSession: "regular",
+		});
+
+		expect(totals.alertsTriggered).toBe(1);
+		expect(totals.lambdaWakeups).toBe(0);
+		expect(wakeupAssetBuyerFromFlatAlert).not.toHaveBeenCalled();
+		expect(enqueuePriceMoveWhy).toHaveBeenCalled();
+	});
+
+	it("lambda wakes during pre-market; email stays RTH-only", async () => {
+		const lambdaUser = await createTestUser({
+			trackedAssets: ["AAPL"],
+			timezone: "America/New_York",
+			deliveryChannel: "lambda",
+		});
+		registerTestUserForCleanup(lambdaUser.id);
+		await enableFlatAlerts(lambdaUser.id);
+		const { error: lambdaChannelError } = await adminClient
+			.from("users")
+			.update({ delivery_channel: "lambda" })
+			.eq("id", lambdaUser.id);
+		if (lambdaChannelError) throw new Error(lambdaChannelError.message);
+
+		const emailUser = await createTestUser({
+			trackedAssets: ["AAPL"],
+			timezone: "America/New_York",
+			deliveryChannel: "email",
+		});
+		registerTestUserForCleanup(emailUser.id);
+		await enableFlatAlerts(emailUser.id);
+
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			marketSession: "pre",
+		});
+
+		expect(totals.usersChecked).toBe(1);
+		expect(totals.alertsTriggered).toBe(1);
+		expect(totals.lambdaWakeups).toBe(1);
+		expect(enqueuePriceMoveWhy).not.toHaveBeenCalled();
+		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledOnce();
+	});
+
+	it("lambda wakes during after-hours session", async () => {
+		const lambdaUser = await createTestUser({
+			trackedAssets: ["AAPL"],
+			timezone: "America/New_York",
+			deliveryChannel: "lambda",
+		});
+		registerTestUserForCleanup(lambdaUser.id);
+		await enableFlatAlerts(lambdaUser.id);
+		const { error: channelError } = await adminClient
+			.from("users")
+			.update({ delivery_channel: "lambda" })
+			.eq("id", lambdaUser.id);
+		if (channelError) throw new Error(channelError.message);
+
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			marketSession: "after",
+		});
+
+		expect(totals.lambdaWakeups).toBe(1);
+		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledOnce();
 	});
 
 	it("User in Pacific timezone receives first alert on AAPL overnight gap", async () => {
@@ -203,7 +342,7 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			marketSession: "regular",
 		});
 
 		expect(totals.alertsTriggered).toBe(1);
@@ -235,7 +374,7 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			marketSession: "regular",
 		});
 
 		expect(totals.alertsTriggered).toBe(1);
@@ -260,7 +399,7 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			marketSession: "regular",
 		});
 
 		expect(totals.alertsTriggered).toBe(0);
@@ -298,7 +437,7 @@ describe("processFlatPriceAlerts", () => {
 			const totals = await processFlatPriceAlerts({
 				supabase: adminClient,
 				quoteMap,
-				isMarketOpen: true,
+				marketSession: "regular",
 			});
 
 			expect(totals.alertsTriggered).toBe(1);
@@ -338,7 +477,7 @@ describe("processFlatPriceAlerts", () => {
 			const totals = await processFlatPriceAlerts({
 				supabase: adminClient,
 				quoteMap,
-				isMarketOpen: true,
+				marketSession: "regular",
 			});
 
 			expect(totals.alertsTriggered).toBe(1);
@@ -378,7 +517,7 @@ describe("processFlatPriceAlerts", () => {
 			const totals = await processFlatPriceAlerts({
 				supabase: adminClient,
 				quoteMap,
-				isMarketOpen: true,
+				marketSession: "regular",
 			});
 
 			expect(totals.alertsTriggered).toBe(0);
@@ -417,7 +556,7 @@ describe("processFlatPriceAlerts", () => {
 			const totals = await processFlatPriceAlerts({
 				supabase: adminClient,
 				quoteMap,
-				isMarketOpen: true,
+				marketSession: "regular",
 			});
 
 			expect(totals.alertsTriggered).toBe(1);
@@ -444,7 +583,7 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			marketSession: "regular",
 		});
 
 		// The candidate query is now channel-level (other channel-enabled users may be
@@ -477,7 +616,7 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			marketSession: "regular",
 		});
 
 		expect(totals.alertsTriggered).toBe(1);
@@ -507,7 +646,7 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			marketSession: "regular",
 		});
 
 		expect(totals.alertsTriggered).toBe(1);
@@ -550,7 +689,7 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			marketSession: "regular",
 		});
 
 		expect(totals.alertsTriggered).toBe(1);
@@ -574,7 +713,7 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			marketSession: "regular",
 		});
 
 		expect(totals.alertsTriggered).toBe(0);
@@ -597,7 +736,7 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			marketSession: "regular",
 		});
 
 		// The alert still fires and the email still sends — just without the
@@ -647,7 +786,7 @@ describe("processFlatPriceAlerts", () => {
 			await processFlatPriceAlerts({
 				supabase: failingSupabase as typeof adminClient,
 				quoteMap,
-				isMarketOpen: true,
+				marketSession: "regular",
 			});
 		} catch (_err) {
 			threw = true;
@@ -692,7 +831,7 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: failingSupabase as typeof adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			marketSession: "regular",
 		});
 
 		expect(totals.claimLost).toBe(1);
@@ -717,7 +856,7 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			marketSession: "regular",
 		});
 
 		expect(totals.alertsTriggered).toBe(1);
@@ -739,7 +878,7 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			marketSession: "regular",
 		});
 
 		expect(totals.alertsTriggered).toBe(0);
@@ -763,7 +902,7 @@ describe("processFlatPriceAlerts", () => {
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
 			quoteMap,
-			isMarketOpen: true,
+			marketSession: "regular",
 		});
 
 		expect(totals.alertsTriggered).toBe(0);

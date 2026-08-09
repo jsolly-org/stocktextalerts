@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	fetchDividends,
 	fetchIpos,
@@ -6,6 +6,7 @@ import {
 } from "../../../src/lib/asset-events/corporate-actions";
 import { fetchEarnings } from "../../../src/lib/asset-events/earnings";
 import { fetchAndStoreAssetEvents } from "../../../src/lib/asset-events/fetch";
+import { loadDistinctContentTrackedSymbols } from "../../../src/lib/db/user-assets";
 
 vi.mock("../../../src/lib/asset-events/corporate-actions", () => ({
 	fetchDividends: vi.fn(),
@@ -15,6 +16,13 @@ vi.mock("../../../src/lib/asset-events/corporate-actions", () => ({
 vi.mock("../../../src/lib/asset-events/earnings", () => ({
 	fetchEarnings: vi.fn(),
 }));
+vi.mock("../../../src/lib/db/user-assets", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../../../src/lib/db/user-assets")>();
+	return {
+		...actual,
+		loadDistinctContentTrackedSymbols: vi.fn(),
+	};
+});
 
 type AssetEventRow = {
 	symbol: string;
@@ -32,7 +40,7 @@ type MarketEventRow = {
 	data: Record<string, unknown>;
 };
 
-function createSupabaseStub(trackedSymbols: string[]) {
+function createSupabaseStub() {
 	const state: { upsertRows: AssetEventRow[]; marketRows: MarketEventRow[] } = {
 		upsertRows: [],
 		marketRows: [],
@@ -40,17 +48,6 @@ function createSupabaseStub(trackedSymbols: string[]) {
 
 	const supabase = {
 		from(table: string) {
-			if (table === "user_assets") {
-				return {
-					select() {
-						return Promise.resolve({
-							data: trackedSymbols.map((symbol) => ({ symbol })),
-							error: null,
-						});
-					},
-				};
-			}
-
 			if (table === "asset_events") {
 				return {
 					upsert(rows: AssetEventRow[]) {
@@ -97,12 +94,16 @@ const logger = {
 };
 
 describe("fetchAndStoreAssetEvents", () => {
+	beforeEach(() => {
+		vi.mocked(loadDistinctContentTrackedSymbols).mockResolvedValue(["AAPL"]);
+	});
+
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
 
 	it("fetches Finnhub earnings before Massive calendar routes", async () => {
-		const { supabase } = createSupabaseStub(["AAPL"]);
+		const { supabase } = createSupabaseStub();
 		const callOrder: string[] = [];
 
 		vi.mocked(fetchEarnings).mockImplementation(async () => {
@@ -134,7 +135,8 @@ describe("fetchAndStoreAssetEvents", () => {
 	});
 
 	it("stores IPO events in market_events even when no symbols are tracked", async () => {
-		const { supabase, state } = createSupabaseStub([]);
+		vi.mocked(loadDistinctContentTrackedSymbols).mockResolvedValue([]);
+		const { supabase, state } = createSupabaseStub();
 
 		vi.mocked(fetchEarnings).mockResolvedValue({ data: [], failed: false });
 		vi.mocked(fetchDividends).mockResolvedValue({ data: [], failed: false });
@@ -169,7 +171,7 @@ describe("fetchAndStoreAssetEvents", () => {
 	});
 
 	it("puts calendar events in asset_events and IPOs in market_events", async () => {
-		const { supabase, state } = createSupabaseStub(["AAPL"]);
+		const { supabase, state } = createSupabaseStub();
 
 		vi.mocked(fetchEarnings).mockResolvedValue({
 			data: [
@@ -245,7 +247,7 @@ describe("fetchAndStoreAssetEvents", () => {
 	});
 
 	it("succeeds on repeated calls (upsert idempotency)", async () => {
-		const { supabase } = createSupabaseStub(["AAPL"]);
+		const { supabase } = createSupabaseStub();
 
 		vi.mocked(fetchEarnings).mockResolvedValue({
 			data: [
@@ -278,7 +280,7 @@ describe("fetchAndStoreAssetEvents", () => {
 	});
 
 	it("reports single provider failure while storing other data", async () => {
-		const { supabase, state } = createSupabaseStub(["AAPL"]);
+		const { supabase, state } = createSupabaseStub();
 
 		vi.mocked(fetchEarnings).mockResolvedValue({ data: [], failed: true });
 		vi.mocked(fetchDividends).mockResolvedValue({
@@ -318,7 +320,7 @@ describe("fetchAndStoreAssetEvents", () => {
 	});
 
 	it("reports all providers failed with 0 upserted", async () => {
-		const { supabase } = createSupabaseStub(["AAPL"]);
+		const { supabase } = createSupabaseStub();
 
 		vi.mocked(fetchEarnings).mockResolvedValue({ data: [], failed: true });
 		vi.mocked(fetchDividends).mockResolvedValue({ data: [], failed: true });
@@ -348,7 +350,7 @@ describe("fetchAndStoreAssetEvents", () => {
 	});
 
 	it("returns empty failedProviders and does not warn when all succeed", async () => {
-		const { supabase } = createSupabaseStub(["AAPL"]);
+		const { supabase } = createSupabaseStub();
 
 		vi.mocked(fetchEarnings).mockResolvedValue({
 			data: [
@@ -378,7 +380,7 @@ describe("fetchAndStoreAssetEvents", () => {
 	});
 
 	it("retries only requested providers when providers filter is set", async () => {
-		const { supabase } = createSupabaseStub(["AAPL"]);
+		const { supabase } = createSupabaseStub();
 
 		vi.mocked(fetchEarnings).mockResolvedValue({ data: [], failed: true });
 		vi.mocked(fetchDividends).mockResolvedValue({ data: [], failed: false });

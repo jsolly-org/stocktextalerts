@@ -14,27 +14,27 @@ export const RECONCILE_MIN_REMAINING_MS = 180_000;
 export const SWEEP_MIN_REMAINING_MS = 60_000;
 
 /**
- * Prediction-market discovery: all unchecked tracked symbols (Poly + Kalshi +
- * optional Grok). Soft-fail vendors; wall-clock headroom for the step gate +
- * in-loop remaining-time abort.
+ * Prediction-market steps run last (after delisting + reconcile). Entry gates
+ * only need enough headroom for the in-loop abort floor (~120s) plus a little
+ * useful work — they no longer reserve time for later integrity steps.
  */
-export const PM_DISCOVERY_MIN_REMAINING_MS = 240_000;
+export const PM_DISCOVERY_MIN_REMAINING_MS = 150_000;
+
+/** Active matched-event snapshot refresh (Poly/Kalshi); in-loop abort at ~120s. */
+export const PM_REFRESH_MIN_REMAINING_MS = 150_000;
+
+/** Next-session Polymarket daily up/down probe for every tracked symbol. */
+export const PM_DIRECTION_PROBE_MIN_REMAINING_MS = 150_000;
 
 /**
- * Prediction-market snapshot refresh: all active matched events. Soft-fails per
- * event; needs headroom for Poly/Kalshi rate limits + in-loop abort.
+ * Finnhub analyst + insider enrichment over content-tracked symbols (serial,
+ * ~2 calls/symbol at 55/min). Soft-fail; gated so it cannot starve SEC/short/PM.
  */
-export const PM_REFRESH_MIN_REMAINING_MS = 300_000;
-
-/**
- * Next-session Polymarket daily up/down probe for every tracked symbol.
- * Additive upserts; soft-fail missing slugs.
- */
-export const PM_DIRECTION_PROBE_MIN_REMAINING_MS = 180_000;
+export const ENRICHMENT_MIN_REMAINING_MS = 120_000;
 
 /**
  * SEC EDGAR filings ingest: company tickers map + one submissions poll per
- * distinct tracked CIK (polite delay). Soft-fail vendor; remaining-time gate.
+ * distinct content-tracked CIK (polite delay). Soft-fail vendor; remaining-time gate.
  */
 export const SEC_FILINGS_MIN_REMAINING_MS = 120_000;
 

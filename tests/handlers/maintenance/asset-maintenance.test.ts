@@ -50,6 +50,7 @@ vi.mock("../../../src/lib/prediction-markets/direction-probe", () => ({
 
 import { handler } from "../../../src/handlers/maintenance/asset-maintenance";
 import {
+	ENRICHMENT_MIN_REMAINING_MS,
 	PM_DIRECTION_PROBE_MIN_REMAINING_MS,
 	PM_DISCOVERY_MIN_REMAINING_MS,
 	PM_REFRESH_MIN_REMAINING_MS,
@@ -75,8 +76,8 @@ import { enqueueAssetEventsIngestRetry } from "../../../src/lib/vendors/backfill
 const SUNDAY_UTC = new Date("2026-07-05T00:00:30Z");
 const WEDNESDAY_UTC = new Date("2026-07-08T00:00:30Z");
 
-/** Comfortably above every per-step budget (the Lambda's full 900s timeout). */
-const AMPLE_REMAINING_MS = 900_000;
+/** Comfortably above every per-step budget (the Lambda's full 600s timeout). */
+const AMPLE_REMAINING_MS = 600_000;
 /** Clearly below every per-step budget. */
 const STARVED_REMAINING_MS =
 	Math.min(
@@ -85,6 +86,7 @@ const STARVED_REMAINING_MS =
 		PM_DISCOVERY_MIN_REMAINING_MS,
 		PM_REFRESH_MIN_REMAINING_MS,
 		PM_DIRECTION_PROBE_MIN_REMAINING_MS,
+		ENRICHMENT_MIN_REMAINING_MS,
 		SEC_FILINGS_MIN_REMAINING_MS,
 		SHORT_INTEREST_MIN_REMAINING_MS,
 	) - 60_000;
@@ -186,7 +188,7 @@ describe("asset-maintenance Lambda orchestration", () => {
 		infoSpy.mockRestore();
 	});
 
-	it("On a Sunday tick the nightly delisting sweep runs before universe reconcile", async () => {
+	it("On a Sunday tick delisting + reconcile run before enrichment and PM steps", async () => {
 		vi.setSystemTime(SUNDAY_UTC);
 
 		await handler(event, makeContext(AMPLE_REMAINING_MS));
@@ -195,9 +197,16 @@ describe("asset-maintenance Lambda orchestration", () => {
 		expect(runUniverseReconcile).toHaveBeenCalledTimes(1);
 		const sweepOrder = vi.mocked(runDelistingSweep).mock.invocationCallOrder[0];
 		const reconcileOrder = vi.mocked(runUniverseReconcile).mock.invocationCallOrder[0];
+		const enrichmentOrder = vi.mocked(fetchAndStoreFinnhubEnrichment).mock.invocationCallOrder[0];
+		const pmRefreshOrder = vi.mocked(refreshActivePredictionMarketSnapshots).mock
+			.invocationCallOrder[0];
 		expect(sweepOrder).toBeDefined();
 		expect(reconcileOrder).toBeDefined();
+		expect(enrichmentOrder).toBeDefined();
+		expect(pmRefreshOrder).toBeDefined();
 		expect(sweepOrder as number).toBeLessThan(reconcileOrder as number);
+		expect(reconcileOrder as number).toBeLessThan(enrichmentOrder as number);
+		expect(enrichmentOrder as number).toBeLessThan(pmRefreshOrder as number);
 		expect(loggedMessages(infoSpy)).toContainEqual("Universe reconcile complete");
 		expect(refreshActivePredictionMarketSnapshots).toHaveBeenCalledTimes(1);
 		expect(runNextSessionDirectionProbe).toHaveBeenCalledTimes(1);
@@ -217,9 +226,10 @@ describe("asset-maintenance Lambda orchestration", () => {
 		expect(runDelistingSweep).toHaveBeenCalledTimes(1);
 	});
 
-	it("A starved invocation (remaining time below every step budget) skips reconcile, SEC filings, short interest, pm refresh, pm discovery, and sweep with pageable error logs", async () => {
+	it("A starved invocation (remaining time below every step budget) skips reconcile, enrichment, SEC, short interest, pm steps, and sweep with pageable error logs", async () => {
 		vi.setSystemTime(SUNDAY_UTC);
 		expectConsoleError(/Skipping universe_reconcile/);
+		expectConsoleError(/Skipping finnhub_enrichment/);
 		expectConsoleError(/Skipping sec_filings/);
 		expectConsoleError(/Skipping short_interest/);
 		expectConsoleError(/Skipping pm_refresh/);
@@ -231,6 +241,7 @@ describe("asset-maintenance Lambda orchestration", () => {
 
 		// The unguarded calendar ingest still ran; every budget-guarded step did not.
 		expect(fetchAndStoreAssetEvents).toHaveBeenCalledTimes(2);
+		expect(fetchAndStoreFinnhubEnrichment).not.toHaveBeenCalled();
 		expect(fetchAndStoreSecFilings).not.toHaveBeenCalled();
 		expect(fetchAndStoreShortInterest).not.toHaveBeenCalled();
 		expect(runUniverseReconcile).not.toHaveBeenCalled();
@@ -240,6 +251,7 @@ describe("asset-maintenance Lambda orchestration", () => {
 		expect(runDelistingSweep).not.toHaveBeenCalled();
 		// The skip is not silent: each guarded step left an ERROR log (ErrorLogAlarm pages).
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping universe_reconcile"));
+		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping finnhub_enrichment"));
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping sec_filings"));
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping short_interest"));
 		expect(errorMessages()).toContainEqual(expect.stringContaining("Skipping pm_refresh"));
