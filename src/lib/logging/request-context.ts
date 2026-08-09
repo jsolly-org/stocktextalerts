@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { Context } from "aws-lambda";
 import { loadSecretsIntoEnv, STOCKTEXTALERTS_SECRET_NAMES } from "../secrets";
+import { resetGrokAuthExhausted } from "../vendors/grok";
 import { bindAmbientRequestId } from "./index";
 
 const requestStore = new AsyncLocalStorage<{ requestId: string }>();
@@ -30,5 +31,8 @@ export function runWithRequestContext<T>(requestId: string, fn: () => T): T {
  */
 export async function runLambda<T>(context: Context, fn: () => Promise<T>): Promise<T> {
 	await loadSecretsIntoEnv(STOCKTEXTALERTS_SECRET_NAMES);
+	// Warm containers reuse the module graph; clear per-invoke vendor short-circuits
+	// that must not stick after secrets are re-hydrated for this request.
+	resetGrokAuthExhausted();
 	return runWithRequestContext(context.awsRequestId, fn);
 }

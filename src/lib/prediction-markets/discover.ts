@@ -200,10 +200,13 @@ async function discoverPolymarket(
 	const seen = new Set<string>();
 	let softFailed = false;
 
-	// public-search supports `page` + `limit_per_type` (no documented hard max on
-	// limit_per_type). Page until a short/empty page — same spirit as Kalshi cursors.
+	// public-search supports `page` + `limit_per_type`. Cap pages tightly: popular
+	// tickers ("ACN up or down", "AMD up or down") return thousands of unrelated
+	// daily markets, and walking them at 60/min monopolizes the nightly Lambda.
+	// Truncation is NOT a soft-fail — identity matches that matter rank in early
+	// pages; soft-failing the ceiling previously left checked_at NULL forever.
 	const LIMIT_PER_TYPE = 50;
-	const MAX_SEARCH_PAGES = 100;
+	const MAX_SEARCH_PAGES = 5;
 
 	for (const q of polymarketSearchQueries(identity)) {
 		for (let page = 1; page <= MAX_SEARCH_PAGES; page++) {
@@ -305,8 +308,7 @@ async function discoverPolymarket(
 
 			if (pageEvents.length < LIMIT_PER_TYPE) break;
 			if (page === MAX_SEARCH_PAGES) {
-				softFailed = true;
-				logger.warn("Polymarket public-search hit page ceiling", {
+				logger.warn("Polymarket public-search hit page ceiling (continuing)", {
 					symbol: identity.symbol,
 					q,
 					pages: MAX_SEARCH_PAGES,
