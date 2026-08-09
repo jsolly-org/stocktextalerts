@@ -171,9 +171,9 @@ Resources:
       FunctionName: stocktextalerts-asset-maintenance
       Handler: asset-maintenance.handler
       CodeUri: src/handlers
-      # 600s: integrity steps (delist + reconcile) run before O(n) Finnhub /
-      # Polymarket work. Discovery pages are capped; remaining-time guards skip
-      # best-effort steps that can't fit. Do not raise timeout to "fix" O(n).
+      # 600s: integrity (delist+reconcile) first; content-tracked symbols exclude
+      # lambda/stock-buyer; Polymarket pages capped; remaining-time guards skip
+      # best-effort steps. Do not raise timeout to "fix" O(n) vendor walks.
       Timeout: 600
       MemorySize: 512
       LoggingConfig:
@@ -295,7 +295,8 @@ Resources:
       FunctionName: stocktextalerts-compute-daily-stats
       Handler: compute-daily-stats.handler
       CodeUri: src/handlers
-      Timeout: 600
+      # Measured max ~6s over 7d; 120s leaves headroom for tracked-universe growth.
+      Timeout: 120
       MemorySize: 256
       LoggingConfig:
         LogGroup: !Ref ComputeDailyStatsLogGroup
@@ -372,6 +373,8 @@ Resources:
       FunctionName: stocktextalerts-price-move-why
       Handler: price-move-why.handler
       CodeUri: src/handlers
+      # Keep 300s: Grok why worst-case (~138s timeouts+backoff) + chart render.
+      # Measured steady-state max ~12s; do not cut below Grok headroom.
       Timeout: 300
       MemorySize: 512
       LoggingConfig:
@@ -433,6 +436,7 @@ Resources:
       FunctionName: stocktextalerts-vendor-backfill
       Handler: vendor-backfill.handler
       CodeUri: src/handlers
+      # Keep 600s: 14d max ~425s on large daily-closes / warmup batches.
       Timeout: 600
       MemorySize: 512
       LoggingConfig:
@@ -734,7 +738,8 @@ Resources:
       FunctionName: stocktextalerts-backup-user-settings
       Handler: backup-user-settings.handler
       CodeUri: src/handlers
-      Timeout: 120
+      # Measured max ~2s; dump is small at current user count.
+      Timeout: 30
       MemorySize: 256
       LoggingConfig:
         LogGroup: !Ref BackupUserSettingsLogGroup

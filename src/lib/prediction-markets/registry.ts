@@ -1,4 +1,5 @@
 import type { SupabaseAdminClient } from "../db/supabase";
+import { loadDistinctContentTrackedAssets } from "../db/user-assets";
 import type { Logger } from "../logging";
 import type {
 	DiscoveredPredictionEvent,
@@ -359,65 +360,21 @@ export async function loadAcceptedMatchesForSymbols(options: {
 export async function loadUncheckedTrackedSymbols(options: {
 	supabase: SupabaseAdminClient;
 }): Promise<Array<{ symbol: string; name: string }>> {
-	const { supabase } = options;
-
-	// Paginate past PostgREST's ~1000-row cap so every tracked symbol is considered.
-	const seen = new Set<string>();
-	const out: Array<{ symbol: string; name: string }> = [];
-	const PAGE_SIZE = 1000;
-	for (let from = 0; ; from += PAGE_SIZE) {
-		const { data: tracked, error: trackedError } = await supabase
-			.from("user_assets")
-			.select("symbol, assets!inner(name, pm_discovery_checked_at, delisted_at)")
-			.order("symbol", { ascending: true })
-			.range(from, from + PAGE_SIZE - 1);
-		if (trackedError) throw trackedError;
-		const rows = tracked ?? [];
-		for (const row of rows) {
-			const assets = row.assets as unknown as {
-				name: string;
-				pm_discovery_checked_at: string | null;
-				delisted_at: string | null;
-			};
-			if (!assets || assets.delisted_at || assets.pm_discovery_checked_at) continue;
-			if (seen.has(row.symbol)) continue;
-			seen.add(row.symbol);
-			out.push({ symbol: row.symbol, name: assets.name });
-		}
-		if (rows.length < PAGE_SIZE) break;
-	}
-	return out;
+	const assets = await loadDistinctContentTrackedAssets({ supabase: options.supabase });
+	return assets
+		.filter((a) => a.pm_discovery_checked_at === null)
+		.map((a) => ({ symbol: a.symbol, name: a.name }));
 }
 
-/** All distinct tracked (non-delisted) symbols — for nightly direction probes. */
+/**
+ * Distinct content-tracked (email/telegram) non-delisted symbols — for nightly
+ * direction probes. Lambda-only holdings (stock-buyer) are excluded.
+ */
 export async function loadDistinctTrackedSymbols(options: {
 	supabase: SupabaseAdminClient;
 }): Promise<Array<{ symbol: string; name: string }>> {
-	const { supabase } = options;
-	const seen = new Set<string>();
-	const out: Array<{ symbol: string; name: string }> = [];
-	const PAGE_SIZE = 1000;
-	for (let from = 0; ; from += PAGE_SIZE) {
-		const { data: tracked, error: trackedError } = await supabase
-			.from("user_assets")
-			.select("symbol, assets!inner(name, delisted_at)")
-			.order("symbol", { ascending: true })
-			.range(from, from + PAGE_SIZE - 1);
-		if (trackedError) throw trackedError;
-		const rows = tracked ?? [];
-		for (const row of rows) {
-			const assets = row.assets as unknown as {
-				name: string;
-				delisted_at: string | null;
-			};
-			if (!assets || assets.delisted_at) continue;
-			if (seen.has(row.symbol)) continue;
-			seen.add(row.symbol);
-			out.push({ symbol: row.symbol, name: assets.name });
-		}
-		if (rows.length < PAGE_SIZE) break;
-	}
-	return out;
+	const assets = await loadDistinctContentTrackedAssets({ supabase: options.supabase });
+	return assets.map((a) => ({ symbol: a.symbol, name: a.name }));
 }
 
 /** Load open events that have at least one accepted/manual match (for midnight refresh). */

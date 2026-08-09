@@ -27,8 +27,14 @@ export const PM_REFRESH_MIN_REMAINING_MS = 150_000;
 export const PM_DIRECTION_PROBE_MIN_REMAINING_MS = 150_000;
 
 /**
+ * Finnhub analyst + insider enrichment over content-tracked symbols (serial,
+ * ~2 calls/symbol at 55/min). Soft-fail; gated so it cannot starve SEC/short/PM.
+ */
+export const ENRICHMENT_MIN_REMAINING_MS = 120_000;
+
+/**
  * SEC EDGAR filings ingest: company tickers map + one submissions poll per
- * distinct tracked CIK (polite delay). Soft-fail vendor; remaining-time gate.
+ * distinct content-tracked CIK (polite delay). Soft-fail vendor; remaining-time gate.
  */
 export const SEC_FILINGS_MIN_REMAINING_MS = 120_000;
 
