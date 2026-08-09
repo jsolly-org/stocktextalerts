@@ -9,6 +9,13 @@ export interface DeliveryChannelUser {
 }
 
 /**
+ * Channels that receive human-facing content (digests, asset-events, PM, etc.).
+ * `lambda` (stock-buyer wakeup) and `disabled` are excluded from content
+ * maintenance symbol sets — see `loadDistinctContentTrackedSymbols`.
+ */
+export const CONTENT_DELIVERY_CHANNELS = ["email", "telegram"] as const;
+
+/**
  * PostgREST `.or()` filter: account has an active delivery pipe
  * (`email` or `telegram`). Shared by daily + market-scheduled candidate queries.
  */

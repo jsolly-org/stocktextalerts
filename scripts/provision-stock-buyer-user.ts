@@ -7,7 +7,8 @@
  *     scripts/provision-stock-buyer-user.ts
  *
  * Idempotent: upserts auth+public user, replaces watchlist + 5% thresholds,
- * enables price_move_alerts. Does not change password when the auth user exists.
+ * enables price_move_alerts only (all digest/PM/asset-events facets forced off).
+ * Does not change password when the auth user exists.
  */
 import { createClient } from "@supabase/supabase-js";
 import { rootLogger } from "../src/lib/logging";
@@ -120,9 +121,12 @@ async function main(): Promise<void> {
 		throw new Error(`users upsert failed: ${profileError.message}`);
 	}
 
-	const prefRows = buildDefaultPreferenceRows(userId).map((row) =>
-		row.notification_type === "price_move_alerts" ? { ...row, enabled: true } : row,
-	);
+	// Wakeup path only: force every content facet off, including matrix defaults
+	// like daily_notification/prices that would otherwise stay enabled.
+	const prefRows = buildDefaultPreferenceRows(userId).map((row) => ({
+		...row,
+		enabled: row.notification_type === "price_move_alerts",
+	}));
 	const { error: prefError } = await admin
 		.from("notification_preferences")
 		.upsert(prefRows, { onConflict: "user_id,notification_type,content" });

@@ -32,6 +32,7 @@ import { runPredictionMarketDiscoveryDrip } from "../../lib/prediction-markets/p
 import { refreshActivePredictionMarketSnapshots } from "../../lib/prediction-markets/refresh";
 import { enqueueAssetEventsIngestRetry } from "../../lib/vendors/backfill/enqueue";
 import {
+	ENRICHMENT_MIN_REMAINING_MS,
 	PM_DIRECTION_PROBE_MIN_REMAINING_MS,
 	PM_DISCOVERY_MIN_REMAINING_MS,
 	PM_REFRESH_MIN_REMAINING_MS,
@@ -176,14 +177,16 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			insiderUpserted: 0,
 			enrichmentFailures: [],
 		};
-		try {
-			enrichmentResult = await fetchAndStoreFinnhubEnrichment({ supabase, logger });
-		} catch (error) {
-			logger.error(
-				"Finnhub enrichment ingest failed (continuing with SEC filings ingest)",
-				{ action: "fetch_finnhub_enrichment" },
-				error,
-			);
+		if (stepFitsRemainingTime(context, logger, "finnhub_enrichment", ENRICHMENT_MIN_REMAINING_MS)) {
+			try {
+				enrichmentResult = await fetchAndStoreFinnhubEnrichment({ supabase, logger });
+			} catch (error) {
+				logger.error(
+					"Finnhub enrichment ingest failed (continuing with SEC filings ingest)",
+					{ action: "fetch_finnhub_enrichment" },
+					error,
+				);
+			}
 		}
 
 		if (stepFitsRemainingTime(context, logger, "sec_filings", SEC_FILINGS_MIN_REMAINING_MS)) {

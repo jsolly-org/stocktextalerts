@@ -1,6 +1,7 @@
 import { setTimeout as realDelay } from "node:timers/promises";
 import { DateTime } from "luxon";
 import type { SupabaseAdminClient } from "../db/supabase";
+import { loadDistinctContentTrackedSymbols } from "../db/user-assets";
 import type { Logger } from "../logging";
 import { payloadLogFields, preparePayloadForLog } from "../logging/log-payload";
 import type { InsiderTransaction, RecommendationTrend } from "../types";
@@ -106,20 +107,19 @@ export async function fetchAndStoreFinnhubEnrichment(options: {
 }): Promise<{ analystUpserted: number; insiderUpserted: number; enrichmentFailures: string[] }> {
 	const { supabase, logger } = options;
 
-	const { data: trackedSymbols, error: symbolsError } = await supabase
-		.from("user_assets")
-		.select("symbol");
-
-	if (symbolsError) {
+	let symbols: string[];
+	try {
+		symbols = await loadDistinctContentTrackedSymbols({ supabase });
+	} catch (symbolsError) {
 		logger.error(
 			"Failed to load tracked symbols for Finnhub enrichment",
 			{ action: "fetch_finnhub_enrichment" },
 			symbolsError,
 		);
-		throw new Error(`Failed to load tracked symbols: ${symbolsError.message}`);
+		throw symbolsError instanceof Error
+			? symbolsError
+			: new Error(`Failed to load tracked symbols: ${String(symbolsError)}`);
 	}
-
-	const symbols = [...new Set((trackedSymbols ?? []).map((row) => row.symbol))];
 	if (symbols.length === 0) {
 		return { analystUpserted: 0, insiderUpserted: 0, enrichmentFailures: [] };
 	}
