@@ -437,7 +437,7 @@ describe("runDelistingSweep", () => {
 		expect(result.userAssetRowsDeleted).toBeGreaterThanOrEqual(1);
 	});
 
-	it('Skips email for delivery_channel "lambda" (stock-buyer) and still cleans up.', async () => {
+	it('Emails delivery_channel "lambda" (stock-buyer) at the account address and cleans up.', async () => {
 		const delistedSymbol = `${TEST_PREFIX}LB`;
 		createdSymbols.push(delistedSymbol);
 		await insertAsset(delistedSymbol, "Test Lambda Holdings");
@@ -471,10 +471,11 @@ describe("runDelistingSweep", () => {
 			sendEmail: fakeEmail.sender,
 		});
 
-		expect(fakeEmail.captured).toHaveLength(0);
-		expect(result.emailsDelivered).toBe(0);
+		expect(fakeEmail.captured).toHaveLength(1);
+		expect(fakeEmail.captured[0]?.to).toBe(user.email);
+		expect(result.emailsDelivered).toBe(1);
 		expect(result.emailsSkippedOptOut).toBe(0);
-		expect(result.usersNotified).toBe(0);
+		expect(result.usersNotified).toBe(1);
 		expect(result.userAssetRowsDeleted).toBeGreaterThanOrEqual(1);
 
 		const { data: logRows } = await adminClient
@@ -482,7 +483,8 @@ describe("runDelistingSweep", () => {
 			.select("delivery_method")
 			.eq("user_id", user.id)
 			.eq("type", "delisting");
-		expect(logRows ?? []).toHaveLength(0);
+		expect(logRows ?? []).toHaveLength(1);
+		expect(logRows?.[0]?.delivery_method).toBe("email");
 	});
 
 	it("Retains user_assets when the email send fails, so the next run can retry.", async () => {

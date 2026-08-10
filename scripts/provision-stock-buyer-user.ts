@@ -14,7 +14,11 @@ import { createClient } from "@supabase/supabase-js";
 import { rootLogger } from "../src/lib/logging";
 import { buildDefaultPreferenceRows } from "../src/lib/messaging/notification-prefs";
 
-const STOCK_BUYER_EMAIL = "stock-buyer@internal.stocktextalerts";
+/** Canonical stock-buyer account email (delisting account alerts, auth identity). */
+export const STOCK_BUYER_EMAIL = "stockbuyer@jsolly.com";
+
+/** Pre-2026-08 internal placeholder — provision migrates this identity when present. */
+const LEGACY_STOCK_BUYER_EMAIL = "stock-buyer@internal.stocktextalerts";
 
 /** Asset-buyer watchlist (40 tickers) — keep in sync with asset-buyer WATCHLIST. */
 export const STOCK_BUYER_TICKERS = [
@@ -72,6 +76,7 @@ async function main(): Promise<void> {
 	});
 
 	let userId: string | undefined;
+	let foundEmail: string | undefined;
 	for (let page = 1; page <= 20; page++) {
 		const { data: listed, error: listError } = await admin.auth.admin.listUsers({
 			page,
@@ -80,8 +85,15 @@ async function main(): Promise<void> {
 		if (listError) {
 			throw new Error(`listUsers failed: ${listError.message}`);
 		}
-		userId = listed.users.find((u) => u.email === STOCK_BUYER_EMAIL)?.id;
-		if (userId || listed.users.length < 1000) break;
+		const hit =
+			listed.users.find((u) => u.email === STOCK_BUYER_EMAIL) ??
+			listed.users.find((u) => u.email === LEGACY_STOCK_BUYER_EMAIL);
+		if (hit) {
+			userId = hit.id;
+			foundEmail = hit.email ?? undefined;
+			break;
+		}
+		if (listed.users.length < 1000) break;
 	}
 	if (!userId) {
 		const password = process.env.STOCK_BUYER_SEED_PASSWORD?.trim();
@@ -100,6 +112,19 @@ async function main(): Promise<void> {
 		}
 		userId = created.user.id;
 		rootLogger.info("Created stock-buyer auth user", { userId, email: STOCK_BUYER_EMAIL });
+	} else if (foundEmail === LEGACY_STOCK_BUYER_EMAIL) {
+		const { error: updateError } = await admin.auth.admin.updateUserById(userId, {
+			email: STOCK_BUYER_EMAIL,
+			email_confirm: true,
+		});
+		if (updateError) {
+			throw new Error(`updateUser email migrate failed: ${updateError.message}`);
+		}
+		rootLogger.info("Migrated stock-buyer auth email from legacy placeholder", {
+			userId,
+			from: LEGACY_STOCK_BUYER_EMAIL,
+			to: STOCK_BUYER_EMAIL,
+		});
 	} else {
 		rootLogger.info("Stock-buyer auth user already exists", { userId, email: STOCK_BUYER_EMAIL });
 	}
