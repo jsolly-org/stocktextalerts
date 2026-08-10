@@ -10,6 +10,8 @@
  * enables price_move_alerts only (all digest/PM/asset-events facets forced off).
  * Does not change password when the auth user exists.
  */
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { rootLogger } from "../src/lib/logging";
 import { buildDefaultPreferenceRows } from "../src/lib/messaging/notification-prefs";
@@ -211,7 +213,13 @@ async function main(): Promise<void> {
 	});
 }
 
-main().catch((err) => {
-	rootLogger.error("provision-stock-buyer-user failed", {}, err);
-	process.exitCode = 1;
-});
+const isMain =
+	process.argv[1] !== undefined &&
+	pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
+
+if (isMain) {
+	main().catch((err) => {
+		rootLogger.error("provision-stock-buyer-user failed", {}, err);
+		process.exitCode = 1;
+	});
+}
