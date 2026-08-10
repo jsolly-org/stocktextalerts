@@ -124,7 +124,7 @@ describe("stock-buyer → asset-buyer Lambda ping", () => {
 	});
 
 	it("provision watchlist stays within the 50-asset cap and matches buyer universe size", () => {
-		expect(STOCK_BUYER_TICKERS.length).toBe(41);
+		expect(STOCK_BUYER_TICKERS.length).toBe(40);
 		expect(STOCK_BUYER_TICKERS.length).toBeLessThanOrEqual(50);
 		expect(new Set(STOCK_BUYER_TICKERS).size).toBe(STOCK_BUYER_TICKERS.length);
 		expect(STOCK_BUYER_TICKERS).toContain("TSLA");
