@@ -4,7 +4,7 @@ import { PLAINTEXT_SPARKLINE_LABEL, type SparklineData } from "./sparkline";
 export type AssetPrice = {
 	price: number;
 	changePercent: number;
-	/** Yesterday's close (Massive `prevDay.c`). Available on snapshot quotes. */
+	/** Yesterday's close (Massive `session.previous_close`). Available on snapshot quotes. */
 	prevClose?: number | null;
 };
 

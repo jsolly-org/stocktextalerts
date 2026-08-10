@@ -1,34 +1,29 @@
-import { DateTime } from "luxon";
-import {
-	US_AFTER_HOURS_CLOSE_EASTERN_MINUTES,
-	US_MARKET_CLOSE_EASTERN_MINUTES,
-	US_MARKET_OPEN_EASTERN_MINUTES,
-	US_MARKET_TIMEZONE,
-	US_PREMARKET_OPEN_EASTERN_MINUTES,
-} from "../constants";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
 import type { ExtendedAssetQuote, MarketSession, NoSessionTrade } from "../types";
 import { isRecord, NO_SESSION_TRADE } from "../types";
 import { marketDataFetch } from "../vendors/massive";
 
-interface SnapshotTicker {
+/** Massive unified-snapshot `market_status` values for stocks. */
+type SnapshotMarketStatus = "open" | "closed" | "early_trading" | "late_trading";
+
+/** Massive unified snapshot (`GET /v3/snapshot`) stock result we parse for quotes. */
+interface UnifiedSnapshotResult {
 	ticker: string;
-	updated?: number;
-	day?: {
-		o?: number;
-		h?: number;
-		l?: number;
-		c?: number;
-		v?: number;
+	error?: string;
+	market_status?: string;
+	session?: {
+		open?: number;
+		high?: number;
+		low?: number;
+		close?: number;
+		volume?: number;
+		previous_close?: number;
+		last_updated?: number;
 	};
-	min?: {
-		c?: number;
-		/** Milliseconds since epoch for the minute bar. */
-		t?: number;
-	};
-	prevDay?: {
-		c?: number;
+	last_minute?: {
+		close?: number;
+		last_updated?: number;
 	};
 }
 
@@ -44,66 +39,54 @@ function volumeOrNull(value: unknown): number | null {
 	return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
+/** Convert Massive nanosecond timestamps to unix seconds. */
 function snapshotTimestampSeconds(value: unknown): number | null {
 	return typeof value === "number" && Number.isFinite(value) && value > 0
 		? Math.floor(value / 1_000_000_000)
 		: null;
 }
 
-function isMinuteBarInCurrentSession(
-	minTimestamp: unknown,
-	session: "pre" | "regular" | "after",
-): boolean {
-	if (typeof minTimestamp !== "number" || !Number.isFinite(minTimestamp) || minTimestamp <= 0) {
-		return false;
+function parseMarketStatus(value: unknown): SnapshotMarketStatus | null {
+	if (
+		value === "open" ||
+		value === "closed" ||
+		value === "early_trading" ||
+		value === "late_trading"
+	) {
+		return value;
 	}
-
-	const tradeTimeEt = DateTime.fromMillis(minTimestamp).setZone(US_MARKET_TIMEZONE);
-	const nowEt = DateTime.now().setZone(US_MARKET_TIMEZONE);
-	if (!tradeTimeEt.isValid || !nowEt.isValid || tradeTimeEt.toISODate() !== nowEt.toISODate()) {
-		return false;
-	}
-
-	const minuteOfDay = tradeTimeEt.hour * 60 + tradeTimeEt.minute;
-	switch (session) {
-		case "pre":
-			return (
-				minuteOfDay >= US_PREMARKET_OPEN_EASTERN_MINUTES &&
-				minuteOfDay < US_MARKET_OPEN_EASTERN_MINUTES
-			);
-		case "regular":
-			return (
-				minuteOfDay >= US_MARKET_OPEN_EASTERN_MINUTES &&
-				minuteOfDay < US_MARKET_CLOSE_EASTERN_MINUTES
-			);
-		case "after":
-			return (
-				minuteOfDay >= US_MARKET_CLOSE_EASTERN_MINUTES &&
-				minuteOfDay < US_AFTER_HOURS_CLOSE_EASTERN_MINUTES
-			);
-	}
+	return null;
 }
 
-function parseSnapshotTicker(
-	ticker: SnapshotTicker,
+/**
+ * Session-aware price from a v3 unified snapshot.
+ *
+ * v3 `last_minute` has no bar-period timestamp (v2's `min.t`). Its `last_updated`
+ * is a refresh clock and runs ~15 minutes ahead of entitled Starter data, so it
+ * must not gate session attribution. Use Massive's `market_status` instead, and
+ * never fall back to `last_minute` during regular hours (that would accept delayed
+ * pre-market prints right after the open while `session.close` is still empty).
+ */
+function parseUnifiedSnapshotResult(
+	result: UnifiedSnapshotResult,
 	session: MarketSession,
 ): ExtendedAssetQuote | NoSessionTrade | null {
-	const dayPrice = positiveOrNull(ticker.day?.c);
-	const minutePrice = positiveOrNull(ticker.min?.c);
+	const sessionBar = result.session;
+	const minuteBar = result.last_minute;
+	const dayPrice = positiveOrNull(sessionBar?.close);
+	const minutePrice = positiveOrNull(minuteBar?.close);
+	const marketStatus = parseMarketStatus(result.market_status);
 	let price: number | null;
 
 	switch (session) {
 		case "pre":
-			price = isMinuteBarInCurrentSession(ticker.min?.t, "pre") ? minutePrice : null;
+			price = marketStatus === "early_trading" ? minutePrice : null;
 			break;
 		case "after":
-			price = isMinuteBarInCurrentSession(ticker.min?.t, "after") ? minutePrice : dayPrice;
+			price = marketStatus === "late_trading" ? minutePrice : dayPrice;
 			break;
 		case "regular":
-			// Starter quotes can lag ~15m: right after the open, day.c is often empty while
-			// min is still a pre-market bar. Only accept min.c when min.t is in regular hours.
-			price =
-				dayPrice ?? (isMinuteBarInCurrentSession(ticker.min?.t, "regular") ? minutePrice : null);
+			price = dayPrice;
 			break;
 		case "closed":
 			price = dayPrice;
@@ -114,7 +97,7 @@ function parseSnapshotTicker(
 		return NO_SESSION_TRADE;
 	}
 
-	const prevClose = positiveOrNull(ticker.prevDay?.c);
+	const prevClose = positiveOrNull(sessionBar?.previous_close);
 	if (prevClose === null) {
 		return null;
 	}
@@ -126,12 +109,12 @@ function parseSnapshotTicker(
 	return {
 		price,
 		changePercent,
-		dayHigh: positiveOrNull(ticker.day?.h),
-		dayLow: positiveOrNull(ticker.day?.l),
-		dayOpen: positiveOrNull(ticker.day?.o),
+		dayHigh: positiveOrNull(sessionBar?.high),
+		dayLow: positiveOrNull(sessionBar?.low),
+		dayOpen: positiveOrNull(sessionBar?.open),
 		prevClose,
-		timestamp: snapshotTimestampSeconds(ticker.updated),
-		volume: volumeOrNull(ticker.day?.v),
+		timestamp: snapshotTimestampSeconds(sessionBar?.last_updated ?? null),
+		volume: volumeOrNull(sessionBar?.volume),
 	};
 }
 
@@ -160,9 +143,14 @@ async function fetchSnapshotQuotesChunk(options: {
 		symbols.length >= SNAPSHOT_QUOTES_MAX_TICKERS_PER_REQUEST
 			? { requestTimeoutMs: SNAPSHOT_QUOTES_LARGE_BATCH_TIMEOUT_MS }
 			: undefined;
+	// Unified snapshot (v3). Do not pass `type` together with ticker filters —
+	// Massive rejects that combination. Always set `limit` (API default is 10).
 	const data = await marketDataFetch(
-		"/v2/snapshot/locale/us/markets/stocks/tickers",
-		{ tickers: symbols.join(",") },
+		"/v3/snapshot",
+		{
+			"ticker.any_of": symbols.join(","),
+			limit: String(symbols.length),
+		},
 		"snapshot-quotes",
 		{ tickerCount: totalTickerCount, chunkIndex, chunkCount },
 		policy,
@@ -172,36 +160,40 @@ async function fetchSnapshotQuotesChunk(options: {
 	if (data === null) {
 		return chunkResult;
 	}
-	if (!isRecord(data) || !Array.isArray(data.tickers)) {
+	if (!isRecord(data) || !Array.isArray(data.results)) {
 		rootLogger.error("Snapshot quote chunk returned unexpected payload shape", {
 			chunkIndex,
 			chunkCount,
 			tickerCount: symbols.length,
 			hasRecord: isRecord(data),
-			tickersType: isRecord(data) ? typeof data.tickers : "n/a",
+			resultsType: isRecord(data) ? typeof data.results : "n/a",
 		});
 		return chunkResult;
 	}
 
-	for (const rawTicker of data.tickers) {
-		if (!isRecord(rawTicker) || typeof rawTicker.ticker !== "string") {
+	for (const rawResult of data.results) {
+		if (!isRecord(rawResult) || typeof rawResult.ticker !== "string") {
 			continue;
 		}
-		if (!chunkResult.has(rawTicker.ticker)) {
+		if (!chunkResult.has(rawResult.ticker)) {
+			continue;
+		}
+		// Per-ticker NOT_FOUND / errors stay null (miss), not NO_SESSION_TRADE.
+		if (typeof rawResult.error === "string" && rawResult.error.length > 0) {
 			continue;
 		}
 		chunkResult.set(
-			rawTicker.ticker,
-			parseSnapshotTicker(rawTicker as unknown as SnapshotTicker, session),
+			rawResult.ticker,
+			parseUnifiedSnapshotResult(rawResult as unknown as UnifiedSnapshotResult, session),
 		);
 	}
 	return chunkResult;
 }
 
 /**
- * Fetch Massive batch snapshots. Every requested symbol is pre-seeded in the result:
- * `null` means the fetch missed it, while `NO_SESSION_TRADE` means Massive recognized it
- * but there is no price attributable to the requested session.
+ * Fetch Massive unified snapshots (`GET /v3/snapshot`). Every requested symbol is
+ * pre-seeded in the result: `null` means the fetch missed it, while `NO_SESSION_TRADE`
+ * means Massive recognized it but there is no price attributable to the requested session.
  */
 export async function fetchSnapshotQuotes(
 	symbols: string[],
