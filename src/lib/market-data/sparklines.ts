@@ -110,7 +110,8 @@ function appendCurrentPriceIfStale(
  *
  * Prepending prev close anchors the chart's first-to-last delta to the
  * prev-close-anchored change-% we headline in scheduled/digest/price-alert
- * notifications (derived from the displayed Massive snapshot price vs `prevDay.c`),
+ * notifications (derived from the displayed Massive snapshot price vs
+ * `session.previous_close`),
  * so the chart's shape and color always agree with the headline %.
  *
  * Symbols without a valid prev close (delisted / fetch miss) get a sparkline
@@ -118,7 +119,8 @@ function appendCurrentPriceIfStale(
  *
  * When `currentPriceMap` is supplied, the live snapshot quote is appended as
  * the final point whenever it differs from the latest aggregate close. Snapshot
- * `min.c` can move ahead of the 5-minute bar endpoint during pre/after-hours,
+ * `last_minute.close` can move ahead of the 5-minute bar endpoint during
+ * pre/after-hours,
  * which otherwise leaves the chart red while the headline change-% is green.
  *
  * `values` holds the full series for SVG rendering; `ascii` is a downsampled

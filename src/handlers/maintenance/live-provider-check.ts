@@ -175,9 +175,10 @@ export async function handler(
 				}
 			}),
 			await runCheck(logger, "massive:asset-prices", async () => {
-				// Massive Starter batch snapshots: liquid extended-hours names (SPY/AAPL)
-				// must print under the active session's attribution rules (pre minute bars,
-				// regular day/min, after AH min or day.c, closed prev-day fill). Do NOT
+				// Massive Starter unified snapshots (`GET /v3/snapshot`): liquid extended-hours
+				// names (SPY/AAPL) must print under the active session's attribution rules
+				// (pre: early_trading last_minute; regular/closed: session.close; after:
+				// late_trading last_minute or session.close; closed prev-day fill). Do NOT
 				// treat `noSessionTrade` as a pass — that reintroduced a stale-feed loophole.
 				const session = await getCurrentMarketSession();
 				const result = await assertLiveAssetPricesForSession({
