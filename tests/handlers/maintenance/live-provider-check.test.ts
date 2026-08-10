@@ -1,4 +1,4 @@
-import type { Context, ScheduledEvent } from "aws-lambda";
+import type { Context } from "aws-lambda";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { expectConsoleError } from "../../setup";
 
@@ -58,7 +58,12 @@ vi.mock("../../../src/lib/logging/release-id", () => ({
 	RELEASE_ID: STAMPED_RELEASE_ID,
 }));
 
-import { handler } from "../../../src/handlers/maintenance/live-provider-check";
+import {
+	assertLiveAssetPricesForSession,
+	handler,
+	type LiveProviderCheckEvent,
+	parseLiveProviderCheckWindow,
+} from "../../../src/handlers/maintenance/live-provider-check";
 import { fetchEarnings } from "../../../src/lib/asset-events/earnings";
 import { MIN_PLAUSIBLE_ACTIVE_UNIVERSE } from "../../../src/lib/assets/constants";
 import { fetchTickerDetail } from "../../../src/lib/assets/reference/ticker-detail";
@@ -75,8 +80,13 @@ import type { PredictionMarketEventCard } from "../../../src/lib/prediction-mark
 import { kalshiFetch } from "../../../src/lib/vendors/kalshi";
 import { polymarketFetch } from "../../../src/lib/vendors/polymarket";
 
-const event = { id: "evt-1", time: "2026-06-13T16:00:00Z" } as ScheduledEvent;
+/** Untagged invoke — post-deploy / manual (no ScheduleV2 window Input). */
+const event: LiveProviderCheckEvent = { id: "evt-1", time: "2026-06-13T16:00:00Z" };
 const context = { awsRequestId: "test-request-id" } as Context;
+
+function scheduledWindowEvent(window: "pre" | "regular" | "after"): LiveProviderCheckEvent {
+	return { window, source: "schedule" };
+}
 
 /** A plausible full US listing — sized exactly at the floor so the >= assertion passes. */
 function buildPlausibleUniverse(size = MIN_PLAUSIBLE_ACTIVE_UNIVERSE): ActiveUniverse {
@@ -194,11 +204,63 @@ describe("live-provider-check Lambda", () => {
 		});
 	});
 
-	it("A weekday mid-session check passes when Massive and Finnhub return fresh data", async () => {
+	it("A weekday regular-session check passes when Massive and Finnhub return fresh data", async () => {
+		await expect(handler(scheduledWindowEvent("regular"), context)).resolves.toEqual({
+			ok: true,
+			releaseId: STAMPED_RELEASE_ID,
+		});
+	});
+
+	it("A weekday premarket schedule passes when session=pre and liquid names have prices", async () => {
+		vi.mocked(getCurrentMarketSession).mockResolvedValue("pre");
+		await expect(handler(scheduledWindowEvent("pre"), context)).resolves.toEqual({
+			ok: true,
+			releaseId: STAMPED_RELEASE_ID,
+		});
+		expect(fetchAssetPricesWithSessionState).toHaveBeenCalledWith(["SPY", "AAPL"], "pre");
+	});
+
+	it("A weekday after-hours schedule passes when session=after and liquid names have prices", async () => {
+		vi.mocked(getCurrentMarketSession).mockResolvedValue("after");
+		await expect(handler(scheduledWindowEvent("after"), context)).resolves.toEqual({
+			ok: true,
+			releaseId: STAMPED_RELEASE_ID,
+		});
+		expect(fetchAssetPricesWithSessionState).toHaveBeenCalledWith(["SPY", "AAPL"], "after");
+	});
+
+	it("A scheduled window on a holiday (session=closed) soft-skips asset-prices and still passes", async () => {
+		vi.mocked(getCurrentMarketSession).mockResolvedValue("closed");
+		await expect(handler(scheduledWindowEvent("pre"), context)).resolves.toEqual({
+			ok: true,
+			releaseId: STAMPED_RELEASE_ID,
+		});
+		expect(fetchAssetPricesWithSessionState).not.toHaveBeenCalled();
+	});
+
+	it("A scheduled window with a mismatched active session fails the check", async () => {
+		vi.mocked(getCurrentMarketSession).mockResolvedValue("regular");
+		expectConsoleError(/Live provider checks failed/);
+		await expect(handler(scheduledWindowEvent("pre"), context)).rejects.toThrow(
+			/massive:asset-prices.*scheduled window=pre but current market session=regular/,
+		);
+		expect(fetchAssetPricesWithSessionState).not.toHaveBeenCalled();
+	});
+
+	it("An untagged post-deploy invoke with session=closed still requires prev-day prices", async () => {
+		vi.mocked(getCurrentMarketSession).mockResolvedValue("closed");
 		await expect(handler(event, context)).resolves.toEqual({
 			ok: true,
 			releaseId: STAMPED_RELEASE_ID,
 		});
+		expect(fetchAssetPricesWithSessionState).toHaveBeenCalledWith(["SPY", "AAPL"], "closed");
+	});
+
+	it("An invalid ScheduleV2 window tag fails the invoke before provider checks", async () => {
+		await expect(handler({ window: "midnight" }, context)).rejects.toThrow(
+			/invalid live-provider-check window tag/,
+		);
+		expect(fetchPrevClose).not.toHaveBeenCalled();
 	});
 
 	it("A stale/empty Massive prev-close fails the check and pages via a thrown error", async () => {
@@ -234,7 +296,9 @@ describe("live-provider-check Lambda", () => {
 			noSessionTrade: new Set(["SPY", "AAPL"]),
 		});
 		expectConsoleError(/Live provider checks failed/);
-		await expect(handler(event, context)).rejects.toThrow(/massive:asset-prices/);
+		await expect(handler(scheduledWindowEvent("pre"), context)).rejects.toThrow(
+			/massive:asset-prices/,
+		);
 	});
 
 	it("A pre-market true quote miss (null without NO_SESSION_TRADE) still fails the check", async () => {
@@ -259,7 +323,7 @@ describe("live-provider-check Lambda", () => {
 			]) as Awaited<ReturnType<typeof fetchAssetPricesWithSessionState>>["prices"],
 			noSessionTrade: new Set(),
 		});
-		await expect(handler(event, context)).resolves.toEqual({
+		await expect(handler(scheduledWindowEvent("pre"), context)).resolves.toEqual({
 			ok: true,
 			releaseId: STAMPED_RELEASE_ID,
 		});
@@ -437,5 +501,76 @@ describe("live-provider-check Lambda", () => {
 		});
 		expectConsoleError(/Live provider checks failed/);
 		await expect(handler(event, context)).rejects.toThrow(/telegram:get-me/);
+	});
+});
+
+describe("parseLiveProviderCheckWindow", () => {
+	it("returns null for untagged post-deploy payloads", () => {
+		expect(parseLiveProviderCheckWindow({})).toBeNull();
+		expect(parseLiveProviderCheckWindow({ id: "x", time: "2026-01-01T00:00:00Z" })).toBeNull();
+	});
+
+	it("accepts pre/regular/after schedule tags", () => {
+		expect(parseLiveProviderCheckWindow({ window: "pre", source: "schedule" })).toBe("pre");
+		expect(parseLiveProviderCheckWindow({ window: "regular" })).toBe("regular");
+		expect(parseLiveProviderCheckWindow({ window: "after" })).toBe("after");
+	});
+
+	it("rejects unknown, empty, or null window tags", () => {
+		expect(() => parseLiveProviderCheckWindow({ window: "closed" })).toThrow(/invalid/);
+		expect(() => parseLiveProviderCheckWindow({ window: "" })).toThrow(/invalid/);
+		expect(() => parseLiveProviderCheckWindow({ window: null as unknown as string })).toThrow(
+			/invalid/,
+		);
+	});
+});
+
+describe("assertLiveAssetPricesForSession", () => {
+	const healthyFetch = vi.fn(async () => ({
+		prices: new Map([
+			["SPY", { price: 1, changePercent: 0 }],
+			["AAPL", { price: 2, changePercent: 0 }],
+		]) as Awaited<ReturnType<typeof fetchAssetPricesWithSessionState>>["prices"],
+		noSessionTrade: new Set<string>(),
+	}));
+
+	beforeEach(() => {
+		healthyFetch.mockClear();
+	});
+
+	it("soft-skips when a scheduled window hits a closed session", async () => {
+		await expect(
+			assertLiveAssetPricesForSession({
+				session: "closed",
+				scheduledWindow: "pre",
+				fetchPrices: healthyFetch,
+			}),
+		).resolves.toEqual({
+			skipped: true,
+			reason: "scheduled window=pre but market session=closed (holiday/half-day)",
+		});
+		expect(healthyFetch).not.toHaveBeenCalled();
+	});
+
+	it("fails when a scheduled window disagrees with an active session", async () => {
+		await expect(
+			assertLiveAssetPricesForSession({
+				session: "after",
+				scheduledWindow: "regular",
+				fetchPrices: healthyFetch,
+			}),
+		).rejects.toThrow(/scheduled window=regular but current market session=after/);
+		expect(healthyFetch).not.toHaveBeenCalled();
+	});
+
+	it("requires finite prices for untagged closed (post-deploy overnight) invokes", async () => {
+		await expect(
+			assertLiveAssetPricesForSession({
+				session: "closed",
+				scheduledWindow: null,
+				fetchPrices: healthyFetch,
+			}),
+		).resolves.toEqual({ skipped: false });
+		expect(healthyFetch).toHaveBeenCalledWith(["SPY", "AAPL"], "closed");
 	});
 });

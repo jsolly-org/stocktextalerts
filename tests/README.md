@@ -117,7 +117,7 @@ For scoped env overrides inside a file, prefer `resetTestEnvStubs()` (`unstubAll
 
 Provider keys (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`, `XAI_API_KEY`, `TELEGRAM_BOT_TOKEN`) live in the Lambda runtime and are **always stubbed locally**. `MASSIVE_API_KEY` is also on Vercel (logo endpoint); `TELEGRAM_BOT_TOKEN` is on Vercel (webhook). There are no local live-provider round-trips.
 
-Post-deploy live verification uses the scheduled `stocktextalerts-live-provider-check` Lambda (`src/handlers/maintenance/live-provider-check.ts`).
+Post-deploy live verification uses the `stocktextalerts-live-provider-check` Lambda (`src/handlers/maintenance/live-provider-check.ts`), which also runs on weekday EventBridge schedules at 08:00 / 12:00 / 17:30 America/New_York (pre / regular / after) with session-specific quote expectations. Schedule changes in `aws/template.yaml` need `npm run deploy:infra`.
 
 **This is enforced, not just documented.** `tests/helpers/network-guard.ts` replaces `fetch` (plus `request`/`get` on `node:http` and `node:https`, which is what pre-fetch SDKs such as the AWS SDK use) with a guard that rejects any host outside the local stack, installed in two places: every Vitest file (`tests/network-guard-setup.ts`) and the `MODE=test` Astro dev server (`blockNonLocalFetchPlugin` in `astro.config.ts`, which also covers the server the HTTP page specs use). A spec that forgets a mock, or a route that calls `fetch` directly instead of going through an aliased vendor module, now fails with a message naming the blocked URL. `*.live.test.ts` is the one exception and the guard stands down for it.
 

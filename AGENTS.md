@@ -98,7 +98,7 @@ Mark this repo trusted for Codex config loading. Migration-repair context: [docs
 ## AWS, providers, and CI
 
 - Lambda code ships through `.github/workflows/deploy.yml`; local `deploy:code` is break-glass. Full SAM changes require manual `deploy:infra` with admin credentials. Copy `aws/samconfig.toml.example` to gitignored `aws/samconfig.toml`; never commit personal/admin profile names (`fleet-deploy` is the documented shared exception). Merge before a SAM deploy that changes env vars, or a later deploy from `main` will revert them.
-- Provider calls are stubbed locally. Post-deploy, `stocktextalerts-live-provider-check` verifies Massive/Finnhub, a side-effect-free Telegram `getMe()`/`getWebhookInfo()`, and chart rendering; `agent-deploy` may invoke it manually for investigation. A real Telegram delivery remains a one-time human `/start` E2E.
+- Provider calls are stubbed locally. Post-deploy, `stocktextalerts-live-provider-check` verifies Massive/Finnhub, a side-effect-free Telegram `getMe()`/`getWebhookInfo()`, and chart rendering; weekday schedules also run at 08:00 / 12:00 / 17:30 ET (pre / regular / after) with session-specific quote expectations for liquid extended-hours names. `agent-deploy` may invoke it manually for investigation. A real Telegram delivery remains a one-time human `/start` E2E. Schedule changes need `npm run deploy:infra`.
 
 Vendor clients live in `src/lib/vendors/` — Massive owns batch snapshot quotes, bars/closes, calendar/holidays, movers, reference/universe, branding/logos, company news, corporate actions (dividends/splits/IPOs), and per-symbol delisting confirms. Finnhub owns only the earnings calendar, recommendation trends, and insider transactions. xAI/Grok powers optional AI summaries.
 
