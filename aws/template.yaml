@@ -501,15 +501,37 @@ Resources:
           # Read-only Telegram token check (getMe/getWebhookInfo) — never a send.
           TELEGRAM_BOT_TOKEN_SSM_PARAM: !Sub "${SsmPrefix}/telegram-bot-token"
       Events:
-        WeekdayMidSession:
+        # Three ET windows so quote expectations differ by session. ScheduleV2 Input
+        # replaces the default ScheduledEvent payload — handler parses `window`.
+        WeekdayPremarket:
           Type: ScheduleV2
           Properties:
-            # 16:00 UTC = 12:00 ET — mid-session, snapshot data fresh. Mon-Fri.
-            ScheduleExpression: "cron(0 16 ? * MON-FRI *)"
+            # 08:00 ET — pre-market; liquid names must print pre minute bars. Mon-Fri.
+            ScheduleExpression: "cron(0 8 ? * MON-FRI *)"
+            ScheduleExpressionTimezone: America/New_York
             State: ENABLED
             RoleArn: !GetAtt StockTextAlertsSchedulerRole.Arn
+            Input: '{"window":"pre","source":"schedule"}'
+        WeekdayRegularSession:
+          Type: ScheduleV2
+          Properties:
+            # 12:00 ET — mid regular session; snapshot data fresh. Mon-Fri.
+            ScheduleExpression: "cron(0 12 ? * MON-FRI *)"
+            ScheduleExpressionTimezone: America/New_York
+            State: ENABLED
+            RoleArn: !GetAtt StockTextAlertsSchedulerRole.Arn
+            Input: '{"window":"regular","source":"schedule"}'
+        WeekdayAfterHours:
+          Type: ScheduleV2
+          Properties:
+            # 17:30 ET — after close, before AH end; liquid names must print. Mon-Fri.
+            ScheduleExpression: "cron(30 17 ? * MON-FRI *)"
+            ScheduleExpressionTimezone: America/New_York
+            State: ENABLED
+            RoleArn: !GetAtt StockTextAlertsSchedulerRole.Arn
+            Input: '{"window":"after","source":"schedule"}'
 
-  # Shared by all four ScheduleV2 events. Without an explicit RoleArn,
+  # Shared by all ScheduleV2 events. Without an explicit RoleArn,
   # SAM auto-generates one role per event with identical permissions —
   # see IAM no-sprawl — reuse explicit scheduler roles instead of SAM auto-generated duplicates.
   StockTextAlertsSchedulerRole:
@@ -642,6 +664,75 @@ Resources:
       Dimensions:
         - Name: FunctionName
           Value: !Ref LiveProviderCheckFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
+  LiveProviderCheckFunctionWeekdayPremarketFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-live-provider-check-premarket-invocation-failures
+      AlarmDescription: LiveProviderCheckFunctionWeekdayPremarket failed to invoke target
+      Namespace: AWS/Scheduler
+      MetricName: TargetErrorCount
+      Dimensions:
+        - Name: ScheduleGroup
+          Value: default
+        - Name: ScheduleName
+          Value: LiveProviderCheckFunctionWeekdayPremarket
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
+  LiveProviderCheckFunctionWeekdayRegularSessionFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-live-provider-check-regular-invocation-failures
+      AlarmDescription: LiveProviderCheckFunctionWeekdayRegularSession failed to invoke target
+      Namespace: AWS/Scheduler
+      MetricName: TargetErrorCount
+      Dimensions:
+        - Name: ScheduleGroup
+          Value: default
+        - Name: ScheduleName
+          Value: LiveProviderCheckFunctionWeekdayRegularSession
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
+  LiveProviderCheckFunctionWeekdayAfterHoursFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-live-provider-check-after-hours-invocation-failures
+      AlarmDescription: LiveProviderCheckFunctionWeekdayAfterHours failed to invoke target
+      Namespace: AWS/Scheduler
+      MetricName: TargetErrorCount
+      Dimensions:
+        - Name: ScheduleGroup
+          Value: default
+        - Name: ScheduleName
+          Value: LiveProviderCheckFunctionWeekdayAfterHours
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1

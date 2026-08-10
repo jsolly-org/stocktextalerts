@@ -1,10 +1,11 @@
 /**
- * Live provider health check (EventBridge: 16:00 UTC weekdays; also post-deploy).
- * The only Lambda that makes real Massive/Finnhub round-trips — local tests always
- * stub vendors. Telegram probe is read-only (getMe/getWebhookInfo, never sends).
- * Throws on any failure so LiveProviderCheckFunctionErrorAlarm pages via SNS.
+ * Live provider health check (EventBridge: weekday pre / regular / after ET;
+ * also post-deploy). The only Lambda that makes real Massive/Finnhub round-trips —
+ * local tests always stub vendors. Telegram probe is read-only (getMe/getWebhookInfo,
+ * never sends). Throws on any failure so LiveProviderCheckFunctionErrorAlarm pages
+ * via SNS.
  */
-import type { Context, ScheduledEvent } from "aws-lambda";
+import type { Context } from "aws-lambda";
 import { HttpError } from "grammy";
 import { fetchEarnings } from "../../lib/asset-events/earnings";
 import { MIN_PLAUSIBLE_ACTIVE_UNIVERSE } from "../../lib/assets/constants";
@@ -23,9 +24,23 @@ import { createTelegramBot, readTelegramBotToken } from "../../lib/messaging/tel
 import { assertStructuredBinaryCard } from "../../lib/prediction-markets/binary";
 import { CURATED_PREDICTION_MARKETS } from "../../lib/prediction-markets/catalog";
 import { fetchCuratedPredictionMarketCards } from "../../lib/prediction-markets/fetch";
-import { type IntradayCandle, isRecord } from "../../lib/types";
+import type { ActiveMarketSession, IntradayCandle, MarketSession } from "../../lib/types";
+import { isRecord } from "../../lib/types";
 import { kalshiFetch } from "../../lib/vendors/kalshi";
 import { polymarketFetch } from "../../lib/vendors/polymarket";
+
+/** Liquid names that print in US extended hours — must never soft-pass on noSessionTrade. */
+export const LIVE_PROVIDER_EXTENDED_HOURS_SYMBOLS = ["SPY", "AAPL"] as const;
+
+/** ScheduleV2 Input window tag (active sessions only; closed is never scheduled). */
+export type LiveProviderCheckWindow = ActiveMarketSession;
+
+export type LiveProviderCheckEvent = {
+	id?: string;
+	time?: string;
+	window?: string;
+	source?: string;
+};
 
 interface CheckResult {
 	name: string;
@@ -35,6 +50,61 @@ interface CheckResult {
 
 function isoDaysFromNow(days: number): string {
 	return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/** Parse optional ScheduleV2 `window` tag; post-deploy / manual invokes omit it. */
+export function parseLiveProviderCheckWindow(
+	event: LiveProviderCheckEvent,
+): LiveProviderCheckWindow | null {
+	if (!Object.hasOwn(event, "window")) {
+		return null;
+	}
+	const raw = event.window;
+	if (raw === "pre" || raw === "regular" || raw === "after") {
+		return raw;
+	}
+	throw new Error(`invalid live-provider-check window tag: ${JSON.stringify(raw)}`);
+}
+
+export type AssertLiveAssetPricesResult = { skipped: true; reason: string } | { skipped: false };
+
+/**
+ * Session-aware quote expectations for liquid extended-hours names.
+ * Scheduled holiday/closed mismatch soft-skips (do not page); wrong active session fails.
+ */
+export async function assertLiveAssetPricesForSession(options: {
+	session: MarketSession;
+	scheduledWindow: LiveProviderCheckWindow | null;
+	fetchPrices?: typeof fetchAssetPricesWithSessionState;
+}): Promise<AssertLiveAssetPricesResult> {
+	const { session, scheduledWindow } = options;
+	const fetchPrices = options.fetchPrices ?? fetchAssetPricesWithSessionState;
+
+	if (scheduledWindow !== null) {
+		if (session === "closed") {
+			return {
+				skipped: true,
+				reason: `scheduled window=${scheduledWindow} but market session=closed (holiday/half-day)`,
+			};
+		}
+		if (session !== scheduledWindow) {
+			throw new Error(
+				`scheduled window=${scheduledWindow} but current market session=${session} (clock/calendar drift?)`,
+			);
+		}
+	}
+
+	const symbols = [...LIVE_PROVIDER_EXTENDED_HOURS_SYMBOLS];
+	const { prices, noSessionTrade } = await fetchPrices(symbols, session);
+	for (const symbol of symbols) {
+		const quote = prices.get(symbol);
+		if (quote && Number.isFinite(quote.price) && quote.price > 0) continue;
+		throw new Error(
+			`fetchAssetPricesWithSessionState(${symbol}) returned ${JSON.stringify(quote)}` +
+				` (session=${session}, window=${scheduledWindow ?? "none"}, noSessionTrade=${noSessionTrade.has(symbol)})`,
+		);
+	}
+	return { skipped: false };
 }
 
 /**
@@ -79,7 +149,7 @@ export type LiveProviderCheckResult = {
 };
 
 export async function handler(
-	event: ScheduledEvent,
+	event: LiveProviderCheckEvent,
 	context: Context,
 ): Promise<LiveProviderCheckResult> {
 	return runLambda(context, async () => {
@@ -87,10 +157,13 @@ export async function handler(
 			source: "lambda",
 			function: "live-provider-check",
 		});
+		const scheduledWindow = parseLiveProviderCheckWindow(event);
 		logger.info("Lambda invoke", {
 			action: "lambda_invoke",
-			eventId: event.id,
-			eventTime: event.time,
+			eventId: event.id ?? null,
+			eventTime: event.time ?? null,
+			window: scheduledWindow,
+			source: event.source ?? null,
 			releaseId: RELEASE_ID,
 		});
 
@@ -102,24 +175,30 @@ export async function handler(
 				}
 			}),
 			await runCheck(logger, "massive:asset-prices", async () => {
-				// Massive Starter batch snapshots: during regular hours SPY/AAPL must have
-				// finite positive prices. Outside regular hours the same liquid names still
-				// carry entitled minute bars (pre/after) or closed-session prev-day fallback —
-				// require prices either way. Do NOT treat `noSessionTrade` as a pass: the
-				// legacy stale-timestamp loophole would green a broken feed.
+				// Massive Starter batch snapshots: liquid extended-hours names (SPY/AAPL)
+				// must print under the active session's attribution rules (pre minute bars,
+				// regular day/min, after AH min or day.c, closed prev-day fill). Do NOT
+				// treat `noSessionTrade` as a pass — that reintroduced a stale-feed loophole.
 				const session = await getCurrentMarketSession();
-				const { prices, noSessionTrade } = await fetchAssetPricesWithSessionState(
-					["SPY", "AAPL"],
+				const result = await assertLiveAssetPricesForSession({
 					session,
-				);
-				for (const symbol of ["SPY", "AAPL"]) {
-					const quote = prices.get(symbol);
-					if (quote && Number.isFinite(quote.price) && quote.price > 0) continue;
-					throw new Error(
-						`fetchAssetPricesWithSessionState(${symbol}) returned ${JSON.stringify(quote)}` +
-							` (session=${session}, noSessionTrade=${noSessionTrade.has(symbol)})`,
-					);
+					scheduledWindow,
+				});
+				if (result.skipped) {
+					logger.info("Live provider asset-prices soft-skip", {
+						action: "live_provider_asset_prices_skip",
+						window: scheduledWindow,
+						session,
+						reason: result.reason,
+					});
+					return;
 				}
+				logger.info("Live provider asset-prices ok", {
+					action: "live_provider_asset_prices_ok",
+					window: scheduledWindow,
+					session,
+					symbols: LIVE_PROVIDER_EXTENDED_HOURS_SYMBOLS,
+				});
 			}),
 			await runCheck(logger, "massive:daily-closes", async () => {
 				const closes = await fetchDailyCloses("SPY", isoDaysFromNow(-7), isoDaysFromNow(0));

@@ -37,7 +37,7 @@ Seven deployed functions (see `aws/template.yaml`):
 | `compute-daily-stats` | Weekdays 22:00 UTC | Compute ADV/ATR; cache daily closes |
 | `vendor-backfill` | SQS | Retry failed vendor work (asset events, daily closes, price history) |
 | `email-dispatch` | Lambda Function URL (HMAC POST) | Centralized SES send with idempotency |
-| `live-provider-check` | Weekdays 16:00 UTC + post-deploy | Live Massive snapshot/bars/reference/branding, Finnhub earnings, prediction-market, Telegram, and chart-render smoke tests |
+| `live-provider-check` | Weekdays 08:00 / 12:00 / 17:30 ET + post-deploy | Live Massive snapshot/bars/reference/branding (session-windowed quote expectations for liquid extended-hours names), Finnhub earnings, prediction-market, Telegram, and chart-render smoke tests. Schedule/event changes need `npm run deploy:infra`. |
 | `backup-user-settings` | 5× daily UTC | Export user settings snapshot to S3 |
 
 Handlers are thin wrappers: `runLambda()` for SSM secret hydration, then call into `src/lib/`. They use the admin Supabase client (no browser cookies).
