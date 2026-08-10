@@ -345,7 +345,7 @@ describe("runDelistingSweep", () => {
 		expect(userAssets ?? []).toHaveLength(0);
 	});
 
-	it('Respects delivery_channel "disabled" — skips send, still cleans up.', async () => {
+	it('Emails delivery_channel "disabled" users (account alert) and cleans up.', async () => {
 		const delistedSymbol = `${TEST_PREFIX}O1`;
 		createdSymbols.push(delistedSymbol);
 		await insertAsset(delistedSymbol, "Test OptOut Holdings");
@@ -379,15 +379,107 @@ describe("runDelistingSweep", () => {
 			sendEmail: fakeEmail.sender,
 		});
 
-		// Disabled routing: no send, no fake email opt-out log, cleanup still runs.
-		expect(fakeEmail.captured).toHaveLength(0);
-		expect(result.emailsSkippedOptOut).toBe(1);
-		expect(result.usersNotified).toBe(0);
+		expect(fakeEmail.captured).toHaveLength(1);
+		expect(fakeEmail.captured[0]?.to).toBe(user.email);
+		expect(result.emailsDelivered).toBe(1);
+		expect(result.emailsSkippedOptOut).toBe(0);
+		expect(result.usersNotified).toBe(1);
 		expect(result.userAssetRowsDeleted).toBeGreaterThanOrEqual(1);
 
 		const { data: logRows } = await adminClient
 			.from("notification_log")
 			.select("delivery_method, message_delivered, error")
+			.eq("user_id", user.id)
+			.eq("type", "delisting");
+		expect(logRows ?? []).toHaveLength(1);
+		expect(logRows?.[0]?.message_delivered).toBe(true);
+	});
+
+	it('Emails delivery_channel "telegram" users at users.email and cleans up.', async () => {
+		const delistedSymbol = `${TEST_PREFIX}TG`;
+		createdSymbols.push(delistedSymbol);
+		await insertAsset(delistedSymbol, "Test Telegram Holdings");
+
+		const user = await createTestUser({
+			email: `delist-telegram-${randomUUID()}@example.com`,
+			confirmed: true,
+			deliveryChannel: "telegram",
+		});
+		registerTestUserForCleanup(user.id);
+		await attachUserAsset(user.id, delistedSymbol);
+
+		const fakeEmail = makeFakeEmailSender();
+		fetchTickerReferencesMock.mockImplementation(
+			makeFakeLookup(
+				new Map([
+					[
+						delistedSymbol,
+						{
+							name: "Test Telegram Holdings",
+							delistedUtc: "2026-04-05",
+							exchange: "NASDAQ",
+						},
+					],
+				]),
+			),
+		);
+		const result = await runDelistingSweep({
+			supabase: adminClient,
+			logger: rootLogger,
+			sendEmail: fakeEmail.sender,
+		});
+
+		expect(fakeEmail.captured).toHaveLength(1);
+		expect(fakeEmail.captured[0]?.to).toBe(user.email);
+		expect(result.emailsDelivered).toBe(1);
+		expect(result.emailsSkippedOptOut).toBe(0);
+		expect(result.usersNotified).toBe(1);
+		expect(result.userAssetRowsDeleted).toBeGreaterThanOrEqual(1);
+	});
+
+	it('Skips email for delivery_channel "lambda" (stock-buyer) and still cleans up.', async () => {
+		const delistedSymbol = `${TEST_PREFIX}LB`;
+		createdSymbols.push(delistedSymbol);
+		await insertAsset(delistedSymbol, "Test Lambda Holdings");
+
+		const user = await createTestUser({
+			email: `delist-lambda-${randomUUID()}@example.com`,
+			confirmed: true,
+			deliveryChannel: "lambda",
+		});
+		registerTestUserForCleanup(user.id);
+		await attachUserAsset(user.id, delistedSymbol);
+
+		const fakeEmail = makeFakeEmailSender();
+		fetchTickerReferencesMock.mockImplementation(
+			makeFakeLookup(
+				new Map([
+					[
+						delistedSymbol,
+						{
+							name: "Test Lambda Holdings",
+							delistedUtc: "2026-04-05",
+							exchange: "NASDAQ",
+						},
+					],
+				]),
+			),
+		);
+		const result = await runDelistingSweep({
+			supabase: adminClient,
+			logger: rootLogger,
+			sendEmail: fakeEmail.sender,
+		});
+
+		expect(fakeEmail.captured).toHaveLength(0);
+		expect(result.emailsDelivered).toBe(0);
+		expect(result.emailsSkippedOptOut).toBe(0);
+		expect(result.usersNotified).toBe(0);
+		expect(result.userAssetRowsDeleted).toBeGreaterThanOrEqual(1);
+
+		const { data: logRows } = await adminClient
+			.from("notification_log")
+			.select("delivery_method")
 			.eq("user_id", user.id)
 			.eq("type", "delisting");
 		expect(logRows ?? []).toHaveLength(0);
