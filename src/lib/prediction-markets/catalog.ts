@@ -34,6 +34,7 @@ export const CURATED_PREDICTION_MARKETS: readonly CuratedPredictionMarket[] = [
 		key: "iran_nuclear_deal_eoy",
 		label: "US–Iran nuclear deal",
 		venue: "polymarket",
-		polymarketSlug: "us-iran-final-nuclear-deal-by-december-31-2026",
+		// Polymarket rotated the EOY market slug (old ...-december-31-2026 went missing).
+		polymarketSlug: "us-iran-final-nuclear-deal-by-december-31-2026-191",
 	},
 ] as const;
