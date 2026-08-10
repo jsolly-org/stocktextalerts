@@ -1,6 +1,7 @@
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { fetchGrokResponse } from "../vendors/grok";
+import { GROK_ALIAS_MODEL } from "../vendors/grok-models";
 import { buildDeterministicAliases, normalizeIdentityText } from "./aliases";
 
 function extractGrokText(response: {
@@ -104,7 +105,7 @@ export async function enrichAliasesWithGrok(options: {
 
 	const response = await fetchGrokResponse({
 		requestBody: {
-			model: "grok-4.20-non-reasoning",
+			model: GROK_ALIAS_MODEL,
 			instructions: [
 				"You suggest identity aliases for matching prediction-market titles to a public company.",
 				"Return ONLY a JSON array of strings.",
@@ -115,6 +116,7 @@ export async function enrichAliasesWithGrok(options: {
 			input: `Symbol: ${symbol}\nLegal name: ${name}`,
 			temperature: 0,
 			max_output_tokens: 200,
+			reasoning_effort: "none",
 		},
 		logContext: { action: "pm_alias_enrich", symbol },
 	});

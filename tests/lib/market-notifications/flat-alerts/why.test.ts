@@ -43,12 +43,12 @@ describe("generatePriceMoveWhyWithGrok", () => {
 		expect(result).toBeNull();
 	});
 
-	it("calls grok-4.5 with low reasoning and both search tools", async () => {
+	it("calls grok-4.3 with low reasoning and both search tools", async () => {
 		fetchGrokResponse.mockResolvedValue({
 			id: "r1",
 			object: "response",
 			created_at: 1,
-			model: "grok-4.5",
+			model: "grok-4.3",
 			status: "completed",
 			output: [
 				{
@@ -75,7 +75,7 @@ describe("generatePriceMoveWhyWithGrok", () => {
 		expect(fetchGrokResponse).toHaveBeenCalledOnce();
 		const body = fetchGrokResponse.mock.calls[0]?.[0]?.requestBody;
 		expect(body).toMatchObject({
-			model: "grok-4.5",
+			model: "grok-4.3",
 			reasoning_effort: "low",
 			temperature: 0.3,
 			max_output_tokens: 200,
@@ -91,7 +91,7 @@ describe("generatePriceMoveWhyWithGrok", () => {
 			id: "r2",
 			object: "response",
 			created_at: 1,
-			model: "grok-4.5",
+			model: "grok-4.3",
 			status: "completed",
 			output: [
 				{
@@ -123,7 +123,7 @@ describe("generatePriceMoveWhyWithGrok", () => {
 			id: "r3",
 			object: "response",
 			created_at: 1,
-			model: "grok-4.5",
+			model: "grok-4.3",
 			status: "completed",
 			output: [
 				{

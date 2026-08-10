@@ -5,6 +5,7 @@ import {
 	type GrokResponsesResponse,
 } from "../vendors/grok";
 import { applyAnnotationsInline, type XaiAnnotation } from "../vendors/grok-citations";
+import { GROK_DIGEST_MODEL } from "../vendors/grok-models";
 
 export type GrokSectionResult = {
 	content: string;
@@ -200,7 +201,7 @@ export async function generateNewsWithGrok(options: {
 }): Promise<GrokSectionResult | null> {
 	if (options.tickers.length === 0) return null;
 
-	const model = "grok-4.20-non-reasoning";
+	const model = GROK_DIGEST_MODEL;
 	const { system, user } = buildNewsPrompt(options);
 
 	return callGrokSectionApi({
@@ -210,6 +211,7 @@ export async function generateNewsWithGrok(options: {
 			input: user,
 			temperature: 0.4,
 			max_output_tokens: 800,
+			reasoning_effort: "none",
 			tools: [{ type: "web_search" }],
 		},
 		logContext: {
@@ -234,7 +236,7 @@ export async function generateRumorsWithGrok(options: {
 }): Promise<GrokSectionResult | null> {
 	if (options.tickers.length === 0) return null;
 
-	const model = "grok-4.20-non-reasoning";
+	const model = GROK_DIGEST_MODEL;
 	const { system, user } = buildRumorsPrompt(options);
 
 	return callGrokSectionApi({
@@ -244,6 +246,7 @@ export async function generateRumorsWithGrok(options: {
 			input: user,
 			temperature: 0.4,
 			max_output_tokens: 800,
+			reasoning_effort: "none",
 			tools: [{ type: "x_search" }],
 		},
 		logContext: {

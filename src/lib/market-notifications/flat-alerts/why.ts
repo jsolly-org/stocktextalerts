@@ -5,6 +5,7 @@ import {
 	type GrokResponsesResponse,
 } from "../../vendors/grok";
 import { applyAnnotationsInline, type XaiAnnotation } from "../../vendors/grok-citations";
+import { GROK_WHY_MODEL } from "../../vendors/grok-models";
 
 export type PriceMoveWhyVerdict = "same" | "updated" | "new" | "unknown";
 
@@ -202,7 +203,7 @@ export async function generatePriceMoveWhyWithGrok(options: {
 	priorWhyVerdict: PriceMoveWhyVerdict | null;
 	requestId?: string;
 }): Promise<PriceMoveWhyResult | null> {
-	const model = "grok-4.5";
+	const model = GROK_WHY_MODEL;
 	const hadPrior = Boolean(options.priorWhySummary && options.priorWhySummary.trim() !== "");
 	const { system, user } = buildWhyPrompt(options);
 
