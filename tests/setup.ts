@@ -65,10 +65,13 @@ vi.mock("../src/lib/messaging/telegram/sender", async (importOriginal) => {
 
 vi.mock("../src/lib/market-data/session", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("../src/lib/market-data/session")>();
-	const { testGetCurrentMarketSession } = await import("./helpers/price-fetcher-doubles");
+	const { testGetCurrentEquityTradeSession, testGetCurrentMarketSession } = await import(
+		"./helpers/price-fetcher-doubles"
+	);
 	return {
 		...actual,
 		getCurrentMarketSession: testGetCurrentMarketSession,
+		getCurrentEquityTradeSession: testGetCurrentEquityTradeSession,
 	};
 });
 

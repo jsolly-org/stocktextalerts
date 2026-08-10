@@ -281,6 +281,12 @@ export const US_AFTER_OPEN_EASTERN_MINUTES = 10 * 60; // 10:00 AM ET
 export const US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES = 4 * 60 + 30; // 4:30 AM ET, minute 270
 /** Latest allowed scheduled price notification time in ET (minutes since midnight). 7:30 PM ET = after-hours close - 30 min outer buffer. */
 export const US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES = 19 * 60 + 30; // 7:30 PM ET, minute 1170
+/**
+ * Massive-capped US equity trade window for stock-buyer lambda wakes (asset-buyer D16).
+ * Inclusive start 04:00 ET, exclusive end 20:00 ET — overnight/BOATS closed.
+ */
+export const US_EQUITY_TRADE_OPEN_EASTERN_MINUTES = 4 * 60; // 4:00 AM ET, minute 240
+export const US_EQUITY_TRADE_CLOSE_EASTERN_MINUTES = 20 * 60; // 8:00 PM ET, minute 1200 (exclusive)
 /** IANA timezone for the US market session constants (ET). */
 export const US_MARKET_TIMEZONE = "America/New_York";
 

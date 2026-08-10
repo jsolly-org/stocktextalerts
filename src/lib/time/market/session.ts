@@ -1,10 +1,12 @@
 import {
+	US_EQUITY_TRADE_CLOSE_EASTERN_MINUTES,
+	US_EQUITY_TRADE_OPEN_EASTERN_MINUTES,
 	US_MARKET_CLOSE_EASTERN_MINUTES,
 	US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_OPEN_EASTERN_MINUTES,
 } from "../../constants";
-import type { ActiveMarketSession } from "../../types";
+import type { ActiveMarketSession, MarketSession } from "../../types";
 
 /**
  * True when the given ET-minute is outside the allowed market notification
@@ -24,6 +26,21 @@ export function isOutsideMarketHours(etMinutes: number): boolean {
 }
 
 /**
+ * True when outside the Massive-capped equity trade window [04:00, 20:00) ET.
+ * Used for stock-buyer lambda quote/alert coverage; human notifications stay on
+ * {@link isOutsideMarketHours}.
+ */
+export function isOutsideEquityTradeHours(etMinutes: number): boolean {
+	if (!Number.isInteger(etMinutes) || etMinutes < 0 || etMinutes > 1439) {
+		return true;
+	}
+	return (
+		etMinutes < US_EQUITY_TRADE_OPEN_EASTERN_MINUTES ||
+		etMinutes >= US_EQUITY_TRADE_CLOSE_EASTERN_MINUTES
+	);
+}
+
+/**
  * Classify an ET-minute against the regular session boundaries
  * (9:30 AM and 4:00 PM ET). Used to label scheduled-time chips with a
  * session badge.
@@ -37,4 +54,13 @@ export function getScheduledMarketSession(etMinutes: number): ActiveMarketSessio
 	if (etMinutes < US_MARKET_OPEN_EASTERN_MINUTES) return "pre";
 	if (etMinutes >= US_MARKET_CLOSE_EASTERN_MINUTES) return "after";
 	return "regular";
+}
+
+/**
+ * Equity trade session for stock-buyer: closed outside [04:00, 20:00) ET,
+ * otherwise the same pre/regular/after labels as {@link getScheduledMarketSession}.
+ */
+export function getEquityTradeSession(etMinutes: number): MarketSession {
+	if (isOutsideEquityTradeHours(etMinutes)) return "closed";
+	return getScheduledMarketSession(etMinutes);
 }

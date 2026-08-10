@@ -309,16 +309,21 @@ export async function runScheduledNotifications(options: {
 > {
 	const { supabase, logger } = options;
 
-	// Resolve market session once per scheduler invocation — passed to price alerts
-	// and live delivery to avoid redundant Massive status calls.
-	// Degrades to the last-known-good session (or "closed") on a Massive blip so a
+	// Resolve human + equity sessions once per scheduler invocation.
+	// Human session gates email/Telegram delivery (04:30–19:30).
+	// Equity session gates Massive quote capture + flat alerts / stock-buyer wakes (04:00–20:00).
+	// Degrades to the last-known-good pair (or closed/closed) on a calendar blip so a
 	// transient vendor failure can't abort the entire per-minute run.
-	const { session: schedulerMarketSession, degraded: marketSessionDegraded } =
-		await resolveMarketSessionWithFallback();
+	const {
+		humanSession: schedulerMarketSession,
+		equitySession: equityTradeSession,
+		degraded: marketSessionDegraded,
+	} = await resolveMarketSessionWithFallback();
 	if (marketSessionDegraded) {
 		logger.warn("Market session resolution degraded (using cached/closed fallback)", {
 			action: "market_session",
 			session: schedulerMarketSession,
+			equitySession: equityTradeSession,
 		});
 	}
 
@@ -328,12 +333,12 @@ export async function runScheduledNotifications(options: {
 	// for those. Stays `undefined` when the capture throws, so the flat-alert step below
 	// can tell "fetch failed" apart from "no quotes".
 	let capturedQuoteMap: ExtendedQuoteMap | undefined;
-	if (schedulerMarketSession !== "closed") {
+	if (equityTradeSession !== "closed") {
 		try {
 			const cacheSymbols = await getPriceCacheSymbols(supabase);
 			capturedQuoteMap =
 				cacheSymbols.length > 0
-					? await fetchExtendedQuotes(cacheSymbols, schedulerMarketSession)
+					? await fetchExtendedQuotes(cacheSymbols, equityTradeSession)
 					: new Map();
 			if (capturedQuoteMap.size > 0) {
 				const failedRows = await storePriceHistoryMinuteSnapshots(supabase, capturedQuoteMap);
@@ -395,40 +400,41 @@ export async function runScheduledNotifications(options: {
 
 	// Run flat price alerts — own state, own users, own emails. Reuses the captured
 	// quote map (a superset of the watched-symbol universe) and derives market-hours
-	// gating from the resolved session, so there is no extra live-quote fetch.
+	// gating from the equity trade session, so there is no extra live-quote fetch.
 	// An `undefined` map means the quote capture FAILED (not "no quotes") — skip the
 	// pass and log it explicitly so a blind alerting tick is observable, not silent.
 	// Error when equity session is open (pre/RTH/AH): stock-buyer lambda wakes need
 	// quotes too; RTH also covers human email/telegram flat alerts.
 	let flatPriceAlertTotals: FlatPriceAlertTotals | undefined;
 	const equitySessionOpen =
-		schedulerMarketSession === "pre" ||
-		schedulerMarketSession === "regular" ||
-		schedulerMarketSession === "after";
+		equityTradeSession === "pre" ||
+		equityTradeSession === "regular" ||
+		equityTradeSession === "after";
 	if (capturedQuoteMap !== undefined) {
 		try {
 			flatPriceAlertTotals = await processFlatPriceAlerts({
 				supabase,
 				quoteMap: capturedQuoteMap,
-				marketSession: schedulerMarketSession,
+				marketSession: equityTradeSession,
 			});
 
 			logger.info("Flat price alerts processed", {
 				action: "flat_price_alerts",
-				session: schedulerMarketSession,
+				session: equityTradeSession,
+				humanSession: schedulerMarketSession,
 				...flatPriceAlertTotals,
 			});
 		} catch (error) {
 			logger.warn(
 				"Flat price alerts processing failed (non-fatal)",
-				{ action: "flat_price_alerts", session: schedulerMarketSession },
+				{ action: "flat_price_alerts", session: equityTradeSession },
 				error,
 			);
 		}
 	} else if (equitySessionOpen) {
 		logger.error(
 			"Flat price alerts skipped: quote capture unavailable during equity session",
-			{ action: "flat_price_alerts", session: schedulerMarketSession },
+			{ action: "flat_price_alerts", session: equityTradeSession },
 			new Error("Quote capture failed; price-move alerting is blind this tick"),
 		);
 	}
