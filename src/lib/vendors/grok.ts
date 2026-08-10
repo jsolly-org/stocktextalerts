@@ -36,7 +36,7 @@ export type GrokResponsesRequest = {
 	instructions: string;
 	temperature?: number;
 	max_output_tokens?: number;
-	reasoning_effort?: "low" | "medium" | "high";
+	reasoning_effort?: "none" | "low" | "medium" | "high";
 	tools?: Array<{ type: "web_search" | "x_search" }>;
 	include?: string[];
 };
