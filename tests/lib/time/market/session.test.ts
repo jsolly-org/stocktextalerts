@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { etMinuteToUserLocal, userLocalToEtMinute } from "../../../../src/lib/time/conversion";
 import {
+	getEquityTradeSession,
 	getScheduledMarketSession,
+	isOutsideEquityTradeHours,
 	isOutsideMarketHours,
 } from "../../../../src/lib/time/market/session";
 
@@ -57,6 +59,33 @@ describe("isOutsideMarketHours", () => {
 
 	it("Non-integer input is treated as outside the window.", () => {
 		expect(isOutsideMarketHours(12.5)).toBe(true);
+	});
+});
+
+describe("isOutsideEquityTradeHours / getEquityTradeSession", () => {
+	// Massive-capped equity window: [04:00, 20:00) ET = [240, 1200)
+
+	it("03:59 ET is outside; 04:00 ET is pre", () => {
+		expect(isOutsideEquityTradeHours(239)).toBe(true);
+		expect(getEquityTradeSession(239)).toBe("closed");
+		expect(isOutsideEquityTradeHours(240)).toBe(false);
+		expect(getEquityTradeSession(240)).toBe("pre");
+	});
+
+	it("04:29 ET remains pre for stock-buyer while human window is still closed", () => {
+		expect(isOutsideMarketHours(269)).toBe(true);
+		expect(getEquityTradeSession(269)).toBe("pre");
+	});
+
+	it("19:31–19:59 ET are after for stock-buyer while human window is closed", () => {
+		expect(isOutsideMarketHours(1171)).toBe(true);
+		expect(getEquityTradeSession(1171)).toBe("after");
+		expect(getEquityTradeSession(1199)).toBe("after");
+	});
+
+	it("20:00 ET is closed for equity trade", () => {
+		expect(isOutsideEquityTradeHours(1200)).toBe(true);
+		expect(getEquityTradeSession(1200)).toBe("closed");
 	});
 });
 

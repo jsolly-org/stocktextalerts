@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const dispatchDailyDigestUserMock = vi.fn();
 const fetchDailyNotificationUsersMock = vi.fn();
 const getCurrentMarketSessionMock = vi.fn();
+const getCurrentEquityTradeSessionMock = vi.fn();
 const fetchMarketScheduledUsersMock = vi.fn();
 const processFlatPriceAlertsMock = vi.fn();
 const getUsMarketClosureInfoForInstantMock = vi.fn();
@@ -27,6 +28,7 @@ vi.mock("../../../src/lib/market-data/session", async () => {
 	return {
 		...actual,
 		getCurrentMarketSession: getCurrentMarketSessionMock,
+		getCurrentEquityTradeSession: getCurrentEquityTradeSessionMock,
 	};
 });
 
@@ -83,6 +85,7 @@ describe("A cron deliver pass fans out daily digests without a shared closure la
 		fetchDailyNotificationUsersMock.mockReset();
 		fetchMarketScheduledUsersMock.mockReset();
 		getCurrentMarketSessionMock.mockReset();
+		getCurrentEquityTradeSessionMock.mockReset();
 		processFlatPriceAlertsMock.mockReset();
 		getUsMarketClosureInfoForInstantMock.mockReset();
 		fetchAssetPricesWithSessionStateMock.mockReset();
@@ -118,6 +121,7 @@ describe("A cron deliver pass fans out daily digests without a shared closure la
 		fetchDailyNotificationUsersMock.mockResolvedValueOnce([{ id: "daily-user-1" }]);
 		fetchMarketScheduledUsersMock.mockResolvedValueOnce([]);
 		getCurrentMarketSessionMock.mockResolvedValue("closed");
+		getCurrentEquityTradeSessionMock.mockResolvedValue("closed");
 		getUsMarketClosureInfoForInstantMock.mockResolvedValue({
 			reason: "weekend",
 		});
@@ -163,6 +167,7 @@ describe("A cron deliver pass fans out daily digests without a shared closure la
 		fetchMarketScheduledUsersMock.mockResolvedValueOnce([marketUser]);
 		fetchDailyNotificationUsersMock.mockResolvedValueOnce([]);
 		getCurrentMarketSessionMock.mockResolvedValue("regular");
+		getCurrentEquityTradeSessionMock.mockResolvedValue("regular");
 		batchLoadUserAssetsMock.mockResolvedValue(
 			new Map([["market-user-1", [{ symbol: "AAPL", name: "Apple", type: "stock" }]]]),
 		);

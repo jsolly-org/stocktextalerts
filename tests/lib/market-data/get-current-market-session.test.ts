@@ -44,6 +44,19 @@ describe("getCurrentMarketSession — local, no live vendor call", () => {
 		return marketDataSession.getCurrentMarketSession();
 	}
 
+	async function equitySessionAt(isoUtc: string, calendar: CalendarRecord[] = []): Promise<string> {
+		vi.resetModules();
+		vi.useFakeTimers();
+		vi.setSystemTime(DateTime.fromISO(isoUtc, { zone: "utc" }).toJSDate());
+		marketDataFetchMock.mockReset();
+		marketDataFetchMock.mockImplementation(async (path: string) => {
+			if (path === "/v1/marketstatus/upcoming") return calendar;
+			throw new Error(`unexpected Massive call in local session: ${path}`);
+		});
+		marketDataSession = await import("../../../src/lib/market-data/session");
+		return marketDataSession.getCurrentEquityTradeSession();
+	}
+
 	afterEach(() => {
 		vi.useRealTimers();
 	});
@@ -68,15 +81,42 @@ describe("getCurrentMarketSession — local, no live vendor call", () => {
 		expect(await sessionAt("2026-01-12T07:00:00.000Z")).toBe("closed");
 	});
 
+	it("human session is closed at 04:15 ET while equity session is pre", async () => {
+		// Mon Jan 12 2026, 04:15 AM ET (EST = UTC-5) → 09:15 UTC.
+		expect(await sessionAt("2026-01-12T09:15:00.000Z")).toBe("closed");
+		expect(await equitySessionAt("2026-01-12T09:15:00.000Z")).toBe("pre");
+	});
+
+	it("human session is closed at 19:45 ET while equity session is after", async () => {
+		// Mon Jan 12 2026, 07:45 PM ET → 00:45 UTC next day.
+		expect(await sessionAt("2026-01-13T00:45:00.000Z")).toBe("closed");
+		expect(await equitySessionAt("2026-01-13T00:45:00.000Z")).toBe("after");
+	});
+
+	it("equity session is closed at 20:00 ET", async () => {
+		expect(await equitySessionAt("2026-01-13T01:00:00.000Z")).toBe("closed");
+	});
+
 	it("classifies a Saturday as 'closed' from the weekday check", async () => {
 		// Sat Jan 10 2026, midday.
 		expect(await sessionAt("2026-01-10T17:00:00.000Z")).toBe("closed");
+		expect(await equitySessionAt("2026-01-10T17:00:00.000Z")).toBe("closed");
 	});
 
 	it("classifies a full holiday as 'closed' from the calendar", async () => {
 		// MLK Day, Mon Jan 19 2026, 11:00 AM ET.
 		expect(
 			await sessionAt("2026-01-19T16:00:00.000Z", [
+				{
+					exchange: "NYSE",
+					date: "2026-01-19",
+					status: "closed",
+					name: "Martin Luther King Jr. Day",
+				},
+			]),
+		).toBe("closed");
+		expect(
+			await equitySessionAt("2026-01-19T16:00:00.000Z", [
 				{
 					exchange: "NYSE",
 					date: "2026-01-19",
@@ -107,6 +147,18 @@ describe("getCurrentMarketSession — local, no live vendor call", () => {
 		// Same half-day, 2:00 PM ET (19:00 UTC) — one hour past the 1pm early close.
 		expect(
 			await sessionAt("2026-11-27T19:00:00.000Z", [
+				{
+					exchange: "NYSE",
+					date: "2026-11-27",
+					status: "early-close",
+					name: "Day after Thanksgiving",
+					open: "2026-11-27T14:30:00.000Z",
+					close: "2026-11-27T18:00:00.000Z",
+				},
+			]),
+		).toBe("closed");
+		expect(
+			await equitySessionAt("2026-11-27T19:00:00.000Z", [
 				{
 					exchange: "NYSE",
 					date: "2026-11-27",
