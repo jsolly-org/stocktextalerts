@@ -3,6 +3,7 @@
  * and notification_log (delivery_method enum is email|telegram only).
  */
 import { describe, expect, it, vi } from "vitest";
+import { STOCK_BUYER_EMAIL } from "../../../../scripts/provision-stock-buyer-user";
 import type { AppSupabaseClient } from "../../../../src/lib/db/supabase";
 import { deliverFlatPriceAlert } from "../../../../src/lib/market-notifications/flat-alerts/delivery";
 import type { FlatPriceAlertUser } from "../../../../src/lib/market-notifications/flat-alerts/users";
@@ -57,7 +58,7 @@ describe("deliverFlatPriceAlert lambda channel", () => {
 
 		const user: FlatPriceAlertUser = {
 			id: "00000000-0000-0000-0000-000000000099",
-			email: "stock-buyer@internal.stocktextalerts",
+			email: STOCK_BUYER_EMAIL,
 			delivery_channel: "lambda",
 			use_24_hour_time: false,
 			telegram_chat_id: null,
@@ -112,7 +113,7 @@ describe("deliverFlatPriceAlert lambda channel", () => {
 		const { client } = makeSupabaseMock();
 		const user: FlatPriceAlertUser = {
 			id: "00000000-0000-0000-0000-000000000099",
-			email: "stock-buyer@internal.stocktextalerts",
+			email: STOCK_BUYER_EMAIL,
 			delivery_channel: "lambda",
 			use_24_hour_time: false,
 			telegram_chat_id: null,
@@ -158,7 +159,7 @@ describe("deliverFlatPriceAlert lambda channel", () => {
 		const { client } = makeSupabaseMock();
 		const user: FlatPriceAlertUser = {
 			id: "00000000-0000-0000-0000-000000000099",
-			email: "stock-buyer@internal.stocktextalerts",
+			email: STOCK_BUYER_EMAIL,
 			delivery_channel: "lambda",
 			use_24_hour_time: false,
 			telegram_chat_id: null,

@@ -14,6 +14,10 @@
  *     other workers created, and fails when their owner's `afterEach` deletes one mid-run
  *     (seen once as a `scheduled_notifications_user_id_fkey` violation). Scoping the call to
  *     one user would change what the test covers, so it gets the table to itself instead.
+ *   - The flat-alerts process specs call `processFlatPriceAlerts`, whose scope is every
+ *     enabled user with a threshold row. Global `alertsTriggered` / `emailsSent` totals then
+ *     include other workers' fixtures (reproduced on CI as
+ *     "Opposite-direction recovery still requires the full threshold" expecting 0 got 1).
  *
  * `tests/pages/http/**` used to be here too, as the largest entry (auth 10.0s + profile 8.7s
  * of a 39.5s serial pass, measured on CI job 91709170896). Its `TypeError: fetch failed` was
@@ -32,4 +36,5 @@ export const SERIAL_TEST_GLOBS = [
 	"tests/handlers/maintenance/asset-maintenance.test.ts",
 	"tests/lib/schedule/run.test.ts",
 	"tests/lib/schedule/daily-digest-closure-fanout.test.ts",
+	"tests/lib/market-notifications/flat-alerts/process.test.ts",
 ];
