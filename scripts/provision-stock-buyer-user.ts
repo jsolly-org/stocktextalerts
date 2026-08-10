@@ -16,7 +16,7 @@ import { buildDefaultPreferenceRows } from "../src/lib/messaging/notification-pr
 
 const STOCK_BUYER_EMAIL = "stock-buyer@internal.stocktextalerts";
 
-/** Asset-buyer watchlist (41 tickers) — keep in sync with asset-buyer WATCHLIST. */
+/** Asset-buyer watchlist (40 tickers) — keep in sync with asset-buyer WATCHLIST. */
 export const STOCK_BUYER_TICKERS = [
 	"NVDA",
 	"MSFT",
@@ -45,7 +45,6 @@ export const STOCK_BUYER_TICKERS = [
 	"FTNT",
 	"PANW",
 	"ZS",
-	"CYBR",
 	"S",
 	"RPD",
 	"TENB",
