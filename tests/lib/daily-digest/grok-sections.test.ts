@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+	GROK_DIGEST_TEXT_FORMAT,
 	generateNewsWithGrok,
 	generateRumorsWithGrok,
 } from "../../../src/lib/daily-digest/grok-sections";
@@ -8,7 +9,7 @@ vi.mock("node:timers/promises", () => ({
 	setTimeout: vi.fn().mockResolvedValue(undefined),
 }));
 
-function mockXaiResponse(text: string): Response {
+function mockXaiResponse(markdown: string): Response {
 	return new Response(
 		JSON.stringify({
 			id: "test-resp",
@@ -16,10 +17,17 @@ function mockXaiResponse(text: string): Response {
 			created_at: 1779000000,
 			model: "grok-4.20-0309-non-reasoning",
 			status: "completed",
+			output_text: JSON.stringify({ markdown }),
 			output: [
 				{
 					type: "message",
-					content: [{ type: "output_text", text, annotations: [] }],
+					content: [
+						{
+							type: "output_text",
+							text: JSON.stringify({ markdown }),
+							annotations: [],
+						},
+					],
 				},
 			],
 		}),
@@ -33,12 +41,12 @@ describe("Grok digest parsers strip stray markdown bold", () => {
 		vi.unstubAllEnvs();
 	});
 
-	it("daily-digest news: a non-reasoning model that wraps each bullet in **…** renders as plain ticker-prefixed lines", async () => {
+	it("daily-digest news: schema-wrapped markdown strips **…** and posts text.format", async () => {
 		vi.stubEnv("XAI_API_KEY", "test-key");
 		const newsBody =
 			"**LDOS: Leidos benefits from the Pentagon's accelerating shift toward AI-driven systems.**\n" +
 			"**BAH: Booz Allen Hamilton is positioned to gain from the Pentagon's AI pivot.**";
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(mockXaiResponse(newsBody));
+		const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockXaiResponse(newsBody));
 
 		const result = await generateNewsWithGrok({
 			tickers: ["LDOS", "BAH"],
@@ -50,6 +58,8 @@ describe("Grok digest parsers strip stray markdown bold", () => {
 		expect(result?.content).not.toContain("**");
 		expect(result?.content).toContain("LDOS: Leidos benefits");
 		expect(result?.content).toContain("BAH: Booz Allen");
+		const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body ?? "{}"));
+		expect(body.text).toEqual({ format: GROK_DIGEST_TEXT_FORMAT });
 	});
 
 	it("daily-digest rumors: stripped output preserves @handle mentions and hedge phrasing", async () => {

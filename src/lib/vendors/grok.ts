@@ -30,6 +30,19 @@ export function resetGrokAuthExhausted(): void {
 	grokAuthExhaustedThisProcess = false;
 }
 
+/** Responses API structured-output format (flattened under `text.format`). */
+export type GrokTextFormat = {
+	type: "json_schema";
+	name: string;
+	strict: true;
+	schema: {
+		type: "object";
+		properties: Record<string, unknown>;
+		required: readonly string[];
+		additionalProperties: false;
+	};
+};
+
 export type GrokResponsesRequest = {
 	model: string;
 	input: string;
@@ -39,6 +52,7 @@ export type GrokResponsesRequest = {
 	reasoning_effort?: "none" | "low" | "medium" | "high";
 	tools?: Array<{ type: "web_search" | "x_search" }>;
 	include?: string[];
+	text?: { format: GrokTextFormat };
 };
 
 export type GrokResponsesResponse = {
@@ -47,6 +61,7 @@ export type GrokResponsesResponse = {
 	created_at: number;
 	model: string;
 	status: string;
+	output_text?: string;
 	output: Array<{
 		id?: string;
 		type?: string;
@@ -61,6 +76,46 @@ export type GrokResponsesResponse = {
 		[key: string]: unknown;
 	}>;
 };
+
+/**
+ * Prefer `output_text`; else only assistant `message` items (never tool-call chunks).
+ */
+function extractResponsesOutputText(response: GrokResponsesResponse): string | null {
+	if (typeof response.output_text === "string" && response.output_text.trim()) {
+		return response.output_text.trim();
+	}
+	const texts: string[] = [];
+	for (const item of response.output ?? []) {
+		if (item.type !== undefined && item.type !== "message") continue;
+		if (!Array.isArray(item.content)) continue;
+		for (const part of item.content) {
+			if (part.type !== "output_text" && part.type !== "text") continue;
+			if (typeof part.text === "string" && part.text.trim()) {
+				texts.push(part.text.trim());
+			}
+		}
+	}
+	const joined = texts.join("\n").trim();
+	return joined === "" ? null : joined;
+}
+
+/**
+ * Parse schema-constrained JSON object from Responses `output_text`.
+ * Returns null on empty or invalid JSON (caller fail-opens).
+ */
+export function parseResponsesJsonObject(
+	response: GrokResponsesResponse,
+): Record<string, unknown> | null {
+	const text = extractResponsesOutputText(response);
+	if (!text) return null;
+	try {
+		const parsed = JSON.parse(text) as unknown;
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+		return parsed as Record<string, unknown>;
+	} catch {
+		return null;
+	}
+}
 
 /**
  * Per-attempt timeouts for Grok API calls (escalating).
@@ -142,6 +197,14 @@ export async function fetchGrokResponse(options: {
 				if (response.status === 401 || response.status === 403) {
 					grokAuthExhaustedThisProcess = true;
 					rootLogger.warn("Grok auth/credits rejected — skipping further Grok calls", {
+						...failureContext,
+						category: OPTIONAL_VENDOR_DEGRADED_CATEGORY,
+					});
+					return null;
+				}
+				// Schema / request validation — never recovers on retry (avoid 30+45+60s burn).
+				if (response.status === 400) {
+					rootLogger.error("Grok request rejected (400 validation); not retrying", {
 						...failureContext,
 						category: OPTIONAL_VENDOR_DEGRADED_CATEGORY,
 					});

@@ -2,9 +2,9 @@ import { rootLogger } from "../../logging";
 import {
 	fetchGrokResponse,
 	type GrokResponsesRequest,
-	type GrokResponsesResponse,
+	type GrokTextFormat,
+	parseResponsesJsonObject,
 } from "../../vendors/grok";
-import { applyAnnotationsInline, type XaiAnnotation } from "../../vendors/grok-citations";
 import { GROK_WHY_MODEL } from "../../vendors/grok-models";
 
 export type PriceMoveWhyVerdict = "same" | "updated" | "new" | "unknown";
@@ -17,88 +17,27 @@ export type PriceMoveWhyResult = {
 const UNKNOWN_TEXT = "No clear catalyst on the wire.";
 const UNKNOWN_ACCEL_TEXT = "Still no clear catalyst on the wire.";
 
-const VERDICTS: readonly PriceMoveWhyVerdict[] = ["same", "updated", "new", "unknown"];
+const PRICE_MOVE_WHY_VERDICTS = ["same", "updated", "new", "unknown"] as const;
 
-function extractTextFromXaiResponse(response: GrokResponsesResponse): string | null {
-	const texts: string[] = [];
+export const GROK_WHY_TEXT_FORMAT = {
+	type: "json_schema",
+	name: "price_move_why",
+	strict: true,
+	schema: {
+		type: "object",
+		properties: {
+			verdict: { type: "string", enum: [...PRICE_MOVE_WHY_VERDICTS] },
+			why: { type: "string" },
+		},
+		required: ["verdict", "why"],
+		additionalProperties: false,
+	},
+} as const satisfies GrokTextFormat;
 
-	const addText = (value: unknown, annotations?: unknown) => {
-		if (typeof value !== "string") return;
-		const trimmed = value.trim();
-		if (trimmed === "") return;
-		const annotated = Array.isArray(annotations)
-			? applyAnnotationsInline(trimmed, annotations as XaiAnnotation[])
-			: trimmed;
-		const stripped = annotated.replace(/\*\*([^*\n]+)\*\*/g, "$1");
-		texts.push(stripped);
-	};
-
-	const output = Array.isArray(response.output) ? response.output : [];
-	for (const item of output) {
-		if (!item || typeof item !== "object") continue;
-		if (item.type === "message") {
-			const content = item.content;
-			if (!Array.isArray(content)) continue;
-			for (const part of content) {
-				if (!part || typeof part !== "object") continue;
-				if (part.type !== "output_text" && part.type !== "text") continue;
-				addText(part.text, part.annotations);
-			}
-		}
-	}
-
-	const text = texts.join("\n").trim();
-	return text === "" ? null : text;
-}
-
-/** Parse a verdict marker from model output; defaults to unknown when ambiguous. */
-export function parsePriceMoveWhyVerdict(raw: string): PriceMoveWhyVerdict {
-	const firstLine = raw.split(/\r?\n/, 1)[0] ?? raw;
-	const upper = firstLine.toUpperCase();
-
-	// Structured first line: VERDICT: same | UPDATED | NEW | UNKNOWN
-	const structured = firstLine.match(
-		/^\s*(?:verdict\s*[:=]\s*)?(same|updated|new|unknown)\s*[:.-]?\s*$/i,
+function isWhyVerdict(value: unknown): value is PriceMoveWhyVerdict {
+	return (
+		typeof value === "string" && (PRICE_MOVE_WHY_VERDICTS as ReadonlyArray<string>).includes(value)
 	);
-	if (structured?.[1]) {
-		return structured[1].toLowerCase() as PriceMoveWhyVerdict;
-	}
-
-	for (const verdict of VERDICTS) {
-		const token = verdict.toUpperCase();
-		if (
-			upper.includes(`VERDICT: ${token}`) ||
-			upper.includes(`VERDICT=${token}`) ||
-			upper.startsWith(`${token}:`) ||
-			upper.startsWith(`[${token}]`) ||
-			upper.includes(`(${token})`)
-		) {
-			return verdict;
-		}
-	}
-
-	return "unknown";
-}
-
-/** Strip a leading verdict marker line / prefix from the user-facing blurb. */
-export function stripVerdictMarker(raw: string): string {
-	const lines = raw.split(/\r?\n/);
-	if (lines.length === 0) return raw.trim();
-
-	const first = lines[0] ?? "";
-	if (/^\s*(?:verdict\s*[:=]\s*)?(same|updated|new|unknown)\s*[:.-]?\s*$/i.test(first)) {
-		return lines.slice(1).join("\n").trim();
-	}
-
-	const strippedFirst = first
-		.replace(/^\s*\[?(?:VERDICT\s*[:=]\s*)?(same|updated|new|unknown)\]?\s*[:.-]?\s*/i, "")
-		.trim();
-	if (strippedFirst !== first.trim()) {
-		lines[0] = strippedFirst;
-		return lines.join("\n").trim();
-	}
-
-	return raw.trim();
 }
 
 function applyContinuityLeadIn(
@@ -164,7 +103,7 @@ function buildWhyPrompt(options: {
 		"Do not give buy/sell advice. " +
 		"Cite claims with markdown links `[Source](https://...)` using real URLs from search — never invent URLs. " +
 		"Plain text otherwise — no markdown bold/italic/headings/bullets beyond citation links. " +
-		"When a prior why is provided, classify continuity as SAME, UPDATED, NEW, or UNKNOWN.";
+		"When a prior why is provided, classify continuity as same, updated, new, or unknown via the structured response schema.";
 
 	const priorBlock =
 		priorWhySummary && priorWhySummary.trim() !== ""
@@ -179,13 +118,10 @@ function buildWhyPrompt(options: {
 		`Explain THIS move for ${symbol} (${name}): ${direction} ${absPct}%.\n` +
 		accelNote +
 		priorBlock +
-		"\nOutput format:\n" +
-		"Line 1: VERDICT: same|updated|new|unknown\n" +
-		"Line 2+: 1–2 sentence explanation of the catalyst for this move.\n" +
-		"If there is no clear catalyst, use VERDICT: unknown and a short hedge " +
-		`like "${UNKNOWN_TEXT}".\n` +
-		"When prior why exists and the story is unchanged, prefer VERDICT: same and a brief continuity lead-in.\n" +
-		"When the story evolved, VERDICT: updated. When a distinct new catalyst, VERDICT: new.";
+		"\nReturn verdict and why via the structured response schema.\n" +
+		`If there is no clear catalyst, use verdict unknown and a short hedge like "${UNKNOWN_TEXT}".\n` +
+		"When prior why exists and the story is unchanged, prefer verdict same and a brief continuity lead-in.\n" +
+		"When the story evolved, verdict updated. When a distinct new catalyst, verdict new.";
 
 	return { system, user };
 }
@@ -215,6 +151,7 @@ export async function generatePriceMoveWhyWithGrok(options: {
 		max_output_tokens: 200,
 		reasoning_effort: "low",
 		tools: [{ type: "web_search" }, { type: "x_search" }],
+		text: { format: GROK_WHY_TEXT_FORMAT },
 	};
 
 	try {
@@ -231,17 +168,18 @@ export async function generatePriceMoveWhyWithGrok(options: {
 			return null;
 		}
 
-		const raw = extractTextFromXaiResponse(data);
-		if (!raw) {
-			rootLogger.warn("Price-move why Grok returned empty content", {
+		const obj = parseResponsesJsonObject(data);
+		if (!obj || !isWhyVerdict(obj.verdict) || typeof obj.why !== "string") {
+			rootLogger.warn("Price-move why Grok JSON parse failed; fail-open omit", {
 				action: "price_move_why",
 				symbol: options.symbol,
 			});
 			return null;
 		}
 
-		const verdict = hadPrior ? parsePriceMoveWhyVerdict(raw) : "new";
-		const body = stripVerdictMarker(raw);
+		const parsedVerdict = obj.verdict;
+		const body = obj.why.replace(/\*\*([^*\n]+)\*\*/g, "$1").trim();
+		const verdict: PriceMoveWhyVerdict = hadPrior ? parsedVerdict : "new";
 		const text = applyContinuityLeadIn(
 			body === "" ? UNKNOWN_TEXT : body,
 			verdict === "unknown" || body === "" ? "unknown" : verdict,

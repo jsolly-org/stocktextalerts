@@ -74,4 +74,25 @@ describe("fetchGrokResponse auth short-circuit", () => {
 		expect(result).toBeNull();
 		expect(fetchSpy).toHaveBeenCalledTimes(3);
 	});
+
+	it("a 400 validation error does not retry", async () => {
+		expectConsoleError(/Grok request rejected \(400/);
+		fetchSpy.mockResolvedValue(
+			new Response(JSON.stringify({ error: "invalid schema" }), {
+				status: 400,
+				statusText: "Bad Request",
+			}),
+		);
+
+		const result = await fetchGrokResponse({
+			requestBody: {
+				model: "grok-4",
+				input: "hi",
+				instructions: "test",
+			},
+			logContext: { action: "test" },
+		});
+		expect(result).toBeNull();
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
+	});
 });
