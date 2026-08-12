@@ -9,13 +9,37 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-APT_OPTS=(-o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false)
+# Valid-Until skew on Cloud VMs; force-conf* so dpkg never prompts on pre-existing
+# conffiles (notably /etc/fuse.conf with user_allow_other on the base image —
+# DEBIAN_FRONTEND=noninteractive alone does not suppress dpkg conffile prompts).
+APT_OPTS=(
+	-o Acquire::Check-Valid-Until=false
+	-o Acquire::Check-Date=false
+	-o Dpkg::Options::=--force-confdef
+	-o Dpkg::Options::=--force-confold
+)
 NODE24_DIR="${HOME}/.nvm/versions/node/v24.18.0"
 NODE24_BIN="${NODE24_DIR}/bin"
 
 log() { printf 'cloud-install: %s\n' "$*"; }
 
+# Heal interrupted installs (e.g. fuse3 left "unpacked" after a conffile EOF).
+repair_dpkg_if_needed() {
+	local needs_repair=0
+	if dpkg --audit 2>/dev/null | grep -q .; then
+		needs_repair=1
+	elif dpkg -l fuse3 fuse-overlayfs 2>/dev/null | awk '/^iU|^iF|^iH/ {found=1} END {exit !found}'; then
+		needs_repair=1
+	fi
+	if [[ "$needs_repair" -eq 1 ]]; then
+		log "repairing half-configured apt packages (noninteractive conffiles)"
+		sudo env DEBIAN_FRONTEND=noninteractive dpkg --force-confdef --force-confold --configure -a
+	fi
+}
+
 ensure_apt_packages() {
+	repair_dpkg_if_needed
+
 	if command -v dockerd >/dev/null 2>&1 && command -v fuse-overlayfs >/dev/null 2>&1; then
 		log "docker + fuse-overlayfs already installed"
 		return 0
@@ -23,7 +47,7 @@ ensure_apt_packages() {
 
 	log "installing docker + fuse-overlayfs (apt; ignoring Valid-Until skew)"
 	sudo apt-get "${APT_OPTS[@]}" update -qq
-	sudo DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTS[@]}" install -y -qq \
+	sudo env DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTS[@]}" install -y -qq \
 		ca-certificates curl gnupg fuse-overlayfs uidmap iptables
 
 	if ! command -v dockerd >/dev/null 2>&1; then
@@ -38,7 +62,7 @@ ensure_apt_packages() {
 		echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" |
 			sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
 		sudo apt-get "${APT_OPTS[@]}" update -qq
-		sudo DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTS[@]}" install -y -qq \
+		sudo env DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTS[@]}" install -y -qq \
 			docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 	fi
 }
