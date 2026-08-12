@@ -9,13 +9,9 @@ vi.mock("node:timers/promises", () => ({
 }));
 
 const NOW_UTC = Date.UTC(2026, 6, 15, 15, 0, 0);
-const PRE_TODAY_MS = Date.UTC(2026, 6, 15, 12, 0, 0); // 8:00 AM ET
-const REGULAR_TODAY_MS = Date.UTC(2026, 6, 15, 14, 0, 0); // 10:00 AM ET
-const AFTER_TODAY_MS = Date.UTC(2026, 6, 15, 22, 0, 0); // 6:00 PM ET
-const YESTERDAY_AFTER_MS = Date.UTC(2026, 6, 14, 22, 0, 0);
 
-function snapshotResponse(tickers: unknown[]): Response {
-	return new Response(JSON.stringify({ tickers }), {
+function snapshotResponse(results: unknown[]): Response {
+	return new Response(JSON.stringify({ status: "OK", results }), {
 		status: 200,
 		headers: { "content-type": "application/json" },
 	});
@@ -27,28 +23,32 @@ function expectQuote<T>(entry: T | "no_session_trade" | null | undefined): T {
 	return entry as T;
 }
 
-function snapshotTicker(options: {
+function snapshotResult(options: {
 	ticker: string;
 	dayClose: number;
 	minuteClose: number;
-	minuteTimestamp?: number;
 	prevClose?: number;
+	marketStatus?: "open" | "closed" | "early_trading" | "late_trading";
 }) {
+	const dayClose = options.dayClose;
 	return {
 		ticker: options.ticker,
-		updated: polygonUpdatedNs(Math.floor(NOW_UTC / 1000)),
-		day: {
-			o: options.dayClose > 0 ? options.dayClose - 1 : 0,
-			h: options.dayClose > 0 ? options.dayClose + 1 : 0,
-			l: options.dayClose > 0 ? options.dayClose - 2 : 0,
-			c: options.dayClose,
-			v: options.dayClose > 0 ? 1_000 : 0,
+		type: "stocks",
+		market_status: options.marketStatus ?? "open",
+		session: {
+			open: dayClose > 0 ? dayClose - 1 : 0,
+			high: dayClose > 0 ? dayClose + 1 : 0,
+			low: dayClose > 0 ? dayClose - 2 : 0,
+			close: dayClose,
+			volume: dayClose > 0 ? 1_000 : 0,
+			previous_close: options.prevClose ?? 100,
+			last_updated: polygonUpdatedNs(Math.floor(NOW_UTC / 1000)),
 		},
-		min: {
-			c: options.minuteClose,
-			...(options.minuteTimestamp === undefined ? {} : { t: options.minuteTimestamp }),
+		last_minute: {
+			close: options.minuteClose,
+			// Refresh clock — intentionally not used for session gating.
+			last_updated: polygonUpdatedNs(Math.floor(NOW_UTC / 1000)),
 		},
-		prevDay: { c: options.prevClose ?? 100 },
 	};
 }
 
@@ -65,15 +65,15 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		vi.unstubAllEnvs();
 	});
 
-	it("uses min.c in pre-market when min.t is in today's pre-market session", async () => {
+	it("uses last_minute.close in pre-market when market_status is early_trading", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
-				snapshotTicker({
+				snapshotResult({
 					ticker: "RTX",
 					dayClose: 0,
 					minuteClose: 175.77,
-					minuteTimestamp: PRE_TODAY_MS,
 					prevClose: 176.09,
+					marketStatus: "early_trading",
 				}),
 			]),
 		);
@@ -82,15 +82,17 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		expect(quote.price).toBe(175.77);
 		expect(quote.changePercent).toBeCloseTo(-0.18, 2);
 		expect(quote.prevClose).toBe(176.09);
+		expect(quote.timestamp).toBe(Math.floor(NOW_UTC / 1000));
 	});
 
-	it("returns no_session_trade in pre-market when min.t is missing", async () => {
+	it("returns no_session_trade in pre-market when market_status is not early_trading", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
-				snapshotTicker({
+				snapshotResult({
 					ticker: "BAH",
 					dayClose: 0,
 					minuteClose: 101,
+					marketStatus: "closed",
 				}),
 			]),
 		);
@@ -99,30 +101,14 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		expect(quotes.get("BAH")).toBe("no_session_trade");
 	});
 
-	it("does not attribute yesterday's minute bar to today's pre-market session", async () => {
+	it("does not attribute a regular-session print to pre-market", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
-				snapshotTicker({
-					ticker: "CACI",
-					dayClose: 0,
-					minuteClose: 101,
-					minuteTimestamp: YESTERDAY_AFTER_MS,
-				}),
-			]),
-		);
-
-		const quotes = await fetchSnapshotQuotes(["CACI"], "pre");
-		expect(quotes.get("CACI")).toBe("no_session_trade");
-	});
-
-	it("does not attribute a current-day regular minute bar to pre-market", async () => {
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			snapshotResponse([
-				snapshotTicker({
+				snapshotResult({
 					ticker: "GD",
 					dayClose: 0,
 					minuteClose: 101,
-					minuteTimestamp: REGULAR_TODAY_MS,
+					marketStatus: "open",
 				}),
 			]),
 		);
@@ -131,15 +117,15 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		expect(quotes.get("GD")).toBe("no_session_trade");
 	});
 
-	it("uses today's after-hours min.c instead of the locked day.c", async () => {
+	it("uses last_minute.close after hours when market_status is late_trading", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
-				snapshotTicker({
+				snapshotResult({
 					ticker: "MSFT",
 					dayClose: 415.2,
 					minuteClose: 416.5,
-					minuteTimestamp: AFTER_TODAY_MS,
 					prevClose: 411.2,
+					marketStatus: "late_trading",
 				}),
 			]),
 		);
@@ -149,15 +135,15 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		expect(quote.changePercent).toBeCloseTo(((416.5 - 411.2) / 411.2) * 100);
 	});
 
-	it("falls back to day.c after hours when min.t is stale", async () => {
+	it("falls back to session.close after hours when market_status is still open (delayed)", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
-				snapshotTicker({
+				snapshotResult({
 					ticker: "SAIC",
 					dayClose: 93.93,
 					minuteClose: 94.5,
-					minuteTimestamp: YESTERDAY_AFTER_MS,
 					prevClose: 93.46,
+					marketStatus: "open",
 				}),
 			]),
 		);
@@ -167,15 +153,15 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		expect(quote.changePercent).toBeCloseTo(0.5, 2);
 	});
 
-	it("prefers day.c during the regular session", async () => {
+	it("prefers session.close during the regular session", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
-				snapshotTicker({
+				snapshotResult({
 					ticker: "SPY",
 					dayClose: 500.5,
 					minuteClose: 500.4,
-					minuteTimestamp: REGULAR_TODAY_MS,
 					prevClose: 498,
+					marketStatus: "open",
 				}),
 			]),
 		);
@@ -186,35 +172,21 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		expect(quote.dayHigh).toBe(501.5);
 		expect(quote.dayLow).toBe(498.5);
 		expect(quote.volume).toBe(1_000);
+		expect(quote.timestamp).toBe(Math.floor(NOW_UTC / 1000));
 	});
 
-	it("falls back to min.c during regular hours when day.c is empty and min.t is regular", async () => {
+	it("does not fall back to last_minute during regular hours when session.close is empty", async () => {
+		// Starter delay: market_status can already be open while session.close is empty and
+		// last_minute.close is still a pre-market print. last_updated is a refresh clock
+		// (~15m ahead of entitled data), so it must not unlock that fallback.
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
-				snapshotTicker({
-					ticker: "LATE",
-					dayClose: 0,
-					minuteClose: 52.5,
-					minuteTimestamp: REGULAR_TODAY_MS,
-					prevClose: 50,
-				}),
-			]),
-		);
-
-		const quote = expectQuote((await fetchSnapshotQuotes(["LATE"], "regular")).get("LATE"));
-		expect(quote.price).toBe(52.5);
-	});
-
-	it("does not treat a pre-market minute bar as the regular-session price", async () => {
-		// Starter delay: clock can be regular while entitled min is still pre-market and day.c empty.
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			snapshotResponse([
-				snapshotTicker({
+				snapshotResult({
 					ticker: "OPENLAG",
 					dayClose: 0,
 					minuteClose: 101.5,
-					minuteTimestamp: PRE_TODAY_MS,
 					prevClose: 100,
+					marketStatus: "open",
 				}),
 			]),
 		);
@@ -223,86 +195,32 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		expect(quotes.get("OPENLAG")).toBe("no_session_trade");
 	});
 
-	it("uses day.c after hours when min.t is a same-day regular bar", async () => {
+	it("does not treat early_trading last_minute as the regular-session price", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
-				snapshotTicker({
-					ticker: "LOCK",
-					dayClose: 200.1,
-					minuteClose: 201.5,
-					minuteTimestamp: REGULAR_TODAY_MS,
-					prevClose: 198,
-				}),
-			]),
-		);
-
-		const quote = expectQuote((await fetchSnapshotQuotes(["LOCK"], "after")).get("LOCK"));
-		expect(quote.price).toBe(200.1);
-	});
-
-	it("rejects pre-market min.t exactly at the 9:30 ET open boundary", async () => {
-		const openEtMs = Date.UTC(2026, 6, 15, 13, 30, 0); // 9:30 AM ET
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			snapshotResponse([
-				snapshotTicker({
-					ticker: "EDGE",
+				snapshotResult({
+					ticker: "PRELAG",
 					dayClose: 0,
-					minuteClose: 50,
-					minuteTimestamp: openEtMs,
-					prevClose: 49,
+					minuteClose: 101.5,
+					prevClose: 100,
+					marketStatus: "early_trading",
 				}),
 			]),
 		);
 
-		const quotes = await fetchSnapshotQuotes(["EDGE"], "pre");
-		expect(quotes.get("EDGE")).toBe("no_session_trade");
+		const quotes = await fetchSnapshotQuotes(["PRELAG"], "regular");
+		expect(quotes.get("PRELAG")).toBe("no_session_trade");
 	});
 
-	it("accepts after-hours min.t at the 4:00 PM ET close and rejects 8:00 PM ET", async () => {
-		const closeEtMs = Date.UTC(2026, 6, 15, 20, 0, 0); // 4:00 PM ET
-		const afterEndEtMs = Date.UTC(2026, 6, 16, 0, 0, 0); // 8:00 PM ET
-		vi.spyOn(globalThis, "fetch")
-			.mockResolvedValueOnce(
-				snapshotResponse([
-					snapshotTicker({
-						ticker: "AHOK",
-						dayClose: 10,
-						minuteClose: 10.2,
-						minuteTimestamp: closeEtMs,
-						prevClose: 9.8,
-					}),
-				]),
-			)
-			.mockResolvedValueOnce(
-				snapshotResponse([
-					snapshotTicker({
-						ticker: "AHEND",
-						dayClose: 10,
-						minuteClose: 10.3,
-						minuteTimestamp: afterEndEtMs,
-						prevClose: 9.8,
-					}),
-				]),
-			);
-
-		expect(expectQuote((await fetchSnapshotQuotes(["AHOK"], "after")).get("AHOK")).price).toBe(
-			10.2,
-		);
-		// Stale/out-of-window min → fall back to locked day.c
-		expect(expectQuote((await fetchSnapshotQuotes(["AHEND"], "after")).get("AHEND")).price).toBe(
-			10,
-		);
-	});
-
-	it("uses day.c and ignores stale min.c while closed", async () => {
+	it("uses session.close and ignores last_minute while closed", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
-				snapshotTicker({
+				snapshotResult({
 					ticker: "AAPL",
 					dayClose: 179.5,
 					minuteClose: 179.8,
-					minuteTimestamp: YESTERDAY_AFTER_MS,
 					prevClose: 177,
+					marketStatus: "closed",
 				}),
 			]),
 		);
@@ -319,18 +237,41 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		expect(quotes.get("DELISTED")).toBeNull();
 	});
 
-	it("derives change percent from the displayed price and prevDay.c", async () => {
+	it("treats per-ticker NOT_FOUND as a miss (null), not no_session_trade", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
 				{
-					...snapshotTicker({
+					ticker: "GONE",
+					error: "NOT_FOUND",
+					message: "Ticker not found.",
+				},
+			]),
+		);
+
+		const quotes = await fetchSnapshotQuotes(["GONE"], "regular");
+		expect(quotes.get("GONE")).toBeNull();
+	});
+
+	it("derives change percent from the displayed price and session.previous_close", async () => {
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			snapshotResponse([
+				{
+					...snapshotResult({
 						ticker: "LDOS",
 						dayClose: 122.24,
 						minuteClose: 122.24,
-						minuteTimestamp: REGULAR_TODAY_MS,
 						prevClose: 121.69,
+						marketStatus: "open",
 					}),
-					todaysChangePerc: -0.06,
+					session: {
+						...snapshotResult({
+							ticker: "LDOS",
+							dayClose: 122.24,
+							minuteClose: 122.24,
+							prevClose: 121.69,
+						}).session,
+						change_percent: -0.06,
+					},
 				},
 			]),
 		);
@@ -340,15 +281,15 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		expect(quote.changePercent).toBeGreaterThan(0);
 	});
 
-	it("returns null when prevDay.c cannot anchor change percent", async () => {
+	it("returns null when previous_close cannot anchor change percent", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
-				snapshotTicker({
+				snapshotResult({
 					ticker: "NEWIPO",
 					dayClose: 25.8,
 					minuteClose: 25.8,
-					minuteTimestamp: REGULAR_TODAY_MS,
 					prevClose: 0,
+					marketStatus: "open",
 				}),
 			]),
 		);
@@ -362,9 +303,9 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 			snapshotResponse([
 				{
 					ticker: "BROKEN",
-					day: { c: "NaN" },
-					min: { c: null, t: PRE_TODAY_MS },
-					prevDay: { c: 100 },
+					market_status: "open",
+					session: { close: "NaN", previous_close: 100 },
+					last_minute: { close: null },
 				},
 			]),
 		);
@@ -384,6 +325,10 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 
 		expect(fetchSpy).toHaveBeenCalledTimes(2);
 		const urls = fetchSpy.mock.calls.map(([input]) => String(input));
+		expect(urls.every((url) => url.includes("/v3/snapshot?"))).toBe(true);
+		expect(urls.every((url) => url.includes("ticker.any_of="))).toBe(true);
+		expect(urls.some((url) => /(?:^|[?&])limit=250(?:&|$)/.test(url))).toBe(true);
+		expect(urls.some((url) => /(?:^|[?&])limit=1(?:&|$)/.test(url))).toBe(true);
 		expect(urls.some((url) => url.includes("SYM0"))).toBe(true);
 		expect(urls.some((url) => url.includes("SYM250"))).toBe(true);
 	});
@@ -395,12 +340,12 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 			const url = String(input);
 			if (url.includes("AAA")) {
 				return snapshotResponse([
-					snapshotTicker({
+					snapshotResult({
 						ticker: "AAA",
 						dayClose: 10.5,
 						minuteClose: 10.5,
-						minuteTimestamp: REGULAR_TODAY_MS,
 						prevClose: 10,
+						marketStatus: "open",
 					}),
 				]);
 			}
@@ -433,7 +378,7 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		expectConsoleError("Snapshot quote chunk returned unexpected payload shape");
 		const logError = vi.spyOn(rootLogger, "error");
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(JSON.stringify({ tickers: "not-an-array" }), {
+			new Response(JSON.stringify({ results: "not-an-array" }), {
 				status: 200,
 				headers: { "content-type": "application/json" },
 			}),

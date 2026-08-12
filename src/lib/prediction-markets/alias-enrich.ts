@@ -1,25 +1,22 @@
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
-import { fetchGrokResponse } from "../vendors/grok";
+import { fetchGrokResponse, type GrokTextFormat, parseResponsesJsonObject } from "../vendors/grok";
+import { GROK_ALIAS_MODEL } from "../vendors/grok-models";
 import { buildDeterministicAliases, normalizeIdentityText } from "./aliases";
 
-function extractGrokText(response: {
-	output: Array<{
-		type?: string;
-		content?: Array<{ type?: string; text?: string }>;
-	}>;
-}): string | null {
-	const texts: string[] = [];
-	for (const item of response.output ?? []) {
-		if (item.type !== "message" || !Array.isArray(item.content)) continue;
-		for (const part of item.content) {
-			if (part.type !== "output_text" && part.type !== "text") continue;
-			if (typeof part.text === "string" && part.text.trim()) texts.push(part.text.trim());
-		}
-	}
-	const joined = texts.join("\n").trim();
-	return joined === "" ? null : joined;
-}
+const GROK_ALIAS_TEXT_FORMAT = {
+	type: "json_schema",
+	name: "pm_aliases",
+	strict: true,
+	schema: {
+		type: "object",
+		properties: {
+			aliases: { type: "array", items: { type: "string" } },
+		},
+		required: ["aliases"],
+		additionalProperties: false,
+	},
+} as const satisfies GrokTextFormat;
 
 const THEME_BLOCKLIST = new Set(
 	[
@@ -77,19 +74,6 @@ export function validateEnrichedAliases(options: {
 	return out;
 }
 
-function parseAliasJson(text: string): string[] {
-	const start = text.indexOf("[");
-	const end = text.lastIndexOf("]");
-	if (start < 0 || end <= start) return [];
-	try {
-		const parsed = JSON.parse(text.slice(start, end + 1)) as unknown;
-		if (!Array.isArray(parsed)) return [];
-		return parsed.filter((x): x is string => typeof x === "string");
-	} catch {
-		return [];
-	}
-}
-
 /**
  * Ask Grok for additional unique identity strings for a tracked symbol.
  * Soft-fails to [] when the key is missing or the call fails.
@@ -104,17 +88,19 @@ export async function enrichAliasesWithGrok(options: {
 
 	const response = await fetchGrokResponse({
 		requestBody: {
-			model: "grok-4.20-non-reasoning",
+			model: GROK_ALIAS_MODEL,
 			instructions: [
 				"You suggest identity aliases for matching prediction-market titles to a public company.",
-				"Return ONLY a JSON array of strings.",
 				"Include brand names, common short names, and product/lab names that uniquely imply THIS issuer.",
 				"Do NOT include industry/theme keywords (AI, cloud, semiconductor, stocks, etc.).",
 				"Do NOT include other companies. Max 8 aliases.",
+				"Return aliases via the structured response schema.",
 			].join(" "),
 			input: `Symbol: ${symbol}\nLegal name: ${name}`,
 			temperature: 0,
 			max_output_tokens: 200,
+			reasoning_effort: "none",
+			text: { format: GROK_ALIAS_TEXT_FORMAT },
 		},
 		logContext: { action: "pm_alias_enrich", symbol },
 	});
@@ -124,10 +110,16 @@ export async function enrichAliasesWithGrok(options: {
 		return [];
 	}
 
-	const text = extractGrokText(response);
-	if (!text) return [];
+	const obj = parseResponsesJsonObject(response);
+	const rawAliases = obj?.aliases;
+	const suggested = Array.isArray(rawAliases)
+		? rawAliases.filter((x): x is string => typeof x === "string")
+		: [];
+	if (suggested.length === 0 && !obj) {
+		logger.warn("Alias enrich JSON parse failed; soft-fail empty", { symbol });
+		return [];
+	}
 
-	const suggested = parseAliasJson(text);
 	const validated = validateEnrichedAliases({
 		symbol,
 		suggested,

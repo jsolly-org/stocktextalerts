@@ -1,95 +1,35 @@
 import { rootLogger } from "../logging";
 import {
+	collectMessageAnnotations,
 	fetchGrokResponse,
 	type GrokResponsesRequest,
-	type GrokResponsesResponse,
+	type GrokTextFormat,
+	parseResponsesJsonObject,
 } from "../vendors/grok";
-import { applyAnnotationsInline, type XaiAnnotation } from "../vendors/grok-citations";
+import { applyAnnotationsInline } from "../vendors/grok-citations";
+import { GROK_DIGEST_MODEL } from "../vendors/grok-models";
 
 export type GrokSectionResult = {
 	content: string;
 	citations: string[];
 };
 
-/**
- * Extract plain text and source URLs from an xAI Responses API payload.
- *
- * Annotations with positional data are applied inline as markdown links so
- * that sources appear next to the claims they support. Any remaining
- * annotation URLs (without positions) are returned separately in `citations`.
- */
-function extractTextAndCitationsFromXaiResponse(response: GrokResponsesResponse): {
-	text: string | null;
-	citations: string[];
-} {
-	const texts: string[] = [];
-	const citationUrls = new Set<string>();
+export const GROK_DIGEST_TEXT_FORMAT = {
+	type: "json_schema",
+	name: "digest_section",
+	strict: true,
+	schema: {
+		type: "object",
+		properties: {
+			markdown: { type: "string" },
+		},
+		required: ["markdown"],
+		additionalProperties: false,
+	},
+} as const satisfies GrokTextFormat;
 
-	const addText = (value: unknown, annotations?: unknown) => {
-		if (typeof value !== "string") return;
-		const trimmed = value.trim();
-		if (trimmed === "") return;
-
-		// Apply positional annotations inline as markdown links.
-		const annotated = Array.isArray(annotations)
-			? applyAnnotationsInline(trimmed, annotations as XaiAnnotation[])
-			: trimmed;
-		// Strip stray markdown bold markers — the email renderer owns ticker
-		// bolding, and non-reasoning Grok models tend to wrap whole bullets in
-		// `**...**` which would turn entire News/Rumors lines bold downstream.
-		const stripped = annotated.replace(/\*\*([^*\n]+)\*\*/g, "$1");
-		texts.push(stripped);
-
-		// Collect any annotation URLs that lack position data as fallback citations.
-		if (Array.isArray(annotations)) {
-			for (const a of annotations as XaiAnnotation[]) {
-				if (!a || typeof a !== "object") continue;
-				const url = typeof a.url === "string" ? a.url.trim() : "";
-				if (url === "") continue;
-				// Only collect URLs that weren't applied inline (no position data).
-				if (typeof a.start_index === "number" && typeof a.end_index === "number") {
-					continue;
-				}
-				citationUrls.add(url);
-			}
-		}
-	};
-
-	const output = Array.isArray(response.output) ? response.output : [];
-	for (const item of output) {
-		if (!item || typeof item !== "object") continue;
-
-		if (item.type === "message") {
-			const content = item.content;
-			if (!Array.isArray(content)) continue;
-
-			for (const part of content) {
-				if (!part || typeof part !== "object") continue;
-				if (part.type !== "output_text" && part.type !== "text") continue;
-				addText(part.text, part.annotations);
-			}
-			continue;
-		}
-
-		if ("message" in item) {
-			const message = (item as { message?: unknown }).message;
-			if (message && typeof message === "object") {
-				const content = (message as { content?: unknown }).content;
-				if (Array.isArray(content)) {
-					for (const part of content) {
-						if (!part || typeof part !== "object") continue;
-						const type = (part as { type?: unknown }).type;
-						const text = (part as { text?: unknown }).text;
-						const annotations = (part as { annotations?: unknown }).annotations;
-						if (type === "output_text" || type === "text") addText(text, annotations);
-					}
-				}
-			}
-		}
-	}
-
-	const text = texts.join("\n").trim();
-	return { text: text === "" ? null : text, citations: [...citationUrls] };
+function stripBold(markdown: string): string {
+	return markdown.replace(/\*\*([^*\n]+)\*\*/g, "$1");
 }
 
 function buildNewsPrompt(options: {
@@ -108,7 +48,8 @@ function buildNewsPrompt(options: {
 		"publication's short name as link text (e.g. `[CNBC](url)`, `[Reuters](url)`, `[Bloomberg](url)`). " +
 		"Use real URLs from your search results — do not invent URLs. " +
 		"Plain text otherwise — no markdown formatting beyond citation links " +
-		"(no **bold**, no *italic*, no headings, no bullets like `-` or `*`).";
+		"(no **bold**, no *italic*, no headings, no bullets like `-` or `*`). " +
+		"Return the section body via the structured response schema markdown field.";
 
 	const newsContextBlock = options.providerNewsContext
 		? `\nHere are recent headlines for context (use these as your primary source):\n${options.providerNewsContext}\n`
@@ -123,8 +64,8 @@ function buildNewsPrompt(options: {
 		`- One bullet per ticker, up to ${bulletCount}. Skip tickers with nothing noteworthy.\n` +
 		"- Each bullet starts with the ticker (e.g. 'AAPL: ...').\n" +
 		"- Each bullet must include at least one source citation as `[Source](https://...)` using a real URL from search results.\n" +
-		"- Output the bullets directly — no wrappers, tags, or preamble.\n" +
-		"\nExample output:\n" +
+		"- Put the bullets in the structured markdown field — no wrappers, tags, or preamble outside that field.\n" +
+		"\nExample markdown field content:\n" +
 		"AAPL: Apple shares fell 3% after the FTC opened an inquiry into App Store practices, adding to concerns over slowing services revenue [CNBC](https://www.cnbc.com/2026/02/14/apple-ftc-inquiry.html).\n" +
 		"NVDA: Nvidia declined 2% as competition from AMD accelerators intensified ahead of next week's earnings report [Bloomberg](https://www.bloomberg.com/news/articles/2026-02-14/nvda-amd-competition).";
 
@@ -146,7 +87,8 @@ function buildRumorsPrompt(options: {
 		"`[@handle](https://x.com/handle/status/POST_ID)` — use the poster's real handle and the actual X post URL " +
 		"from your search results. Do NOT use anonymous `/i/status/` URLs and do not invent URLs. " +
 		"Plain text otherwise — no markdown formatting beyond citation links " +
-		"(no **bold**, no *italic*, no headings, no bullets like `-` or `*`).";
+		"(no **bold**, no *italic*, no headings, no bullets like `-` or `*`). " +
+		"Return the section body via the structured response schema markdown field.";
 
 	const bulletCount = Math.min(options.tickers.length, 10);
 	const user =
@@ -157,8 +99,8 @@ function buildRumorsPrompt(options: {
 		"- Each bullet starts with the ticker (e.g. 'AAPL: ...').\n" +
 		"- Every @handle attribution must be a markdown link to the actual X post: `[@handle](https://x.com/handle/status/POST_ID)`.\n" +
 		"- Use real handles and post URLs from your search results — do not invent them, and do not use anonymous `/i/status/` URLs.\n" +
-		"- Output the bullets directly — no wrappers, tags, or preamble.\n" +
-		"\nExample output:\n" +
+		"- Put the bullets in the structured markdown field — no wrappers, tags, or preamble outside that field.\n" +
+		"\nExample markdown field content:\n" +
 		"AAPL: Chatter about Siri delays pressuring shares, with [@TechBullish](https://x.com/TechBullish/status/1758000000000000001) flagging supply chain friction and [@MarketWatcher](https://x.com/MarketWatcher/status/1758000000000000002) noting strong China sales as an offset.\n" +
 		"NVDA: [@ChipAnalyst](https://x.com/ChipAnalyst/status/1758000000000000003) reports UBS raising PT to $245 ahead of earnings, while [@OptionsFlow](https://x.com/OptionsFlow/status/1758000000000000004) highlights aggressive upside bets.";
 
@@ -174,16 +116,18 @@ async function callGrokSectionApi(options: {
 		return null;
 	}
 
-	const { text, citations } = extractTextAndCitationsFromXaiResponse(data);
-	if (!text) {
-		rootLogger.error("Grok returned empty content", {
+	const obj = parseResponsesJsonObject(data);
+	const rawMarkdown = obj && typeof obj.markdown === "string" ? obj.markdown.trim() : "";
+	if (!rawMarkdown) {
+		rootLogger.error("Grok digest section JSON/markdown missing; omit section", {
 			...options.logContext,
 			category: "vendor_retry_exhausted",
 		});
 		return null;
 	}
 
-	return { content: text, citations };
+	const annotated = applyAnnotationsInline(rawMarkdown, collectMessageAnnotations(data));
+	return { content: stripBold(annotated), citations: [] };
 }
 
 /**
@@ -200,7 +144,7 @@ export async function generateNewsWithGrok(options: {
 }): Promise<GrokSectionResult | null> {
 	if (options.tickers.length === 0) return null;
 
-	const model = "grok-4.20-non-reasoning";
+	const model = GROK_DIGEST_MODEL;
 	const { system, user } = buildNewsPrompt(options);
 
 	return callGrokSectionApi({
@@ -210,7 +154,9 @@ export async function generateNewsWithGrok(options: {
 			input: user,
 			temperature: 0.4,
 			max_output_tokens: 800,
+			reasoning_effort: "none",
 			tools: [{ type: "web_search" }],
+			text: { format: GROK_DIGEST_TEXT_FORMAT },
 		},
 		logContext: {
 			action: "grok_news",
@@ -234,7 +180,7 @@ export async function generateRumorsWithGrok(options: {
 }): Promise<GrokSectionResult | null> {
 	if (options.tickers.length === 0) return null;
 
-	const model = "grok-4.20-non-reasoning";
+	const model = GROK_DIGEST_MODEL;
 	const { system, user } = buildRumorsPrompt(options);
 
 	return callGrokSectionApi({
@@ -244,7 +190,9 @@ export async function generateRumorsWithGrok(options: {
 			input: user,
 			temperature: 0.4,
 			max_output_tokens: 800,
+			reasoning_effort: "none",
 			tools: [{ type: "x_search" }],
+			text: { format: GROK_DIGEST_TEXT_FORMAT },
 		},
 		logContext: {
 			action: "grok_rumors",

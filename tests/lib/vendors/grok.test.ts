@@ -74,4 +74,55 @@ describe("fetchGrokResponse auth short-circuit", () => {
 		expect(result).toBeNull();
 		expect(fetchSpy).toHaveBeenCalledTimes(3);
 	});
+
+	it("a 400 validation error does not retry", async () => {
+		fetchSpy.mockResolvedValue(
+			new Response(JSON.stringify({ error: "invalid schema" }), {
+				status: 400,
+				statusText: "Bad Request",
+			}),
+		);
+
+		const result = await fetchGrokResponse({
+			requestBody: {
+				model: "grok-4",
+				input: "hi",
+				instructions: "test",
+			},
+			logContext: { action: "test" },
+		});
+		expect(result).toBeNull();
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe("parseResponsesJsonObject", () => {
+	it("parses output_text JSON objects", async () => {
+		const { parseResponsesJsonObject } = await import("../../../src/lib/vendors/grok");
+		const obj = parseResponsesJsonObject({
+			id: "1",
+			object: "response",
+			created_at: 1,
+			model: "grok",
+			status: "completed",
+			output_text: '{"aliases":["Foo"]}',
+			output: [],
+		});
+		expect(obj).toEqual({ aliases: ["Foo"] });
+	});
+
+	it("returns null on invalid JSON", async () => {
+		const { parseResponsesJsonObject } = await import("../../../src/lib/vendors/grok");
+		expect(
+			parseResponsesJsonObject({
+				id: "1",
+				object: "response",
+				created_at: 1,
+				model: "grok",
+				status: "completed",
+				output_text: "nope",
+				output: [],
+			}),
+		).toBeNull();
+	});
 });

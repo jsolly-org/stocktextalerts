@@ -32,12 +32,12 @@ Seven deployed functions (see `aws/template.yaml`):
 
 | Handler | Trigger | Role |
 | --- | --- | --- |
-| `schedule` | Every 1 minute | Precise notification delivery and price-alert processing; Massive Starter quotes may be delayed up to 15 minutes |
+| `schedule` | Every 1 minute | Precise notification delivery and price-alert processing; Massive Starter quotes may be delayed up to 15 minutes. Human email/Telegram stay on 04:30–19:30 ET; stock-buyer `lambda` flat alerts use the Massive-capped equity window 04:00–20:00 ET (edge wakes 04:00–04:50 / 19:50–20:00 vs asset-buyer `cron(50 4-19)`). Overnight/BOATS closed. |
 | `asset-maintenance` | Daily 00:00 UTC | Massive corporate actions, universe reconcile, delisting confirms, and branding backfill; Finnhub earnings/recommendation/insider ingest |
 | `compute-daily-stats` | Weekdays 22:00 UTC | Compute ADV/ATR; cache daily closes |
 | `vendor-backfill` | SQS | Retry failed vendor work (asset events, daily closes, price history) |
 | `email-dispatch` | Lambda Function URL (HMAC POST) | Centralized SES send with idempotency |
-| `live-provider-check` | Weekdays 16:00 UTC + post-deploy | Live Massive snapshot/bars/reference/branding, Finnhub earnings, prediction-market, Telegram, and chart-render smoke tests |
+| `live-provider-check` | Weekdays 08:00 / 12:00 / 17:30 ET + post-deploy | Live Massive snapshot/bars/reference/branding (session-windowed quote expectations for liquid extended-hours names), Finnhub earnings, prediction-market, Telegram, and chart-render smoke tests. Schedule/event changes need `npm run deploy:infra`. |
 | `backup-user-settings` | 5× daily UTC | Export user settings snapshot to S3 |
 
 Handlers are thin wrappers: `runLambda()` for SSM secret hydration, then call into `src/lib/`. They use the admin Supabase client (no browser cookies).

@@ -19,8 +19,9 @@ vi.mock("../../../src/lib/time/market/calendar", () => ({
 // placeholder key, and never writes icon_base64 on shared asset rows.
 vi.mock("../../../src/lib/vendors/http", () => import("../../stubs/vendors/http-unavailable"));
 
-const { getCurrentMarketSessionMock } = vi.hoisted(() => ({
+const { getCurrentEquityTradeSessionMock, getCurrentMarketSessionMock } = vi.hoisted(() => ({
 	getCurrentMarketSessionMock: vi.fn(),
+	getCurrentEquityTradeSessionMock: vi.fn(),
 }));
 
 vi.mock("../../../src/lib/market-data/session", async () => {
@@ -30,6 +31,7 @@ vi.mock("../../../src/lib/market-data/session", async () => {
 	return {
 		...actual,
 		getCurrentMarketSession: getCurrentMarketSessionMock,
+		getCurrentEquityTradeSession: getCurrentEquityTradeSessionMock,
 	};
 });
 
@@ -135,6 +137,8 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		// keep their prior behavior. Individual tests override per scenario.
 		getCurrentMarketSessionMock.mockReset();
 		getCurrentMarketSessionMock.mockResolvedValue("regular");
+		getCurrentEquityTradeSessionMock.mockReset();
+		getCurrentEquityTradeSessionMock.mockResolvedValue("regular");
 	});
 
 	it("fallback still delivers when no staging row exists for the user", async () => {
@@ -206,6 +210,7 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		expect(updateError).toBeNull();
 
 		getCurrentMarketSessionMock.mockResolvedValue("pre");
+		getCurrentEquityTradeSessionMock.mockResolvedValue("pre");
 		const logger = {
 			debug: vi.fn(),
 			info: vi.fn(),
@@ -262,6 +267,7 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		expect(updateError).toBeNull();
 
 		getCurrentMarketSessionMock.mockResolvedValue("after");
+		getCurrentEquityTradeSessionMock.mockResolvedValue("after");
 
 		const logger = {
 			debug: vi.fn(),
@@ -322,6 +328,7 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		expect(updateError).toBeNull();
 
 		getCurrentMarketSessionMock.mockResolvedValue("closed");
+		getCurrentEquityTradeSessionMock.mockResolvedValue("closed");
 
 		const logger = {
 			debug: vi.fn(),
@@ -384,6 +391,7 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		expect(updateError).toBeNull();
 
 		getCurrentMarketSessionMock.mockResolvedValue("regular");
+		getCurrentEquityTradeSessionMock.mockResolvedValue("regular");
 
 		const logger = {
 			debug: vi.fn(),
@@ -403,5 +411,28 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		expect(emailLog).toBeDefined();
 		expect(emailLog?.message_delivered).toBe(true);
 		expect(emailLog?.message).toMatch(/^Regular hours — /);
+	});
+
+	it("captures equity-edge quotes/flat-alerts while human session stays closed", async () => {
+		getCurrentMarketSessionMock.mockResolvedValue("closed");
+		getCurrentEquityTradeSessionMock.mockResolvedValue("pre");
+
+		const logger = {
+			debug: vi.fn(),
+			info: vi.fn(),
+			warn: vi.fn(),
+			error: vi.fn(),
+		};
+
+		await runScheduledNotifications({
+			supabase: adminClient,
+			logger: logger as never,
+		});
+
+		const infoCalls = logger.info.mock.calls as Array<[string, Record<string, unknown>?]>;
+		const flatLog = infoCalls.find(([msg]) => msg.includes("Flat price alerts processed"));
+		expect(flatLog).toBeDefined();
+		expect(flatLog?.[1]?.session).toBe("pre");
+		expect(flatLog?.[1]?.humanSession).toBe("closed");
 	});
 });

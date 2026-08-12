@@ -16,7 +16,7 @@
 		"build:preview": "ASTRO_ADAPTER=node node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/build.ts",
 		"build:lambdas": "bash aws/deploy-web.sh --build",
 		"deploy:code": "bash aws/deploy-web.sh",
-		"deploy:infra": "npm --prefix aws run deploy:infra",
+		"deploy:infra": "bash aws/deploy.sh",
 		"preview": "ASTRO_ADAPTER=node node --env-file-if-exists=.env.local ./node_modules/.bin/astro preview --port 4323",
 		"prepare": "if [ -z \"$CI\" ] && git rev-parse --git-dir >/dev/null 2>&1; then git config core.hooksPath .git-hooks; fi",
 		"pretest": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/guard-local-db-tests.ts vitest && node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/preflight-for-tests.ts",

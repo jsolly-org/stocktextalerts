@@ -27,6 +27,10 @@ export async function testGetCurrentMarketSession(): Promise<MarketSession> {
 	return "regular";
 }
 
+export async function testGetCurrentEquityTradeSession(): Promise<MarketSession> {
+	return "regular";
+}
+
 export async function testFetchSparklines(symbols: string[]): Promise<SparklineMap> {
 	const result: SparklineMap = new Map();
 	const stubValues = [1, 2, 3, 5, 7, 5, 3];

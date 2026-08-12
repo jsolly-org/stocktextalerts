@@ -34,19 +34,21 @@ const EMPTY_RESULT: DelistingSweepResult = {
  *   4. UPDATE assets.delisted_at for newly detected delistings.
  *   5. Build the work set (already-flagged ∪ newly-detected) and find the
  *      users still holding any of those symbols.
- *   6. Load recipient info: email eligibility fields.
+ *   6. Load recipient info (account email).
  *   7. 48h notification_log dedupe — a delivered=true email row in the
  *      window suppresses re-send.
  *   8. For each affected user, attempt email delivery:
- *      a. Email: send if enabled + not deduped, otherwise log opt-out row.
+ *      a. Account alert: email every affected user (email/telegram/disabled/
+ *         lambda) at `users.email` regardless of content routing. Dedupe
+ *         skips are silent.
  *      b. Record the attempt in notification_log.
  *   9. Cleanup gate: if email had a transient failure (send or log insert),
- *      skip step 10 so the next sweep retries. Opt-out rows and dedupe-skips
- *      are cleanup-safe.
+ *      skip step 10 so the next sweep retries. Dedupe-skips are cleanup-safe.
  *  10. DELETE user_assets rows for the (user, symbol) pairs.
  *
- * Users not routed to email still get cleanup — their data is removed
- * silently and the notification_log records why no outbound message went out.
+ * Delisting is transactional (holding removed), not a content notification —
+ * `delivery_channel=disabled` and `lambda` (stock-buyer) still get email at
+ * their account address.
  */
 export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<DelistingSweepResult> {
 	const { supabase, logger, sendEmail } = deps;
@@ -188,10 +190,10 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 	}
 	const affectedUserIds = [...userHoldings.keys()];
 
-	// 6. Load recipient info (email eligibility fields).
+	// 6. Load recipient info (account email for the alert).
 	const { data: userRows, error: usersErr } = await supabase
 		.from("users")
-		.select("id, email, delivery_channel")
+		.select("id, email")
 		.in("id", affectedUserIds);
 	if (usersErr) {
 		logger.error(
@@ -205,14 +207,12 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 	interface AffectedUser {
 		id: string;
 		email: string;
-		deliveryChannel: "email" | "telegram" | "disabled" | "lambda";
 	}
 	const userInfo = new Map<string, AffectedUser>();
 	for (const u of userRows ?? []) {
 		userInfo.set(u.id, {
 			id: u.id,
 			email: u.email,
-			deliveryChannel: u.delivery_channel,
 		});
 	}
 
@@ -260,10 +260,10 @@ export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<Delis
 		let hasTransientFailure = false;
 		let deliveredOnAnyChannel = false;
 
-		// --- Delivery (email only today; skip cleanly for other routing) ---
-		if (user.deliveryChannel !== "email") {
-			result.emailsSkippedOptOut += 1;
-		} else if (!emailDeduped.has(userId)) {
+		// --- Account-alert email (not content routing) ---
+		// Includes lambda (stock-buyer): delisting is transactional, so alert
+		// the account email even when content wakes go to asset-buyer.
+		if (!emailDeduped.has(userId)) {
 			const { subject, text, html } = formatDelistingEmail(
 				{ id: user.id, email: user.email },
 				sortedHoldings,

@@ -1,12 +1,16 @@
 import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../constants";
 import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
-import { getScheduledMarketSession, isOutsideMarketHours } from "../time/market/session";
+import {
+	getEquityTradeSession,
+	getScheduledMarketSession,
+	isOutsideMarketHours,
+} from "../time/market/session";
 import { minuteOfDayFromDateTime } from "../time/utils";
 import type { MarketSession } from "../types";
 
 /**
- * Determine the current US market session locally — no live vendor call.
+ * Determine the current US **human notification** market session locally — no live vendor call.
  *
  * Weekend / full holiday / past a half-day's early close come from the 12h-cached holiday
  * calendar (`getUsMarketClosureInfoForInstant`); the pre/regular/after split is a pure
@@ -28,4 +32,18 @@ export async function getCurrentMarketSession(): Promise<MarketSession> {
 		return "closed";
 	}
 	return getScheduledMarketSession(etMinutes);
+}
+
+/**
+ * Massive-capped equity trade session for stock-buyer lambda wakes (04:00–20:00 ET).
+ * Same holiday/half-day calendar as {@link getCurrentMarketSession}; wider clock window
+ * so 04:00–04:29 and 19:31–19:59 resolve as `pre` / `after` instead of `closed`.
+ */
+export async function getCurrentEquityTradeSession(): Promise<MarketSession> {
+	const now = DateTime.utc();
+	if ((await getUsMarketClosureInfoForInstant(now)) !== null) {
+		return "closed";
+	}
+	const etMinutes = minuteOfDayFromDateTime(now.setZone(US_MARKET_TIMEZONE));
+	return getEquityTradeSession(etMinutes);
 }
