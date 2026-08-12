@@ -2,32 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const fetchGrokResponse = vi.hoisted(() => vi.fn());
 
-vi.mock("../../../../src/lib/vendors/grok", () => ({
-	fetchGrokResponse,
-	parseResponsesJsonObject: (response: {
-		output_text?: string;
-		output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>;
-	}) => {
-		const text =
-			typeof response.output_text === "string" && response.output_text.trim()
-				? response.output_text.trim()
-				: (response.output ?? [])
-						.filter((i) => i.type === "message")
-						.flatMap((i) => i.content ?? [])
-						.map((p) => p.text)
-						.filter((t): t is string => typeof t === "string")
-						.join("\n")
-						.trim();
-		if (!text) return null;
-		try {
-			const parsed = JSON.parse(text) as unknown;
-			if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-			return parsed as Record<string, unknown>;
-		} catch {
-			return null;
-		}
-	},
-}));
+vi.mock("../../../../src/lib/vendors/grok", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../../../../src/lib/vendors/grok")>();
+	return {
+		...actual,
+		fetchGrokResponse,
+	};
+});
 
 import {
 	GROK_WHY_TEXT_FORMAT,

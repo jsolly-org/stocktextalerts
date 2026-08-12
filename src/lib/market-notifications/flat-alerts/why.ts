@@ -1,10 +1,12 @@
 import { rootLogger } from "../../logging";
 import {
+	collectMessageAnnotations,
 	fetchGrokResponse,
 	type GrokResponsesRequest,
 	type GrokTextFormat,
 	parseResponsesJsonObject,
 } from "../../vendors/grok";
+import { applyAnnotationsInline } from "../../vendors/grok-citations";
 import { GROK_WHY_MODEL } from "../../vendors/grok-models";
 
 export type PriceMoveWhyVerdict = "same" | "updated" | "new" | "unknown";
@@ -178,7 +180,11 @@ export async function generatePriceMoveWhyWithGrok(options: {
 		}
 
 		const parsedVerdict = obj.verdict;
-		const body = obj.why.replace(/\*\*([^*\n]+)\*\*/g, "$1").trim();
+		const cleaned = applyAnnotationsInline(obj.why, collectMessageAnnotations(data)).replace(
+			/\*\*([^*\n]+)\*\*/g,
+			"$1",
+		);
+		const body = cleaned.trim();
 		const verdict: PriceMoveWhyVerdict = hadPrior ? parsedVerdict : "new";
 		const text = applyContinuityLeadIn(
 			body === "" ? UNKNOWN_TEXT : body,

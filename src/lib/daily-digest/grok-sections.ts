@@ -1,10 +1,12 @@
 import { rootLogger } from "../logging";
 import {
+	collectMessageAnnotations,
 	fetchGrokResponse,
 	type GrokResponsesRequest,
 	type GrokTextFormat,
 	parseResponsesJsonObject,
 } from "../vendors/grok";
+import { applyAnnotationsInline } from "../vendors/grok-citations";
 import { GROK_DIGEST_MODEL } from "../vendors/grok-models";
 
 export type GrokSectionResult = {
@@ -115,8 +117,8 @@ async function callGrokSectionApi(options: {
 	}
 
 	const obj = parseResponsesJsonObject(data);
-	const markdown = obj && typeof obj.markdown === "string" ? obj.markdown.trim() : "";
-	if (!markdown) {
+	const rawMarkdown = obj && typeof obj.markdown === "string" ? obj.markdown.trim() : "";
+	if (!rawMarkdown) {
 		rootLogger.error("Grok digest section JSON/markdown missing; omit section", {
 			...options.logContext,
 			category: "vendor_retry_exhausted",
@@ -124,8 +126,8 @@ async function callGrokSectionApi(options: {
 		return null;
 	}
 
-	// Citations live in markdown links; schema wrap does not rely on annotation positions.
-	return { content: stripBold(markdown), citations: [] };
+	const annotated = applyAnnotationsInline(rawMarkdown, collectMessageAnnotations(data));
+	return { content: stripBold(annotated), citations: [] };
 }
 
 /**

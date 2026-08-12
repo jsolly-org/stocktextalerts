@@ -117,6 +117,20 @@ export function parseResponsesJsonObject(
 	}
 }
 
+/** Collect annotations from assistant message parts (for citation cleanup). */
+export function collectMessageAnnotations(response: GrokResponsesResponse): XaiAnnotation[] {
+	const out: XaiAnnotation[] = [];
+	for (const item of response.output ?? []) {
+		if (item.type !== undefined && item.type !== "message") continue;
+		if (!Array.isArray(item.content)) continue;
+		for (const part of item.content) {
+			if (!Array.isArray(part.annotations)) continue;
+			out.push(...part.annotations);
+		}
+	}
+	return out;
+}
+
 /**
  * Per-attempt timeouts for Grok API calls (escalating).
  *
@@ -204,7 +218,7 @@ export async function fetchGrokResponse(options: {
 				}
 				// Schema / request validation — never recovers on retry (avoid 30+45+60s burn).
 				if (response.status === 400) {
-					rootLogger.error("Grok request rejected (400 validation); not retrying", {
+					rootLogger.warn("Grok request rejected (400 validation); not retrying", {
 						...failureContext,
 						category: OPTIONAL_VENDOR_DEGRADED_CATEGORY,
 					});
