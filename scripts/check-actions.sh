@@ -32,6 +32,20 @@ if [[ ! -x "$SHELLCHECK" ]]; then
 fi
 
 # Warm the lazy-downloaded binary (prints version; fails loud on network/arch miss).
-"$SHELLCHECK" --version >/dev/null
+# First invoke may download from GitHub; retry transient socket/TLS failures.
+warm_ok=0
+for attempt in 1 2 3 4 5; do
+	if "$SHELLCHECK" --version >/dev/null 2>/tmp/shellcheck-warm.err; then
+		warm_ok=1
+		break
+	fi
+	echo "shellcheck warm attempt ${attempt} failed; retrying…" >&2
+	cat /tmp/shellcheck-warm.err >&2 || true
+	sleep $((attempt * 2))
+done
+if [[ "$warm_ok" -ne 1 ]]; then
+	echo "✗ shellcheck failed to download/run after retries" >&2
+	exit 1
+fi
 
 exec "$ACTIONLINT" -shellcheck "$SHELLCHECK" .github/workflows/*.yml

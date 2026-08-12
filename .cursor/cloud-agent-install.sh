@@ -9,13 +9,58 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-APT_OPTS=(-o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false)
-NODE24_DIR="${HOME}/.nvm/versions/node/v24.18.0"
-NODE24_BIN="${NODE24_DIR}/bin"
+# Valid-Until skew on Cloud VMs; force-conf* so dpkg never prompts on pre-existing
+# conffiles (notably /etc/fuse.conf with user_allow_other on the base image —
+# DEBIAN_FRONTEND=noninteractive alone does not suppress dpkg conffile prompts).
+APT_OPTS=(
+	-o Acquire::Check-Valid-Until=false
+	-o Acquire::Check-Date=false
+	-o Dpkg::Options::=--force-confdef
+	-o Dpkg::Options::=--force-confold
+)
+# Resolved after nvm install (do not hardcode a patch — nvm install 24 tracks latest 24.x).
+NODE24_BIN=""
 
 log() { printf 'cloud-install: %s\n' "$*"; }
 
+# Pick an installed Node 24.x bin dir (newest patch wins). Optional preferred path first.
+resolve_node24_bin() {
+	local preferred="${1:-}"
+	if [[ -n "$preferred" && -x "${preferred}/node" ]]; then
+		NODE24_BIN="$preferred"
+		return 0
+	fi
+	local candidate newest=""
+	# shellcheck disable=SC2086
+	for candidate in "${HOME}"/.nvm/versions/node/v24.*/bin; do
+		if [[ -x "${candidate}/node" ]]; then
+			newest="$candidate"
+		fi
+	done
+	if [[ -n "$newest" ]]; then
+		NODE24_BIN="$newest"
+		return 0
+	fi
+	return 1
+}
+
+# Heal interrupted installs (e.g. fuse3 left "unpacked" after a conffile EOF).
+repair_dpkg_if_needed() {
+	local needs_repair=0
+	if dpkg --audit 2>/dev/null | grep -q .; then
+		needs_repair=1
+	elif dpkg -l fuse3 fuse-overlayfs 2>/dev/null | awk '/^iU|^iF|^iH/ {found=1} END {exit !found}'; then
+		needs_repair=1
+	fi
+	if [[ "$needs_repair" -eq 1 ]]; then
+		log "repairing half-configured apt packages (noninteractive conffiles)"
+		sudo env DEBIAN_FRONTEND=noninteractive dpkg --force-confdef --force-confold --configure -a
+	fi
+}
+
 ensure_apt_packages() {
+	repair_dpkg_if_needed
+
 	if command -v dockerd >/dev/null 2>&1 && command -v fuse-overlayfs >/dev/null 2>&1; then
 		log "docker + fuse-overlayfs already installed"
 		return 0
@@ -23,7 +68,7 @@ ensure_apt_packages() {
 
 	log "installing docker + fuse-overlayfs (apt; ignoring Valid-Until skew)"
 	sudo apt-get "${APT_OPTS[@]}" update -qq
-	sudo DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTS[@]}" install -y -qq \
+	sudo env DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTS[@]}" install -y -qq \
 		ca-certificates curl gnupg fuse-overlayfs uidmap iptables
 
 	if ! command -v dockerd >/dev/null 2>&1; then
@@ -38,7 +83,7 @@ ensure_apt_packages() {
 		echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" |
 			sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
 		sudo apt-get "${APT_OPTS[@]}" update -qq
-		sudo DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTS[@]}" install -y -qq \
+		sudo env DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTS[@]}" install -y -qq \
 			docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 	fi
 }
@@ -69,24 +114,55 @@ ensure_node24() {
 	fi
 	# shellcheck disable=SC1091
 	. "${NVM_DIR}/nvm.sh"
-	if [[ ! -x "${NODE24_BIN}/node" ]]; then
+	if ! resolve_node24_bin; then
 		log "installing Node 24 via nvm"
 		nvm install 24
+		resolve_node24_bin || {
+			log "ERROR: Node 24 missing after nvm install" >&2
+			return 1
+		}
 	fi
 	nvm alias default 24 >/dev/null
 	# Defeat /exec-daemon node v22 that Cursor injects ahead of nvm on PATH.
 	export PATH="${NODE24_BIN}:${PATH}"
-	log "node=$(node -v) npm=$(npm -v)"
+	log "node=$(node -v) npm=$(npm -v) (bin=${NODE24_BIN})"
 }
 
 configure_shell_env() {
 	local marker="# stocktextalerts-cloud-agent-env"
-	if ! grep -qF "$marker" "${HOME}/.bashrc" 2>/dev/null; then
+	# Refresh if missing or still points at a hardcoded missing patch dir.
+	if ! grep -qF "$marker" "${HOME}/.bashrc" 2>/dev/null \
+		|| grep -qF 'versions/node/v24.18.0' "${HOME}/.bashrc" 2>/dev/null; then
+		# Drop a previous broken block (idempotent rewrite).
+		if grep -qF "$marker" "${HOME}/.bashrc" 2>/dev/null; then
+			python3 - "$marker" <<'PY'
+import pathlib, sys
+marker = sys.argv[1]
+path = pathlib.Path.home() / ".bashrc"
+text = path.read_text()
+start = text.find(marker)
+if start != -1:
+    # Remove from the blank line before marker (or marker) through EOF helpers we appended.
+    # Keep everything before the marker line.
+    line_start = text.rfind("\n", 0, start)
+    if line_start == -1:
+        line_start = 0
+    else:
+        line_start += 1
+    path.write_text(text[:line_start])
+PY
+		fi
 		cat >>"${HOME}/.bashrc" <<EOF
 
 ${marker}
 prefer_node24() {
-  local n24="${NODE24_BIN}"
+  local n24="" candidate
+  for candidate in "\${HOME}"/.nvm/versions/node/v24.*/bin; do
+    if [[ -x "\${candidate}/node" ]]; then
+      n24="\$candidate"
+    fi
+  done
+  [[ -n "\$n24" ]] || return 0
   case ":\$PATH:" in
     *":\$n24:"*) PATH="\$n24:\${PATH//:\$n24:/:}"; PATH="\${PATH%:}" ;;
     *) PATH="\$n24:\$PATH" ;;

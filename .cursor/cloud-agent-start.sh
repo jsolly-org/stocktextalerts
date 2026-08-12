@@ -7,8 +7,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-NODE24_BIN="${HOME}/.nvm/versions/node/v24.18.0/bin"
-export PATH="${NODE24_BIN}:${PATH}"
+NODE24_BIN=""
+# Prefer any installed Node 24.x (nvm install 24 tracks latest patch; do not hardcode).
+for _sta_node24 in "${HOME}"/.nvm/versions/node/v24.*/bin; do
+	if [[ -x "${_sta_node24}/node" ]]; then
+		NODE24_BIN="${_sta_node24}"
+	fi
+done
+unset _sta_node24
+export PATH="${NODE24_BIN:+${NODE24_BIN}:}${PATH}"
 export DOCKER_HOST="${DOCKER_HOST:-unix:///var/run/docker.sock}"
 
 log() { printf 'cloud-start: %s\n' "$*"; }
@@ -40,8 +47,11 @@ EOF
 	sleep 1
 	sudo dockerd >/tmp/dockerd.log 2>&1 &
 
+	# Socket is root:docker 660 until we chmod; usermod -aG docker does not
+	# apply to this already-running shell, so widen perms while waiting.
 	local i
 	for i in $(seq 1 60); do
+		sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
 		if docker info >/dev/null 2>&1; then
 			break
 		fi
@@ -54,7 +64,6 @@ EOF
 		exit 1
 	fi
 
-	# Fresh socket may deny the ubuntu user until group refresh / chmod.
 	sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
 
 	local driver
