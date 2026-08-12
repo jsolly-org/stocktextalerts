@@ -284,6 +284,7 @@ export const US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES = 19 * 60 + 30; // 7:
 /**
  * Massive-capped US equity trade window for stock-buyer lambda wakes (asset-buyer D16).
  * Inclusive start 04:00 ET, exclusive end 20:00 ET — overnight/BOATS closed.
+ * Buyer cron is :50 ET; STA threshold wakes cover 04:00–04:50 / 19:50–20:00 edges.
  */
 export const US_EQUITY_TRADE_OPEN_EASTERN_MINUTES = 4 * 60; // 4:00 AM ET, minute 240
 export const US_EQUITY_TRADE_CLOSE_EASTERN_MINUTES = 20 * 60; // 8:00 PM ET, minute 1200 (exclusive)
