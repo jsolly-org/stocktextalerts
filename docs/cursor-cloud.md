@@ -27,7 +27,7 @@ bash .cursor/cloud-agent-start.sh
 - **Docker 29 + fuse-overlayfs:** `/etc/docker/daemon.json` sets `"storage-driver": "fuse-overlayfs"` and `"features": { "containerd-snapshotter": false }` — Docker 29 defaults to the containerd snapshotter, which ignores fuse-overlayfs on this kernel.
 - **Apt clock skew:** Cloud VMs sometimes disagree with mirror `Valid-Until`. Install uses `Acquire::Check-Valid-Until=false`.
 - **Apt conffiles:** the Cloud base image may already ship `/etc/fuse.conf` with `user_allow_other`. `DEBIAN_FRONTEND=noninteractive` alone does **not** suppress dpkg conffile prompts, so install also passes `Dpkg::Options` `--force-confdef` / `--force-confold` (keeps the existing fuse.conf). A mid-install failure can leave `fuse3` / `fuse-overlayfs` half-configured (`install ok unpacked`); re-running `cloud-agent-install.sh` runs `dpkg --configure -a` to repair before continuing.
-- **Node:** `.npmrc` requires Node 24.x. Always use a login shell (`bash -lc '…'`) or an interactive terminal so `~/.bashrc` prefers nvm Node 24.
+- **Node:** `.npmrc` requires Node 24.x. Install resolves `~/.nvm/versions/node/v24.*/bin` after `nvm install 24` (do not hardcode a patch — nvm tracks latest 24.x). Always use a login shell (`bash -lc '…'`) or an interactive terminal so `~/.bashrc` prefers that Node 24 bin over `/exec-daemon/node` (v22).
 - **Expected warning:** under Docker, `db:doctor` may report `auth container not inspectable (podman ENOENT)`. That only skips the Podman-specific GoTrue inspection; auth is healthy when the final `ok` line prints.
 
 ## Local files and services

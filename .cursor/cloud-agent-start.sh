@@ -7,8 +7,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-NODE24_BIN="${HOME}/.nvm/versions/node/v24.18.0/bin"
-export PATH="${NODE24_BIN}:${PATH}"
+NODE24_BIN=""
+# Prefer any installed Node 24.x (nvm install 24 tracks latest patch; do not hardcode).
+for _sta_node24 in "${HOME}"/.nvm/versions/node/v24.*/bin; do
+	if [[ -x "${_sta_node24}/node" ]]; then
+		NODE24_BIN="${_sta_node24}"
+	fi
+done
+unset _sta_node24
+export PATH="${NODE24_BIN:+${NODE24_BIN}:}${PATH}"
 export DOCKER_HOST="${DOCKER_HOST:-unix:///var/run/docker.sock}"
 
 log() { printf 'cloud-start: %s\n' "$*"; }
