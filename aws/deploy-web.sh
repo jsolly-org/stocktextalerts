@@ -167,7 +167,7 @@ if [ "$CI_DEPLOY" != "true" ]; then
 fi
 : "${DATABASE_URL_PROD:?set DATABASE_URL_PROD in .env.local (full prod Postgres URL)}"
 if [ "$CI_DEPLOY" != "true" ]; then
-  : "${AWS_PROFILE:?set AWS_PROFILE in .env.local (scoped fleet-deploy profile)}"
+  : "${AWS_PROFILE:?set AWS_PROFILE in .env.local (AdministratorAccess for human break-glass)}"
 fi
 : "${PRODUCTION_SITE_URL:?set PRODUCTION_SITE_URL in .env.local (canonical production URL for local vercel build)}"
 # Migrations must NOT run through the transaction-mode pooler (port 6543) —
