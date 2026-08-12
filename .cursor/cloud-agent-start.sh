@@ -47,8 +47,11 @@ EOF
 	sleep 1
 	sudo dockerd >/tmp/dockerd.log 2>&1 &
 
+	# Socket is root:docker 660 until we chmod; usermod -aG docker does not
+	# apply to this already-running shell, so widen perms while waiting.
 	local i
 	for i in $(seq 1 60); do
+		sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
 		if docker info >/dev/null 2>&1; then
 			break
 		fi
@@ -61,7 +64,6 @@ EOF
 		exit 1
 	fi
 
-	# Fresh socket may deny the ubuntu user until group refresh / chmod.
 	sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
 
 	local driver
