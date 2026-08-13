@@ -21,66 +21,9 @@ describe("reserve_flat_price_alert RPC", () => {
 			user_id: testUser.id,
 			symbol: "AAPL",
 			threshold_value: 10,
-			threshold_unit: "percent",
 		});
 
 		expect(error).not.toBeNull();
-	});
-
-	it("CHECK rejects a non-percent threshold_unit", async () => {
-		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
-		registerTestUserForCleanup(testUser.id);
-
-		const { error } = await adminClient.from("price_move_alert_thresholds").insert({
-			user_id: testUser.id,
-			symbol: "AAPL",
-			threshold_value: 5,
-			threshold_unit: "dollar",
-		});
-
-		expect(error).not.toBeNull();
-	});
-
-	it("Dollar unit fails closed (false, no row).", async () => {
-		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
-		registerTestUserForCleanup(testUser.id);
-
-		const { data, error } = await adminClient.rpc("reserve_flat_price_alert", {
-			p_user_id: testUser.id,
-			p_symbol: "AAPL",
-			p_baseline_price: 200,
-			p_new_price: 207,
-			p_threshold_value: 5,
-			p_threshold_unit: "dollar",
-		});
-
-		expect(error).toBeNull();
-		expect(data).toBe(false);
-	});
-
-	it("Unknown threshold unit fails closed (false, no row)", async () => {
-		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
-		registerTestUserForCleanup(testUser.id);
-
-		const { data, error } = await adminClient.rpc("reserve_flat_price_alert", {
-			p_user_id: testUser.id,
-			p_symbol: "AAPL",
-			p_baseline_price: 100,
-			p_new_price: 150,
-			p_threshold_value: 5,
-			p_threshold_unit: "bogus",
-		});
-
-		expect(error).toBeNull();
-		expect(data).toBe(false);
-
-		const { data: state } = await adminClient
-			.from("price_move_alert_state")
-			.select("*")
-			.eq("user_id", testUser.id)
-			.eq("symbol", "AAPL");
-
-		expect(state).toHaveLength(0);
 	});
 
 	it("Sub-threshold move (+4.99%) returns false and creates no row", async () => {
@@ -93,7 +36,6 @@ describe("reserve_flat_price_alert RPC", () => {
 			p_baseline_price: 100,
 			p_new_price: 104.99,
 			p_threshold_value: 5,
-			p_threshold_unit: "percent",
 		});
 
 		expect(error).toBeNull();
@@ -118,7 +60,6 @@ describe("reserve_flat_price_alert RPC", () => {
 			p_baseline_price: 100,
 			p_new_price: 102.49,
 			p_threshold_value: 2.49,
-			p_threshold_unit: "percent",
 		});
 
 		expect(error).toBeNull();
@@ -135,7 +76,6 @@ describe("reserve_flat_price_alert RPC", () => {
 			p_baseline_price: 100,
 			p_new_price: 102.5,
 			p_threshold_value: 2.5,
-			p_threshold_unit: "percent",
 		});
 
 		expect(error).toBeNull();
@@ -152,7 +92,6 @@ describe("reserve_flat_price_alert RPC", () => {
 			p_baseline_price: 186.0,
 			p_new_price: 195.86,
 			p_threshold_value: 5,
-			p_threshold_unit: "percent",
 		});
 
 		expect(error).toBeNull();
@@ -210,7 +149,6 @@ describe("reserve_flat_price_alert RPC", () => {
 			p_baseline_price: 195.86,
 			p_new_price: 206.04,
 			p_threshold_value: 5,
-			p_threshold_unit: "percent",
 		});
 
 		expect(error).toBeNull();
@@ -261,7 +199,6 @@ describe("reserve_flat_price_alert RPC", () => {
 			p_baseline_price: 195.86,
 			p_new_price: 217.0,
 			p_threshold_value: 5,
-			p_threshold_unit: "percent",
 		});
 
 		expect(error).toBeNull();
@@ -300,7 +237,6 @@ describe("reserve_flat_price_alert RPC", () => {
 			p_baseline_price: 186.0,
 			p_new_price: 195.86,
 			p_threshold_value: 5,
-			p_threshold_unit: "percent",
 		});
 
 		expect(error).toBeNull();
@@ -358,7 +294,6 @@ describe("reserve_flat_price_alert RPC", () => {
 			p_baseline_price: 200.0,
 			p_new_price: 212.0,
 			p_threshold_value: 5,
-			p_threshold_unit: "percent",
 		});
 		expect(error).toBeNull();
 		expect(data).toBe(true);
@@ -390,7 +325,6 @@ describe("reserve_flat_price_alert RPC", () => {
 			p_baseline_price: 200.0,
 			p_new_price: 180.0,
 			p_threshold_value: 5,
-			p_threshold_unit: "percent",
 		});
 		expect(error).toBeNull();
 		expect(data).toBe(true);
@@ -421,7 +355,6 @@ describe("reserve_flat_price_alert RPC", () => {
 			p_baseline_price: 186.0,
 			p_new_price: 195.86,
 			p_threshold_value: 5,
-			p_threshold_unit: "percent",
 		};
 
 		const results = await Promise.all(
@@ -445,7 +378,6 @@ describe("reserve_flat_price_alert RPC", () => {
 			p_baseline_price: 0,
 			p_new_price: 195.86,
 			p_threshold_value: 5,
-			p_threshold_unit: "percent",
 		});
 
 		expect(error).toBeNull();

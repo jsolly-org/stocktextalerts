@@ -76,7 +76,7 @@ export function executeRolesFor(entry: Pick<RpcPrivilege, "class">): RoleName[] 
 export const RPC_PRIVILEGES: RpcPrivilege[] = [
 	// --- Delivery-state RPCs (the incident surface) -------------------------
 	{
-		signature: "reserve_flat_price_alert(p_user_id uuid, p_symbol text, p_baseline_price numeric, p_new_price numeric, p_threshold_value numeric, p_threshold_unit text)",
+		signature: "reserve_flat_price_alert(p_user_id uuid, p_symbol text, p_baseline_price numeric, p_new_price numeric, p_threshold_value numeric)",
 		class: "server-only",
 		reason: "Schedule Lambda claims a flat-price-alert delivery slot",
 	},

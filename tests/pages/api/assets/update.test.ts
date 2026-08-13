@@ -315,8 +315,8 @@ describe("A signed-in user updates their tracked assets.", () => {
 
 		// Opt both stocks into price-move alerts (row presence = enabled).
 		const { error: seedError } = await adminClient.from("price_move_alert_thresholds").insert([
-			{ user_id: testUser.id, symbol: "AAPL", threshold_value: 5, threshold_unit: "percent" },
-			{ user_id: testUser.id, symbol: "MSFT", threshold_value: 5, threshold_unit: "percent" },
+			{ user_id: testUser.id, symbol: "AAPL", threshold_value: 5 },
+			{ user_id: testUser.id, symbol: "MSFT", threshold_value: 5 },
 		]);
 		expect(seedError).toBeNull();
 
@@ -340,12 +340,11 @@ describe("A signed-in user updates their tracked assets.", () => {
 		// user_assets) — and left the surviving symbol's row intact.
 		const { data: thresholds } = await adminClient
 			.from("price_move_alert_thresholds")
-			.select("symbol, threshold_value, threshold_unit")
+			.select("symbol, threshold_value")
 			.eq("user_id", testUser.id)
 			.order("symbol");
 		expect(thresholds).toHaveLength(1);
 		expect(thresholds?.[0]?.symbol).toBe("AAPL");
 		expect(Number(thresholds?.[0]?.threshold_value)).toBe(5);
-		expect(thresholds?.[0]?.threshold_unit).toBe("percent");
 	});
 });

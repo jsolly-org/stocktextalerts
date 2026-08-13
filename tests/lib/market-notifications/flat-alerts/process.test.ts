@@ -140,7 +140,6 @@ async function enableFlatAlerts(userId: string, opts: { enabled?: boolean } = {}
 				user_id: userId,
 				symbol: a.symbol,
 				threshold_value: 5,
-				threshold_unit: "percent",
 			})),
 			{ onConflict: "user_id,symbol" },
 		);

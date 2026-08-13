@@ -167,14 +167,15 @@
 					>
 						Add assets to your watchlist to enable price-move alerts.
 					</p>
-					<div
+					<fieldset
 						v-else-if="!notificationSetupBlocked"
-						class="mt-3 border-t border-divider pt-3"
+						class="mt-3 min-w-0 border-0 border-t border-divider p-0 pt-3"
 						:title="priceMoveThresholdsDisabledTitle"
 						data-autosave-ignore
 					>
-						<div class="mb-2 flex items-center justify-between gap-2">
-							<p class="text-sm text-label">Per-stock alerts</p>
+						<legend class="sr-only">Per-stock alerts</legend>
+						<div class="mb-2 flex w-full items-center justify-between gap-2">
+							<span class="text-sm text-label" aria-hidden="true">Per-stock alerts</span>
 							<span
 								class="text-xs transition-opacity duration-200"
 								:class="[
@@ -235,7 +236,7 @@
 								/>
 							</li>
 						</ul>
-					</div>
+					</fieldset>
 				</FadeTransition>
 			</div>
 

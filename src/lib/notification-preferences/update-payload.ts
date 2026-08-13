@@ -188,8 +188,6 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 			? safeNotificationPreferenceUpdates.market_scheduled_asset_price_times
 			: dbUser.market_scheduled_asset_price_times;
 
-	const finalDailyTime = lockedDailyTime;
-
 	computeScheduledNextSendAt(
 		safeNotificationPreferenceUpdates,
 		dbUser,
@@ -201,8 +199,6 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	applyDailyNotificationNextSendAtToUserUpdate({
 		updates: safeNotificationPreferenceUpdates,
 		dbUser,
-		finalDailyTime,
-		finalTimezone,
 		timezoneChanged,
 		dailyTimeChanged,
 		dailyOptionsChanged: dailyNotificationOptionsChanged,
@@ -246,8 +242,6 @@ export function computeTimezoneUpdatePayload(
 		applyDailyNotificationNextSendAtToUserUpdate({
 			updates: tempUpdates,
 			dbUser,
-			finalDailyTime: lockedDailyTime,
-			finalTimezone: newTimezone,
 			timezoneChanged: true,
 			dailyTimeChanged: lockedDailyTime !== dbUser.daily_notification_time,
 			dailyOptionsChanged: false,

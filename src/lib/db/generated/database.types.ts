@@ -797,7 +797,7 @@ export type Database = {
         Insert: {
           created_at?: string
           symbol: string
-          threshold_unit: Database["public"]["Enums"]["price_move_threshold_unit"]
+          threshold_unit?: Database["public"]["Enums"]["price_move_threshold_unit"]
           threshold_value: number
           user_id: string
         }
@@ -1190,7 +1190,6 @@ export type Database = {
           p_baseline_price: number
           p_new_price: number
           p_symbol: string
-          p_threshold_unit: string
           p_threshold_value: number
           p_user_id: string
         }

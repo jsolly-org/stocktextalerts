@@ -65,8 +65,6 @@ export function applyDailyNotificationNextSendAtToUserUpdate(options: {
 		UserRecord,
 		"daily_notification_time" | "timezone" | "daily_notification_next_send_at"
 	>;
-	finalDailyTime: number | null;
-	finalTimezone: string;
 	timezoneChanged: boolean;
 	dailyTimeChanged: boolean;
 	dailyOptionsChanged: boolean;
@@ -97,8 +95,6 @@ export function applyDailyNotificationNextSendAtToUserUpdate(options: {
 			hasDailyNotification: true,
 		});
 	} else if (dailyOptionsChanged && !hasDailyNotification) {
-		updates.daily_notification_next_send_at = null;
-	} else if (dailyTimeChanged && options.finalDailyTime === null && !hasDailyNotification) {
 		updates.daily_notification_next_send_at = null;
 	}
 }
