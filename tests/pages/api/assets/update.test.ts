@@ -316,7 +316,7 @@ describe("A signed-in user updates their tracked assets.", () => {
 		// Opt both stocks into price-move alerts (row presence = enabled).
 		const { error: seedError } = await adminClient.from("price_move_alert_thresholds").insert([
 			{ user_id: testUser.id, symbol: "AAPL", threshold_value: 5, threshold_unit: "percent" },
-			{ user_id: testUser.id, symbol: "MSFT", threshold_value: 3, threshold_unit: "dollar" },
+			{ user_id: testUser.id, symbol: "MSFT", threshold_value: 5, threshold_unit: "percent" },
 		]);
 		expect(seedError).toBeNull();
 

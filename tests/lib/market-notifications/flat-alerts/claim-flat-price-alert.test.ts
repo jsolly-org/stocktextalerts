@@ -13,12 +13,38 @@ import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
  * - Concurrent claims with identical params: exactly one wins
  */
 describe("reserve_flat_price_alert RPC", () => {
-	it("Dollar unit: a +$7 move (+3.5%) reserves against a $5 threshold — true ONLY if the dollar unit is honored", async () => {
+	it("CHECK rejects threshold_value other than 5", async () => {
 		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
 		registerTestUserForCleanup(testUser.id);
 
-		// Discriminating fixture: $200 → $207 = +$7 but only +3.5%, so a
-		// percent-read of the 5 would return false; dollar must return true.
+		const { error } = await adminClient.from("price_move_alert_thresholds").insert({
+			user_id: testUser.id,
+			symbol: "AAPL",
+			threshold_value: 10,
+			threshold_unit: "percent",
+		});
+
+		expect(error).not.toBeNull();
+	});
+
+	it("CHECK rejects a non-percent threshold_unit", async () => {
+		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+		registerTestUserForCleanup(testUser.id);
+
+		const { error } = await adminClient.from("price_move_alert_thresholds").insert({
+			user_id: testUser.id,
+			symbol: "AAPL",
+			threshold_value: 5,
+			threshold_unit: "dollar",
+		});
+
+		expect(error).not.toBeNull();
+	});
+
+	it("Dollar unit fails closed (false, no row).", async () => {
+		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+		registerTestUserForCleanup(testUser.id);
+
 		const { data, error } = await adminClient.rpc("reserve_flat_price_alert", {
 			p_user_id: testUser.id,
 			p_symbol: "AAPL",
@@ -29,7 +55,7 @@ describe("reserve_flat_price_alert RPC", () => {
 		});
 
 		expect(error).toBeNull();
-		expect(data).toBe(true);
+		expect(data).toBe(false);
 	});
 
 	it("Unknown threshold unit fails closed (false, no row)", async () => {
@@ -80,6 +106,40 @@ describe("reserve_flat_price_alert RPC", () => {
 			.eq("symbol", "AAPL");
 
 		expect(state).toHaveLength(0);
+	});
+
+	it("Acceleration below 2.5% cannot reserve (2.49% of 5%).", async () => {
+		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+		registerTestUserForCleanup(testUser.id);
+
+		const { data, error } = await adminClient.rpc("reserve_flat_price_alert", {
+			p_user_id: testUser.id,
+			p_symbol: "AAPL",
+			p_baseline_price: 100,
+			p_new_price: 102.49,
+			p_threshold_value: 2.49,
+			p_threshold_unit: "percent",
+		});
+
+		expect(error).toBeNull();
+		expect(data).toBe(false);
+	});
+
+	it("Acceleration at 2.5% can reserve (effective threshold, half of 5%).", async () => {
+		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+		registerTestUserForCleanup(testUser.id);
+
+		const { data, error } = await adminClient.rpc("reserve_flat_price_alert", {
+			p_user_id: testUser.id,
+			p_symbol: "AAPL",
+			p_baseline_price: 100,
+			p_new_price: 102.5,
+			p_threshold_value: 2.5,
+			p_threshold_unit: "percent",
+		});
+
+		expect(error).toBeNull();
+		expect(data).toBe(true);
 	});
 
 	it("First-of-day +5.3% reserve creates pending row without committing price until finalize", async () => {

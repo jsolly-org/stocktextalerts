@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	directionFromTriggerPercent,
+	wakeupAssetBuyerFromDailyDigest,
 	wakeupAssetBuyerFromFlatAlert,
 } from "../../../../src/lib/market-notifications/flat-alerts/asset-buyer-wakeup";
 
@@ -57,11 +58,59 @@ describe("wakeupAssetBuyerFromFlatAlert", () => {
 		);
 	});
 
+	it("includes catalystPacket on the payload when provided", async () => {
+		const invoke = vi.fn(async () => {});
+		const packet = { lede: "Earnings beat", grade: "confirmed", claims: [] };
+		const ok = await wakeupAssetBuyerFromFlatAlert({
+			symbol: "AAPL",
+			triggerPercent: 5.1,
+			isAcceleration: false,
+			asOf: "2026-08-12T15:00:00.000Z",
+			catalystPacket: packet,
+			resolveArn: async () => "arn:aws:lambda:us-east-1:123:function:asset-buyer-heartbeat",
+			invoke,
+		});
+		expect(ok).toBe(true);
+		expect(invoke).toHaveBeenCalledWith(
+			"arn:aws:lambda:us-east-1:123:function:asset-buyer-heartbeat",
+			expect.objectContaining({
+				ticker: "AAPL",
+				catalystPacket: packet,
+			}),
+		);
+	});
+
 	it("fail-opens when invoke throws", async () => {
 		const ok = await wakeupAssetBuyerFromFlatAlert({
 			symbol: "MSFT",
 			triggerPercent: 5,
 			isAcceleration: false,
+			resolveArn: async () => "arn:aws:lambda:us-east-1:123:function:asset-buyer-heartbeat",
+			invoke: async () => {
+				throw new Error("boom");
+			},
+		});
+		expect(ok).toBe(false);
+	});
+});
+
+describe("wakeupAssetBuyerFromDailyDigest", () => {
+	it("async-invokes with source sta_daily_digest and no ticker", async () => {
+		const invoke = vi.fn(async () => {});
+		const ok = await wakeupAssetBuyerFromDailyDigest({
+			resolveArn: async () => "arn:aws:lambda:us-east-1:123:function:asset-buyer-heartbeat",
+			invoke,
+		});
+		expect(ok).toBe(true);
+		expect(invoke).toHaveBeenCalledOnce();
+		expect(invoke).toHaveBeenCalledWith(
+			"arn:aws:lambda:us-east-1:123:function:asset-buyer-heartbeat",
+			{ source: "sta_daily_digest" },
+		);
+	});
+
+	it("fail-opens when invoke throws", async () => {
+		const ok = await wakeupAssetBuyerFromDailyDigest({
 			resolveArn: async () => "arn:aws:lambda:us-east-1:123:function:asset-buyer-heartbeat",
 			invoke: async () => {
 				throw new Error("boom");

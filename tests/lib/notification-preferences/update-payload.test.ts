@@ -4,6 +4,7 @@ import {
 	buildNotificationPreferencesUpdatePayload,
 	computeTimezoneUpdatePayload,
 } from "../../../src/lib/notification-preferences/update-payload";
+import { getUsBeforeOpenLocalMinutes } from "../../../src/lib/time/conversion";
 
 function makeUser(overrides: Partial<User> = {}): User {
 	return {
@@ -12,6 +13,7 @@ function makeUser(overrides: Partial<User> = {}): User {
 		market_scheduled_asset_price_times: [570], // 09:30
 		market_scheduled_asset_price_next_send_at: "2026-01-14T14:30:00.000Z",
 		daily_notification_time: 1020,
+		daily_notification_enabled: true,
 		daily_notification_next_send_at: "2026-01-14T22:00:00.000Z",
 		delivery_channel: "email" as const,
 		market_scheduled_asset_price_enabled: true,
@@ -186,6 +188,45 @@ describe("Notification preference update payloads stay aligned with user schedul
 		const payload = computeTimezoneUpdatePayload("America/Chicago", user, false);
 
 		expect(payload.daily_notification_next_send_at).toBeUndefined();
+		expect(payload.daily_notification_time).toBe(getUsBeforeOpenLocalMinutes("America/Chicago"));
+	});
+
+	it("Ignores client daily_digest_time and always persists 09:00 ET as local minutes.", () => {
+		const user = makeUser({ timezone: "America/Los_Angeles", daily_notification_time: 540 });
+		const formData = new FormData();
+		formData.set("daily_digest_time", "10:00");
+
+		const payload = buildNotificationPreferencesUpdatePayload({
+			parsedData: { daily_digest_time: 600 },
+			formData,
+			rawTimesValue: null,
+			dbUser: user,
+			dailyNotificationEnabledAfterUpdate: true,
+			dailyNotificationOptionsChanged: false,
+		});
+
+		expect(payload.daily_notification_time).toBe(
+			getUsBeforeOpenLocalMinutes("America/Los_Angeles"),
+		);
+		expect(payload.daily_notification_time).not.toBe(600);
+	});
+
+	it("Nullifies next send when the daily notification master toggle is off.", () => {
+		const user = makeUser();
+		const formData = new FormData();
+		formData.set("daily_notification_enabled", "off");
+
+		const payload = buildNotificationPreferencesUpdatePayload({
+			parsedData: { daily_notification_enabled: false },
+			formData,
+			rawTimesValue: null,
+			dbUser: user,
+			dailyNotificationEnabledAfterUpdate: false,
+			dailyNotificationOptionsChanged: true,
+		});
+
+		expect(payload.daily_notification_enabled).toBe(false);
+		expect(payload.daily_notification_next_send_at).toBeNull();
 	});
 
 	it("Normalizes and sorts submitted scheduled times before persistence.", () => {

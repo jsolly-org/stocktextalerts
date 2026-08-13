@@ -98,6 +98,81 @@ describe("Price move alert email layout", () => {
 		expect(html.indexOf("Update:")).toBeLessThan(html.indexOf("View Dashboard"));
 	});
 
+	it("renders the lede only — no grade, catalyst fields, or claim list", () => {
+		const { text, html } = formatFlatPriceAlertEmail({
+			user,
+			symbol: "DELL",
+			companyName: "Dell Technologies Inc.",
+			quote,
+			baseline: 421.58,
+			isReTrigger: false,
+			lastNotificationAt: null,
+			nowMs: Date.parse("2026-07-15T17:00:00Z"),
+			intraday: null,
+			sevenDaySparkline: null,
+			logoHtml: undefined,
+			whyText: "Dell raised full-year guidance [Reuters](https://www.reuters.com/example).",
+			reportUrl: "http://localhost/dashboard/price-move/DELL",
+		});
+
+		for (const rendered of [text, html]) {
+			expect(rendered).toContain("Dell raised full-year guidance");
+			for (const token of ["confirmed", "reported", "narrative", "unexplained", "grade"]) {
+				expect(rendered.toLowerCase()).not.toContain(token);
+			}
+			expect(rendered).not.toContain("catalyst_type");
+			expect(rendered).not.toContain("move_onset");
+			expect(rendered).not.toContain("retrieval_version");
+		}
+	});
+
+	it("adds a Full report link after the why blurb when a report URL is provided", () => {
+		const reportUrl = "http://localhost/dashboard/price-move/DELL";
+		const { text, html } = formatFlatPriceAlertEmail({
+			user,
+			symbol: "DELL",
+			companyName: "Dell Technologies Inc.",
+			quote,
+			baseline: 421.58,
+			isReTrigger: false,
+			lastNotificationAt: null,
+			nowMs: Date.parse("2026-07-15T17:00:00Z"),
+			intraday: null,
+			sevenDaySparkline: null,
+			logoHtml: undefined,
+			whyText: "Shares jumped after guidance.",
+			reportUrl,
+		});
+
+		expect(text).toContain(`Full report: ${reportUrl}`);
+		expect(text.indexOf("Shares jumped")).toBeLessThan(text.indexOf("Full report:"));
+		expect(text.indexOf("Full report:")).toBeLessThan(text.indexOf("View Dashboard:"));
+		expect(html).toContain(`href="${reportUrl}"`);
+		expect(html).toContain("Full report →");
+		expect(html.indexOf("Shares jumped")).toBeLessThan(html.indexOf("Full report"));
+		expect(html).not.toContain("Full report:");
+	});
+
+	it("omits the Full report link when no report URL is provided", () => {
+		const { text, html } = formatFlatPriceAlertEmail({
+			user,
+			symbol: "DELL",
+			companyName: "Dell Technologies Inc.",
+			quote,
+			baseline: 421.58,
+			isReTrigger: false,
+			lastNotificationAt: null,
+			nowMs: Date.parse("2026-07-15T17:00:00Z"),
+			intraday: null,
+			sevenDaySparkline: null,
+			logoHtml: undefined,
+			whyText: "Shares jumped after guidance.",
+		});
+
+		expect(text).not.toContain("Full report");
+		expect(html).not.toContain("Full report");
+	});
+
 	it("never shows unrendered markdown links in final email copy", () => {
 		const why =
 			"PLTR shares rose 5.1% in after-hours trading after Q4 results.[[Yahoo Finance]](https://finance.yahoo.com/news/why-shares-palantir-soaring-hours-231057869.html)";

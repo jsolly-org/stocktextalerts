@@ -167,20 +167,10 @@ if (
 Price-move alerts
 ============= */
 
-/** Default threshold applied when the user clicks "Set Threshold" on an unset stock.
- *  Expressed as a percent move. */
-export const DEFAULT_PRICE_MOVE_THRESHOLD_PERCENT = 5;
-
-/** Smallest per-stock threshold accepted (1% or $1). Whole numbers only —
- *  matches the DB CHECK (`threshold_value >= 1 AND = trunc(...)`) and the
- *  HTML `min` / `step=1` so spinners and typed input can't land invalid values. */
-export const MIN_PRICE_MOVE_THRESHOLD = 1;
-
-/** Largest per-stock thresholds accepted (guard fat-finger input). Percent caps
- *  at a full-day double; dollar allows large single-day moves on high-priced
- *  names. The DB enforces whole numbers >= 1; these ceilings are app-only. */
-export const MAX_PRICE_MOVE_PERCENT_THRESHOLD = 100;
-export const MAX_PRICE_MOVE_DOLLAR_THRESHOLD = 100_000;
+/** Fixed first-print / reverse magnitude. Same-direction accelerations fire at
+ *  half this (2.5%) via `effectivePriceMoveThreshold`. Users only opt stocks in
+ *  or out — they do not pick a percent or dollar. */
+export const PRICE_MOVE_ALERT_THRESHOLD_PERCENT = 5;
 
 /* =============
 Assets

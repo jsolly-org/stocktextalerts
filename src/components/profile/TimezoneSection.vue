@@ -109,6 +109,7 @@ function buildSavedNotificationPreferences(
 			sourceUser.dismiss_timezone_mismatch_prompts,
 		market_scheduled_asset_price_enabled: sourceUser.market_scheduled_asset_price_enabled,
 		daily_notification_time: sourceUser.daily_notification_time,
+		daily_notification_enabled: sourceUser.daily_notification_enabled,
 		daily_notification_next_send_at: sourceUser.daily_notification_next_send_at,
 		asset_events_last_analyst_sent_month: sourceUser.asset_events_last_analyst_sent_month,
 	};

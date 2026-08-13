@@ -14,6 +14,7 @@ export type NotificationPreferencesData = {
 	delivery_channel: DeliveryChannelMode;
 	timezone: string;
 	market_scheduled_asset_price_times: number[] | null;
+	daily_notification_enabled: boolean;
 	daily_notification_time: number | null;
 	daily_notification_next_send_at: string | null;
 	market_scheduled_asset_price_next_send_at: string | null;

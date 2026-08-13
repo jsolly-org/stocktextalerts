@@ -2,13 +2,10 @@ import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import type { SupabaseAdminClient } from "../../db/supabase";
 import { createLogger } from "../../logging";
-import { isFacetEnabled } from "../../messaging/notification-prefs";
 import type { ChannelDeliveryStats, ExtendedQuoteMap, MarketSession } from "../../types";
-import { wakeupAssetBuyerFromFlatAlert } from "./asset-buyer-wakeup";
 import {
 	fetchFlatPriceAlertState,
 	fetchPriceMoveThresholds,
-	finalizeFlatPriceAlert,
 	releaseFlatPriceAlert,
 	reserveFlatPriceAlert,
 	stateKey,
@@ -49,7 +46,7 @@ export interface FlatPriceAlertTotals extends ChannelDeliveryStats {
 	whyEnqueued: number;
 	/** Alerts processed inline when enqueue failed / queue URL missing. */
 	whyInline: number;
-	/** Lambda-channel wakeups (no email/Telegram / no why). */
+	/** Lambda-channel wakeups completed by the why worker (inline path only). */
 	lambdaWakeups: number;
 }
 
@@ -61,6 +58,8 @@ interface EligibleAlert {
 	iconBase64: string | null;
 	baseline: number;
 	triggerPercent: number;
+	thresholdValue: number;
+	sessionPercent: number | null;
 	isReTrigger: boolean;
 	isAcceleration: boolean;
 	lastNotificationAt: Date | null;
@@ -106,7 +105,7 @@ function etIsoDateOf(date: Date): string {
 /**
  * Process the price-move-alert pipeline: load enabled users and their per-symbol
  * thresholds, compute baselines from cached state vs. prev close, check each
- * asset's configured threshold (percent or dollar), claim eligible alerts
+ * asset's 5% (2.5% on same-direction accelerations) threshold, claim eligible alerts
  * atomically, and deliver on the account delivery channel.
  *
  * Reuses the scheduler's captured watched-symbol `quoteMap` (a superset of the
@@ -285,6 +284,8 @@ export async function processFlatPriceAlerts(options: {
 			iconBase64,
 			baseline,
 			triggerPercent: movePct,
+			thresholdValue: threshold.value,
+			sessionPercent: quote.changePercent ?? null,
 			isReTrigger,
 			isAcceleration,
 			lastNotificationAt,
@@ -303,40 +304,12 @@ export async function processFlatPriceAlerts(options: {
 		return totals;
 	}
 
-	// Fan out to the why worker (one SQS job per user+symbol). On enqueue success the
-	// worker owns why + deliver + finalize — schedule must not double-deliver.
+	// Fan out to the why worker (one SQS job per user+symbol), including lambda
+	// (paper-bot) users — they run the same toolkit; wakeup happens in the worker.
 	// When the queue URL is missing or send fails, fail-open inline (still try why).
-	// Lambda-channel users skip Grok/why entirely: wakeup asset-buyer + finalize.
 	for (const alert of eligibleAlerts) {
 		const quote = quoteMap.get(alert.symbol);
 		if (!quote) continue; // Should never happen given the earlier check, but satisfy TS
-
-		if (alert.user.delivery_channel === "lambda") {
-			if (!isFacetEnabled(alert.user.prefs, "price_move_alerts")) {
-				await releaseFlatPriceAlert(supabase, alert.user.id, alert.symbol);
-				logger.info("Lambda flat alert released: price_move_alerts facet off", {
-					userId: alert.user.id,
-					symbol: alert.symbol,
-				});
-				continue;
-			}
-			const woke = await wakeupAssetBuyerFromFlatAlert({
-				symbol: alert.symbol,
-				triggerPercent: alert.triggerPercent,
-				isAcceleration: alert.isAcceleration,
-			});
-			if (!woke) {
-				await releaseFlatPriceAlert(supabase, alert.user.id, alert.symbol);
-				logger.warn("Lambda flat alert released: asset-buyer wakeup failed", {
-					userId: alert.user.id,
-					symbol: alert.symbol,
-				});
-				continue;
-			}
-			await finalizeFlatPriceAlert(supabase, alert.user.id, alert.symbol);
-			totals.lambdaWakeups++;
-			continue;
-		}
 
 		const payload = {
 			userId: alert.user.id,
@@ -350,29 +323,43 @@ export async function processFlatPriceAlerts(options: {
 			},
 			baseline: alert.baseline,
 			triggerPercent: alert.triggerPercent,
+			thresholdValue: alert.thresholdValue,
+			sessionPercent: alert.sessionPercent,
 			isReTrigger: alert.isReTrigger,
 			isAcceleration: alert.isAcceleration,
 			lastNotificationAt: alert.lastNotificationAt ? alert.lastNotificationAt.toISOString() : null,
 			iconUrl: alert.iconUrl,
 		};
 
-		const enqueued = await enqueuePriceMoveWhy(payload);
-		if (enqueued) {
-			totals.whyEnqueued++;
-			continue;
-		}
+		try {
+			const enqueued = await enqueuePriceMoveWhy(payload);
+			if (enqueued) {
+				totals.whyEnqueued++;
+				continue;
+			}
 
-		totals.whyInline++;
-		const inline = await runPriceMoveWhyInline({
-			supabase,
-			message: { kind: "price-move-why", ...payload },
-			logger,
-		});
-		totals.emailsSent += inline.stats.emailsSent;
-		totals.emailsFailed += inline.stats.emailsFailed;
-		totals.telegramSent += inline.stats.telegramSent;
-		totals.telegramFailed += inline.stats.telegramFailed;
-		totals.logFailures += inline.stats.logFailures;
+			totals.whyInline++;
+			const inline = await runPriceMoveWhyInline({
+				supabase,
+				message: { kind: "price-move-why", ...payload },
+				logger,
+			});
+			totals.emailsSent += inline.stats.emailsSent;
+			totals.emailsFailed += inline.stats.emailsFailed;
+			totals.telegramSent += inline.stats.telegramSent;
+			totals.telegramFailed += inline.stats.telegramFailed;
+			totals.logFailures += inline.stats.logFailures;
+			if (inline.lambdaWakeup) {
+				totals.lambdaWakeups++;
+			}
+		} catch (error) {
+			logger.error(
+				"Price-move why fanout failed",
+				{ action: "flat_price_alerts", userId: alert.user.id, symbol: alert.symbol },
+				error,
+			);
+			await releaseFlatPriceAlert(supabase, alert.user.id, alert.symbol);
+		}
 	}
 
 	logger.info("Flat price alerts run complete", { ...totals });

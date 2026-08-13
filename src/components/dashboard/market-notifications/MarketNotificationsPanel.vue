@@ -144,10 +144,10 @@
 							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
 						</div>
 						<p id="price_move_alerts_description" class="text-sm text-body-secondary mt-0.5">
-							Get notified when a tracked stock moves past a threshold you set — as a percent or a dollar change in a single trading day. First alert uses your full threshold from yesterday's close. If the move continues in the same direction, the next alert fires at half that threshold (e.g. 5% → 2.5%, or $4 → $2). A move the other way still needs the full threshold from the last alert.
+							Get notified when a tracked stock moves 5% from yesterday's close in a single trading day. If the move continues in the same direction, the next alert fires at 2.5%. A move the other way still needs a full 5% from the last alert.
 						</p>
 						<p class="text-xs text-muted mt-1">
-							Set a threshold per stock below. Clear a value to turn alerts off for that stock.
+							Turn alerts on or off per stock below.
 						</p>
 					</div>
 					<div class="shrink-0">
@@ -165,7 +165,7 @@
 						v-if="!notificationSetupBlocked && trackedAssets.length === 0"
 						class="mt-3 border-t border-divider pt-3 text-sm text-muted"
 					>
-						Add assets to your watchlist to set price-move thresholds.
+						Add assets to your watchlist to enable price-move alerts.
 					</p>
 					<div
 						v-else-if="!notificationSetupBlocked"
@@ -174,7 +174,7 @@
 						data-autosave-ignore
 					>
 						<div class="mb-2 flex items-center justify-between gap-2">
-							<p class="text-sm text-label">Per-stock thresholds</p>
+							<p class="text-sm text-label">Per-stock alerts</p>
 							<span
 								class="text-xs transition-opacity duration-200"
 								:class="[
@@ -189,8 +189,26 @@
 							v-if="!priceMoveAlertsEnabled"
 							class="mb-2 text-xs text-muted"
 						>
-							Turn on Price Move Alerts above to set thresholds.
+							Turn on Price Move Alerts above to choose stocks.
 						</p>
+						<div
+							class="mb-2 flex flex-row items-center justify-between gap-3 px-2 transition-opacity duration-200"
+							:class="{ 'opacity-50': !priceMoveAlertsEnabled }"
+						>
+							<span class="text-xs font-semibold uppercase tracking-wider text-faint select-none">Select all</span>
+							<label class="inline-flex items-center gap-1.5">
+								<input
+									ref="selectAllRef"
+									type="checkbox"
+									:checked="allPriceMoveChecked"
+									:disabled="!priceMoveAlertsEnabled"
+									class="h-4 w-4 rounded border-edge-strong text-purple-600 focus:ring-purple-500 disabled:cursor-not-allowed"
+									aria-label="Select all tracked stocks for price-move alerts"
+									@change="toggleAllPriceMove"
+								/>
+								<span class="text-sm font-medium text-body-secondary">All</span>
+							</label>
+						</div>
 						<ul
 							class="flex flex-col gap-2 transition-opacity duration-200"
 							:class="{ 'opacity-50': !priceMoveAlertsEnabled }"
@@ -209,62 +227,12 @@
 									/>
 									<span class="truncate">{{ asset.symbol }}</span>
 								</span>
-								<div class="flex w-[8.5rem] shrink-0 items-center gap-1">
-									<button
-										v-if="!thresholdIsSet(asset.symbol)"
-										:id="`price-move-set-threshold-${asset.symbol}`"
-										type="button"
-										class="w-full rounded-md border border-dashed border-edge px-2.5 py-1 text-sm text-muted transition-colors hover:border-edge-strong hover:text-heading focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed"
-										:disabled="!priceMoveAlertsEnabled"
-										:title="priceMoveThresholdsDisabledTitle"
-										:aria-label="`Set price-move threshold for ${asset.symbol}`"
-										@click="armDefaultThreshold(asset.symbol)"
-									>
-										Set Threshold
-									</button>
-									<template v-else>
-										<input
-											:id="`price-move-threshold-${asset.symbol}`"
-											type="number"
-											inputmode="numeric"
-											:min="MIN_PRICE_MOVE_THRESHOLD"
-											:max="thresholdMaxFor(asset.symbol)"
-											step="1"
-											class="w-0 min-w-0 flex-1 rounded-md border bg-surface-alt px-2 py-1 text-right text-sm text-heading focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed"
-											:class="thresholdErrors[asset.symbol] ? 'border-red-500' : 'border-edge'"
-											:aria-label="`Price-move threshold for ${asset.symbol} in ${thresholdUnitFor(asset.symbol) === 'percent' ? 'percent' : 'dollars'}`"
-											:aria-invalid="thresholdErrors[asset.symbol] ? 'true' : undefined"
-											:disabled="!priceMoveAlertsEnabled"
-											:title="priceMoveThresholdsDisabledTitle"
-											:value="thresholdValueFor(asset.symbol)"
-											@change="handleThresholdValueChange(asset.symbol, $event)"
-											@keydown="onThresholdKeydown"
-											@keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
-										/>
-										<div class="inline-flex overflow-hidden rounded-md border border-edge">
-											<button
-												type="button"
-												class="px-2 py-1 text-xs transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed"
-												:class="thresholdUnitFor(asset.symbol) === 'percent' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' : 'bg-surface-alt text-muted hover:text-heading'"
-												:aria-pressed="thresholdUnitFor(asset.symbol) === 'percent'"
-												:aria-label="`Use percent threshold for ${asset.symbol}`"
-												:disabled="!priceMoveAlertsEnabled"
-												:title="priceMoveThresholdsDisabledTitle"
-												@click="setThresholdUnit(asset.symbol, 'percent')"
-											>%</button>
-											<button
-												type="button"
-												class="border-l border-edge px-2 py-1 text-xs transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed"
-												:class="thresholdUnitFor(asset.symbol) === 'dollar' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' : 'bg-surface-alt text-muted hover:text-heading'"
-												:aria-pressed="thresholdUnitFor(asset.symbol) === 'dollar'"
-												:aria-label="`Use dollar threshold for ${asset.symbol}`"
-												:disabled="!priceMoveAlertsEnabled"
-												:title="priceMoveThresholdsDisabledTitle"
-												@click="setThresholdUnit(asset.symbol, 'dollar')"
-											>$</button>
-										</div>
-									</template>
-								</div>
+								<ToggleSwitch
+									:model-value="thresholdIsSet(asset.symbol)"
+									:disabled="!priceMoveAlertsEnabled"
+									:sr-label="`Toggle price-move alerts for ${asset.symbol}`"
+									@update:model-value="(on: boolean) => setThresholdEnabled(asset.symbol, on)"
+								/>
 							</li>
 						</ul>
 					</div>
@@ -279,19 +247,14 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, nextTick, type Ref, reactive, ref, toRefs, watch } from "vue";
+import { computed, type Ref, reactive, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import { DASHBOARD_SECTION_IDS,
 	DEFAULT_MARKET_UPDATE_TIME_MINUTES,
-	DEFAULT_PRICE_MOVE_THRESHOLD_PERCENT,
-	MAX_PRICE_MOVE_DOLLAR_THRESHOLD,
-	MAX_PRICE_MOVE_PERCENT_THRESHOLD,
-	MIN_PRICE_MOVE_THRESHOLD,
 	US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,} from "../../../lib/constants";
-import type { PriceMoveThresholdUnit } from "../../../lib/db/types";
 import { needsNotificationChannelSelection } from "../../../lib/messaging/delivery-channel";
 import { etMinuteToUserLocal, getUsAfterOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
@@ -464,21 +427,34 @@ const notificationSetupBlocked = computed(
 
 
 /* =============
-Per-stock price-move thresholds. Row presence in price_move_alert_thresholds =
-alerts on for that asset. Seeded from the server-loaded map; edits POST to
-/api/price-move-alerts (its own table, separate from the notification-prefs
-autosave form). A blank value clears the threshold (disables that stock).
+Per-stock price-move opt-in. Row presence in price_move_alert_thresholds =
+alerts on for that asset at the fixed 5%. Seeded from the server-loaded map;
+edits POST `{ symbol, enabled }` to /api/price-move-alerts.
 ============= */
-const thresholdInputs = reactive<Record<string, { value: string; unit: PriceMoveThresholdUnit }>>(
-	Object.fromEntries(
-		Object.entries(props.priceMoveThresholds).map(([symbol, t]) => [
-			symbol,
-			{ value: String(t.value), unit: t.unit },
-		]),
-	),
+const thresholdEnabled = reactive<Record<string, boolean>>(
+	Object.fromEntries(Object.keys(props.priceMoveThresholds).map((symbol) => [symbol, true])),
 );
 
-/** Per-symbol failed-save flags (drives aria-invalid + the red row border). */
+const selectAllRef = ref<HTMLInputElement | null>(null);
+const allPriceMoveChecked = computed(() => {
+	const symbols = trackedAssets.value.map((a) => a.symbol);
+	return symbols.length > 0 && symbols.every((s) => thresholdEnabled[s] === true);
+});
+const somePriceMoveChecked = computed(() =>
+	trackedAssets.value.some((a) => thresholdEnabled[a.symbol] === true),
+);
+
+watch(
+	[allPriceMoveChecked, somePriceMoveChecked, trackedAssets],
+	() => {
+		if (selectAllRef.value) {
+			selectAllRef.value.indeterminate = somePriceMoveChecked.value && !allPriceMoveChecked.value;
+		}
+	},
+	{ flush: "post" },
+);
+
+/** Per-symbol failed-save flags. */
 const thresholdErrors = reactive<Record<string, boolean>>({});
 /** Per-symbol monotonic request ids so a stale response can't overwrite a newer one. */
 const thresholdSaveSeq: Record<string, number> = {};
@@ -494,136 +470,41 @@ const thresholdStatusText = computed(() => {
 		case "saved":
 			return `${symbol} saved`;
 		case "error":
-			return `Couldn't save ${symbol} — check the value and retry`;
+			return `Couldn't save ${symbol} — retry`;
 		default:
 			return "";
 	}
 });
 
-/** Symbols leaving the watchlist take their (server-pruned) thresholds with them —
- *  drop the local entries so a remove-then-re-add can't render a stale armed value. */
 watch(trackedAssets, (assets) => {
 	const tracked = new Set(assets.map((a) => a.symbol));
-	for (const symbol of Object.keys(thresholdInputs)) {
+	for (const symbol of Object.keys(thresholdEnabled)) {
 		if (!tracked.has(symbol)) {
-			delete thresholdInputs[symbol];
+			delete thresholdEnabled[symbol];
 			delete thresholdErrors[symbol];
 		}
 	}
 });
 
-function thresholdValueFor(symbol: string): string {
-	return thresholdInputs[symbol]?.value ?? "";
-}
 function thresholdIsSet(symbol: string): boolean {
-	return thresholdValueFor(symbol).trim() !== "";
-}
-function thresholdUnitFor(symbol: string): PriceMoveThresholdUnit {
-	return thresholdInputs[symbol]?.unit ?? "percent";
-}
-function thresholdMaxFor(symbol: string): number {
-	return thresholdUnitFor(symbol) === "percent"
-		? MAX_PRICE_MOVE_PERCENT_THRESHOLD
-		: MAX_PRICE_MOVE_DOLLAR_THRESHOLD;
-}
-/** Clamp to a whole number in the unit's accepted range (exclusive of clear). */
-function clampThresholdValue(value: number, unit: PriceMoveThresholdUnit): number {
-	const max =
-		unit === "percent" ? MAX_PRICE_MOVE_PERCENT_THRESHOLD : MAX_PRICE_MOVE_DOLLAR_THRESHOLD;
-	return Math.min(max, Math.max(MIN_PRICE_MOVE_THRESHOLD, Math.round(value)));
-}
-/** Block keys that type=number still accepts (sign, scientific notation, decimals). */
-function onThresholdKeydown(event: KeyboardEvent) {
-	if (
-		event.key === "-" ||
-		event.key === "+" ||
-		event.key === "e" ||
-		event.key === "E" ||
-		event.key === "." ||
-		event.key === ","
-	) {
-		event.preventDefault();
-	}
-}
-function armDefaultThreshold(symbol: string) {
-	thresholdInputs[symbol] = {
-		value: String(DEFAULT_PRICE_MOVE_THRESHOLD_PERCENT),
-		unit: "percent",
-	};
-	void saveThreshold(symbol);
-	void nextTick(() => {
-		document.getElementById(`price-move-threshold-${symbol}`)?.focus();
-	});
-}
-function handleThresholdValueChange(symbol: string, event: Event) {
-	const target = event.target as HTMLInputElement;
-	const entry = thresholdInputs[symbol] ?? {
-		value: "",
-		unit: "percent" as PriceMoveThresholdUnit,
-	};
-	// Unparseable text (e.g. "1e") reports value "" with badInput — revert to the
-	// last known good value instead of clearing or flashing an error. Invalid
-	// numbers shouldn't be reachable as a committed state.
-	if (target.validity.badInput) {
-		target.value = entry.value;
-		return;
-	}
-	const trimmed = target.value.trim();
-	// Empty still clears (opts the stock out) — that's intentional, not invalid.
-	if (trimmed === "") {
-		entry.value = "";
-		thresholdInputs[symbol] = entry;
-		void saveThreshold(symbol);
-		void nextTick(() => {
-			document.getElementById(`price-move-set-threshold-${symbol}`)?.focus();
-		});
-		return;
-	}
-	const parsed = Number(trimmed);
-	if (!Number.isFinite(parsed)) {
-		target.value = entry.value;
-		return;
-	}
-	// Out-of-range (0, negative paste, over-max) or fractional paste → clamp to a
-	// whole number in [min, max] so the save path never sees an invalid value.
-	const clamped = clampThresholdValue(parsed, entry.unit);
-	const next = String(clamped);
-	entry.value = next;
-	thresholdInputs[symbol] = entry;
-	if (target.value !== next) target.value = next;
-	void saveThreshold(symbol);
-}
-function setThresholdUnit(symbol: string, unit: PriceMoveThresholdUnit) {
-	// Default the missing-entry unit to percent — NOT the clicked unit — so the
-	// early-return below doesn't no-op the first click on an unset row.
-	const entry = thresholdInputs[symbol] ?? {
-		value: "",
-		unit: "percent" as PriceMoveThresholdUnit,
-	};
-	if (entry.unit === unit) return;
-	entry.unit = unit;
-	thresholdInputs[symbol] = entry;
-	// Persist only when a value is set; changing the unit with no value is local-only.
-	if (entry.value.trim() !== "") void saveThreshold(symbol);
+	return thresholdEnabled[symbol] === true;
 }
 
-async function saveThreshold(symbol: string): Promise<void> {
-	const entry = thresholdInputs[symbol];
-	const raw = (entry?.value ?? "").trim();
-	const unit = entry?.unit ?? "percent";
-	const value = raw === "" ? null : Number(raw);
-	const maxValue =
-		unit === "percent" ? MAX_PRICE_MOVE_PERCENT_THRESHOLD : MAX_PRICE_MOVE_DOLLAR_THRESHOLD;
-	// Backstop only — handleThresholdValueChange clamps to a whole number before
-	// calling us, so this should not fire for normal UI input.
-	if (
-		value !== null &&
-		(!Number.isInteger(value) || value < MIN_PRICE_MOVE_THRESHOLD || value > maxValue)
-	) {
-		thresholdErrors[symbol] = true;
-		thresholdStatus.value = { kind: "error", symbol };
-		return;
+function setThresholdEnabled(symbol: string, enabled: boolean) {
+	thresholdEnabled[symbol] = enabled;
+	void saveThreshold(symbol, enabled);
+}
+
+function toggleAllPriceMove(event: Event) {
+	if (!priceMoveAlertsEnabled.value) return;
+	const on = (event.target as HTMLInputElement).checked;
+	for (const asset of trackedAssets.value) {
+		if (thresholdIsSet(asset.symbol) === on) continue;
+		setThresholdEnabled(asset.symbol, on);
 	}
+}
+
+async function saveThreshold(symbol: string, enabled: boolean): Promise<void> {
 	const seq = (thresholdSaveSeq[symbol] ?? 0) + 1;
 	thresholdSaveSeq[symbol] = seq;
 	thresholdStatus.value = { kind: "saving", symbol };
@@ -632,19 +513,19 @@ async function saveThreshold(symbol: string): Promise<void> {
 		const res = await fetch("/api/price-move-alerts", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ symbol, value, unit }),
+			body: JSON.stringify({ symbol, enabled }),
 		});
 		const body = (await res.json().catch(() => null)) as { ok?: boolean } | null;
 		ok = res.ok && body?.ok === true;
 	} catch {
 		ok = false;
 	}
-	// A newer save for this symbol superseded us — its outcome wins.
 	if (thresholdSaveSeq[symbol] !== seq) return;
 	if (ok) {
 		delete thresholdErrors[symbol];
 	} else {
 		thresholdErrors[symbol] = true;
+		thresholdEnabled[symbol] = !enabled;
 	}
 	thresholdStatus.value = { kind: ok ? "saved" : "error", symbol };
 }

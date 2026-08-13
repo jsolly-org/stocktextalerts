@@ -30,6 +30,7 @@ export function makeUserRecord(overrides: Partial<UserRecord> = {}): UserRecord 
 		delivery_channel: "email",
 		market_scheduled_asset_price_enabled: false,
 		market_scheduled_asset_price_times: null,
+		daily_notification_enabled: true,
 		daily_notification_time: null,
 		daily_notification_next_send_at: null,
 		asset_events_last_analyst_sent_month: null,

@@ -18,6 +18,8 @@ export type PriceMoveWhyMessage = {
 	quote: PriceMoveWhyQueueQuote;
 	baseline: number;
 	triggerPercent: number;
+	thresholdValue: number;
+	sessionPercent: number | null;
 	isReTrigger: boolean;
 	isAcceleration: boolean;
 	lastNotificationAt: string | null;
@@ -122,6 +124,8 @@ export function parsePriceMoveWhyMessage(body: string): PriceMoveWhyMessage | nu
 		},
 		baseline,
 		triggerPercent,
+		thresholdValue: parseFiniteNumber(parsed.thresholdValue) ?? 5,
+		sessionPercent: parseOptionalFiniteNumber(parsed.sessionPercent) ?? null,
 		isReTrigger: parsed.isReTrigger,
 		isAcceleration: parsed.isAcceleration,
 		lastNotificationAt,
@@ -147,6 +151,8 @@ export async function enqueuePriceMoveWhy(
 		quote: message.quote,
 		baseline: message.baseline,
 		triggerPercent: message.triggerPercent,
+		thresholdValue: message.thresholdValue,
+		sessionPercent: message.sessionPercent,
 		isReTrigger: message.isReTrigger,
 		isAcceleration: message.isAcceleration,
 		lastNotificationAt: message.lastNotificationAt,

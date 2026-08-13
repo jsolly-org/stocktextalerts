@@ -14,6 +14,7 @@ const MARKET_SCHEDULED_USER_SELECT = `
 	use_24_hour_time,
 	market_scheduled_asset_price_enabled,
 	market_scheduled_asset_price_times,
+	daily_notification_enabled,
 	daily_notification_time,
 	daily_notification_next_send_at,
 	market_scheduled_asset_price_next_send_at,

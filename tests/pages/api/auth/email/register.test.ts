@@ -3,6 +3,7 @@ import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_TIMEZONE } from "../../../../../src/lib/constants";
 import type { EmailRequest, EmailSender } from "../../../../../src/lib/messaging/types";
+import { getUsBeforeOpenLocalMinutes } from "../../../../../src/lib/time/conversion";
 import { POST } from "../../../../../src/pages/api/auth/email/register";
 import { createApiContext } from "../../../../helpers/api-context";
 import { TEST_PASSWORD } from "../../../../helpers/constants";
@@ -83,6 +84,8 @@ describe("A visitor registers for a new account with email and password.", () =>
 			expect(user.email).toBe(payload.email);
 			expect(user.timezone).toBe(payload.timezone);
 			expect(user.approved_at).toBeNull();
+			expect(user.daily_notification_enabled).toBe(true);
+			expect(user.daily_notification_time).toBe(getUsBeforeOpenLocalMinutes(payload.timezone));
 			expect(mockEmailSender).toHaveBeenCalledOnce();
 			expect(mockEmailSender).toHaveBeenCalledWith(
 				expect.objectContaining({

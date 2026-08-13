@@ -18,3 +18,18 @@ export function buildDashboardButton(section: DashboardSection): InlineKeyboardM
 	const url = `${new URL("/dashboard", getSiteUrl())}${DASHBOARD_SECTION_HASHES[section]}`;
 	return { inline_keyboard: [[{ text: "⚙️ Manage notifications", url }]] };
 }
+
+/**
+ * Price-move Telegram keyboard: optional "Full report" (latest saved packet)
+ * plus the usual Manage-notifications deep link.
+ */
+export function buildPriceMoveAlertKeyboard(fullReportUrl?: string | null): InlineKeyboardMarkup {
+	const manage = buildDashboardButton("marketNotifications");
+	const manageRow = manage.inline_keyboard[0];
+	if (!fullReportUrl || manageRow === undefined) {
+		return manage;
+	}
+	return {
+		inline_keyboard: [[{ text: "Full report", url: fullReportUrl }], manageRow],
+	};
+}

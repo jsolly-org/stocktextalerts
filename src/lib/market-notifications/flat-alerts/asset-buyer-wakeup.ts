@@ -15,7 +15,15 @@ export type AssetBuyerWakeupPayload = {
 	triggerPercent: number;
 	isAcceleration: boolean;
 	asOf: string;
+	/** Full catalyst report when why succeeded. Omitted when why was omitted. */
+	catalystPacket?: Record<string, unknown>;
 };
+
+export type AssetBuyerDailyDigestWakeupPayload = {
+	source: "sta_daily_digest";
+};
+
+type HeartbeatWakeupPayload = AssetBuyerWakeupPayload | AssetBuyerDailyDigestWakeupPayload;
 
 let lambdaClient: LambdaClient | undefined;
 let ssmClient: SSMClient | undefined;
@@ -55,6 +63,16 @@ async function resolveAssetBuyerHeartbeatArn(): Promise<string | undefined> {
 	}
 }
 
+async function invokeHeartbeat(arn: string, payload: HeartbeatWakeupPayload): Promise<void> {
+	await getLambdaClient().send(
+		new InvokeCommand({
+			FunctionName: arn,
+			InvocationType: "Event",
+			Payload: Buffer.from(JSON.stringify(payload)),
+		}),
+	);
+}
+
 export function directionFromTriggerPercent(triggerPercent: number): "up" | "down" | "flat" {
 	if (triggerPercent > 0) return "up";
 	if (triggerPercent < 0) return "down";
@@ -71,6 +89,7 @@ export async function wakeupAssetBuyerFromFlatAlert(options: {
 	triggerPercent: number;
 	isAcceleration: boolean;
 	asOf?: string;
+	catalystPacket?: Record<string, unknown>;
 	/** Injectable for unit tests. */
 	invoke?: (arn: string, payload: AssetBuyerWakeupPayload) => Promise<void>;
 	resolveArn?: () => Promise<string | undefined>;
@@ -80,6 +99,7 @@ export async function wakeupAssetBuyerFromFlatAlert(options: {
 		triggerPercent,
 		isAcceleration,
 		asOf = new Date().toISOString(),
+		catalystPacket,
 		invoke,
 		resolveArn = resolveAssetBuyerHeartbeatArn,
 	} = options;
@@ -99,19 +119,14 @@ export async function wakeupAssetBuyerFromFlatAlert(options: {
 		triggerPercent,
 		isAcceleration,
 		asOf,
+		...(catalystPacket !== undefined ? { catalystPacket } : {}),
 	};
 
 	try {
 		if (invoke) {
 			await invoke(arn, payload);
 		} else {
-			await getLambdaClient().send(
-				new InvokeCommand({
-					FunctionName: arn,
-					InvocationType: "Event",
-					Payload: Buffer.from(JSON.stringify(payload)),
-				}),
-			);
+			await invokeHeartbeat(arn, payload);
 		}
 		logger.info("Asset-buyer heartbeat wakeup invoked", {
 			symbol: ticker,
@@ -122,6 +137,40 @@ export async function wakeupAssetBuyerFromFlatAlert(options: {
 		return true;
 	} catch (err) {
 		logger.warn("Asset-buyer heartbeat wakeup failed (fail-open)", { symbol: ticker }, err);
+		return false;
+	}
+}
+
+/**
+ * Async-invoke asset-buyer heartbeat for the 09:00 ET session-day digest.
+ * Fail-open: missing ARN or invoke errors must never block human digests.
+ */
+export async function wakeupAssetBuyerFromDailyDigest(
+	options: {
+		invoke?: (arn: string, payload: AssetBuyerDailyDigestWakeupPayload) => Promise<void>;
+		resolveArn?: () => Promise<string | undefined>;
+	} = {},
+): Promise<boolean> {
+	const { invoke, resolveArn = resolveAssetBuyerHeartbeatArn } = options;
+
+	const arn = await resolveArn();
+	if (!arn) {
+		logger.warn("Skipping asset-buyer daily digest wakeup: heartbeat ARN missing");
+		return false;
+	}
+
+	const payload: AssetBuyerDailyDigestWakeupPayload = { source: "sta_daily_digest" };
+
+	try {
+		if (invoke) {
+			await invoke(arn, payload);
+		} else {
+			await invokeHeartbeat(arn, payload);
+		}
+		logger.info("Asset-buyer daily digest wakeup invoked", { source: payload.source });
+		return true;
+	} catch (err) {
+		logger.warn("Asset-buyer daily digest wakeup failed (fail-open)", {}, err);
 		return false;
 	}
 }

@@ -27,6 +27,14 @@ export function hasAnyDailyNotificationFacet(prefs: readonly PrefRow[]): boolean
 	return anyFacetEnabled(prefs, DAILY_NOTIFICATION_PREFERENCE_TYPE);
 }
 
+/** True when this account should receive a human daily digest. */
+export function userHasHumanDailyDigest(user: {
+	daily_notification_enabled: boolean;
+	prefs: readonly PrefRow[];
+}): boolean {
+	return user.daily_notification_enabled && hasAnyDailyNotificationFacet(user.prefs);
+}
+
 /** True when any asset-event facet is enabled. */
 export function hasAnyDailyAssetEventFacet(prefs: readonly PrefRow[]): boolean {
 	for (const content of DAILY_ASSET_EVENT_FACETS) {

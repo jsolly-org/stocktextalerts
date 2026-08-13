@@ -45,6 +45,10 @@ export async function deliverFlatPriceAlert(options: {
 	stats: ChannelDeliveryStats;
 	/** Optional Grok why blurb; omit/null when budget/XAI/Grok fail open. */
 	whyText?: string | null;
+	/** Absolute URL to the auth-gated full report; omit when no packet was saved. */
+	reportUrl?: string | null;
+	/** Full catalyst packet forwarded to the asset-buyer wakeup; omitted when why was omitted. */
+	catalystPacket?: Record<string, unknown> | null;
 }): Promise<boolean> {
 	const {
 		user,
@@ -67,6 +71,8 @@ export async function deliverFlatPriceAlert(options: {
 		logoCache,
 		stats,
 		whyText,
+		reportUrl,
+		catalystPacket,
 	} = options;
 
 	let delivered = false;
@@ -74,7 +80,8 @@ export async function deliverFlatPriceAlert(options: {
 	const outbound = resolveOutboundChannel(user);
 
 	// System / stock-buyer users: Lambda wakeup only (no email/Telegram, no
-	// notification_log — delivery_method enum is email|telegram only).
+	// notification_log — delivery_method enum is email|telegram only). They run
+	// the same why toolkit as humans, so the packet rides along when there is one.
 	if (user.delivery_channel === "lambda") {
 		if (!contentEnabled) {
 			rootLogger.info("Skipped lambda flat alert: price_move_alerts facet off", {
@@ -87,6 +94,7 @@ export async function deliverFlatPriceAlert(options: {
 			symbol,
 			triggerPercent,
 			isAcceleration,
+			...(catalystPacket ? { catalystPacket } : {}),
 		});
 		if (!woke) {
 			rootLogger.warn("Lambda flat alert wakeup failed", {
@@ -102,6 +110,7 @@ export async function deliverFlatPriceAlert(options: {
 			symbol,
 			triggerPercent,
 			isAcceleration,
+			packetAttached: Boolean(catalystPacket),
 		});
 		return true;
 	}
@@ -128,6 +137,7 @@ export async function deliverFlatPriceAlert(options: {
 				sevenDaySparkline,
 				logoHtml,
 				whyText,
+				reportUrl,
 			});
 
 			const subject = buildSubject({
@@ -208,6 +218,7 @@ export async function deliverFlatPriceAlert(options: {
 				sendTelegram,
 				supabase,
 				stats,
+				fullReportUrl: reportUrl,
 			});
 			if (sent) {
 				delivered = true;

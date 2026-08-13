@@ -43,16 +43,41 @@ export type GrokTextFormat = {
 	};
 };
 
+type GrokWebSearchTool = { type: "web_search" };
+
+type GrokXSearchTool = {
+	type: "x_search";
+	from_date?: string;
+	to_date?: string;
+};
+
+export type GrokFunctionTool = {
+	type: "function";
+	name: string;
+	description: string;
+	parameters: Record<string, unknown>;
+};
+
+type GrokTool = GrokWebSearchTool | GrokXSearchTool | GrokFunctionTool;
+
+export type GrokFunctionCallOutput = {
+	type: "function_call_output";
+	call_id: string;
+	output: string;
+};
+
 export type GrokResponsesRequest = {
 	model: string;
-	input: string;
+	input: string | GrokFunctionCallOutput[];
 	instructions: string;
 	temperature?: number;
 	max_output_tokens?: number;
 	reasoning_effort?: "none" | "low" | "medium" | "high";
-	tools?: Array<{ type: "web_search" | "x_search" }>;
+	tools?: GrokTool[];
 	include?: string[];
 	text?: { format: GrokTextFormat };
+	previous_response_id?: string;
+	store?: boolean;
 };
 
 export type GrokResponsesResponse = {

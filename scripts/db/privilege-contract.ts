@@ -106,6 +106,16 @@ export const RPC_PRIVILEGES: RpcPrivilege[] = [
 		reason: "Email-dispatch Lambda claims an idempotency key (with expired-key reclaim)",
 	},
 	{
+		signature: "claim_asset_buyer_digest_wake(p_et_date text)",
+		class: "server-only",
+		reason: "Schedule Lambda claims the once-per-session-day asset-buyer sta_daily_digest wake",
+	},
+	{
+		signature: "release_asset_buyer_digest_wake(p_et_date text)",
+		class: "server-only",
+		reason: "Schedule Lambda releases a digest-wake claim after a failed heartbeat invoke so the same session day can retry",
+	},
+	{
 		signature: "try_consume_notification_budget(p_user_id uuid, p_kind text, p_count integer)",
 		class: "server-only",
 		reason: "Schedule Lambda reserves per-user ET-day notification volume before send",

@@ -88,7 +88,8 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			{ status: 500 },
 		);
 	}
-	const hasDailyNotification = hasAnyDailyNotificationFacet(prefs);
+	const hasDailyNotification =
+		dbUser.daily_notification_enabled && hasAnyDailyNotificationFacet(prefs);
 
 	let updatePayload: ReturnType<typeof computeTimezoneUpdatePayload>;
 	try {

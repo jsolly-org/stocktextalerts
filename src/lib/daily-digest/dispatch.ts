@@ -9,7 +9,7 @@ import type { TelegramSenderFactory } from "../messaging/telegram/sender-factory
 import type { EmailSender } from "../messaging/types";
 import type { ScheduledNotificationTotals } from "../scheduled-notifications/types";
 import type { MarketClosureInfo } from "../time/types";
-import type { UserRecord } from "../types";
+import type { MarketSession, UserRecord } from "../types";
 import { processDailyDigestUser } from "./process";
 
 const EMPTY_STATS: ScheduledNotificationTotals = {
@@ -28,7 +28,9 @@ export async function dispatchDailyDigestUser(options: {
 	 *  per-user fetch + prefs load. Absent only on the standalone-invoke path. */
 	user?: UserRecord;
 	currentTimeIso: string;
-	/** Pre-fetched market open status (avoids per-user API calls). */
+	/** Pre-fetched human market session (avoids per-user API calls). */
+	marketSession?: MarketSession;
+	/** @deprecated Prefer `marketSession`. true → regular, false → closed. */
 	marketOpen?: boolean;
 	/** Pre-fetched market closure info (avoids per-user API calls). */
 	marketClosureInfo?: MarketClosureInfo | null;
@@ -44,6 +46,7 @@ export async function dispatchDailyDigestUser(options: {
 	const {
 		userId,
 		currentTimeIso,
+		marketSession,
 		marketOpen,
 		marketClosureInfo,
 		supabase: supabaseOption,
@@ -91,6 +94,7 @@ export async function dispatchDailyDigestUser(options: {
 			currentTime,
 			sendEmail,
 			getTelegramSender,
+			marketSession,
 			marketOpen,
 			marketClosureInfo,
 			logoCache: options.logoCache,
