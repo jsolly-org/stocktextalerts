@@ -36,7 +36,7 @@ async function makeTrackedUser() {
 async function getThresholdRow(userId: string, symbol: string) {
 	const { data, error } = await adminClient
 		.from("price_move_alert_thresholds")
-		.select("threshold_value, threshold_unit")
+		.select("threshold_value")
 		.eq("user_id", userId)
 		.eq("symbol", symbol)
 		.maybeSingle();
@@ -60,10 +60,9 @@ describe("A signed-in user manages per-stock price-move alerts.", () => {
 
 		const row = await getThresholdRow(testUser.id, "AAPL");
 		expect(Number(row?.threshold_value)).toBe(PRICE_MOVE_ALERT_THRESHOLD_PERCENT);
-		expect(row?.threshold_unit).toBe("percent");
 	});
 
-	it("A legacy { value: 12, unit: dollar } still persists 5% percent (lock-down).", async () => {
+	it("A legacy { value: 12, unit: dollar } still persists 5% (lock-down).", async () => {
 		const { testUser, cookies } = await makeTrackedUser();
 
 		const response = await postThreshold({ symbol: "AAPL", value: 12, unit: "dollar" }, cookies);
@@ -71,7 +70,6 @@ describe("A signed-in user manages per-stock price-move alerts.", () => {
 
 		const row = await getThresholdRow(testUser.id, "AAPL");
 		expect(Number(row?.threshold_value)).toBe(PRICE_MOVE_ALERT_THRESHOLD_PERCENT);
-		expect(row?.threshold_unit).toBe("percent");
 	});
 
 	it("{ enabled: false } clears the threshold (opts the stock out).", async () => {

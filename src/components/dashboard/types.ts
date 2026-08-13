@@ -1,11 +1,11 @@
 import type { DeliveryChannelMode, NotificationOptionFieldName } from "../../lib/constants";
-import type { PriceMoveThresholdUnit, UserAsset } from "../../lib/db/types";
+import type { UserAsset } from "../../lib/db/types";
 
 export type InitialAsset = Pick<UserAsset, "symbol" | "name" | "type" | "icon_url">;
 
-/** Per-symbol price-move alert threshold map (symbol → configured value + unit).
+/** Per-symbol price-move alert threshold map (symbol → configured percent).
  *  A symbol absent from the map has no threshold (alerts off for that stock). */
-export type PriceMoveThresholdMap = Record<string, { value: number; unit: PriceMoveThresholdUnit }>;
+export type PriceMoveThresholdMap = Record<string, { value: number }>;
 
 /** The update/current API's notificationPreferences payload as the dashboard
  *  consumes it. Per-option content fields derive from the option catalog. */

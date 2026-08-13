@@ -63,21 +63,11 @@ async function persistWhyState(options: {
 		.update({ ...core, ...extra })
 		.eq("user_id", userId)
 		.eq("symbol", symbol);
-	if (!error) return Boolean(whyGrade && whyPacket);
-	const { error: coreError } = await supabase
-		.from("price_move_alert_state")
-		.update(core)
-		.eq("user_id", userId)
-		.eq("symbol", symbol);
-	if (coreError) {
-		logger.error("Failed to persist price-move why on state", { userId, symbol }, coreError);
+	if (error) {
+		logger.error("Failed to persist price-move why on state", { userId, symbol }, error);
 		return false;
 	}
-	logger.warn("Persisted why lede without packet columns (migration not applied yet)", {
-		userId,
-		symbol,
-	});
-	return false;
+	return Boolean(whyGrade && whyPacket);
 }
 
 function emptyChannelStats(): ChannelDeliveryStats {
@@ -158,43 +148,19 @@ export async function processPriceMoveWhyAlert(options: {
 
 	const extraWhyCols =
 		"last_why_grade, last_why_catalyst_type, last_why_event_date, last_why_key_entity";
-	let stateRow: {
-		pending_delivery: boolean;
-		last_why_summary: string | null;
-		last_why_verdict: string | null;
-		last_why_at: string | null;
-		last_why_grade?: string | null;
-		last_why_catalyst_type?: string | null;
-		last_why_event_date?: string | null;
-		last_why_key_entity?: string | null;
-	} | null = null;
-
-	{
-		const withExtras = await supabase
-			.from("price_move_alert_state")
-			.select(`pending_delivery, last_why_summary, last_why_verdict, last_why_at, ${extraWhyCols}`)
-			.eq("user_id", userId)
-			.eq("symbol", symbol)
-			.maybeSingle();
-		if (withExtras.error) {
-			const core = await supabase
-				.from("price_move_alert_state")
-				.select("pending_delivery, last_why_summary, last_why_verdict, last_why_at")
-				.eq("user_id", userId)
-				.eq("symbol", symbol)
-				.maybeSingle();
-			if (core.error) {
-				logger.error(
-					"Failed to load price_move_alert_state for why job",
-					{ userId, symbol },
-					core.error,
-				);
-				throw new Error(`price_move_alert_state select failed: ${core.error.message}`);
-			}
-			stateRow = core.data;
-		} else {
-			stateRow = withExtras.data;
-		}
+	const { data: stateRow, error: stateError } = await supabase
+		.from("price_move_alert_state")
+		.select(`pending_delivery, last_why_summary, last_why_verdict, last_why_at, ${extraWhyCols}`)
+		.eq("user_id", userId)
+		.eq("symbol", symbol)
+		.maybeSingle();
+	if (stateError) {
+		logger.error(
+			"Failed to load price_move_alert_state for why job",
+			{ userId, symbol },
+			stateError,
+		);
+		throw new Error(`price_move_alert_state select failed: ${stateError.message}`);
 	}
 
 	if (!stateRow?.pending_delivery) {

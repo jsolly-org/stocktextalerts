@@ -3,13 +3,6 @@ import type { AssetType } from "../types";
 import type { Database } from "./generated/database.types";
 
 /* =============
-Enum aliases (Postgres enums)
-============= */
-
-/** Unit a per-stock price-move threshold is expressed in (percent vs absolute dollars). */
-export type PriceMoveThresholdUnit = Database["public"]["Enums"]["price_move_threshold_unit"];
-
-/* =============
 Row Types
 ============= */
 

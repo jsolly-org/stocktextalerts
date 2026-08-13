@@ -1,5 +1,4 @@
 import type { SupabaseAdminClient } from "../../db/supabase";
-import type { PriceMoveThresholdUnit } from "../../db/types";
 import { rootLogger } from "../../logging";
 import type { PriceMoveThreshold } from "./types";
 
@@ -82,7 +81,7 @@ export async function fetchPriceMoveThresholds(
 
 	const { data, error } = await supabase
 		.from("price_move_alert_thresholds")
-		.select("user_id, symbol, threshold_value, threshold_unit")
+		.select("user_id, symbol, threshold_value")
 		.in("user_id", userIds);
 
 	if (error) {
@@ -99,7 +98,6 @@ export async function fetchPriceMoveThresholds(
 		list.push({
 			symbol: row.symbol,
 			value: Number(row.threshold_value),
-			unit: row.threshold_unit,
 		});
 		result.set(row.user_id, list);
 	}
@@ -126,10 +124,9 @@ export async function reserveFlatPriceAlert(
 		baselinePrice: number;
 		newPrice: number;
 		thresholdValue: number;
-		thresholdUnit: PriceMoveThresholdUnit;
 	},
 ): Promise<boolean> {
-	const { userId, symbol, baselinePrice, newPrice, thresholdValue, thresholdUnit } = options;
+	const { userId, symbol, baselinePrice, newPrice, thresholdValue } = options;
 
 	const { data: reserved, error } = await supabase.rpc("reserve_flat_price_alert", {
 		p_user_id: userId,
@@ -137,7 +134,6 @@ export async function reserveFlatPriceAlert(
 		p_baseline_price: baselinePrice,
 		p_new_price: newPrice,
 		p_threshold_value: thresholdValue,
-		p_threshold_unit: thresholdUnit,
 	});
 
 	if (error) {

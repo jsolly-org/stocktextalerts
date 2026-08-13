@@ -54,7 +54,7 @@ const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: a
 // is logged so a permanent break is greppable rather than silent.
 const { data: thresholdRows, error: thresholdReadError } = await supabase
 	.from("price_move_alert_thresholds")
-	.select("symbol, threshold_value, threshold_unit")
+	.select("symbol, threshold_value")
 	.eq("user_id", authUser.id);
 if (thresholdReadError) {
 	rootLogger.warn(
@@ -67,7 +67,6 @@ const priceMoveThresholds: PriceMoveThresholdMap = {};
 for (const row of thresholdRows ?? []) {
 	priceMoveThresholds[row.symbol] = {
 		value: Number(row.threshold_value),
-		unit: row.threshold_unit,
 	};
 }
 

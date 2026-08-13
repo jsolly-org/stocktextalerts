@@ -236,11 +236,10 @@ export async function processFlatPriceAlerts(options: {
 			lastNotificationAt = null;
 		}
 
-		// Unit-aware threshold check against the per-stock configured value.
+		// Percent threshold against the per-stock configured value.
 		// Same-direction re-triggers use half (acceleration); reverse moves and
 		// first-of-day keep the full value. movePct is always computed for display.
 		const movePct = ((quote.price - baseline) / baseline) * 100;
-		const moveDollar = quote.price - baseline;
 		const moveDirection = priceMoveDirection(quote.price, baseline);
 		const { value: effectiveValue, isAcceleration } = effectivePriceMoveThreshold({
 			configuredValue: threshold.value,
@@ -248,11 +247,7 @@ export async function processFlatPriceAlerts(options: {
 			lastAlertDirection: stateRow?.lastAlertDirection ?? null,
 			moveDirection,
 		});
-		const meetsThreshold =
-			threshold.unit === "percent"
-				? Math.abs(movePct) >= effectiveValue
-				: Math.abs(moveDollar) >= effectiveValue;
-		if (!meetsThreshold) {
+		if (Math.abs(movePct) < effectiveValue) {
 			continue;
 		}
 
@@ -263,7 +258,6 @@ export async function processFlatPriceAlerts(options: {
 			baselinePrice: baseline,
 			newPrice: quote.price,
 			thresholdValue: effectiveValue,
-			thresholdUnit: threshold.unit,
 		});
 		if (!claimed) {
 			totals.claimLost++;
