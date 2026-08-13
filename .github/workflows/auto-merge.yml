@@ -12,10 +12,23 @@ permissions:
   contents: write
   pull-requests: write
 
+# One arming run per PR; a rapid re-push supersedes the previous one rather than
+# stacking independent copies behind it.
+concurrency:
+  group: auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   auto-merge:
-    # ARM: cheapest tier; this job is a single bare `gh` call — arch-irrelevant.
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    # GitHub-hosted on purpose: a single bare `gh` call, no checkout, no build.
+    # On the PAT path this job is a pure no-op, and on 2vcpu ARM it still had to
+    # wait for a Blacksmith runner to `echo` and `exit 0` — during the 2026-08-13
+    # us-west ARM outage that left it queued for hours behind stacked safety-net
+    # runs. Skipping the no-op entirely would need `secrets` in the job-level
+    # `if`, which GitHub does not allow (only github/inputs/needs/vars), and a
+    # mirrored `vars` flag can silently drift from the secret. So the token check
+    # stays in the step and the job just stops competing for Blacksmith capacity.
+    runs-on: ubuntu-latest
     # Gate at the job level so Dependabot / fork / draft events skip with ZERO
     # billed runner minutes. Same-repo maintainer + agent PRs arm immediately;
     # Dependabot stays off (janitor arms via `gh` after prep).

@@ -19,7 +19,10 @@ jobs:
     if: >-
       github.event.pull_request.merged == true &&
       github.event.pull_request.merged_by.login == 'github-actions[bot]'
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    # GitHub-hosted: one `gh workflow run` call. This is a recovery path for a
+    # main that has no CI, so it must not be queued behind the Blacksmith pool it
+    # is trying to unblock.
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Workflow-dispatch CI on main

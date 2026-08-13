@@ -9,8 +9,13 @@ name: Ensure main CI
 
 on:
   schedule:
-    # ~10 min worst-case lag after a bot merge before Deploy can start.
-    - cron: "*/10 * * * *"
+    # Hourly, at :07 to stay off the :00 stampede. GitHub throttles high-frequency
+    # cron on busy repos anyway — a `*/10` schedule was observed delivering ~hourly
+    # (2026-08-13), so the old "10 min worst-case lag" claim was already false.
+    # Worst-case lag after a bot merge before Deploy can start is therefore ~1 h;
+    # this is a safety net for a path that normally does not fire at all (PAT
+    # merges and human merges produce push → CI directly).
+    - cron: "7 * * * *"
   workflow_dispatch:
   # Also run when any workflow completes on main? Too noisy. Schedule is enough.
 
@@ -19,10 +24,25 @@ permissions:
   contents: read
   checks: read
 
+# One safety-net run at a time. Without this, a runner shortage lets every cron
+# tick enqueue an independent no-op; on 2026-08-13 a Blacksmith us-west ARM outage
+# stacked five of them ahead of Auto Merge and `merge-pr` in the 2vcpu ARM FIFO,
+# and GitHub reported the queue wait as 3-5 h "runtime". Superseding is correct
+# here: every run does the identical main-tip check, so the newest wins.
+# This is only safe because the job runs on GitHub-hosted capacity (below) — on a
+# starved self-hosted pool, cancel-in-progress would drop the waiting job's FIFO
+# place and re-queue at the tail on every tick, starving the safety net entirely.
+concurrency:
+  group: ensure-main-ci
+  cancel-in-progress: true
+
 jobs:
   ensure:
     name: ensure CI on main tip
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    # GitHub-hosted on purpose: two `gh api` calls, no checkout, no build. Running
+    # it on Blacksmith buys nothing and lets a provider ARM outage jam the same
+    # queue that `merge-pr` needs to land a green PR.
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Dispatch CI if main tip has none
