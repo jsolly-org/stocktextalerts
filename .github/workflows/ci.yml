@@ -685,7 +685,11 @@ jobs:
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login != 'dependabot[bot]'
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    # GitHub-hosted: one `gh pr merge` call. Deliberately NOT on the Blacksmith
+    # pool the battery above uses — this job is the last step between a green PR
+    # and `main`, and on 2vcpu ARM a provider outage (2026-08-13 us-west) leaves a
+    # fully green PR unlanded for hours behind unrelated queued jobs.
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Squash-merge with REPO_AUTOMATION_TOKEN
