@@ -155,7 +155,7 @@ describe("generatePriceMoveWhyWithGrok", () => {
 		await generatePriceMoveWhyWithGrok(baseOpts);
 		const firstPrint = fetchGrokResponse.mock.calls[0]?.[0]?.requestBody?.input as string;
 		expect(firstPrint).toContain("first print");
-		expect(firstPrint).toContain("Alert magnitude is 5% for every alert.");
+		expect(firstPrint).toContain("Configured first-print / reverse magnitude is 5%.");
 
 		fetchGrokResponse.mockClear();
 		await generatePriceMoveWhyWithGrok({
@@ -167,7 +167,9 @@ describe("generatePriceMoveWhyWithGrok", () => {
 		});
 		const accel = fetchGrokResponse.mock.calls[0]?.[0]?.requestBody?.input as string;
 		expect(accel).toContain("acceleration");
-		expect(accel).toContain("Alert magnitude is 5% for every alert.");
+		expect(accel).toContain(
+			"Configured first-print magnitude is 5%; this continuation fires at half (2.5%).",
+		);
 		expect(accel).toContain("Additional move since last alert: 2.6%.");
 		expect(accel).toContain("Session move vs previous close: 7.8%.");
 	});

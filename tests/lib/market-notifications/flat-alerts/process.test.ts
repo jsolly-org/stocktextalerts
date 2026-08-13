@@ -445,8 +445,9 @@ describe("processFlatPriceAlerts", () => {
 
 		expect(totals.alertsTriggered).toBe(1);
 		expect(totals.whyInline).toBe(0);
-		const state = await getStateRow(testUser.id, "AAPL");
-		expect(state?.pending_delivery).toBe(false);
+		expect(enqueuePriceMoveWhy).toHaveBeenCalled();
+		// First-of-day release deletes the pending row so the slot can fire again.
+		expect(await getStateRow(testUser.id, "AAPL")).toBeNull();
 	});
 
 	it("Sub-threshold +4.99% move does not trigger an alert", async () => {

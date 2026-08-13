@@ -151,7 +151,7 @@ describe("A cron deliver pass fans out daily digests without a shared closure la
 		expect(dispatchDailyDigestUserMock).toHaveBeenCalledWith(
 			expect.objectContaining({
 				userId: "daily-user-1",
-				marketOpen: false,
+				marketSession: "closed",
 			}),
 		);
 		expect(dispatchDailyDigestUserMock).not.toHaveBeenCalledWith(
