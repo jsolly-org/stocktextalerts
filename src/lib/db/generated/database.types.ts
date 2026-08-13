@@ -787,7 +787,7 @@ export type Database = {
         ]
       }
       price_move_alert_thresholds: {
-		Row: {
+        Row: {
           created_at: string
           symbol: string
           threshold_unit: Database["public"]["Enums"]["price_move_threshold_unit"]
