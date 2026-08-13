@@ -19,5 +19,6 @@ export const NOTIFICATION_PREFERENCES_SCHEMA = {
 	timezone: { type: "timezone" },
 	market_scheduled_asset_price_times: { type: "json_string_array" },
 	daily_digest_time: { type: "time" },
+	daily_notification_enabled: { type: "boolean" },
 	...OPTION_BOOLEAN_FIELDS,
 } as const satisfies FormSchema;

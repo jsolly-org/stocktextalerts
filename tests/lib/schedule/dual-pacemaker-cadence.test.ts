@@ -14,7 +14,8 @@ const templatePath = path.join(repoRoot, "aws", "template.yaml");
 
 /**
  * Dual-pacemaker lock with asset-buyer: STA stays a 1-minute poller with fixed
- * human vs lambda windows. Buyer cron is :50 ET; STA owns 04:00–04:50 / 19:50–20:00 edges.
+ * human vs lambda windows. Buyer trade pacemakers are gone; STA owns the
+ * 09:00 ET session-day digest wake.
  */
 describe("dual-pacemaker schedule / window contract", () => {
 	it("locks schedule rate(1 minute) and equity/human session windows", () => {

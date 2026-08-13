@@ -18,7 +18,11 @@ import type {
 	TelegramSender,
 } from "../../../../src/lib/messaging/types";
 import type { ChannelDeliveryStats, ExtendedAssetQuote } from "../../../../src/lib/types";
-import { dashboardButtonUrl, telegramMessageText } from "../../../helpers/messaging-doubles";
+import {
+	dashboardButtonUrl,
+	inlineKeyboardButtonUrl,
+	telegramMessageText,
+} from "../../../helpers/messaging-doubles";
 import { makePrefRows } from "../../../helpers/user-record-fixture";
 import { expectConsoleError } from "../../../setup";
 
@@ -94,6 +98,7 @@ async function deliver(options: {
 	user: FlatPriceAlertUser;
 	sendTelegram: TelegramSender | null;
 	budgetOk?: boolean;
+	reportUrl?: string | null;
 }) {
 	const { client, inserts, rpcCalls } = makeTelegramSupabaseMock({
 		budgetOk: options.budgetOk,
@@ -119,6 +124,7 @@ async function deliver(options: {
 		sendTelegram: options.sendTelegram,
 		logoCache: createLogoCache(),
 		stats,
+		reportUrl: options.reportUrl,
 	});
 	return { delivered, inserts, stats, rpcCalls };
 }
@@ -146,6 +152,7 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		expect(telegramMessageText(sent)).toContain("LDOS");
 		// Price alerts deep-link to the Market Notifications section.
 		expect(dashboardButtonUrl(sent)).toContain("#market-notifications");
+		expect(inlineKeyboardButtonUrl(sent, "Full report")).toBeUndefined();
 		expect(stats.telegramSent).toBe(1);
 
 		const tgLog = inserts.find(
@@ -154,6 +161,30 @@ describe("A Telegram-linked user receives a price-move alert via Telegram", () =
 		expect(tgLog).toBeDefined();
 		expect(tgLog?.row.type).toBe("flat_price_alert");
 		expect(tgLog?.row.message_delivered).toBe(true);
+	});
+
+	it("attaches a Full report button when a report URL is provided", async () => {
+		const sendTelegram = vi.fn<TelegramSender>(async () => ({
+			success: true,
+			messageSid: "tg-flat-report",
+		}));
+		const reportUrl = "http://localhost/dashboard/price-move/LDOS";
+
+		const { delivered } = await deliver({
+			user: makeUser({
+				telegram_chat_id: 778899,
+				prefs: makePrefRows([["price_move_alerts", "", true]]),
+			}),
+			sendTelegram,
+			reportUrl,
+		});
+
+		expect(delivered).toBe(true);
+		const sent = sendTelegram.mock.calls[0]![0] as TelegramMessage;
+		expect(inlineKeyboardButtonUrl(sent, "Full report")).toBe(reportUrl);
+		expect(inlineKeyboardButtonUrl(sent, "⚙️ Manage notifications")).toContain(
+			"#market-notifications",
+		);
 	});
 
 	it("counts a failed send, logs the failure, and records message_delivered=false", async () => {

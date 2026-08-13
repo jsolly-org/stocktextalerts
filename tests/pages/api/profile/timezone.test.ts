@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
+import { calculateDailyNotificationNextSendAtIso } from "../../../../src/lib/daily-notification/schedule";
+import { getUsBeforeOpenLocalMinutes } from "../../../../src/lib/time/conversion";
 import { POST as POSTDismissBanner } from "../../../../src/pages/api/profile/dismiss-timezone-banner";
 import { POST as POSTTimezone } from "../../../../src/pages/api/profile/timezone";
 import { createApiContext } from "../../../helpers/api-context";
@@ -80,7 +83,7 @@ describe("A signed-in user updates their timezone.", () => {
 		expect(updatedUser?.timezone).toBe("Etc/UTC");
 	});
 
-	it("Timezone change leaves ET-canonical market_scheduled invariant and shifts daily_digest to the new local time.", async () => {
+	it("Timezone change locks daily_notification_time to 09:00 ET in the new zone and keeps the UTC digest instant.", async () => {
 		const testUser = await createTestUser({
 			email: `test-timezone-next-send-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
@@ -91,16 +94,18 @@ describe("A signed-in user updates their timezone.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		// daily_digest_time stays as user-local minutes (per spec non-goal):
-		// changing the user's timezone shifts when 9:00 AM local lands in UTC.
+		const nextIso = calculateDailyNotificationNextSendAtIso({
+			now: DateTime.utc(),
+			hasDailyNotification: true,
+		});
 		const { error: dailyDigestError } = await adminClient
 			.from("users")
 			.update({
 				daily_notification_time: 540,
+				daily_notification_next_send_at: nextIso,
 			})
 			.eq("id", testUser.id);
 		expect(dailyDigestError).toBeNull();
-		// Per-option facet now lives in notification_preferences (default off).
 		await setTestUserPrefs(testUser.id, [["daily_notification", "news", true]]);
 
 		const { data: beforeUpdate } = await adminClient
@@ -131,20 +136,21 @@ describe("A signed-in user updates their timezone.", () => {
 
 		const { data: afterUpdate } = await adminClient
 			.from("users")
-			.select("timezone,market_scheduled_asset_price_next_send_at,daily_notification_next_send_at")
+			.select(
+				"timezone,daily_notification_time,market_scheduled_asset_price_next_send_at,daily_notification_next_send_at",
+			)
 			.eq("id", testUser.id)
 			.single();
 
 		expect(afterUpdate?.timezone).toBe("America/Los_Angeles");
-		// Market scheduled times are ET-canonical; the absolute UTC instant of
-		// the next send is independent of user-timezone — recompute is a no-op
-		// that lands on the same instant.
+		expect(afterUpdate?.daily_notification_time).toBe(
+			getUsBeforeOpenLocalMinutes("America/Los_Angeles"),
+		);
+		expect(afterUpdate?.daily_notification_time).not.toBe(540);
 		expect(afterUpdate?.market_scheduled_asset_price_next_send_at).toBe(
 			beforeUpdate?.market_scheduled_asset_price_next_send_at,
 		);
-		// Daily digest times are user-local; switching from ET to PT pushes
-		// 9:00 AM "local" three hours later in UTC.
-		expect(afterUpdate?.daily_notification_next_send_at).not.toBe(
+		expect(afterUpdate?.daily_notification_next_send_at).toBe(
 			beforeUpdate?.daily_notification_next_send_at,
 		);
 	});

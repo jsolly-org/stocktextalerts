@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import { readEnv } from "../../db/env";
+import type { Json } from "../../db/generated/database.types";
 import type { SupabaseAdminClient } from "../../db/supabase";
 import type { Logger } from "../../logging";
 import { getIntradayBarsPreferCache } from "../../market-data/price-history-cache";
@@ -9,15 +10,75 @@ import { resolveOutboundChannel } from "../../messaging/delivery-channel";
 import { attachPrefsToUsers } from "../../messaging/load-prefs";
 import { isFacetEnabled } from "../../messaging/notification-prefs";
 import { createNotificationSenders } from "../../messaging/senders";
+import { loadPersistedAliases } from "../../prediction-markets/alias-enrich";
 import type { ChannelDeliveryStats, ExtendedAssetQuote } from "../../types";
 import { wakeupAssetBuyerFromFlatAlert } from "./asset-buyer-wakeup";
 import { deliverFlatPriceAlert } from "./delivery";
+import { buildPriceMoveReportUrl } from "./report-url";
 import { finalizeFlatPriceAlert, releaseFlatPriceAlert } from "./state";
 import type { FlatPriceAlertUser } from "./users";
-import type { PriceMoveWhyVerdict } from "./why";
+import type {
+	PriceMoveWhyGrade,
+	PriceMoveWhyOmitReason,
+	PriceMoveWhyVerdict,
+	PriorWhyFields,
+} from "./why";
 import { generatePriceMoveWhyWithGrok } from "./why";
 import { claimPriceMoveWhyBudget } from "./why-budget";
 import type { PriceMoveWhyMessage } from "./why-queue";
+
+async function persistWhyState(options: {
+	supabase: SupabaseAdminClient;
+	userId: string;
+	symbol: string;
+	whyText: string;
+	whyVerdict: PriceMoveWhyVerdict;
+	whyAt: string;
+	whyGrade: PriceMoveWhyGrade | null;
+	whyPacket: Record<string, unknown> | null;
+	logger: Logger;
+}): Promise<boolean> {
+	const { supabase, userId, symbol, whyText, whyVerdict, whyAt, whyGrade, whyPacket, logger } =
+		options;
+	const core = {
+		last_why_summary: whyText,
+		last_why_verdict: whyVerdict,
+		last_why_at: whyAt,
+	};
+	const extra =
+		whyGrade && whyPacket
+			? {
+					last_why_grade: whyGrade,
+					last_why_catalyst_type:
+						typeof whyPacket.catalyst_type === "string" ? whyPacket.catalyst_type : null,
+					last_why_event_date:
+						typeof whyPacket.event_date === "string" ? whyPacket.event_date : null,
+					last_why_key_entity:
+						typeof whyPacket.key_entity === "string" ? whyPacket.key_entity : null,
+					last_why_packet: whyPacket as Json,
+				}
+			: {};
+	const { error } = await supabase
+		.from("price_move_alert_state")
+		.update({ ...core, ...extra })
+		.eq("user_id", userId)
+		.eq("symbol", symbol);
+	if (!error) return Boolean(whyGrade && whyPacket);
+	const { error: coreError } = await supabase
+		.from("price_move_alert_state")
+		.update(core)
+		.eq("user_id", userId)
+		.eq("symbol", symbol);
+	if (coreError) {
+		logger.error("Failed to persist price-move why on state", { userId, symbol }, coreError);
+		return false;
+	}
+	logger.warn("Persisted why lede without packet columns (migration not applied yet)", {
+		userId,
+		symbol,
+	});
+	return false;
+}
 
 function emptyChannelStats(): ChannelDeliveryStats {
 	return {
@@ -83,6 +144,7 @@ async function loadFlatPriceAlertUser(
  */
 export type PriceMoveWhyJobResult = {
 	delivered: boolean;
+	lambdaWakeup: boolean;
 	stats: ChannelDeliveryStats;
 };
 
@@ -94,25 +156,50 @@ export async function processPriceMoveWhyAlert(options: {
 	const { supabase, message, logger } = options;
 	const { userId, symbol } = message;
 
-	const { data: stateRow, error: stateError } = await supabase
-		.from("price_move_alert_state")
-		.select("pending_delivery, last_why_summary, last_why_verdict, last_why_at")
-		.eq("user_id", userId)
-		.eq("symbol", symbol)
-		.maybeSingle();
+	const extraWhyCols =
+		"last_why_grade, last_why_catalyst_type, last_why_event_date, last_why_key_entity";
+	let stateRow: {
+		pending_delivery: boolean;
+		last_why_summary: string | null;
+		last_why_verdict: string | null;
+		last_why_at: string | null;
+		last_why_grade?: string | null;
+		last_why_catalyst_type?: string | null;
+		last_why_event_date?: string | null;
+		last_why_key_entity?: string | null;
+	} | null = null;
 
-	if (stateError) {
-		logger.error(
-			"Failed to load price_move_alert_state for why job",
-			{ userId, symbol },
-			stateError,
-		);
-		throw new Error(`price_move_alert_state select failed: ${stateError.message}`);
+	{
+		const withExtras = await supabase
+			.from("price_move_alert_state")
+			.select(`pending_delivery, last_why_summary, last_why_verdict, last_why_at, ${extraWhyCols}`)
+			.eq("user_id", userId)
+			.eq("symbol", symbol)
+			.maybeSingle();
+		if (withExtras.error) {
+			const core = await supabase
+				.from("price_move_alert_state")
+				.select("pending_delivery, last_why_summary, last_why_verdict, last_why_at")
+				.eq("user_id", userId)
+				.eq("symbol", symbol)
+				.maybeSingle();
+			if (core.error) {
+				logger.error(
+					"Failed to load price_move_alert_state for why job",
+					{ userId, symbol },
+					core.error,
+				);
+				throw new Error(`price_move_alert_state select failed: ${core.error.message}`);
+			}
+			stateRow = core.data;
+		} else {
+			stateRow = withExtras.data;
+		}
 	}
 
 	if (!stateRow?.pending_delivery) {
 		logger.info("Price-move why job no-op: reservation not pending", { userId, symbol });
-		return { delivered: false, stats: emptyChannelStats() };
+		return { delivered: false, lambdaWakeup: false, stats: emptyChannelStats() };
 	}
 
 	// Refresh reservation clock so SQS retries stay inside the pending TTL.
@@ -129,83 +216,117 @@ export async function processPriceMoveWhyAlert(options: {
 	const user = await loadFlatPriceAlertUser(supabase, userId, logger);
 	if (!user) {
 		await releaseFlatPriceAlert(supabase, userId, symbol);
-		return { delivered: false, stats: emptyChannelStats() };
+		return { delivered: false, lambdaWakeup: false, stats: emptyChannelStats() };
 	}
 
-	// Safety net: lambda users normally skip SQS in process.ts. If a job still
-	// lands here, wake asset-buyer without Grok/sparklines/human delivery.
-	if (user.delivery_channel === "lambda") {
-		if (!isFacetEnabled(user.prefs, "price_move_alerts")) {
-			await releaseFlatPriceAlert(supabase, userId, symbol);
-			logger.info("Price-move why job released lambda user: facet off", { userId, symbol });
-			return { delivered: false, stats: emptyChannelStats() };
-		}
-		const woke = await wakeupAssetBuyerFromFlatAlert({
-			symbol,
-			triggerPercent: message.triggerPercent,
-			isAcceleration: message.isAcceleration,
-		});
-		if (!woke) {
-			await releaseFlatPriceAlert(supabase, userId, symbol);
-			logger.warn("Price-move why job released lambda user: wakeup failed", { userId, symbol });
-			return { delivered: false, stats: emptyChannelStats() };
-		}
-		await finalizeFlatPriceAlert(supabase, userId, symbol);
-		logger.info("Price-move why job lambda wakeup finalized", { userId, symbol });
-		return { delivered: true, stats: emptyChannelStats() };
+	if (user.delivery_channel === "lambda" && !isFacetEnabled(user.prefs, "price_move_alerts")) {
+		await releaseFlatPriceAlert(supabase, userId, symbol);
+		logger.info("Price-move why job released lambda user: facet off", { userId, symbol });
+		return { delivered: false, lambdaWakeup: false, stats: emptyChannelStats() };
 	}
 
 	const todayEt = todayEtIso();
-	let priorWhySummary: string | null = null;
-	let priorWhyVerdict: PriceMoveWhyVerdict | null = null;
+	let prior: PriorWhyFields | null = null;
 	if (stateRow.last_why_at && todayEt) {
 		const whyDay = etIsoDateOf(new Date(stateRow.last_why_at));
 		if (whyDay === todayEt && typeof stateRow.last_why_summary === "string") {
-			priorWhySummary = stateRow.last_why_summary;
 			const v = stateRow.last_why_verdict;
-			if (v === "same" || v === "updated" || v === "new" || v === "unknown") {
-				priorWhyVerdict = v;
-			}
+			const verdict: PriceMoveWhyVerdict | null =
+				v === "same" || v === "updated" || v === "new" || v === "unknown" ? v : null;
+			const g = stateRow.last_why_grade;
+			const grade: PriceMoveWhyGrade | null =
+				g === "confirmed" ||
+				g === "reported" ||
+				g === "narrative" ||
+				g === "sector" ||
+				g === "unexplained"
+					? g
+					: null;
+			prior = {
+				summary: stateRow.last_why_summary,
+				verdict,
+				grade,
+				catalystType: stateRow.last_why_catalyst_type ?? null,
+				eventDate: stateRow.last_why_event_date ?? null,
+				keyEntity: stateRow.last_why_key_entity ?? null,
+			};
 		}
 	}
 
-	const nowUtc = DateTime.utc();
-	const xaiAvailable = Boolean(readEnv("XAI_API_KEY")?.trim());
-	let whyText: string | null = null;
-	let whyVerdict: PriceMoveWhyVerdict | null = null;
-	let whyUsed = false;
-
-	if (xaiAvailable) {
-		const claimed = await claimPriceMoveWhyBudget(supabase, userId, logger);
-		if (claimed) {
-			const why = await generatePriceMoveWhyWithGrok({
-				symbol,
-				companyName: message.companyName,
-				triggerPercent: message.triggerPercent,
-				isAcceleration: message.isAcceleration,
-				priorWhySummary,
-				priorWhyVerdict,
-			});
-			if (why) {
-				whyText = why.text;
-				whyVerdict = why.verdict;
-				whyUsed = true;
+	let persistedAliases: string[] | null = null;
+	try {
+		const loaded = await loadPersistedAliases(supabase, symbol);
+		if (loaded) {
+			persistedAliases = loaded.aliases;
+			if (loaded.status === "skipped") {
+				logger.info("Price-move why: persisted aliases status skipped; using deterministic names", {
+					userId,
+					symbol,
+				});
 			}
-		} else {
-			logger.info("Price-move why skipped: budget exhausted or claim failed", {
-				userId,
-				symbol,
-			});
 		}
-	} else {
-		logger.info("Price-move why skipped: XAI unavailable", { userId, symbol });
+	} catch (err) {
+		logger.warn(
+			"Price-move why: persisted alias load failed; continuing with deterministic names",
+			{ userId, symbol },
+			err,
+		);
 	}
 
 	let intraday = null;
 	try {
 		intraday = await getIntradayBarsPreferCache(supabase, symbol);
 	} catch (err) {
-		logger.info("Price-move why job: intraday bars unavailable", { userId, symbol }, err);
+		logger.warn("Price-move why job: intraday bars unavailable", { userId, symbol }, err);
+	}
+
+	const nowUtc = DateTime.utc();
+	const xaiAvailable = Boolean(readEnv("XAI_API_KEY")?.trim());
+	let whyText: string | null = null;
+	let whyVerdict: PriceMoveWhyVerdict | null = null;
+	let whyGrade: PriceMoveWhyGrade | null = null;
+	let whyPacket: Record<string, unknown> | null = null;
+	let whyUsed = false;
+	let omitReason: PriceMoveWhyOmitReason | null = null;
+
+	if (!intraday) {
+		omitReason = "bars_failed";
+		logger.warn("Price-move why omitted: bars failed", { userId, symbol, reason: omitReason });
+	} else if (!xaiAvailable) {
+		omitReason = "missing_key";
+		logger.warn("Price-move why omitted: XAI unavailable", { userId, symbol, reason: omitReason });
+	} else {
+		const claimed = await claimPriceMoveWhyBudget(supabase, userId, logger);
+		if (!claimed) {
+			omitReason = "budget";
+			logger.warn("Price-move why omitted: budget exhausted or claim failed", {
+				userId,
+				symbol,
+				reason: omitReason,
+			});
+		} else {
+			const why = await generatePriceMoveWhyWithGrok({
+				symbol,
+				companyName: message.companyName,
+				triggerPercent: message.triggerPercent,
+				isAcceleration: message.isAcceleration,
+				sessionPercent: message.sessionPercent,
+				accelPercent: message.isAcceleration ? message.triggerPercent : null,
+				intraday,
+				prior,
+				persistedAliases,
+			});
+			if (why.ok) {
+				whyText = why.text;
+				whyVerdict = why.verdict;
+				whyGrade = why.packet.grade;
+				whyPacket = why.packet;
+				whyUsed = true;
+			} else {
+				omitReason = why.reason;
+				logger.warn("Price-move why omitted", { userId, symbol, reason: omitReason });
+			}
+		}
 	}
 
 	let sevenDaySparkline = null;
@@ -221,9 +342,72 @@ export async function processPriceMoveWhyAlert(options: {
 		? new Date(message.lastNotificationAt)
 		: null;
 	const stats = emptyChannelStats();
+
+	if (user.delivery_channel === "lambda") {
+		const woke = await wakeupAssetBuyerFromFlatAlert({
+			symbol,
+			triggerPercent: message.triggerPercent,
+			isAcceleration: message.isAcceleration,
+			...(whyPacket ? { catalystPacket: whyPacket } : {}),
+		});
+		if (!woke) {
+			await releaseFlatPriceAlert(supabase, userId, symbol);
+			logger.warn("Price-move why job released lambda user: wakeup failed", { userId, symbol });
+			return { delivered: false, lambdaWakeup: false, stats };
+		}
+		await finalizeFlatPriceAlert(supabase, userId, symbol);
+		if (whyUsed && whyText !== null && whyVerdict !== null) {
+			const whyAt = nowUtc.toISO();
+			if (whyAt) {
+				await persistWhyState({
+					supabase,
+					userId,
+					symbol,
+					whyText,
+					whyVerdict,
+					whyAt,
+					whyGrade,
+					whyPacket,
+					logger,
+				});
+			}
+		}
+		logger.info("Price-move why job lambda wakeup finalized", {
+			userId,
+			symbol,
+			whyUsed,
+			whyVerdict,
+			omitReason,
+			packetAttached: Boolean(whyPacket),
+		});
+		return { delivered: true, lambdaWakeup: true, stats };
+	}
+
 	const { sendEmail, getTelegramSender, logoCache } = createNotificationSenders();
 	const sendTelegram =
 		resolveOutboundChannel(user) === "telegram" ? getTelegramSender().sender : null;
+
+	// Persist the packet before send so a tap on Full report is not a race.
+	let reportUrl: string | null = null;
+	if (whyUsed && whyText !== null && whyVerdict !== null) {
+		const whyAt = nowUtc.toISO();
+		if (whyAt) {
+			const packetSaved = await persistWhyState({
+				supabase,
+				userId,
+				symbol,
+				whyText,
+				whyVerdict,
+				whyAt,
+				whyGrade,
+				whyPacket,
+				logger,
+			});
+			if (packetSaved) {
+				reportUrl = buildPriceMoveReportUrl(symbol);
+			}
+		}
+	}
 
 	const delivered = await deliverFlatPriceAlert({
 		user,
@@ -246,34 +430,19 @@ export async function processPriceMoveWhyAlert(options: {
 		logoCache,
 		stats,
 		whyText,
+		reportUrl,
+		catalystPacket: whyPacket,
 	});
 
 	if (delivered) {
 		await finalizeFlatPriceAlert(supabase, userId, symbol);
-		if (whyUsed && whyText !== null && whyVerdict !== null) {
-			const whyAt = nowUtc.toISO();
-			const { error: whyPersistError } = await supabase
-				.from("price_move_alert_state")
-				.update({
-					last_why_summary: whyText,
-					last_why_verdict: whyVerdict,
-					last_why_at: whyAt,
-				})
-				.eq("user_id", userId)
-				.eq("symbol", symbol);
-			if (whyPersistError) {
-				logger.error(
-					"Failed to persist price-move why on state",
-					{ userId, symbol },
-					whyPersistError,
-				);
-			}
-		}
 		logger.info("Price-move why job delivered", {
 			userId,
 			symbol,
 			whyUsed,
 			whyVerdict,
+			omitReason,
+			reportLinked: Boolean(reportUrl),
 			...stats,
 		});
 	} else {
@@ -282,11 +451,12 @@ export async function processPriceMoveWhyAlert(options: {
 			userId,
 			symbol,
 			whyUsed,
+			omitReason,
 			...stats,
 		});
 	}
 
-	return { delivered, stats };
+	return { delivered, lambdaWakeup: false, stats };
 }
 
 /** Inline fallback when SQS enqueue fails or the queue URL is unset. */

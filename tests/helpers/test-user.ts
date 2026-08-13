@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
 import type { TablesInsert } from "../../src/lib/db/generated/database.types";
 import { buildDefaultPreferenceRows } from "../../src/lib/messaging/notification-prefs";
-import { userLocalToEtMinute } from "../../src/lib/time/conversion";
+import { getUsBeforeOpenLocalMinutes, userLocalToEtMinute } from "../../src/lib/time/conversion";
 import { calculateNextSendAtFromTimes } from "../../src/lib/time/schedule/next-send";
 import { getAssetData } from "./asset-data";
 import { upsertAssets } from "./asset-db";
@@ -197,6 +197,8 @@ export async function createTestUser(options: CreateTestUserOptions = {}): Promi
 			telegram_chat_id: telegramChatId,
 			market_scheduled_asset_price_times: finalMarketScheduledPriceTimes,
 			market_scheduled_asset_price_next_send_at: nextSendAtIso,
+			daily_notification_enabled: true,
+			daily_notification_time: getUsBeforeOpenLocalMinutes(timezone),
 		};
 
 		const { error: profileError } = await adminClient

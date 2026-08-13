@@ -48,6 +48,32 @@ describe("fetchDailyNotificationUsers daily-digest candidate selection", () => {
 		).toBe(true);
 	});
 
+	it("excludes a user whose daily notification master toggle is off", async () => {
+		const user = await createTestUser({
+			deliveryChannel: "email",
+			confirmed: true,
+		});
+		registerTestUserForCleanup(user.id);
+		const { error } = await adminClient
+			.from("users")
+			.update({
+				daily_notification_enabled: false,
+				daily_notification_next_send_at: new Date().toISOString(),
+			})
+			.eq("id", user.id);
+		expect(error).toBeNull();
+		await setTestUserPrefs(user.id, [["daily_notification", "prices", true]]);
+
+		const users = await fetchDailyNotificationUsers({
+			supabase: adminClient,
+			logger: rootLogger,
+			forceSend: true,
+			currentTimeIso: new Date().toISOString(),
+		});
+
+		expect(users.some((u) => u.id === user.id)).toBe(false);
+	});
+
 	it("excludes a user with no usable channel (email off, no Telegram)", async () => {
 		const user = await createTestUser({
 			deliveryChannel: "disabled",

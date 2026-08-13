@@ -83,9 +83,22 @@ vi.mock("../../../../src/lib/market-notifications/flat-alerts/asset-buyer-wakeup
 	wakeupAssetBuyerFromFlatAlert,
 }));
 
+const generatePriceMoveWhyWithGrok = vi.hoisted(() => vi.fn());
 vi.mock("../../../../src/lib/market-notifications/flat-alerts/why", () => ({
-	generatePriceMoveWhyWithGrok: vi.fn(async () => null),
+	generatePriceMoveWhyWithGrok,
 }));
+
+const WHY_PACKET = {
+	lede: "Apple rose after raising full-year guidance.",
+	grade: "confirmed" as const,
+	verdict: "new" as const,
+	catalyst_type: "guidance",
+	event_date: "2026-08-12",
+	key_entity: "Apple",
+	claims: [],
+	move_onset: "10:05 ET",
+	retrieval_version: "why-toolkit-v1",
+};
 
 import { processFlatPriceAlerts } from "../../../../src/lib/market-notifications/flat-alerts/process";
 
@@ -137,23 +150,6 @@ async function enableFlatAlerts(userId: string, opts: { enabled?: boolean } = {}
 	}
 }
 
-/** Set a single per-stock threshold (value + unit) for a user, overriding the
- *  default seeded by {@link enableFlatAlerts}. */
-async function setThreshold(
-	userId: string,
-	symbol: string,
-	value: number,
-	unit: "percent" | "dollar",
-): Promise<void> {
-	const { error } = await adminClient
-		.from("price_move_alert_thresholds")
-		.upsert(
-			{ user_id: userId, symbol, threshold_value: value, threshold_unit: unit },
-			{ onConflict: "user_id,symbol" },
-		);
-	if (error) throw new Error(`Failed to set threshold: ${error.message}`);
-}
-
 async function getNotificationLogCount(userId: string): Promise<number> {
 	const { count, error } = await adminClient
 		.from("notification_log")
@@ -177,9 +173,17 @@ async function getStateRow(userId: string, symbol: string) {
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	// The why toolkit runs for every channel, lambda included, so the job needs a key.
+	vi.stubEnv("XAI_API_KEY", "test-key");
 	mockEmailSender.mockResolvedValue({ success: true });
 	enqueuePriceMoveWhy.mockResolvedValue(false);
 	wakeupAssetBuyerFromFlatAlert.mockResolvedValue(true);
+	generatePriceMoveWhyWithGrok.mockResolvedValue({
+		ok: true,
+		text: WHY_PACKET.lede,
+		verdict: WHY_PACKET.verdict,
+		packet: WHY_PACKET,
+	});
 });
 
 describe("processFlatPriceAlerts", () => {
@@ -195,7 +199,7 @@ describe("processFlatPriceAlerts", () => {
 		expect(mockEmailSender).not.toHaveBeenCalled();
 	});
 
-	it("lambda delivery_channel wakes asset-buyer without email/why enqueue", async () => {
+	it("lambda delivery_channel runs why then wakes asset-buyer with the catalyst packet", async () => {
 		const testUser = await createTestUser({
 			trackedAssets: ["AAPL"],
 			timezone: "America/New_York",
@@ -220,15 +224,16 @@ describe("processFlatPriceAlerts", () => {
 		expect(totals.alertsTriggered).toBe(1);
 		expect(totals.lambdaWakeups).toBe(1);
 		expect(totals.whyEnqueued).toBe(0);
-		expect(totals.whyInline).toBe(0);
+		expect(totals.whyInline).toBe(1);
 		expect(totals.emailsSent).toBe(0);
 		expect(mockEmailSender).not.toHaveBeenCalled();
-		expect(enqueuePriceMoveWhy).not.toHaveBeenCalled();
+		expect(enqueuePriceMoveWhy).toHaveBeenCalledOnce();
 		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledOnce();
 		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledWith({
 			symbol: "AAPL",
 			triggerPercent: expect.any(Number),
 			isAcceleration: false,
+			catalystPacket: WHY_PACKET,
 		});
 		const wakeupCall = wakeupAssetBuyerFromFlatAlert.mock.calls[0] as unknown as
 			| [{ triggerPercent: number }]
@@ -243,6 +248,36 @@ describe("processFlatPriceAlerts", () => {
 		const state = await getStateRow(testUser.id, "AAPL");
 		expect(state?.pending_delivery).toBe(false);
 		expect(Number(state?.last_notification_price)).toBeCloseTo(195.86, 2);
+	});
+
+	it("lambda wakeup still fires without a packet when why is omitted", async () => {
+		generatePriceMoveWhyWithGrok.mockResolvedValue({ ok: false, reason: "no_tool_calls" });
+		const testUser = await createTestUser({
+			trackedAssets: ["AAPL"],
+			timezone: "America/New_York",
+			deliveryChannel: "lambda",
+		});
+		registerTestUserForCleanup(testUser.id);
+		await enableFlatAlerts(testUser.id);
+		const { error: channelError } = await adminClient
+			.from("users")
+			.update({ delivery_channel: "lambda" })
+			.eq("id", testUser.id);
+		if (channelError) throw new Error(channelError.message);
+
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			marketSession: "regular",
+		});
+
+		expect(totals.lambdaWakeups).toBe(1);
+		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledWith({
+			symbol: "AAPL",
+			triggerPercent: expect.any(Number),
+			isAcceleration: false,
+		});
 	});
 
 	it("email delivery_channel does not ping asset-buyer", async () => {
@@ -299,7 +334,8 @@ describe("processFlatPriceAlerts", () => {
 		expect(totals.usersChecked).toBe(1);
 		expect(totals.alertsTriggered).toBe(1);
 		expect(totals.lambdaWakeups).toBe(1);
-		expect(enqueuePriceMoveWhy).not.toHaveBeenCalled();
+		// Lambda users run the same why job as humans; the queue is just the transport.
+		expect(enqueuePriceMoveWhy).toHaveBeenCalledOnce();
 		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledOnce();
 	});
 
@@ -386,6 +422,31 @@ describe("processFlatPriceAlerts", () => {
 
 		const state = await getStateRow(testUser.id, "AAPL");
 		expect(state?.pending_delivery).toBe(true);
+	});
+
+	it("releases the reserved slot when why enqueue throws", async () => {
+		const { expectConsoleError } = await import("../../../setup");
+		expectConsoleError("Price-move why fanout failed");
+		enqueuePriceMoveWhy.mockRejectedValueOnce(new Error("sqs down"));
+
+		const testUser = await createTestUser({
+			trackedAssets: ["AAPL"],
+			timezone: "America/New_York",
+		});
+		registerTestUserForCleanup(testUser.id);
+		await enableFlatAlerts(testUser.id);
+
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			marketSession: "regular",
+		});
+
+		expect(totals.alertsTriggered).toBe(1);
+		expect(totals.whyInline).toBe(0);
+		const state = await getStateRow(testUser.id, "AAPL");
+		expect(state?.pending_delivery).toBe(false);
 	});
 
 	it("Sub-threshold +4.99% move does not trigger an alert", async () => {
@@ -839,50 +900,6 @@ describe("processFlatPriceAlerts", () => {
 		expect(totals.emailsSent).toBe(0);
 		expect(mockEmailSender).not.toHaveBeenCalled();
 		expect(await getNotificationLogCount(testUser.id)).toBe(0);
-		expect(await getStateRow(testUser.id, "AAPL")).toBeNull();
-	});
-
-	it("Dollar-unit threshold: a +$6.51 move (+3.5%) clears a $5 threshold — fires ONLY if the dollar unit is honored", async () => {
-		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
-		registerTestUserForCleanup(testUser.id);
-		await enableFlatAlerts(testUser.id);
-		// Override the default 5% with a $5 absolute-dollar threshold.
-		await setThreshold(testUser.id, "AAPL", 5, "dollar");
-
-		// Discriminating fixture: $186 prev close → $192.51 = +$6.51 but only
-		// +3.50%. A regression that ignores the unit and reads the 5 as percent
-		// would NOT fire (3.50 < 5); the dollar semantics must (6.51 >= 5).
-		const quoteMap = new Map([["AAPL", makeQuote({ price: 192.51 })]]);
-		const totals = await processFlatPriceAlerts({
-			supabase: adminClient,
-			quoteMap,
-			marketSession: "regular",
-		});
-
-		expect(totals.alertsTriggered).toBe(1);
-		expect(totals.emailsSent).toBe(1);
-	});
-
-	it("Dollar-unit threshold: a +$4.40 move (+8.8%) stays under an $8 threshold — skips ONLY if the dollar unit is honored", async () => {
-		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
-		registerTestUserForCleanup(testUser.id);
-		await enableFlatAlerts(testUser.id);
-		await setThreshold(testUser.id, "AAPL", 8, "dollar");
-
-		// Discriminating fixture: $50 prev close → $54.40 = +$4.40 but +8.8%.
-		// A percent-read of the 8 WOULD fire (8.8 >= 8); the dollar semantics
-		// must not (4.40 < 8).
-		const quoteMap = new Map([
-			["AAPL", makeQuote({ price: 54.4, prevClose: 50, dayOpen: 50.5, dayHigh: 55, dayLow: 49.5 })],
-		]);
-		const totals = await processFlatPriceAlerts({
-			supabase: adminClient,
-			quoteMap,
-			marketSession: "regular",
-		});
-
-		expect(totals.alertsTriggered).toBe(0);
-		expect(mockEmailSender).not.toHaveBeenCalled();
 		expect(await getStateRow(testUser.id, "AAPL")).toBeNull();
 	});
 

@@ -11,10 +11,9 @@
 		@submit="handleFormSubmit"
 	>
 		<input
-			v-if="shouldSubmitDailyDigestTime"
 			type="hidden"
-			name="daily_digest_time"
-			:value="dailyDigestTimeInputForSubmit ?? ''"
+			name="daily_notification_enabled"
+			:value="dailyMasterEnabled ? 'on' : 'off'"
 		/>
 		<section class="card relative">
 			<FormStatusBadge
@@ -32,9 +31,34 @@
 					Daily Notification
 				</h2>
 			<p class="text-sm text-body-secondary mt-1">
-				Everything you enable below is bundled into <strong class="font-semibold text-label">one daily message</strong> sent at your <a href="#daily_digest_time" class="link-primary">daily notification delivery time</a>.
+				Everything you enable below is bundled into <strong class="font-semibold text-label">one daily message</strong> sent 30 minutes before US regular trading hours (9:00 AM ET) on session days. Weekends and full-day holidays are skipped.
 			</p>
 			</header>
+
+			<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 pb-3">
+				<div class="min-w-0">
+					<span
+						id="daily_notification_enabled_label"
+						class="text-base font-semibold text-heading"
+					>
+						Send daily notification
+					</span>
+					<p
+						id="daily_notification_enabled_description"
+						class="text-sm text-body-secondary mt-0.5"
+					>
+						Master switch for the daily message. Off means no digest, even if sections below are on.
+					</p>
+				</div>
+				<div class="shrink-0">
+					<ToggleSwitch
+						v-model="dailyMasterEnabled"
+						sr-label="Toggle daily notification"
+						aria-labelledby="daily_notification_enabled_label"
+						aria-describedby="daily_notification_enabled_description"
+					/>
+				</div>
+			</div>
 
 		<SetupRequiredNotice
 			:needs-tracked-assets="needsTrackedAssets"
@@ -143,7 +167,7 @@ import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import PolymarketLogoIcon from "../../../icons/polymarket.svg?component";
 import { DASHBOARD_SECTION_IDS } from "../../../lib/constants";
 import { needsNotificationChannelSelection } from "../../../lib/messaging/delivery-channel";
-import { etMinuteToUserLocal } from "../../../lib/time/conversion";
+import { getUsBeforeOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
 	formatCountdownWithSeconds,
 	getSecondsUntilNextSend,
@@ -209,6 +233,7 @@ const {
 	formRef: extrasFormElement,
 });
 
+const dailyMasterEnabled = ref(user.value.daily_notification_enabled !== false);
 const includePrices = ref(user.value.daily_digest_include_prices);
 const includeTopMovers = ref(user.value.daily_digest_include_top_movers);
 const includeNews = ref(user.value.daily_digest_include_news);
@@ -367,35 +392,36 @@ watch(
 		includeNews.value = newData.daily_digest_include_news;
 		includeRumors.value = newData.daily_digest_include_rumors;
 		includePredictionMarkets.value = newData.daily_digest_include_prediction_markets;
+		dailyMasterEnabled.value = newData.daily_notification_enabled !== false;
 		user.value = {
 			...user.value,
+			daily_notification_enabled: newData.daily_notification_enabled,
 			daily_notification_time: newData.daily_notification_time,
 			daily_notification_next_send_at: newData.daily_notification_next_send_at,
 		};
 	},
 );
 
-function getEarliestMarketNotificationTime(): number | null {
-	const times = user.value.market_scheduled_asset_price_times;
-	if (!times || times.length === 0) return null;
-	const local = times.map((et) => etMinuteToUserLocal(et, user.value.timezone));
-	return Math.min(...local);
-}
+watch(
+	() => user.value.daily_notification_enabled,
+	(value) => {
+		dailyMasterEnabled.value = value !== false;
+	},
+);
 
-const shouldSubmitDailyDigestTime = computed(() => dailyEnabled.value);
-
-const dailyDigestTimeInputForSubmit = computed(() => {
-	const minutes = user.value.daily_notification_time ?? getEarliestMarketNotificationTime();
-	return minutes !== null ? minutesToTimeInputValue(minutes) : null;
+watch(dailyMasterEnabled, (value) => {
+	if (value === user.value.daily_notification_enabled) return;
+	user.value = { ...user.value, daily_notification_enabled: value };
+	notifyChange();
 });
 
 const nextDailyDeliveryText = computed(() => {
-	if (!isHydrated.value || !dailyEnabled.value) return null;
+	if (!isHydrated.value || !dailyEnabled.value || !dailyMasterEnabled.value) return null;
 	void tick.value;
 	const timeInput =
 		user.value.daily_notification_time !== null
 			? minutesToTimeInputValue(user.value.daily_notification_time)
-			: dailyDigestTimeInputForSubmit.value;
+			: minutesToTimeInputValue(getUsBeforeOpenLocalMinutes(user.value.timezone));
 	if (user.value.daily_notification_next_send_at == null && timeInput == null) return null;
 
 	const secondsUntil = getSecondsUntilNextSend({

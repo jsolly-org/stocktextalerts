@@ -1,34 +1,26 @@
 import type { APIRoute } from "astro";
 import { createUserService } from "../../lib/auth/user-service";
 import type { ApiJsonBody } from "../../lib/client/types";
-import {
-	MAX_PRICE_MOVE_DOLLAR_THRESHOLD,
-	MAX_PRICE_MOVE_PERCENT_THRESHOLD,
-	MIN_PRICE_MOVE_THRESHOLD,
-} from "../../lib/constants";
+import { PRICE_MOVE_ALERT_THRESHOLD_PERCENT } from "../../lib/constants";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../lib/db/supabase";
-import { isPriceMoveThresholdUnit } from "../../lib/db/types";
 import { createLogger } from "../../lib/logging";
 import { createErrorForLogging } from "../../lib/logging/errors";
 import { isValidAssetSymbol } from "../../lib/validation";
 
 interface ThresholdRequest {
 	symbol: unknown;
-	value: unknown;
-	unit: unknown;
+	enabled?: unknown;
+	value?: unknown;
+	unit?: unknown;
 }
 
 /**
  * POST /api/price-move-alerts
  *
- * Upsert or clear the authenticated user's per-stock price-move alert threshold.
- * Body: `{ symbol, value, unit }`. A null/absent `value` clears the threshold
- * (disables alerts for that stock); a whole-number `value` ≥ 1 with unit
- * `"percent"` or `"dollar"` upserts it (see `MIN_PRICE_MOVE_THRESHOLD`). The
- * symbol must be in the user's watchlist. Row presence in
- * `price_move_alert_thresholds` is what enables the alert — mirrors the
- * opt-in-per-stock model. Writes run through the admin client after the session
- * user is authenticated (the table is not writable by the `authenticated` role).
+ * Opt a tracked stock into or out of the fixed 5% Price Move Alert.
+ * Preferred body: `{ symbol, enabled: boolean }`.
+ * Legacy `{ symbol, value }`: any non-empty value enables at 5% percent;
+ * null/absent value clears. Chosen numbers and units are ignored.
  */
 export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
@@ -69,8 +61,6 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 	const admin = createSupabaseAdminClient();
 
-	// The threshold only makes sense for a tracked asset; enforce watchlist
-	// membership so a client can't seed thresholds for untracked symbols.
 	const { data: trackedRow, error: trackedError } = await admin
 		.from("user_assets")
 		.select("symbol")
@@ -93,8 +83,12 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		});
 	}
 
-	// A null/absent value clears the threshold (disables alerts for this stock).
-	if (body.value === null || body.value === undefined || body.value === "") {
+	const enable =
+		typeof body.enabled === "boolean"
+			? body.enabled
+			: !(body.value === null || body.value === undefined || body.value === "");
+
+	if (!enable) {
 		const { error } = await admin
 			.from("price_move_alert_thresholds")
 			.delete()
@@ -111,32 +105,12 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		});
 	}
 
-	// Fail loud on an unrecognized unit — silently coercing would flip the
-	// threshold's meaning (a "$5" request stored as 5%).
-	if (!isPriceMoveThresholdUnit(body.unit)) {
-		return Response.json({ ok: false, message: "invalid_unit" } satisfies ApiJsonBody, {
-			status: 400,
-		});
-	}
-	const unit = body.unit;
-
-	const value = typeof body.value === "number" ? body.value : Number(body.value);
-	const maxValue =
-		unit === "percent" ? MAX_PRICE_MOVE_PERCENT_THRESHOLD : MAX_PRICE_MOVE_DOLLAR_THRESHOLD;
-	// Whole numbers only (matches DB CHECK). Reject fractions rather than
-	// silently rounding — the dashboard input never sends them.
-	if (!Number.isInteger(value) || value < MIN_PRICE_MOVE_THRESHOLD || value > maxValue) {
-		return Response.json({ ok: false, message: "invalid_value" } satisfies ApiJsonBody, {
-			status: 400,
-		});
-	}
-
 	const { error } = await admin.from("price_move_alert_thresholds").upsert(
 		{
 			user_id: user.id,
 			symbol,
-			threshold_value: value,
-			threshold_unit: unit,
+			threshold_value: PRICE_MOVE_ALERT_THRESHOLD_PERCENT,
+			threshold_unit: "percent",
 		},
 		{ onConflict: "user_id,symbol" },
 	);

@@ -48,8 +48,20 @@ function makeStats(): ChannelDeliveryStats {
 	};
 }
 
+const catalystPacket = {
+	lede: "Dell raised full-year guidance.",
+	grade: "confirmed",
+	verdict: "new",
+	catalyst_type: "guidance",
+	event_date: "2026-08-12",
+	key_entity: "Dell Technologies",
+	claims: [],
+	move_onset: "10:05 ET",
+	retrieval_version: "why-toolkit-v1",
+};
+
 describe("deliverFlatPriceAlert lambda channel", () => {
-	it("invokes wakeup, skips email/Telegram and notification_log", async () => {
+	it("invokes wakeup with the catalyst packet, skips email/Telegram and notification_log", async () => {
 		wakeupAssetBuyerFromFlatAlert.mockClear();
 		const { client, inserts } = makeSupabaseMock();
 		const sendEmail = vi.fn(async (): Promise<DeliveryResult> => ({ success: true }));
@@ -93,6 +105,63 @@ describe("deliverFlatPriceAlert lambda channel", () => {
 			sendTelegram,
 			logoCache: createLogoCache(),
 			stats,
+			catalystPacket,
+		});
+
+		expect(delivered).toBe(true);
+		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledWith({
+			symbol: "NVDA",
+			triggerPercent: 20,
+			isAcceleration: false,
+			catalystPacket,
+		});
+		expect(sendEmail).not.toHaveBeenCalled();
+		expect(sendTelegram).not.toHaveBeenCalled();
+		expect(inserts.some((i) => i.table === "notification_log")).toBe(false);
+		expect(stats.emailsSent).toBe(0);
+		expect(stats.telegramSent).toBe(0);
+	});
+
+	it("wakes without a packet only when why was omitted", async () => {
+		wakeupAssetBuyerFromFlatAlert.mockClear();
+		const { client } = makeSupabaseMock();
+		const user: FlatPriceAlertUser = {
+			id: "00000000-0000-0000-0000-000000000099",
+			email: STOCK_BUYER_EMAIL,
+			delivery_channel: "lambda",
+			use_24_hour_time: false,
+			telegram_chat_id: null,
+			price_move_why_window_start: null,
+			price_move_why_sends_in_window: 0,
+			prefs: makePrefRows([["price_move_alerts", "", true]]),
+		};
+
+		const delivered = await deliverFlatPriceAlert({
+			user,
+			symbol: "NVDA",
+			companyName: "NVIDIA",
+			quote: {
+				price: 120,
+				prevClose: 100,
+				changePercent: 20,
+				dayOpen: 105,
+				timestamp: 0,
+			} as ExtendedAssetQuote,
+			baseline: 100,
+			triggerPercent: 20,
+			isReTrigger: false,
+			isAcceleration: false,
+			lastNotificationAt: null,
+			nowMs: Date.now(),
+			intraday: null,
+			sevenDaySparkline: null,
+			iconUrl: null,
+			iconBase64: null,
+			supabase: client,
+			sendEmail: vi.fn(async (): Promise<DeliveryResult> => ({ success: true })),
+			logoCache: createLogoCache(),
+			stats: makeStats(),
+			catalystPacket: null,
 		});
 
 		expect(delivered).toBe(true);
@@ -101,11 +170,6 @@ describe("deliverFlatPriceAlert lambda channel", () => {
 			triggerPercent: 20,
 			isAcceleration: false,
 		});
-		expect(sendEmail).not.toHaveBeenCalled();
-		expect(sendTelegram).not.toHaveBeenCalled();
-		expect(inserts.some((i) => i.table === "notification_log")).toBe(false);
-		expect(stats.emailsSent).toBe(0);
-		expect(stats.telegramSent).toBe(0);
 	});
 
 	it("skips wakeup when price_move_alerts facet is off", async () => {

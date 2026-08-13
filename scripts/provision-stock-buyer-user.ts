@@ -13,6 +13,7 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import { PRICE_MOVE_ALERT_THRESHOLD_PERCENT } from "../src/lib/constants";
 import { rootLogger } from "../src/lib/logging";
 import { buildDefaultPreferenceRows } from "../src/lib/messaging/notification-prefs";
 
@@ -140,6 +141,8 @@ async function main(): Promise<void> {
 			approved_by: "provision-stock-buyer-user",
 			delivery_channel: "lambda",
 			timezone: "America/New_York",
+			daily_notification_enabled: false,
+			daily_notification_time: 9 * 60,
 		},
 		{ onConflict: "id" },
 	);
@@ -193,7 +196,7 @@ async function main(): Promise<void> {
 	const thresholds = symbols.map((symbol) => ({
 		user_id: userId,
 		symbol,
-		threshold_value: 5,
+		threshold_value: PRICE_MOVE_ALERT_THRESHOLD_PERCENT,
 		threshold_unit: "percent" as const,
 	}));
 	const { error: thresholdError } = await admin
@@ -209,7 +212,7 @@ async function main(): Promise<void> {
 		delivery_channel: "lambda",
 		tickerCount: symbols.length,
 		missingFromAssets: missing,
-		thresholdPercent: 5,
+		thresholdPercent: PRICE_MOVE_ALERT_THRESHOLD_PERCENT,
 	});
 }
 

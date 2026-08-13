@@ -1,0 +1,212 @@
+---
+import { Icon } from "astro-icon/components";
+import Navigation from "../../../components/Navigation.astro";
+import Layout from "../../../layouts/Layout.astro";
+import { isUserApproved } from "../../../lib/auth/approval/status";
+import { buildSigninRedirectUrl } from "../../../lib/auth/redirects";
+import { createUserService } from "../../../lib/auth/user-service";
+import { createSupabaseServerClient } from "../../../lib/db/supabase";
+import { rootLogger } from "../../../lib/logging";
+import {
+	formatClaimPublishTime,
+	formatReportAsOf,
+	parsePriceMoveReportView,
+} from "../../../lib/market-notifications/flat-alerts/packet-view";
+import { isValidAssetSymbol } from "../../../lib/validation";
+
+const rawSymbol = Astro.params.symbol ?? "";
+const symbol = rawSymbol.trim().toUpperCase();
+if (!isValidAssetSymbol(symbol)) {
+	return new Response(null, { status: 404, statusText: "Not Found" });
+}
+
+const supabase = createSupabaseServerClient();
+const users = createUserService(supabase, Astro.cookies);
+const authUser = await users.getCurrentUser({ requireApproval: false });
+if (!authUser) {
+	rootLogger.info("Price-move report access attempted without authenticated user", {
+		page: "price-move-report",
+		symbol,
+		reason: "unauthenticated",
+	});
+	return Astro.redirect(buildSigninRedirectUrl(`${Astro.url.pathname}${Astro.url.search}`));
+}
+
+const dbUser = await users.getById(authUser.id);
+if (!dbUser) {
+	rootLogger.error("Auth user exists but database user record missing", {
+		userId: authUser.id,
+		page: "price-move-report",
+		symbol,
+	});
+	return Astro.redirect("/?error=user_not_found");
+}
+if (!isUserApproved(dbUser)) {
+	rootLogger.info("Price-move report access attempted before user approval", {
+		userId: authUser.id,
+		page: "price-move-report",
+		symbol,
+	});
+	return Astro.redirect("/auth/pending-approval");
+}
+
+let companyName: string | null = null;
+const { data: assetRow, error: assetError } = await supabase
+	.from("assets")
+	.select("name")
+	.eq("symbol", symbol)
+	.maybeSingle();
+if (assetError) {
+	rootLogger.warn(
+		"Failed to load asset name for price-move report",
+		{ userId: authUser.id, page: "price-move-report", symbol },
+		assetError,
+	);
+} else {
+	companyName = assetRow?.name ?? null;
+}
+
+let report = null;
+let asOfLabel = "";
+const { data: stateRow, error: stateError } = await supabase
+	.from("price_move_alert_state")
+	.select("last_why_packet, last_why_at")
+	.eq("user_id", authUser.id)
+	.eq("symbol", symbol)
+	.maybeSingle();
+if (stateError) {
+	rootLogger.warn(
+		"Failed to load price-move report packet; rendering empty",
+		{ userId: authUser.id, page: "price-move-report", symbol },
+		stateError,
+	);
+} else {
+	report = parsePriceMoveReportView(stateRow?.last_why_packet ?? null);
+	if (typeof stateRow?.last_why_at === "string") {
+		asOfLabel = formatReportAsOf(
+			stateRow.last_why_at,
+			dbUser.timezone,
+			dbUser.use_24_hour_time,
+		);
+	}
+}
+
+const title = `${symbol} price-move report`;
+const subtitle = companyName ? `${symbol} — ${companyName}` : symbol;
+---
+
+<Layout
+	title={title}
+	description={`Latest saved catalyst report for ${symbol}.`}
+	hideRegistrationBanner
+>
+	<div class="min-h-screen bg-surface-alt">
+		<header>
+			<Navigation user={authUser} />
+		</header>
+
+		<main id="main-content" class="max-w-3xl mx-auto px-4 py-8 sm:px-6 sm:py-12">
+			<header class="card mb-8">
+				<div class="card-body">
+					<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+						<div>
+							<h1 class="text-2xl sm:text-3xl font-bold text-heading">Price-move report</h1>
+							<p class="mt-1 text-body-secondary">{subtitle}</p>
+						</div>
+						<a href="/dashboard" class="link-primary inline-flex items-center gap-2">
+							<Icon name="arrow-left" class="size-4" aria-hidden="true" />
+							Back to Dashboard
+						</a>
+					</div>
+				</div>
+			</header>
+
+			{
+				report ? (
+					<article class="card">
+						<div class="card-body space-y-6">
+							{asOfLabel && (
+								<p class="text-sm text-muted">
+									As of {asOfLabel}. This is the latest saved report for {symbol}.
+								</p>
+							)}
+							{!asOfLabel && (
+								<p class="text-sm text-muted">This is the latest saved report for {symbol}.</p>
+							)}
+
+							<section>
+								<h2 class="text-sm font-semibold text-label uppercase tracking-wide">Summary</h2>
+								<p class="mt-2 text-base text-heading leading-relaxed" set:html={report.ledeHtml} />
+							</section>
+
+							{report.moveOnset && (
+								<section>
+									<h2 class="text-sm font-semibold text-label uppercase tracking-wide">
+										Move onset
+									</h2>
+									<p class="mt-2 text-body-secondary">{report.moveOnset}</p>
+								</section>
+							)}
+
+							{report.keyEntity && (
+								<section>
+									<h2 class="text-sm font-semibold text-label uppercase tracking-wide">
+										Key entity
+									</h2>
+									<p class="mt-2 text-body-secondary">{report.keyEntity}</p>
+								</section>
+							)}
+
+							<section>
+								<h2 class="text-sm font-semibold text-label uppercase tracking-wide">Sources</h2>
+								{report.claims.length === 0 ? (
+									<p class="mt-2 text-body-secondary">No source claims were saved with this report.</p>
+								) : (
+									<ul class="mt-3 space-y-4">
+										{report.claims.map((claim) => (
+											<li class="border-b border-divider pb-4 last:border-0 last:pb-0">
+												<p class="text-heading">{claim.text}</p>
+												<div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
+													{claim.sourceUrl ? (
+														<a
+															href={claim.sourceUrl}
+															class="link-primary"
+															target="_blank"
+															rel="noopener noreferrer"
+														>
+															{claim.sourceHost ?? "Source"}
+														</a>
+													) : (
+														<span class="text-muted">No source link</span>
+													)}
+													{claim.publishTime && (
+														<span class="text-muted">
+															{formatClaimPublishTime(
+																claim.publishTime,
+																dbUser.timezone,
+																dbUser.use_24_hour_time,
+															)}
+														</span>
+													)}
+												</div>
+											</li>
+										))}
+									</ul>
+								)}
+							</section>
+						</div>
+					</article>
+				) : (
+					<section class="card">
+						<div class="card-body">
+							<p class="text-body-secondary">
+								No full report is saved for {symbol} yet. The next price-move alert that finds a
+								catalyst will store one here.
+							</p>
+						</div>
+					</section>
+				)
+			}
+		</main>
+	</div>
+</Layout>

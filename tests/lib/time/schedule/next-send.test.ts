@@ -114,31 +114,7 @@ describe("A scheduler picks the earliest send across multiple ET-canonical times
 	});
 });
 
-describe("A non-DST-aligned user's wall-clock-stable schedule (daily-digest path).", () => {
-	// The production recompute path (schedule/persist-user.ts) calls
-	// `userLocalToEtMinute(localMinutes, user.timezone)` immediately before
-	// `calculateNextSendAt(etMinutes, now)` — so the ET-minute it passes in
-	// is whatever 9 AM HST resolves to on the *current* day's ET offset.
-	//
-	// We intentionally hardcode both branches here (840 in winter, 900 in summer)
-	// because `userLocalToEtMinute` reads `DateTime.now()` directly and would
-	// make this test depend on the wall-clock the test runner sits on.
-	it("A Honolulu user with daily_digest_time=09:00 has next_send_at land at 19:00 UTC both before and after US spring-forward — wall-clock is preserved.", () => {
-		// HST is always UTC-10, so 9:00 AM HST = 19:00 UTC every day of the year.
-		// In winter (ET = UTC-5), userLocalToEtMinute(540, HI) returns 14:00 ET.
-		const beforeNow = DateTime.fromISO("2026-03-07T18:00:00.000Z"); // 08:00 HST Sat
-		const beforeNext = calculateNextSendAt(14 * 60, beforeNow);
-		expect(beforeNext?.toISO()).toBe("2026-03-07T19:00:00.000Z"); // 9 AM HST
-
-		// In summer (ET = UTC-4), userLocalToEtMinute(540, HI) returns 15:00 ET
-		// — different ET-canonical minute, same UTC moment.
-		const afterNow = DateTime.fromISO("2026-03-09T18:00:00.000Z"); // 08:00 HST Mon
-		const afterNext = calculateNextSendAt(15 * 60, afterNow);
-		expect(afterNext?.toISO()).toBe("2026-03-09T19:00:00.000Z"); // 9 AM HST
-	});
-});
-
-describe("A non-DST-aligned user's ET-canonical schedule (post-extended-hours-migration market times).", () => {
+describe("An ET-canonical market schedule (post-extended-hours-migration market times).", () => {
 	it("A Honolulu user whose market schedule is stored as 09:30 ET sees next_send_at land 1 hour earlier on their local clock after US spring-forward.", () => {
 		// market_scheduled_asset_price_times is ET-canonical (570 = 09:30 ET) post-migration.
 		// HST = UTC-10 always. Across US spring-forward, 09:30 ET migrates from EST to EDT,

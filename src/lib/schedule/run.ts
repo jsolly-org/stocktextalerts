@@ -39,6 +39,7 @@ import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
 import type { MarketClosureInfo } from "../time/types";
 import type { AssetPriceMap, ExtendedQuoteMap, MarketSession } from "../types";
 import { enqueuePriceHistoryStoreRetry } from "../vendors/backfill/enqueue";
+import { maybeWakeAssetBuyerFromDailyDigest } from "./asset-buyer-digest-wakeup";
 import { resolveMarketSessionWithFallback } from "./market-session";
 
 const EMPTY_TOTALS: ScheduledNotificationTotals = {
@@ -262,7 +263,7 @@ async function deliverDueNotifications(options: {
 						userId: user.id,
 						user,
 						currentTimeIso,
-						marketOpen,
+						marketSession,
 						supabase,
 						sendEmail,
 						getTelegramSender,
@@ -325,6 +326,21 @@ export async function runScheduledNotifications(options: {
 			session: schedulerMarketSession,
 			equitySession: equityTradeSession,
 		});
+	}
+
+	try {
+		await maybeWakeAssetBuyerFromDailyDigest({
+			supabase,
+			logger,
+			now: DateTime.utc(),
+			equitySession: equityTradeSession,
+		});
+	} catch (error) {
+		logger.warn(
+			"Asset-buyer daily digest wakeup failed (fail-open)",
+			{ action: "sta_daily_digest" },
+			error,
+		);
 	}
 
 	// Fetch the watched-symbol quote universe for the price-history capture below. The

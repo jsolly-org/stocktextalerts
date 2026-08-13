@@ -29,14 +29,7 @@
 			<NotificationChannelsFieldset
 				v-model:delivery-channel="deliveryChannelModel"
 				:notification-channels-desc-id="notificationChannelsDescId"
-				:daily-delivery-time-input="dailyDeliveryTimeInput"
-				:daily-delivery-time-minutes="dailyDeliveryTimeMinutes"
-				:is24="user.use_24_hour_time"
 				:before-open-label="beforeOpenLabel"
-				:is-before-open-time="isBeforeOpenTime"
-				@daily-time-change="handleDailyTimeChange"
-				@clear-delivery-time="handleClearDeliveryTime"
-				@set-before-open="handleSetBeforeOpen"
 			/>
 
 			<div v-if="isHydrated && nextDailyDeliveryText" class="mt-4">
@@ -86,14 +79,13 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import type { DeliveryChannelMode } from "../../../lib/constants";
 import { needsNotificationChannelSelection } from "../../../lib/messaging/delivery-channel";
-import { etMinuteToUserLocal, getUsBeforeOpenLocalMinutes } from "../../../lib/time/conversion";
+import { getUsBeforeOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
 	formatCountdownWithSeconds,
 	formatMinutesAsLocalTime,
 	getSecondsUntilNextSend,
 	minutesToTimeInputValue,
 } from "../../../lib/time/display";
-import { parseTimeToMinutes } from "../../../lib/time/parse";
 import { useHydrated } from "../../useHydrated";
 import { useAutoSaveForm } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
@@ -165,6 +157,7 @@ watch(
 			user.value = {
 				...user.value,
 				delivery_channel: newData.delivery_channel,
+				daily_notification_enabled: newData.daily_notification_enabled,
 				daily_notification_time: newData.daily_notification_time,
 				daily_notification_next_send_at: newData.daily_notification_next_send_at,
 				market_scheduled_asset_price_next_send_at: newData.market_scheduled_asset_price_next_send_at,
@@ -173,77 +166,26 @@ watch(
 	},
 );
 
-function getEarliestMarketNotificationTime(): number | null {
-	const times = user.value.market_scheduled_asset_price_times;
-	if (!times || times.length === 0) return null;
-	const local = times.map((et) => etMinuteToUserLocal(et, user.value.timezone));
-	return Math.min(...local);
-}
-
-const dailyDeliveryTimeMinutes = ref<number | null>(
-	user.value.daily_notification_time ?? getEarliestMarketNotificationTime(),
-);
-
-const dailyDeliveryTimeInput = computed(() =>
-	dailyDeliveryTimeMinutes.value !== null
-		? minutesToTimeInputValue(dailyDeliveryTimeMinutes.value)
-		: null,
-);
-
 const beforeOpenLocalMinutes = computed(() => getUsBeforeOpenLocalMinutes(user.value.timezone));
 
 const beforeOpenLabel = computed(() =>
 	formatMinutesAsLocalTime(beforeOpenLocalMinutes.value, user.value.use_24_hour_time),
 );
 
-const isBeforeOpenTime = computed(
-	() => dailyDeliveryTimeMinutes.value === beforeOpenLocalMinutes.value,
-);
-
-function handleDailyTimeChange(value: string) {
-	const parsed = parseTimeToMinutes(value);
-	if (parsed === null) return;
-	dailyDeliveryTimeMinutes.value = parsed;
-	notifyChange();
-}
-
-function handleClearDeliveryTime() {
-	dailyDeliveryTimeMinutes.value = null;
-	notifyChange();
-}
-
-function handleSetBeforeOpen() {
-	if (beforeOpenLocalMinutes.value === null || isBeforeOpenTime.value) return;
-	dailyDeliveryTimeMinutes.value = beforeOpenLocalMinutes.value;
-	notifyChange();
-}
-
-watch(
-	() => user.value.daily_notification_time,
-	(value) => {
-		dailyDeliveryTimeMinutes.value = value ?? getEarliestMarketNotificationTime();
-	},
-);
-watch(
-	() => user.value.market_scheduled_asset_price_times,
-	(times) => {
-		if (user.value.daily_notification_time !== null) return;
-		dailyDeliveryTimeMinutes.value =
-			times && times.length > 0 ? getEarliestMarketNotificationTime() : null;
-	},
+const lockedDailyTimeInput = computed(() =>
+	minutesToTimeInputValue(beforeOpenLocalMinutes.value),
 );
 
 const nextDailyDeliveryText = computed(() => {
-	if (!isHydrated.value) return null;
+	if (!isHydrated.value || user.value.daily_notification_enabled === false) return null;
 	void tick.value;
 	const hasDeliveryTime =
-		user.value.daily_notification_next_send_at != null ||
-		dailyDeliveryTimeInput.value != null;
+		user.value.daily_notification_next_send_at != null || lockedDailyTimeInput.value != null;
 	if (!hasDeliveryTime) return null;
 
 	const secondsUntil = getSecondsUntilNextSend({
 		nextSendAtIso: user.value.daily_notification_next_send_at,
-		timeInput: dailyDeliveryTimeInput.value,
+		timeInput: lockedDailyTimeInput.value,
 		timezone: user.value.timezone,
 		now: DateTime.utc(),
 	});

@@ -6,7 +6,7 @@
  * fetches Massive company news for Grok; Grok limit reached skips that fetch.
  */
 import { DateTime } from "luxon";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { processDailyDigestUser } from "../../../src/lib/daily-digest/process";
 import { rootLogger } from "../../../src/lib/logging";
 import { attachPrefsToUsers } from "../../../src/lib/messaging/load-prefs";
@@ -17,8 +17,10 @@ import { createTestUser, setTestUserPrefs } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 // Mock market calendar to avoid real Massive API calls with test keys.
+const getUsMarketClosureInfoForInstantMock = vi.hoisted(() => vi.fn().mockResolvedValue(null));
+
 vi.mock("../../../src/lib/time/market/calendar", () => ({
-	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
+	getUsMarketClosureInfoForInstant: getUsMarketClosureInfoForInstantMock,
 }));
 
 // Digest email logos are not what these scenarios assert on, and the vendor URL is a
@@ -101,6 +103,10 @@ vi.mock("../../../src/lib/market-data/movers", () => ({
 }));
 
 describe("Daily digest process scenarios", () => {
+	beforeEach(() => {
+		getUsMarketClosureInfoForInstantMock.mockReset();
+		getUsMarketClosureInfoForInstantMock.mockResolvedValue(null);
+	});
 	it("User with no tracked assets and no digest or asset-events options is skipped and next_send_at is advanced.", async () => {
 		const now = DateTime.utc();
 		const nowIso = now.toISO();
@@ -113,7 +119,7 @@ describe("Daily digest process scenarios", () => {
 		});
 		registerTestUserForCleanup(id);
 
-		// Set daily_digest_time so that after skip, updateUserDailyDigestNextSendAt computes a future next_send_at (9 AM local).
+		// Set daily_notification_time so that after skip, next_send_at advances (09:00 ET).
 		const nineAmLocalMinutes = 9 * 60;
 		const { error: updateError } = await adminClient
 			.from("users")
@@ -213,6 +219,59 @@ describe("Daily digest process scenarios", () => {
 		expect(fetchDigestNewsForGrokMock).toHaveBeenCalledWith(["AAPL"]);
 	});
 
+	it("09:00 pre session fetches live session prices, not 7-day sparklines", async () => {
+		const now = DateTime.utc();
+		const nowIso = now.toISO();
+		expect(nowIso).toBeTruthy();
+
+		fetchAssetPricesWithSessionStateMock.mockClear();
+		fetchSparklinesMock.mockClear();
+		fetchIntradaySparklinesMock.mockClear();
+
+		const { id } = await createTestUser({
+			timezone: "America/New_York",
+			deliveryChannel: "email",
+			trackedAssets: ["AAPL"],
+			confirmed: true,
+		});
+		registerTestUserForCleanup(id);
+		await setTestUserPrefs(id, [["daily_notification", "prices", true]]);
+		await adminClient
+			.from("users")
+			.update({
+				daily_notification_time: 9 * 60,
+				daily_notification_next_send_at: nowIso,
+			})
+			.eq("id", id);
+
+		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
+			prices: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 }]]),
+			noSessionTrade: new Set<string>(),
+		});
+		fetchIntradaySparklinesMock.mockResolvedValueOnce(new Map());
+
+		const { data: userRow } = await adminClient.from("users").select("*").eq("id", id).single();
+		expect(userRow).not.toBeNull();
+		if (!userRow) throw new Error("expected seeded user row");
+		const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
+
+		await processDailyDigestUser({
+			user: userWithPrefs as unknown as UserRecord,
+			supabase: adminClient,
+			logger: rootLogger,
+			currentTime: now,
+			marketSession: "pre",
+			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
+			}),
+		});
+
+		expect(fetchAssetPricesWithSessionStateMock).toHaveBeenCalledWith(["AAPL"], "pre");
+		expect(fetchSparklinesMock).not.toHaveBeenCalled();
+		expect(fetchIntradaySparklinesMock).toHaveBeenCalled();
+	});
+
 	it("Grok limit reached skips provider news fetch even when email news is enabled.", async () => {
 		const now = DateTime.utc();
 		const nowIso = now.toISO();
@@ -261,5 +320,56 @@ describe("Daily digest process scenarios", () => {
 		});
 
 		expect(fetchDigestNewsForGrokMock).not.toHaveBeenCalled();
+	});
+
+	it("skips weekend sends and advances next_send_at", async () => {
+		getUsMarketClosureInfoForInstantMock.mockResolvedValueOnce({ reason: "weekend" });
+		const now = DateTime.fromISO("2026-08-15T13:00:00.000Z"); // Saturday 09:00 ET
+		const nowIso = now.toISO();
+
+		const { id } = await createTestUser({
+			timezone: "America/New_York",
+			deliveryChannel: "email",
+			trackedAssets: ["AAPL"],
+			confirmed: true,
+		});
+		registerTestUserForCleanup(id);
+		await setTestUserPrefs(id, [["daily_notification", "prices", true]]);
+		const { error: updateError } = await adminClient
+			.from("users")
+			.update({
+				daily_notification_time: 9 * 60,
+				daily_notification_next_send_at: nowIso,
+			})
+			.eq("id", id);
+		expect(updateError).toBeNull();
+
+		const { data: userRow } = await adminClient.from("users").select("*").eq("id", id).single();
+		expect(userRow).not.toBeNull();
+		if (!userRow) throw new Error("expected seeded user row");
+		const [userWithPrefs] = await attachPrefsToUsers(adminClient, [userRow]);
+
+		const stats = await processDailyDigestUser({
+			user: userWithPrefs as unknown as UserRecord,
+			supabase: adminClient,
+			logger: rootLogger,
+			currentTime: now,
+			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
+			getTelegramSender: () => ({
+				sender: vi.fn<TelegramSender>(async () => ({ success: true })),
+			}),
+		});
+
+		expect(stats.skipped).toBe(1);
+		expect(stats.emailsSent).toBe(0);
+
+		const { data: after } = await adminClient
+			.from("users")
+			.select("daily_notification_next_send_at")
+			.eq("id", id)
+			.single();
+		expect(new Date(after?.daily_notification_next_send_at ?? "").toISOString()).toBe(
+			"2026-08-17T13:00:00.000Z",
+		);
 	});
 });

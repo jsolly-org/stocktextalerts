@@ -17,6 +17,7 @@ const mockSupabaseUser = {
 	timezone: "America/New_York",
 	use_24_hour_time: false,
 	daily_notification_time: 540,
+	daily_notification_enabled: true,
 	daily_notification_next_send_at: null,
 	delivery_channel: "email" as const,
 	asset_events_last_analyst_sent_month: null,

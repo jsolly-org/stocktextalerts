@@ -164,6 +164,8 @@ export function formatFlatPriceAlertEmail(options: {
 	sevenDaySparkline: SparklineData | null;
 	logoHtml: string | undefined;
 	whyText?: string | null;
+	/** Absolute URL to the auth-gated full report; omit when no packet was saved. */
+	reportUrl?: string | null;
 }): { text: string; html: string } {
 	const {
 		user,
@@ -177,6 +179,7 @@ export function formatFlatPriceAlertEmail(options: {
 		sevenDaySparkline,
 		logoHtml,
 		whyText,
+		reportUrl,
 	} = options;
 
 	const currentPrice = quote.price;
@@ -217,6 +220,11 @@ export function formatFlatPriceAlertEmail(options: {
 	if (whyTrimmed !== "") {
 		textLines.push("");
 		textLines.push(markdownLinksToPlainText(whyTrimmed));
+	}
+	const reportTrimmed = reportUrl?.trim() ?? "";
+	if (reportTrimmed !== "") {
+		textLines.push("");
+		textLines.push(`Full report: ${reportTrimmed}`);
 	}
 	textLines.push("");
 	textLines.push(`View Dashboard: ${urls.dashboardUrl}`);
@@ -276,6 +284,13 @@ export function formatFlatPriceAlertEmail(options: {
 			? `
 		<p style="color: #374151; font-size: 14px; line-height: 1.5; margin: 16px 0 0 0;">${markdownLinksToHtml(whyTrimmed)}</p>`
 			: "";
+	const reportBlock =
+		reportTrimmed !== ""
+			? `
+		<p style="margin: 12px 0 0 0;">
+			<a href="${escapeHtml(reportTrimmed)}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">Full report →</a>
+		</p>`
+			: "";
 
 	// Identity row: logo + ticker + name sit below the title so a long company
 	// name cannot flex-shrink the logo (the old single-line h2 layout did).
@@ -300,7 +315,7 @@ export function formatFlatPriceAlertEmail(options: {
 		<table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
 			<tbody>${rowsHtml}
 			</tbody>
-		</table>${intradayBlock}${whyBlock}
+		</table>${intradayBlock}${whyBlock}${reportBlock}
 		<div style="text-align: center; margin-top: 28px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">View Dashboard →</a>
 		</div>`,

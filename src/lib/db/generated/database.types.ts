@@ -715,6 +715,11 @@ export type Database = {
           last_notification_at: string
           last_notification_price: number
           last_why_at: string | null
+          last_why_catalyst_type: string | null
+          last_why_event_date: string | null
+          last_why_grade: string | null
+          last_why_key_entity: string | null
+          last_why_packet: Json | null
           last_why_summary: string | null
           last_why_verdict: string | null
           pending_alert_direction: number | null
@@ -730,6 +735,11 @@ export type Database = {
           last_notification_at?: string
           last_notification_price: number
           last_why_at?: string | null
+          last_why_catalyst_type?: string | null
+          last_why_event_date?: string | null
+          last_why_grade?: string | null
+          last_why_key_entity?: string | null
+          last_why_packet?: Json | null
           last_why_summary?: string | null
           last_why_verdict?: string | null
           pending_alert_direction?: number | null
@@ -745,6 +755,11 @@ export type Database = {
           last_notification_at?: string
           last_notification_price?: number
           last_why_at?: string | null
+          last_why_catalyst_type?: string | null
+          last_why_event_date?: string | null
+          last_why_grade?: string | null
+          last_why_key_entity?: string | null
+          last_why_packet?: Json | null
           last_why_summary?: string | null
           last_why_verdict?: string | null
           pending_alert_direction?: number | null
@@ -1002,6 +1017,7 @@ export type Database = {
           approved_by: string | null
           asset_events_last_analyst_sent_month: string | null
           created_at: string
+          daily_notification_enabled: boolean
           daily_notification_next_send_at: string | null
           daily_notification_time: number | null
           delivery_channel: Database["public"]["Enums"]["delivery_channel_mode"]
@@ -1028,6 +1044,7 @@ export type Database = {
           approved_by?: string | null
           asset_events_last_analyst_sent_month?: string | null
           created_at?: string
+          daily_notification_enabled?: boolean
           daily_notification_next_send_at?: string | null
           daily_notification_time?: number | null
           delivery_channel?: Database["public"]["Enums"]["delivery_channel_mode"]
@@ -1054,6 +1071,7 @@ export type Database = {
           approved_by?: string | null
           asset_events_last_analyst_sent_month?: string | null
           created_at?: string
+          daily_notification_enabled?: boolean
           daily_notification_next_send_at?: string | null
           daily_notification_time?: number | null
           delivery_channel?: Database["public"]["Enums"]["delivery_channel_mode"]
@@ -1097,6 +1115,10 @@ export type Database = {
           p_user_id: string
           p_window_minutes: number
         }
+        Returns: boolean
+      }
+      claim_asset_buyer_digest_wake: {
+        Args: { p_et_date: string }
         Returns: boolean
       }
       claim_email_dispatch_key: { Args: { p_key: string }; Returns: boolean }
@@ -1146,6 +1168,10 @@ export type Database = {
       purge_old_prediction_market_odds: {
         Args: { p_retention_days?: number }
         Returns: number
+      }
+      release_asset_buyer_digest_wake: {
+        Args: { p_et_date: string }
+        Returns: boolean
       }
       release_flat_price_alert: {
         Args: { p_symbol: string; p_user_id: string }
