@@ -5,7 +5,7 @@ import type { UserUpdateInput } from "../db/types";
 import type { Logger } from "../logging";
 import { calculateNextSendAt } from "../time/schedule/next-send";
 import type { UserRecord } from "../types";
-import { userHasHumanDailyDigest } from "./eligibility";
+import { hasAnyDailyNotificationFacet } from "./eligibility";
 
 const MAX_WEEKEND_SKIP_ITERATIONS = 16;
 
@@ -107,7 +107,7 @@ export async function updateUserDailyNotificationNextSendAt(options: {
 	currentTime: DateTime;
 }): Promise<void> {
 	const { user, supabase, logger, currentTime } = options;
-	const hasDaily = userHasHumanDailyDigest(user);
+	const hasDaily = hasAnyDailyNotificationFacet(user.prefs);
 	if (!hasDaily) {
 		return persistDailyNotificationNextSendAt({
 			userId: user.id,

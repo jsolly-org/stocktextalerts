@@ -4,7 +4,7 @@ import type { Logger } from "../logging";
 import { HAS_ACTIVE_DELIVERY_OR } from "../messaging/delivery-channel";
 import { attachPrefsToUsers } from "../messaging/load-prefs";
 import type { UserRecord, UserRecordWithoutPrefs } from "../types";
-import { userHasHumanDailyDigest } from "./eligibility";
+import { hasAnyDailyNotificationFacet } from "./eligibility";
 
 /** Channel-level user columns for the daily notification pipeline. */
 const DAILY_NOTIFICATION_USER_SELECT = `
@@ -13,7 +13,6 @@ const DAILY_NOTIFICATION_USER_SELECT = `
 	timezone,
 	use_24_hour_time,
 	market_scheduled_asset_price_enabled,
-	daily_notification_enabled,
 	daily_notification_time,
 	daily_notification_next_send_at,
 	market_scheduled_asset_price_next_send_at,
@@ -45,7 +44,6 @@ export async function fetchDailyNotificationUsers(options: {
 			let query = options.supabase
 				.from("users")
 				.select(DAILY_NOTIFICATION_USER_SELECT)
-				.eq("daily_notification_enabled", true)
 				.or(HAS_ACTIVE_DELIVERY_OR);
 
 			if (!options.forceSend) {
@@ -61,7 +59,7 @@ export async function fetchDailyNotificationUsers(options: {
 				options.supabase,
 				(data ?? []) as unknown as UserRecordWithoutPrefs[],
 			);
-			const filtered = withPrefs.filter((user) => userHasHumanDailyDigest(user));
+			const filtered = withPrefs.filter((user) => hasAnyDailyNotificationFacet(user.prefs));
 			return { data: filtered, error: null };
 		},
 	});

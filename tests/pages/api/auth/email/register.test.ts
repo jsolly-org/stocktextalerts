@@ -84,8 +84,18 @@ describe("A visitor registers for a new account with email and password.", () =>
 			expect(user.email).toBe(payload.email);
 			expect(user.timezone).toBe(payload.timezone);
 			expect(user.approved_at).toBeNull();
-			expect(user.daily_notification_enabled).toBe(true);
 			expect(user.daily_notification_time).toBe(getUsBeforeOpenLocalMinutes(payload.timezone));
+
+			const { data: dailyPricesPref, error: prefsError } = await adminClient
+				.from("notification_preferences")
+				.select("enabled")
+				.eq("user_id", user.id)
+				.eq("notification_type", "daily_notification")
+				.eq("content", "prices")
+				.maybeSingle();
+			expect(prefsError).toBeNull();
+			expect(dailyPricesPref?.enabled).toBe(true);
+
 			expect(mockEmailSender).toHaveBeenCalledOnce();
 			expect(mockEmailSender).toHaveBeenCalledWith(
 				expect.objectContaining({

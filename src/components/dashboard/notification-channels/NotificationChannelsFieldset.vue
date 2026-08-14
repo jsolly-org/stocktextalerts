@@ -2,10 +2,10 @@
 	<section :id="DASHBOARD_SECTION_IDS.notificationChannels" class="space-y-4">
 		<header>
 			<h2 class="text-xl sm:text-2xl font-bold text-heading">
-				Notification Channels
+				Notifications
 			</h2>
 			<p :id="props.notificationChannelsDescId" class="text-sm text-body-secondary mt-1.5">
-				Choose how to receive alerts. Content toggles in each section stay the same — this only picks the delivery pipe.
+				Choose how to receive alerts. Content toggles in each section stay the same—this only picks the delivery pipe.
 			</p>
 		</header>
 
@@ -70,41 +70,19 @@
 			</div>
 		</fieldset>
 
-		<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pt-2">
-			<div class="min-w-0">
-				<span
-					id="daily_digest_time_label"
-					class="text-base font-semibold text-heading"
-				>
-					Daily notification delivery time
-				</span>
-				<p
-					id="daily_digest_time_description"
-					class="text-sm text-body-secondary mt-0.5"
-				>
-					Always 9:00 AM Eastern — 30 minutes before the US cash open — on session days.
-					Shown as <span class="font-medium text-heading">{{ props.beforeOpenLabel }}</span> in your timezone.
-					Weekends and full-day holidays are skipped.
-					Controls when your <a :href="DASHBOARD_SECTION_HASHES.dailyNotifications" class="link-primary">Daily Notification</a> is sent.
-				</p>
-			</div>
-		</div>
-
 	</section>
 </template>
 
 <script lang="ts" setup>
 import { computed } from "vue";
 import CheckCircleIcon from "../../../icons/check-circle-20.svg?component";
-import type { DeliveryChannelMode } from "../../../lib/constants";
-import { DASHBOARD_SECTION_HASHES, DASHBOARD_SECTION_IDS } from "../../../lib/constants";
+import { DASHBOARD_SECTION_IDS, type DeliveryChannelMode } from "../../../lib/constants";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import ConnectTelegramCard from "./ConnectTelegramCard.vue";
 
 interface Props {
 	deliveryChannel: DeliveryChannelMode;
 	notificationChannelsDescId: string;
-	beforeOpenLabel: string | null;
 }
 
 const props = defineProps<Props>();

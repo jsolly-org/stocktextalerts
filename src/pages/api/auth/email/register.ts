@@ -105,7 +105,6 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 			id: data.user.id,
 			email: trimmedEmail,
 			timezone: userTimezone,
-			daily_notification_enabled: true,
 			daily_notification_time: getUsBeforeOpenLocalMinutes(userTimezone),
 		};
 

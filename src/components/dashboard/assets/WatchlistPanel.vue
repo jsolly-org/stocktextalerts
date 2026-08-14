@@ -27,7 +27,7 @@
 				:id="DASHBOARD_SECTION_IDS.assets"
 				class="text-xl sm:text-2xl font-bold text-heading"
 			>
-				My Watchlist
+				Watchlist
 			</h2>
 			<span
 				class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-active text-label"

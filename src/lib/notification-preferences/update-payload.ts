@@ -26,7 +26,6 @@ type ParsedNotificationPreferencesForm = {
 	delivery_channel?: DeliveryChannelMode;
 	market_scheduled_asset_price_times?: string[];
 	daily_digest_time?: number;
-	daily_notification_enabled?: boolean;
 } & Partial<Record<NotificationOptionFieldName, boolean>>;
 
 /** Catalog entries for every daily_notification option (schedule source of truth). */
@@ -147,23 +146,13 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	Content toggles live in notification_preferences (written separately by
 	persistNotificationPreferences); schedule + delivery_channel go to `users`.
 	============= */
-	const boolFields = [
-		"market_scheduled_asset_price_enabled",
-		"daily_notification_enabled",
-	] as const satisfies ReadonlyArray<keyof ParsedNotificationPreferencesForm>;
-
-	const boolUpdates: Record<string, boolean> = {};
-	for (const field of boolFields) {
-		const val = parsedData[field] as boolean | undefined;
-		if (formData.has(field) && val !== undefined) {
-			boolUpdates[field] = val;
-		}
-	}
-
 	const safeNotificationPreferenceUpdates = omitUndefined({
 		timezone: parsedData.timezone,
 		market_scheduled_asset_price_times: etNormalizedTimes,
-		...boolUpdates,
+		...(formData.has("market_scheduled_asset_price_enabled") &&
+		parsedData.market_scheduled_asset_price_enabled !== undefined
+			? { market_scheduled_asset_price_enabled: parsedData.market_scheduled_asset_price_enabled }
+			: {}),
 		...(formData.has("delivery_channel") && parsedData.delivery_channel !== undefined
 			? { delivery_channel: parsedData.delivery_channel }
 			: {}),

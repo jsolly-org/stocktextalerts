@@ -141,7 +141,6 @@ async function main(): Promise<void> {
 			approved_by: "provision-stock-buyer-user",
 			delivery_channel: "lambda",
 			timezone: "America/New_York",
-			daily_notification_enabled: false,
 			daily_notification_time: 9 * 60,
 		},
 		{ onConflict: "id" },

@@ -181,7 +181,6 @@ export type UserRecord = Pick<
 	| "use_24_hour_time"
 	| "market_scheduled_asset_price_next_send_at"
 	| "delivery_channel"
-	| "daily_notification_enabled"
 > & {
 	market_scheduled_asset_price_enabled: boolean;
 	market_scheduled_asset_price_times: number[] | null;

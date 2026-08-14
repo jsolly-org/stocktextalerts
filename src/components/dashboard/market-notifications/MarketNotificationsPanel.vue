@@ -146,9 +146,6 @@
 						<p id="price_move_alerts_description" class="text-sm text-body-secondary mt-0.5">
 							Get notified when a tracked stock moves 5% from yesterday's close in a single trading day. If the move continues in the same direction, the next alert fires at 2.5%. A move the other way still needs a full 5% from the last alert.
 						</p>
-						<p class="text-xs text-muted mt-1">
-							Turn alerts on or off per stock below.
-						</p>
 					</div>
 					<div class="shrink-0">
 						<ToggleSwitch
@@ -161,82 +158,75 @@
 				</div>
 
 				<FadeTransition>
-					<p
-						v-if="!notificationSetupBlocked && trackedAssets.length === 0"
-						class="mt-3 border-t border-divider pt-3 text-sm text-muted"
+					<div
+						v-if="priceMoveAlertsEnabled && !notificationSetupBlocked"
+						class="mt-3 border-t border-divider pt-3"
 					>
-						Add assets to your watchlist to enable price-move alerts.
-					</p>
-					<fieldset
-						v-else-if="!notificationSetupBlocked"
-						class="mt-3 min-w-0 border-0 border-t border-divider p-0 pt-3"
-						:title="priceMoveThresholdsDisabledTitle"
-						data-autosave-ignore
-					>
-						<legend class="sr-only">Per-stock alerts</legend>
-						<div class="mb-2 flex w-full items-center justify-between gap-2">
-							<span class="text-sm text-label" aria-hidden="true">Per-stock alerts</span>
-							<span
-								class="text-xs transition-opacity duration-200"
-								:class="[
-									thresholdStatus.kind === 'idle' ? 'opacity-0' : 'opacity-100',
-									thresholdStatus.kind === 'error' ? 'text-red-600 dark:text-red-400' : 'text-muted',
-								]"
-								role="status"
-								aria-live="polite"
-							>{{ thresholdStatusText }}</span>
-						</div>
 						<p
-							v-if="!priceMoveAlertsEnabled"
-							class="mb-2 text-xs text-muted"
+							v-if="trackedAssets.length === 0"
+							class="text-sm text-muted"
 						>
-							Turn on Price Move Alerts above to choose stocks.
+							Add assets to your watchlist to enable price-move alerts.
 						</p>
-						<div
-							class="mb-2 flex flex-row items-center justify-between gap-3 px-2 transition-opacity duration-200"
-							:class="{ 'opacity-50': !priceMoveAlertsEnabled }"
+						<fieldset
+							v-else
+							class="min-w-0 border-0 p-0"
+							data-autosave-ignore
 						>
-							<span class="text-xs font-semibold uppercase tracking-wider text-faint select-none">Select all</span>
-							<label class="inline-flex items-center gap-1.5">
-								<input
-									ref="selectAllRef"
-									type="checkbox"
-									:checked="allPriceMoveChecked"
-									:disabled="!priceMoveAlertsEnabled"
-									class="h-4 w-4 rounded border-edge-strong text-purple-600 focus:ring-purple-500 disabled:cursor-not-allowed"
-									aria-label="Select all tracked stocks for price-move alerts"
-									@change="toggleAllPriceMove"
-								/>
-								<span class="text-sm font-medium text-body-secondary">All</span>
-							</label>
-						</div>
-						<ul
-							class="flex flex-col gap-2 transition-opacity duration-200"
-							:class="{ 'opacity-50': !priceMoveAlertsEnabled }"
-						>
-							<li
-								v-for="asset in trackedAssets"
-								:key="asset.symbol"
-								class="-mx-2 flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-active"
-							>
-								<span class="min-w-0 flex-1 flex items-center gap-2 text-sm font-medium text-heading">
-									<AssetBadge
-										:type="asset.type"
-										:symbol="asset.symbol"
-										:icon-url="asset.icon_url"
-										size="compact"
+							<legend class="sr-only">Per-stock alerts</legend>
+							<div class="mb-2 flex w-full items-center justify-between gap-2">
+								<span class="text-sm text-label" aria-hidden="true">Per-stock alerts</span>
+								<span
+									class="text-xs transition-opacity duration-200"
+									:class="[
+										thresholdStatus.kind === 'idle' ? 'opacity-0' : 'opacity-100',
+										thresholdStatus.kind === 'error' ? 'text-red-600 dark:text-red-400' : 'text-muted',
+									]"
+									role="status"
+									aria-live="polite"
+								>{{ thresholdStatusText }}</span>
+							</div>
+							<p class="mb-2 text-xs text-muted">
+								Turn alerts on or off per stock below.
+							</p>
+							<div class="mb-2 flex flex-row items-center justify-between gap-3 px-2">
+								<span class="select-all-text text-xs font-semibold uppercase tracking-wider text-faint select-none">Select all</span>
+								<label class="inline-flex items-center gap-1.5 leading-none">
+									<input
+										ref="selectAllRef"
+										type="checkbox"
+										:checked="allPriceMoveChecked"
+										class="select-all-checkbox"
+										aria-label="Select all tracked stocks for price-move alerts"
+										@change="toggleAllPriceMove"
 									/>
-									<span class="truncate">{{ asset.symbol }}</span>
-								</span>
-								<ToggleSwitch
-									:model-value="thresholdIsSet(asset.symbol)"
-									:disabled="!priceMoveAlertsEnabled"
-									:sr-label="`Toggle price-move alerts for ${asset.symbol}`"
-									@update:model-value="(on: boolean) => setThresholdEnabled(asset.symbol, on)"
-								/>
-							</li>
-						</ul>
-					</fieldset>
+									<span class="select-all-text text-xs font-semibold text-body-secondary leading-none">All</span>
+								</label>
+							</div>
+							<ul class="flex flex-col gap-2">
+								<li
+									v-for="asset in trackedAssets"
+									:key="asset.symbol"
+									class="-mx-2 flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-active"
+								>
+									<span class="min-w-0 flex-1 flex items-center gap-2 text-sm font-medium text-heading">
+										<AssetBadge
+											:type="asset.type"
+											:symbol="asset.symbol"
+											:icon-url="asset.icon_url"
+											size="compact"
+										/>
+										<span class="truncate">{{ asset.symbol }}</span>
+									</span>
+									<ToggleSwitch
+										:model-value="thresholdIsSet(asset.symbol)"
+										:sr-label="`Toggle price-move alerts for ${asset.symbol}`"
+										@update:model-value="(on: boolean) => setThresholdEnabled(asset.symbol, on)"
+									/>
+								</li>
+							</ul>
+						</fieldset>
+					</div>
 				</FadeTransition>
 			</div>
 
@@ -310,11 +300,6 @@ const priceMoveAlertsInclude = ref(user.value.price_move_alerts_include);
 
 const marketNotificationsEnabled = computed(() => marketInclude.value);
 const priceMoveAlertsEnabled = computed(() => priceMoveAlertsInclude.value);
-const priceMoveThresholdsDisabledTitle = computed(() =>
-	priceMoveAlertsEnabled.value
-		? undefined
-		: "Turn on Price Move Alerts to enable this section.",
-);
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
 const SCHEDULED_UPDATE_INCREMENT_MINUTES = 1;

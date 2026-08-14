@@ -22,7 +22,7 @@ function isDigestWakeWindow(now: DateTime): boolean {
 
 /**
  * Once per US session day, async-invoke asset-buyer with `sta_daily_digest`.
- * Not gated on any user's Daily Notification master toggle. Fail-open.
+ * Independent of human digest facets. Fail-open.
  */
 export async function maybeWakeAssetBuyerFromDailyDigest(options: {
 	supabase: SupabaseAdminClient;

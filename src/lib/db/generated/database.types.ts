@@ -1017,7 +1017,6 @@ export type Database = {
           approved_by: string | null
           asset_events_last_analyst_sent_month: string | null
           created_at: string
-          daily_notification_enabled: boolean
           daily_notification_next_send_at: string | null
           daily_notification_time: number | null
           delivery_channel: Database["public"]["Enums"]["delivery_channel_mode"]
@@ -1044,7 +1043,6 @@ export type Database = {
           approved_by?: string | null
           asset_events_last_analyst_sent_month?: string | null
           created_at?: string
-          daily_notification_enabled?: boolean
           daily_notification_next_send_at?: string | null
           daily_notification_time?: number | null
           delivery_channel?: Database["public"]["Enums"]["delivery_channel_mode"]
@@ -1071,7 +1069,6 @@ export type Database = {
           approved_by?: string | null
           asset_events_last_analyst_sent_month?: string | null
           created_at?: string
-          daily_notification_enabled?: boolean
           daily_notification_next_send_at?: string | null
           daily_notification_time?: number | null
           delivery_channel?: Database["public"]["Enums"]["delivery_channel_mode"]

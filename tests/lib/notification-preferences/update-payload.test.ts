@@ -13,7 +13,6 @@ function makeUser(overrides: Partial<User> = {}): User {
 		market_scheduled_asset_price_times: [570], // 09:30
 		market_scheduled_asset_price_next_send_at: "2026-01-14T14:30:00.000Z",
 		daily_notification_time: 1020,
-		daily_notification_enabled: true,
 		daily_notification_next_send_at: "2026-01-14T22:00:00.000Z",
 		delivery_channel: "email" as const,
 		market_scheduled_asset_price_enabled: true,
@@ -209,24 +208,6 @@ describe("Notification preference update payloads stay aligned with user schedul
 			getUsBeforeOpenLocalMinutes("America/Los_Angeles"),
 		);
 		expect(payload.daily_notification_time).not.toBe(600);
-	});
-
-	it("Nullifies next send when the daily notification master toggle is off.", () => {
-		const user = makeUser();
-		const formData = new FormData();
-		formData.set("daily_notification_enabled", "off");
-
-		const payload = buildNotificationPreferencesUpdatePayload({
-			parsedData: { daily_notification_enabled: false },
-			formData,
-			rawTimesValue: null,
-			dbUser: user,
-			dailyNotificationEnabledAfterUpdate: false,
-			dailyNotificationOptionsChanged: true,
-		});
-
-		expect(payload.daily_notification_enabled).toBe(false);
-		expect(payload.daily_notification_next_send_at).toBeNull();
 	});
 
 	it("Normalizes and sorts submitted scheduled times before persistence.", () => {

@@ -213,7 +213,8 @@ test.describe("delivery times and timepicker", () => {
 		await expect(form).toBeVisible();
 		await expect(page.locator("#daily_digest_time")).toHaveCount(0);
 		await expect(form.getByRole("button", { name: /Before open/i })).toHaveCount(0);
-		await expect(form.getByText(/Always 9:00 AM Eastern/i)).toBeVisible();
+		await expect(form.getByText(/Daily notification delivery time/i)).toHaveCount(0);
+		await expect(form.getByText(/Always 9:00 AM Eastern/i)).toHaveCount(0);
 
 		expect(await getDailyDigestTime(userId as string)).toBe(
 			getUsBeforeOpenLocalMinutes("America/Chicago"),

@@ -4,16 +4,21 @@
 	has client:load or client:only directive.
 -->
 <template>
-	<StatusMessage v-if="isClient && isVisible" tone="warning">
-		<div class="space-y-3">
+	<div
+		v-if="isClient && isVisible"
+		class="rounded-lg border border-edge bg-surface-alt p-4 flex items-start gap-3"
+		role="alert"
+	>
+		<ExclamationTriangleIcon class="size-5 shrink-0 mt-0.5 text-warning-strong" aria-hidden="true" />
+		<div class="min-w-0 space-y-3">
 			<div>
-				<p class="font-medium">
+				<p class="text-sm font-medium text-heading">
 					We detected your timezone is
 					<span class="font-mono">{{ detectedTimezone }}</span>,
 					but your account is set to
 					<span class="font-mono">{{ savedTimezoneValue }}</span>.
 				</p>
-				<p class="text-sm mt-1">
+				<p class="text-sm text-body-secondary mt-1">
 					Would you like to update your default timezone?
 				</p>
 			</div>
@@ -22,7 +27,7 @@
 					<input type="hidden" name="timezone" :value="detectedTimezone" />
 					<button
 						type="submit"
-						class="btn btn-sm btn-warning"
+						class="btn btn-sm btn-primary"
 					>
 						Update timezone
 					</button>
@@ -30,14 +35,14 @@
 				<button
 					type="button"
 					@click="handleDismiss"
-					class="btn btn-sm btn-warning-outline"
+					class="btn btn-sm btn-secondary"
 				>
 					Not now
 				</button>
 				<button
 					type="button"
 					@click="handleDismissPermanently"
-					class="btn btn-sm btn-warning-outline"
+					class="btn btn-sm btn-ghost"
 				>
 					Don't ask me again
 				</button>
@@ -46,12 +51,14 @@
 				{{ errorMessage }}
 			</p>
 		</div>
-	</StatusMessage>
+	</div>
 </template>
 
 <script lang="ts" setup>
 import { DateTime } from "luxon";
 import { computed, ref, toRefs, watch } from "vue";
+// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
+import ExclamationTriangleIcon from "../../icons/exclamation-triangle-24.svg?component";
 import {
 	isUnauthorizedResponse,
 	redirectToSignIn,
@@ -59,7 +66,6 @@ import {
 import { updateProfileTimezone } from "../../lib/client/profile-timezone";
 import type { NotificationPreferencesSnapshot } from "../../lib/db/types";
 import { rootLogger } from "../../lib/logging";
-import StatusMessage from "../StatusMessage.vue";
 
 interface Props {
 	isClient: boolean;
