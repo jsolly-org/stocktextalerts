@@ -9,7 +9,7 @@
 				<div class="flex items-center justify-center w-10 h-10 rounded-lg bg-surface-active">
 					<GlobeAltIcon class="size-5 text-body-secondary" aria-hidden="true" />
 				</div>
-				<h2 id="timezone-heading" class="text-2xl font-bold text-heading">Timezone</h2>
+				<h2 id="timezone-heading" class="section-title">Timezone</h2>
 			</div>
 			<p class="text-body-secondary text-sm mb-2">
 				Set the timezone used for scheduling notifications.

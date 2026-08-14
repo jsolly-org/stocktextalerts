@@ -8,7 +8,7 @@
 				<div class="flex items-center justify-center w-10 h-10 rounded-lg bg-surface-active">
 					<ClockIcon class="size-5 text-body-secondary" aria-hidden="true" />
 				</div>
-				<h2 id="time-format-heading" class="text-2xl font-bold text-heading">Time Format</h2>
+				<h2 id="time-format-heading" class="section-title">Time Format</h2>
 			</div>
 			<p class="text-body-secondary text-sm mb-6">
 				Choose how times are displayed throughout the app.
@@ -26,27 +26,29 @@
 				/>
 			</div>
 
-			<div class="flex items-center justify-between gap-3 py-3">
+			<div class="option-row">
 				<div class="min-w-0">
 					<span
 						id="use_24_hour_time_label"
-						class="text-base font-semibold text-heading"
+						class="option-title"
 					>
 						Use 24-hour time
 					</span>
 					<p
 						id="use_24_hour_time_description"
-						class="text-sm text-body-secondary mt-0.5"
+						class="option-desc"
 					>
 						e.g. 14:30 instead of 2:30 PM
 					</p>
 				</div>
-				<ToggleSwitch
-					v-model="use24HourTime"
-					sr-label="Use 24-hour time"
-					aria-labelledby="use_24_hour_time_label"
-					aria-describedby="use_24_hour_time_description"
-				/>
+				<div class="shrink-0">
+					<ToggleSwitch
+						v-model="use24HourTime"
+						sr-label="Use 24-hour time"
+						aria-labelledby="use_24_hour_time_label"
+						aria-describedby="use_24_hour_time_description"
+					/>
+				</div>
 			</div>
 		</div>
 	</section>
