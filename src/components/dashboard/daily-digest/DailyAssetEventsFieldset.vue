@@ -1,92 +1,91 @@
 <template>
-	<div class="!border-t-0 py-4">
-		<h3 class="text-lg sm:text-xl font-bold text-heading mb-1">Asset events</h3>
-		<p class="text-sm text-body-secondary mb-4">
-			Calendar, IPO, analyst, insider, SEC filing, and short interest updates bundled into
-			the same daily message.
-		</p>
+	<div class="grid grid-cols-subgrid !border-t-0">
+		<div class="col-span-2 pt-4 pb-1">
+			<h3 class="text-lg sm:text-xl font-bold text-heading mb-1">Asset events</h3>
+			<p class="text-sm text-body-secondary mb-3">
+				Calendar, IPO, analyst, insider, SEC filing, and short interest updates bundled into
+				the same daily message.
+			</p>
+		</div>
 
-		<div class="space-y-4">
-			<div class="flex flex-row items-center justify-between gap-3 px-4">
-				<span class="text-xs font-semibold uppercase tracking-wider text-faint select-none">Select all</span>
-				<label class="inline-flex items-center gap-1.5">
-					<input
-						ref="selectAllRef"
-						type="checkbox"
-						:checked="allChecked"
-						class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-						aria-label="Select all asset events"
-						@change="toggleAll"
-					/>
-					<span class="text-sm font-medium text-body-secondary">All</span>
-				</label>
-			</div>
+		<div class="col-span-2 grid grid-cols-subgrid items-center gap-x-3 border-t border-divider py-3">
+			<span class="select-all-text inline-flex h-4 items-center text-xs font-semibold uppercase tracking-wider text-faint select-none">Select all</span>
+			<label class="inline-flex items-center justify-self-end gap-1.5 leading-none">
+				<input
+					ref="selectAllRef"
+					type="checkbox"
+					:checked="allChecked"
+					class="select-all-checkbox"
+					aria-label="Select all asset events"
+					@change="toggleAll"
+				/>
+				<span class="select-all-text text-xs font-semibold text-body-secondary leading-none">All</span>
+			</label>
+		</div>
 
-			<div
-				v-for="eventType in ASSET_EVENT_TYPES"
-				:key="eventType.key"
-			>
-				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-					<input
-						type="hidden"
-						:name="`asset_events_include_${eventType.key}`"
-						:value="models[eventType.key] ? 'on' : 'off'"
+		<div
+			v-for="eventType in ASSET_EVENT_TYPES"
+			:key="eventType.key"
+			class="col-span-2 grid grid-cols-subgrid items-center gap-x-3 border-t border-divider py-3"
+		>
+			<div class="min-w-0">
+				<input
+					type="hidden"
+					:name="`asset_events_include_${eventType.key}`"
+					:value="models[eventType.key] ? 'on' : 'off'"
+				/>
+				<div class="flex items-center gap-2">
+					<span
+						:id="`asset_events_${eventType.key}_label`"
+						class="text-base font-semibold text-heading"
+					>
+						{{ eventType.label }}
+					</span>
+					<MassiveLogoIcon
+						v-if="eventType.massive"
+						class="h-4.5 w-auto shrink-0"
+						aria-label="Powered by Massive"
+						role="img"
 					/>
-					<div class="min-w-0">
-						<div class="flex items-center gap-2">
-							<span
-								:id="`asset_events_${eventType.key}_label`"
-								class="text-base font-semibold text-heading"
-							>
-								{{ eventType.label }}
-							</span>
-							<MassiveLogoIcon
-								v-if="eventType.massive"
-								class="h-4.5 w-auto shrink-0"
-								aria-label="Powered by Massive"
-								role="img"
-							/>
-							<FinnhubLogoIcon
-								v-if="eventType.finnhub"
-								class="h-4.5 w-auto shrink-0"
-								aria-label="Powered by Finnhub"
-								role="img"
-							/>
-							<NewspaperIcon
-								v-if="eventType.plainIcon === 'newspaper'"
-								class="h-4.5 w-4.5 shrink-0 text-body-secondary"
-								aria-hidden="true"
-							/>
-							<ChartBarIcon
-								v-if="eventType.plainIcon === 'chart-bar'"
-								class="h-4.5 w-4.5 shrink-0 text-body-secondary"
-								aria-hidden="true"
-							/>
-						</div>
-						<p
-							:id="`asset_events_${eventType.key}_description`"
-							class="text-sm text-body-secondary mt-0.5"
-						>
-							<template v-if="eventType.key === 'insider' || eventType.key === 'analyst'">
-								{{ eventType.description }}
-								<span class="text-faint"> Stocks only.</span>
-							</template>
-							<template v-else>
-								{{ eventType.description }}
-							</template>
-						</p>
-					</div>
-					<div class="shrink-0">
-						<ToggleSwitch
-							:model-value="models[eventType.key]"
-							:sr-label="`Toggle ${eventType.label}`"
-							:aria-labelledby="`asset_events_${eventType.key}_label`"
-							:aria-describedby="`asset_events_${eventType.key}_description`"
-							:disabled="isAssetEventBlocked(eventType.key, hasTrackedAssets)"
-							@update:model-value="setModel(eventType.key, $event)"
-						/>
-					</div>
+					<FinnhubLogoIcon
+						v-if="eventType.finnhub"
+						class="h-4.5 w-auto shrink-0"
+						aria-label="Powered by Finnhub"
+						role="img"
+					/>
+					<NewspaperIcon
+						v-if="eventType.plainIcon === 'newspaper'"
+						class="h-4.5 w-4.5 shrink-0 text-body-secondary"
+						aria-hidden="true"
+					/>
+					<ChartBarIcon
+						v-if="eventType.plainIcon === 'chart-bar'"
+						class="h-4.5 w-4.5 shrink-0 text-body-secondary"
+						aria-hidden="true"
+					/>
 				</div>
+				<p
+					:id="`asset_events_${eventType.key}_description`"
+					class="text-sm text-body-secondary mt-0.5"
+				>
+					<template v-if="eventType.key === 'insider' || eventType.key === 'analyst'">
+						{{ eventType.description }}
+						<span class="text-faint"> Stocks only.</span>
+					</template>
+					<template v-else>
+						{{ eventType.description }}
+					</template>
+				</p>
+			</div>
+			<div class="shrink-0 justify-self-end">
+				<ToggleSwitch
+					:model-value="models[eventType.key]"
+					:sr-label="`Toggle ${eventType.label}`"
+					:aria-labelledby="`asset_events_${eventType.key}_label`"
+					:aria-describedby="`asset_events_${eventType.key}_description`"
+					:disabled="isAssetEventBlocked(eventType.key, hasTrackedAssets) && !models[eventType.key]"
+					@update:model-value="setModel(eventType.key, $event)"
+				/>
 			</div>
 		</div>
 	</div>
@@ -139,8 +138,14 @@ function setModel(key: AssetEventKey, value: boolean) {
 function toggleAll() {
 	const next = !allChecked.value;
 	const updated = { ...models.value };
-	for (const key of selectableKeys.value) {
-		updated[key] = next;
+	if (next) {
+		for (const key of selectableKeys.value) {
+			updated[key] = true;
+		}
+	} else {
+		for (const eventType of ASSET_EVENT_TYPES) {
+			updated[eventType.key] = false;
+		}
 	}
 	emit("update:models", updated);
 }

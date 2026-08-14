@@ -44,7 +44,6 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "delivery_channel"
 	| "timezone"
 	| "market_scheduled_asset_price_times"
-	| "daily_notification_enabled"
 	| "daily_notification_time"
 	| "daily_notification_next_send_at"
 	| "market_scheduled_asset_price_next_send_at"

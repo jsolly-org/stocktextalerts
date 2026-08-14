@@ -117,8 +117,12 @@ test.describe("Telegram dashboard UI", () => {
 			.locator('form[aria-label="Notification preferences"][data-hydrated]')
 			.waitFor({ timeout: 15_000 });
 
-		// --- Notification Channels (linked Telegram) ---------------------------
+		// --- Notifications (linked Telegram) ----------------------------------
 		await expect(page.getByText("Telegram connected", { exact: true })).toBeVisible();
+		await expect(page.getByRole("figure", { name: "Email notification preview" })).toBeVisible();
+		await expect(page.getByRole("figure", { name: "Telegram notification preview" })).toHaveCount(
+			0,
+		);
 		const telegramRadio = page.getByRole("radio", { name: "Telegram" });
 		await expect(telegramRadio).toBeVisible();
 		await expect(telegramRadio).toBeEnabled();
@@ -130,8 +134,8 @@ test.describe("Telegram dashboard UI", () => {
 		const channelGroup = page.getByRole("radiogroup");
 		await channelGroup.screenshot({ path: SCREENSHOT_CHANNELS });
 
-		// --- Daily Notification panel (content toggles) ------------------------
-		const digestForm = page.locator('form[aria-label="Daily Notification"]');
+		// --- Daily Digest panel (content toggles) ------------------------
+		const digestForm = page.locator('form[aria-label="Daily Digest"]');
 		await expect(digestForm).toBeVisible();
 
 		const topMoversSwitch = page.getByRole("switch", { name: /Top Movers/i });
@@ -167,9 +171,14 @@ test.describe("Telegram dashboard UI", () => {
 		const telegramRadio = page.getByRole("radio", { name: "Telegram" });
 		await expect(telegramRadio).toBeVisible();
 		await expect(telegramRadio).toBeChecked();
+		await expect(page.getByRole("figure", { name: "Telegram notification preview" })).toBeVisible();
 
 		await selectDeliveryChannel(page, "Disabled");
 		await waitForDeliveryChannel(userId as string, "disabled");
+		await expect(page.getByRole("figure", { name: "Email notification preview" })).toHaveCount(0);
+		await expect(page.getByRole("figure", { name: "Telegram notification preview" })).toHaveCount(
+			0,
+		);
 
 		const { data: muted } = await adminClient
 			.from("users")
@@ -182,6 +191,7 @@ test.describe("Telegram dashboard UI", () => {
 		await selectDeliveryChannel(page, "Telegram");
 		await waitForDeliveryChannel(userId as string, "telegram");
 		await expect(telegramRadio).toBeChecked();
+		await expect(page.getByRole("figure", { name: "Telegram notification preview" })).toBeVisible();
 	});
 
 	test("toggling Market and asset-event content options each persist a DB row", async () => {
@@ -201,7 +211,7 @@ test.describe("Telegram dashboard UI", () => {
 
 		expect(await getPreference(userId as string, "price_move_alerts")).toBe(true);
 
-		const dailyForm = page.locator('form[aria-label="Daily Notification"]');
+		const dailyForm = page.locator('form[aria-label="Daily Digest"]');
 		await dailyForm.scrollIntoViewIfNeeded();
 		const calendarSwitch = page.getByRole("switch", { name: /Calendar Events/i });
 		await expect(calendarSwitch).toBeVisible();
@@ -272,7 +282,7 @@ test.describe("Telegram-only notification channel", () => {
 			});
 			await expect(channelWarning).toHaveCount(0);
 
-			const digestForm = page.locator('form[aria-label="Daily Notification"]');
+			const digestForm = page.locator('form[aria-label="Daily Digest"]');
 			await expect(digestForm).toBeVisible();
 			await expect(digestForm.locator("fieldset").first()).not.toHaveAttribute(
 				"aria-disabled",
@@ -280,6 +290,10 @@ test.describe("Telegram-only notification channel", () => {
 			);
 
 			await expect(page.getByRole("radio", { name: "Telegram" })).toBeChecked();
+			await expect(
+				page.getByRole("figure", { name: "Telegram notification preview" }),
+			).toBeVisible();
+			await expect(page.getByRole("figure", { name: "Email notification preview" })).toHaveCount(0);
 		} finally {
 			if (userId) {
 				try {

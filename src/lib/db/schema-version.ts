@@ -1,3 +1,3 @@
 // Update EXPECTED_DB_SCHEMA_VERSION whenever migrations are applied or regenerated
 // (use the latest migration commit/tag or schema version timestamp and update tests).
-export const EXPECTED_DB_SCHEMA_VERSION = "20260813222000_drop_price_move_threshold_unit";
+export const EXPECTED_DB_SCHEMA_VERSION = "20260814032629_drop_daily_notification_enabled";

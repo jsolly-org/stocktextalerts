@@ -118,7 +118,6 @@ export function buildNotificationPreferencesApiSnapshot(
 		| "timezone"
 		| "market_scheduled_asset_price_times"
 		| "daily_notification_time"
-		| "daily_notification_enabled"
 		| "daily_notification_next_send_at"
 		| "market_scheduled_asset_price_next_send_at"
 		| "dismiss_timezone_mismatch_prompts"
@@ -131,7 +130,6 @@ export function buildNotificationPreferencesApiSnapshot(
 		timezone: dbUser.timezone,
 		market_scheduled_asset_price_times: dbUser.market_scheduled_asset_price_times,
 		daily_notification_time: dbUser.daily_notification_time,
-		daily_notification_enabled: dbUser.daily_notification_enabled,
 		daily_notification_next_send_at: dbUser.daily_notification_next_send_at,
 		market_scheduled_asset_price_next_send_at: dbUser.market_scheduled_asset_price_next_send_at,
 		dismiss_timezone_mismatch_prompts: dbUser.dismiss_timezone_mismatch_prompts,

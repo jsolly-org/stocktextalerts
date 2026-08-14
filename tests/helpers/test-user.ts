@@ -197,7 +197,6 @@ export async function createTestUser(options: CreateTestUserOptions = {}): Promi
 			telegram_chat_id: telegramChatId,
 			market_scheduled_asset_price_times: finalMarketScheduledPriceTimes,
 			market_scheduled_asset_price_next_send_at: nextSendAtIso,
-			daily_notification_enabled: true,
 			daily_notification_time: getUsBeforeOpenLocalMinutes(timezone),
 		};
 

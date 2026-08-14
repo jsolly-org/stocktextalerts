@@ -24,7 +24,7 @@
 					:href="DASHBOARD_SECTION_HASHES.notificationChannels"
 					class="font-medium text-primary no-underline rounded-sm hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-warning-bg"
 				>
-					Notification Channels</a>.
+					Notifications</a>.
 			</li>
 		</ul>
 	</div>

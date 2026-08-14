@@ -48,7 +48,7 @@ describe("fetchDailyNotificationUsers daily-digest candidate selection", () => {
 		).toBe(true);
 	});
 
-	it("excludes a user whose daily notification master toggle is off", async () => {
+	it("excludes a user with no daily notification facets enabled", async () => {
 		const user = await createTestUser({
 			deliveryChannel: "email",
 			confirmed: true,
@@ -57,12 +57,11 @@ describe("fetchDailyNotificationUsers daily-digest candidate selection", () => {
 		const { error } = await adminClient
 			.from("users")
 			.update({
-				daily_notification_enabled: false,
 				daily_notification_next_send_at: new Date().toISOString(),
 			})
 			.eq("id", user.id);
 		expect(error).toBeNull();
-		await setTestUserPrefs(user.id, [["daily_notification", "prices", true]]);
+		await setTestUserPrefs(user.id, [["daily_notification", "prices", false]]);
 
 		const users = await fetchDailyNotificationUsers({
 			supabase: adminClient,
@@ -85,6 +84,59 @@ describe("fetchDailyNotificationUsers daily-digest candidate selection", () => {
 			.update({ daily_notification_time: 540 })
 			.eq("id", user.id);
 		expect(error).toBeNull();
+
+		const users = await fetchDailyNotificationUsers({
+			supabase: adminClient,
+			logger: rootLogger,
+			forceSend: true,
+			currentTimeIso: new Date().toISOString(),
+		});
+
+		expect(users.some((u) => u.id === user.id)).toBe(false);
+	});
+
+	it("selects a user with prices off when another daily facet is on", async () => {
+		const user = await createTestUser({
+			deliveryChannel: "email",
+			confirmed: true,
+		});
+		registerTestUserForCleanup(user.id);
+		await setTestUserPrefs(user.id, [
+			["daily_notification", "prices", false],
+			["daily_notification", "top_movers", true],
+		]);
+
+		const users = await fetchDailyNotificationUsers({
+			supabase: adminClient,
+			logger: rootLogger,
+			forceSend: true,
+			currentTimeIso: new Date().toISOString(),
+		});
+
+		const found = users.find((u) => u.id === user.id);
+		expect(found, "user with a non-price daily facet on must be a candidate").toBeDefined();
+		expect(
+			found?.prefs.some(
+				(p) =>
+					p.notification_type === "daily_notification" && p.content === "top_movers" && p.enabled,
+			),
+		).toBe(true);
+	});
+
+	it("excludes a stock-buyer lambda user even with a due cursor", async () => {
+		const user = await createTestUser({
+			deliveryChannel: "lambda",
+			confirmed: true,
+		});
+		registerTestUserForCleanup(user.id);
+		const { error } = await adminClient
+			.from("users")
+			.update({
+				daily_notification_next_send_at: new Date().toISOString(),
+			})
+			.eq("id", user.id);
+		expect(error).toBeNull();
+		await setTestUserPrefs(user.id, [["daily_notification", "prices", true]]);
 
 		const users = await fetchDailyNotificationUsers({
 			supabase: adminClient,

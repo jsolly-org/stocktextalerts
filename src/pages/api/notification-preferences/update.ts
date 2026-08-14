@@ -161,24 +161,15 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const dailyNotificationScheduleSubmitted = DAILY_NOTIFICATION_SCHEDULE_FIELDS.some((field) =>
 		formData.has(field),
 	);
-	const masterSubmitted = formData.has("daily_notification_enabled");
-	const masterAfter =
-		masterSubmitted && parsed.data.daily_notification_enabled !== undefined
-			? parsed.data.daily_notification_enabled === true
-			: dbUser.daily_notification_enabled;
-	const facetsAfter = DAILY_NOTIFICATION_CATALOG_ENTRIES.some((entry) =>
+	const dailyNotificationEnabledAfterUpdate = DAILY_NOTIFICATION_CATALOG_ENTRIES.some((entry) =>
 		formData.has(entry.fieldName) && parsed.data[entry.fieldName] !== undefined
 			? parsed.data[entry.fieldName] === true
 			: entry.content !== "" && isDailyNotificationFacetEnabled(existingPrefs, entry.content),
 	);
-	const dailyNotificationEnabledAfterUpdate = masterAfter && facetsAfter;
-	const dailyNotificationEnabledBefore =
-		dbUser.daily_notification_enabled && hasAnyDailyNotificationFacet(existingPrefs);
+	const dailyNotificationEnabledBefore = hasAnyDailyNotificationFacet(existingPrefs);
 	const dailyNotificationOptionsChanged =
-		(dailyNotificationScheduleSubmitted &&
-			dailyNotificationEnabledAfterUpdate !== dailyNotificationEnabledBefore) ||
-		(masterSubmitted &&
-			parsed.data.daily_notification_enabled !== dbUser.daily_notification_enabled);
+		dailyNotificationScheduleSubmitted &&
+		dailyNotificationEnabledAfterUpdate !== dailyNotificationEnabledBefore;
 
 	let safeNotificationPreferenceUpdates: ReturnType<
 		typeof buildNotificationPreferencesUpdatePayload

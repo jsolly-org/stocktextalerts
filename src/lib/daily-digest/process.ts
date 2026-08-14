@@ -4,6 +4,7 @@ import type { AssetEventsContent } from "../asset-events/types";
 import {
 	enabledDailyNotificationFacets,
 	hasAnyDailyAssetEventFacet,
+	hasAnyDailyNotificationFacet,
 	isDailyNotificationFacetEnabled,
 } from "../daily-notification/eligibility";
 import { updateUserDailyNotificationNextSendAt } from "../daily-notification/schedule";
@@ -93,7 +94,7 @@ export async function processDailyDigestUser(options: {
 		}
 		const { scheduledDate, scheduledMinutes, dueAt } = scheduleCtx;
 
-		if (!user.daily_notification_enabled) {
+		if (!hasAnyDailyNotificationFacet(user.prefs)) {
 			stats.skipped++;
 			await updateUserDailyNotificationNextSendAt({
 				user,

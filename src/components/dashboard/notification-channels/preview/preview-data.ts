@@ -1,15 +1,24 @@
+import { toSvgSparklineImg } from "../../../../lib/messaging/email/svg-sparkline";
 import {
 	type AssetPrice,
 	formatSignedChangePercent,
 	formatUsdPrice,
+	getChangeColor,
+	getSparklineDirectionPercent,
 	resolveDisplayChangePercent,
 } from "../../../../lib/messaging/parts/asset-price-list";
 import { renderPriceAlertHeadline } from "../../../../lib/messaging/parts/price-alert-sentences";
-import type { SparklineData } from "../../../../lib/messaging/parts/sparkline";
+import {
+	EMAIL_SPARKLINE_LABEL,
+	type SparklineData,
+} from "../../../../lib/messaging/parts/sparkline";
 import { buildCandlestickSvg } from "../../../../lib/messaging/telegram/candlestick";
 import { directionDot } from "../../../../lib/messaging/telegram/direction-dot";
 import type { IntradayCandle } from "../../../../lib/types";
-import type { PreviewAlert, PreviewAsset, PreviewTelegramLine } from "./types";
+import type { PreviewAlert, PreviewAsset, PreviewEmailRow, PreviewTelegramLine } from "./types";
+
+/** Matches the scheduled-price email `<h1>` in formatMarketScheduledEmail. */
+export const PREVIEW_EMAIL_SUBJECT = "Scheduled Price Update";
 
 /** Stable demo assets used to render previews without a live API call. */
 export const DEMO_ASSETS: PreviewAsset[] = [
@@ -118,4 +127,36 @@ export function buildPreviewAlert(asset: PreviewAsset): PreviewAlert | null {
 			period: "today",
 		}),
 	};
+}
+
+function sparklineDataUri(values: number[], color: string): string | null {
+	const img = toSvgSparklineImg(values, color, 80, 20, "Past 7 trading days price trend");
+	return /src="([^"]+)"/.exec(img)?.[1] ?? null;
+}
+
+/**
+ * Build the per-asset rows of a scheduled-price email using the same price,
+ * change-%, color, and sparkline helpers the production HTML renderer uses.
+ */
+export function buildPreviewEmailRows(assets: PreviewAsset[]): PreviewEmailRow[] {
+	const sparklineLabel = EMAIL_SPARKLINE_LABEL["7-trading-days"];
+	return assets.map((asset) => {
+		const quote: AssetPrice = { price: asset.price, changePercent: asset.changePercent };
+		const sparkline = toSparklineData(asset);
+		const changePercent = resolveDisplayChangePercent(quote, sparkline);
+		const sparklineColor = sparkline?.values
+			? getChangeColor(getSparklineDirectionPercent(sparkline.values))
+			: getChangeColor(changePercent);
+		return {
+			symbol: asset.symbol,
+			price: formatUsdPrice(asset.price),
+			change: `(${formatSignedChangePercent(changePercent)})`,
+			changeColor: getChangeColor(changePercent),
+			sparklineSrc:
+				sparkline?.values && sparkline.values.length >= 2
+					? sparklineDataUri(sparkline.values, sparklineColor)
+					: null,
+			sparklineLabel,
+		};
+	});
 }

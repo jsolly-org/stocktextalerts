@@ -52,7 +52,7 @@ npm run dev
 
 Astro runs at <http://localhost:4321>; Mailpit runs at <http://127.0.0.1:54324>.
 
-For a quick authenticated smoke, sign in at `/auth/signin` with `DEFAULT_USER` and `DEFAULT_PASSWORD` from `.env.local`. The seeded `dev@example.com` user is pre-confirmed and pre-approved, so it lands on `/dashboard` without Mailpit or admin approval. Use the **My Watchlist** search to exercise `POST /api/assets/update`.
+For a quick authenticated smoke, sign in at `/auth/signin` with `DEFAULT_USER` and `DEFAULT_PASSWORD` from `.env.local`. The seeded `dev@example.com` user is pre-confirmed and pre-approved, so it lands on `/dashboard` without Mailpit or admin approval. Use the **Watchlist** search to exercise `POST /api/assets/update`.
 
 ## Local test suites
 
