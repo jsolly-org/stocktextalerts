@@ -17,6 +17,7 @@ import AuthRegisterPage from "../../src/pages/auth/register.astro";
 import SignInPage from "../../src/pages/auth/signin.astro";
 import AuthUnconfirmedPage from "../../src/pages/auth/unconfirmed.astro";
 import AuthVerifiedPage from "../../src/pages/auth/verified.astro";
+import PriceMoveReportPage from "../../src/pages/dashboard/price-move/[symbol].astro";
 import DashboardPage from "../../src/pages/dashboard.astro";
 import IndexPage from "../../src/pages/index.astro";
 import PrivacyPage from "../../src/pages/legal/privacy.astro";
@@ -131,6 +132,27 @@ describe("Users can load pages without unexpected errors.", () => {
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe("/auth/signin?redirect=%2Fdashboard");
+	});
+
+	it("A logged-out visitor is redirected to sign-in when opening a price-move report.", async () => {
+		const response = await container.renderToResponse(PriceMoveReportPage, {
+			request: buildRequest("/dashboard/price-move/AAPL"),
+			params: { symbol: "AAPL" },
+		});
+
+		expect(response.status).toBe(302);
+		expect(response.headers.get("Location")).toBe(
+			"/auth/signin?redirect=%2Fdashboard%2Fprice-move%2FAAPL",
+		);
+	});
+
+	it("An invalid ticker on the price-move report returns 404.", async () => {
+		const response = await container.renderToResponse(PriceMoveReportPage, {
+			request: buildRequest("/dashboard/price-move/nope!"),
+			params: { symbol: "nope!" },
+		});
+
+		expect(response.status).toBe(404);
 	});
 
 	it("An unapproved signed-in user is redirected to pending approval from the dashboard.", async () => {
@@ -411,10 +433,11 @@ describe("Users can load pages without unexpected errors.", () => {
 	});
 
 	it("An allowlisted admin can view pending users.", async () => {
-		vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
+		const adminEmail = createTestEmail("admin");
+		vi.stubEnv("ADMIN_EMAILS", adminEmail);
 		await withTestUser(
 			{
-				email: "admin@example.com",
+				email: adminEmail,
 				password: TEST_PASSWORD,
 				confirmed: true,
 				approved: true,

@@ -97,8 +97,8 @@ Mark this repo trusted for Codex config loading. Migration-repair context: [docs
 
 ## AWS, providers, and CI
 
-- Lambda code ships through `.github/workflows/deploy.yml`; local `deploy:code` is break-glass. Full SAM changes require manual `deploy:infra` with admin credentials. Copy `aws/samconfig.toml.example` to gitignored `aws/samconfig.toml`; never commit personal/admin profile names (`fleet-deploy` is the documented shared exception). Merge before a SAM deploy that changes env vars, or a later deploy from `main` will revert them.
-- Provider calls are stubbed locally. Post-deploy, `stocktextalerts-live-provider-check` verifies Massive/Finnhub, a side-effect-free Telegram `getMe()`/`getWebhookInfo()`, and chart rendering; weekday schedules also run at 08:00 / 12:00 / 17:30 ET (pre / regular / after) with session-specific quote expectations for liquid extended-hours names. `agent-deploy` may invoke it manually for investigation. A real Telegram delivery remains a one-time human `/start` E2E. Schedule changes need `npm run deploy:infra`.
+- Lambda code ships through `.github/workflows/deploy.yml`. Full SAM changes require manual `deploy:infra` with admin credentials. Copy `aws/samconfig.toml.example` to gitignored `aws/samconfig.toml`; never commit personal/admin profile names. Merge before a SAM deploy that changes env vars, or a later deploy from `main` will revert them.
+- Provider calls are stubbed locally. Post-deploy, `stocktextalerts-live-provider-check` verifies Massive/Finnhub, a side-effect-free Telegram `getMe()`/`getWebhookInfo()`, and chart rendering; weekday schedules also run at 08:00 / 12:00 / 17:30 ET (pre / regular / after) with session-specific quote expectations for liquid extended-hours names. GitHub Actions may invoke it during `deploy.yml`; humans may invoke with `AdministratorAccess`. Agents must not — `agent-readonly` has no invoke. A real Telegram delivery remains a one-time human `/start` E2E. Schedule changes need `npm run deploy:infra`.
 
 Vendor clients live in `src/lib/vendors/` — Massive owns batch snapshot quotes, bars/closes, calendar/holidays, movers, reference/universe, branding/logos, company news, corporate actions (dividends/splits/IPOs), and per-symbol delisting confirms. Finnhub owns only the earnings calendar, recommendation trends, and insider transactions. xAI/Grok powers optional AI summaries.
 
@@ -108,8 +108,7 @@ Vendor clients live in `src/lib/vendors/` — Massive owns batch snapshot quotes
 
 - GitHub Actions owns the full test battery. The local pre-commit hook runs lint/types/static checks and the Lambda bundle only — no unit/E2E, local Supabase, or deploy. Schema-affecting web changes must stay backward-compatible until the GitHub Deploy workflow (after green main CI) applies migrations. Details and known flakes: [docs/github-ci.md](docs/github-ci.md).
 
-- `agent-deploy` — scoped deploy role (S3, CloudFront, ECR, `lambda:UpdateFunctionCode`, `cloudformation:DescribeStackResource`, plus `lambda:InvokeFunction` on `*-live-provider-check` only — for the post-deploy live check). Used locally via the `fleet-deploy` profile for code-only deploys. Defined fleet-wide in `shared-infra/aws/template.yaml`.
-- `github-actions-deploy` — scoped GitHub OIDC role for production code deploys from `birthmilk/stocktextalerts` on `main`. It reuses the code-only deploy policy and has no CloudFormation/SAM infra mutation permissions.
+- `github-actions-deploy` — scoped GitHub OIDC role for production code deploys from `jsolly-org/stocktextalerts` on `main`. Code-only (`lambda:UpdateFunctionCode`, provenance tags, `lambda:InvokeFunction` on `*-live-provider-check`, stack/log reads). No CloudFormation/SAM infra mutation. Defined fleet-wide in `shared-infra/aws/template.yaml`. There is no laptop `agent-deploy` / `fleet-deploy` role.
 - `stocktextalerts-crons-*` — SAM-managed Lambda execution roles (auto-created; SES send via execution role, not static keys)
 
 ## Tooling, frontend, and security
@@ -134,10 +133,10 @@ Auth-gated product UI. Follow `rules/frontend-verification.md` (fleet smoke: des
 
 Full runbook: [docs/cursor-cloud.md](docs/cursor-cloud.md).
 
-**Automated via `.cursor/environment.json`:** `install` runs skills + `.cursor/cloud-agent-install.sh` (Docker CE with fuse-overlayfs, Node 24, `npm ci`, local file bootstrap). `start` runs `.cursor/cloud-agent-start.sh` (`dockerd` + `db:start`, key sync, one-shot `db:reset` if `db:doctor` fails). Prefer those hooks over rediscovering setup.
+**Automated via `.cursor/environment.json`:** `install` runs skills + `.cursor/cloud-agent-install.sh` (Docker CE with fuse-overlayfs, Node 24, `npm ci`, local file bootstrap) + `.cursor/aws-oidc-login.sh` (Cursor OIDC → `agent-readonly`). `start` runs `.cursor/aws-oidc-login.sh` then `.cursor/cloud-agent-start.sh` (`dockerd` + `db:start`, key sync, one-shot `db:reset` if `db:doctor` fails). Prefer those hooks over rediscovering setup.
 
 - **Node 24 via login shell:** `~/.bashrc` (written by install) prepends the nvm Node 24 bin and exports `DOCKER_HOST=unix:///var/run/docker.sock`. Non-login shells (`bash -c`, `sh -c`) still resolve `/exec-daemon/node` (v22), which trips `engine-strict`. Run npm/dev/test/db commands through a login shell (`bash -lc '…'`) or a normal interactive terminal.
 - **Docker:** base images do **not** ship Docker. Install provisions it; `start` launches `dockerd` (PID 1 is `tini`, not systemd). If the socket denies access, `sudo chmod 666 /var/run/docker.sock`.
 - **Docker 29 + fuse-overlayfs:** `/etc/docker/daemon.json` must set `"storage-driver": "fuse-overlayfs"` **and** `"features": { "containerd-snapshotter": false }` — Docker 29 defaults to the containerd snapshotter, which ignores the fuse-overlayfs driver this kernel needs. `docker info` should report `Storage Driver: fuse-overlayfs`.
-- **Gitignored local files** (`.env.local`, `scripts/data/users.json`, `supabase/seed.sql`) are created by install/start (and persist in environment snapshots). Manual repair: `bash .cursor/cloud-agent-install.sh && bash .cursor/cloud-agent-start.sh`.
+- **Gitignored local files** (`.env.local`, `scripts/data/users.json`, `supabase/seed.sql`) are created by install/start (and persist in environment snapshots). Manual repair: `bash .cursor/cloud-agent-install.sh && bash .cursor/aws-oidc-login.sh && bash .cursor/cloud-agent-start.sh`.
 - **Bring the stack up:** after `start`, `npm run dev` (<http://localhost:4321>). `db:doctor`'s `auth container not inspectable (podman ENOENT)` warning is benign under Docker.

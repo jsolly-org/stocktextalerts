@@ -8,7 +8,7 @@ import { applyDailyNotificationNextSendAtToUserUpdate } from "../daily-notificat
 import { omitUndefined } from "../db";
 import type { User, UserUpdateInput } from "../db/types";
 import type { Logger } from "../logging";
-import { userLocalToEtMinute } from "../time/conversion";
+import { getUsBeforeOpenLocalMinutes, userLocalToEtMinute } from "../time/conversion";
 import {
 	computeNextSendAtIso,
 	parseScheduledTimes,
@@ -146,29 +146,21 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	Content toggles live in notification_preferences (written separately by
 	persistNotificationPreferences); schedule + delivery_channel go to `users`.
 	============= */
-	const boolFields = ["market_scheduled_asset_price_enabled"] as const satisfies ReadonlyArray<
-		keyof ParsedNotificationPreferencesForm
-	>;
-
-	const boolUpdates: Record<string, boolean> = {};
-	for (const field of boolFields) {
-		const val = parsedData[field] as boolean | undefined;
-		if (formData.has(field) && val !== undefined) {
-			boolUpdates[field] = val;
-		}
-	}
-
 	const safeNotificationPreferenceUpdates = omitUndefined({
 		timezone: parsedData.timezone,
 		market_scheduled_asset_price_times: etNormalizedTimes,
-		...boolUpdates,
+		...(formData.has("market_scheduled_asset_price_enabled") &&
+		parsedData.market_scheduled_asset_price_enabled !== undefined
+			? { market_scheduled_asset_price_enabled: parsedData.market_scheduled_asset_price_enabled }
+			: {}),
 		...(formData.has("delivery_channel") && parsedData.delivery_channel !== undefined
 			? { delivery_channel: parsedData.delivery_channel }
 			: {}),
-		...(formData.has("daily_digest_time")
-			? { daily_notification_time: parsedData.daily_digest_time ?? null }
-			: {}),
 	}) as UserUpdateInput;
+
+	const finalTimezone = safeNotificationPreferenceUpdates.timezone ?? dbUser.timezone;
+	const lockedDailyTime = getUsBeforeOpenLocalMinutes(finalTimezone);
+	safeNotificationPreferenceUpdates.daily_notification_time = lockedDailyTime;
 
 	const timezoneChanged =
 		safeNotificationPreferenceUpdates.timezone !== undefined &&
@@ -178,20 +170,12 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		serializeTimes(safeNotificationPreferenceUpdates.market_scheduled_asset_price_times) !==
 			serializeTimes(dbUser.market_scheduled_asset_price_times ?? null);
 
-	const dailyTimeChanged =
-		safeNotificationPreferenceUpdates.daily_notification_time !== undefined &&
-		safeNotificationPreferenceUpdates.daily_notification_time !== dbUser.daily_notification_time;
+	const dailyTimeChanged = lockedDailyTime !== dbUser.daily_notification_time;
 
-	const finalTimezone = safeNotificationPreferenceUpdates.timezone ?? dbUser.timezone;
 	const finalTimes =
 		safeNotificationPreferenceUpdates.market_scheduled_asset_price_times !== undefined
 			? safeNotificationPreferenceUpdates.market_scheduled_asset_price_times
 			: dbUser.market_scheduled_asset_price_times;
-
-	const finalDailyTime =
-		safeNotificationPreferenceUpdates.daily_notification_time !== undefined
-			? safeNotificationPreferenceUpdates.daily_notification_time
-			: dbUser.daily_notification_time;
 
 	computeScheduledNextSendAt(
 		safeNotificationPreferenceUpdates,
@@ -204,8 +188,6 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	applyDailyNotificationNextSendAtToUserUpdate({
 		updates: safeNotificationPreferenceUpdates,
 		dbUser,
-		finalDailyTime,
-		finalTimezone,
 		timezoneChanged,
 		dailyTimeChanged,
 		dailyOptionsChanged: dailyNotificationOptionsChanged,
@@ -217,6 +199,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 
 interface TimezoneUpdatePayload {
 	timezone: string;
+	daily_notification_time?: number;
 	daily_notification_next_send_at?: string | null;
 }
 
@@ -240,15 +223,16 @@ export function computeTimezoneUpdatePayload(
 		return payload;
 	}
 
+	const lockedDailyTime = getUsBeforeOpenLocalMinutes(newTimezone);
+	payload.daily_notification_time = lockedDailyTime;
+
 	if (hasDailyNotification) {
 		const tempUpdates: Record<string, unknown> = {};
 		applyDailyNotificationNextSendAtToUserUpdate({
 			updates: tempUpdates,
 			dbUser,
-			finalDailyTime: dbUser.daily_notification_time,
-			finalTimezone: newTimezone,
 			timezoneChanged: true,
-			dailyTimeChanged: false,
+			dailyTimeChanged: lockedDailyTime !== dbUser.daily_notification_time,
 			dailyOptionsChanged: false,
 			hasDailyNotification: true,
 		});

@@ -13,6 +13,10 @@ vi.mock("../../../src/lib/time/market/calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock("../../../src/lib/schedule/asset-buyer-digest-wakeup", () => ({
+	maybeWakeAssetBuyerFromDailyDigest: vi.fn().mockResolvedValue("skipped"),
+}));
+
 // Email logos are not what these scenarios assert on, and the vendor URL is a third-party
 // host (tests/helpers/network-guard.ts blocks it). The unavailable stub, not the MODE=test
 // one: the logo fetcher takes the "no logo" branch it already took in CI against the
@@ -97,6 +101,7 @@ vi.mock("../../../src/lib/market-data/sparklines", async () => {
 	};
 });
 
+import { maybeWakeAssetBuyerFromDailyDigest } from "../../../src/lib/schedule/asset-buyer-digest-wakeup";
 import { runScheduledNotifications } from "../../../src/lib/schedule/run";
 import { resetMarketSessionCache } from "../../helpers/reset-market-session-cache";
 import { adminClient } from "../../helpers/test-env";
@@ -434,5 +439,6 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		expect(flatLog).toBeDefined();
 		expect(flatLog?.[1]?.session).toBe("pre");
 		expect(flatLog?.[1]?.humanSession).toBe("closed");
+		expect(maybeWakeAssetBuyerFromDailyDigest).toHaveBeenCalled();
 	});
 });

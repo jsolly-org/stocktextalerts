@@ -10,7 +10,7 @@ import { renderPriceAlertHeadline } from "../parts/price-alert-sentences";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { TelegramSender } from "../types";
 import { buildCandlestickSvg } from "./candlestick";
-import { buildDashboardButton } from "./dashboard-button";
+import { buildPriceMoveAlertKeyboard } from "./dashboard-button";
 import { optOutIfBotBlocked } from "./opt-out";
 import { renderChartPng } from "./render-png";
 
@@ -167,12 +167,14 @@ export async function deliverTelegramPriceAlert(options: {
 	sendTelegram: TelegramSender;
 	supabase: AppSupabaseClient;
 	stats: ChannelDeliveryStats;
+	/** Absolute URL to the auth-gated full report; omit when no packet was saved. */
+	fullReportUrl?: string | null;
 }): Promise<boolean> {
-	const { alert, user, sendTelegram, supabase, stats } = options;
+	const { alert, user, sendTelegram, supabase, stats, fullReportUrl } = options;
 
 	const content = await formatPriceAlertTelegram(alert, alert.intradayCandles ?? []);
 	const chatId = user.telegram_chat_id as number;
-	const replyMarkup = buildDashboardButton("marketNotifications");
+	const replyMarkup = buildPriceMoveAlertKeyboard(fullReportUrl);
 	const result = await sendTelegram({
 		...content,
 		chatId,

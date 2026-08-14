@@ -4,6 +4,7 @@ import type { AssetEventsContent } from "../asset-events/types";
 import {
 	enabledDailyNotificationFacets,
 	hasAnyDailyAssetEventFacet,
+	hasAnyDailyNotificationFacet,
 	isDailyNotificationFacetEnabled,
 } from "../daily-notification/eligibility";
 import { updateUserDailyNotificationNextSendAt } from "../daily-notification/schedule";
@@ -47,7 +48,9 @@ export async function processDailyDigestUser(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getTelegramSender: TelegramSenderFactory;
-	/** Pre-fetched market open status (avoids per-user API calls in fan-out). */
+	/** Pre-fetched human market session (avoids per-user API calls in fan-out). */
+	marketSession?: MarketSession;
+	/** @deprecated Prefer `marketSession`. true → regular, false → closed. */
 	marketOpen?: boolean;
 	/** Pre-fetched market closure info (avoids per-user API calls in fan-out). */
 	marketClosureInfo?: MarketClosureInfo | null;
@@ -69,6 +72,7 @@ export async function processDailyDigestUser(options: {
 		currentTime,
 		sendEmail,
 		getTelegramSender,
+		marketSession: marketSessionParam,
 		marketOpen: marketOpenParam,
 		marketClosureInfo: marketClosureInfoParam,
 	} = options;
@@ -89,6 +93,34 @@ export async function processDailyDigestUser(options: {
 			return stats;
 		}
 		const { scheduledDate, scheduledMinutes, dueAt } = scheduleCtx;
+
+		if (!hasAnyDailyNotificationFacet(user.prefs)) {
+			stats.skipped++;
+			await updateUserDailyNotificationNextSendAt({
+				user,
+				supabase,
+				logger,
+				currentTime,
+			});
+			return stats;
+		}
+
+		const closureRefInstant = dueAt;
+		const marketClosureInfo =
+			marketClosureInfoParam !== undefined
+				? marketClosureInfoParam
+				: await getUsMarketClosureInfoForInstant(closureRefInstant);
+
+		if (marketClosureInfo?.reason === "weekend" || marketClosureInfo?.reason === "holiday") {
+			stats.skipped++;
+			await updateUserDailyNotificationNextSendAt({
+				user,
+				supabase,
+				logger,
+				currentTime,
+			});
+			return stats;
+		}
 
 		const delayBannerOpts = {
 			scheduledFor: dueAt,
@@ -138,14 +170,15 @@ export async function processDailyDigestUser(options: {
 
 		// Resolve the market session once for this user so the price fetch
 		// below and the marketOpen derivation later share a single
-		// /v1/marketstatus/now round-trip. When the orchestrator pre-fetched
-		// and passed marketOpenParam, reuse it.
+		// /v1/marketstatus/now round-trip. Prefer the orchestrator's real
+		// session (09:00 ET is pre, not closed).
 		const session: MarketSession =
-			marketOpenParam === true
+			marketSessionParam ??
+			(marketOpenParam === true
 				? "regular"
 				: marketOpenParam === false
 					? "closed"
-					: await getCurrentMarketSession();
+					: await getCurrentMarketSession());
 
 		let assetPrices: AssetPriceMap = new Map();
 		let noSessionTradeTickers: Set<string> = new Set();
@@ -264,16 +297,7 @@ export async function processDailyDigestUser(options: {
 			}
 		}
 
-		// Check whether the US market is closed today (weekend / holiday).
-		// Use the user's scheduled send instant (not job execution time) so digests
-		// near US midnight classify the correct market day.
-		const closureRefInstant = dueAt;
-		const marketClosureInfo =
-			marketClosureInfoParam !== undefined
-				? marketClosureInfoParam
-				: await getUsMarketClosureInfoForInstant(closureRefInstant);
-
-		const marketOpen = session === "regular";
+		const marketOpen = session !== "closed";
 
 		/* =============
 		Fetch Massive news for Grok (skip when not opted in)
@@ -290,12 +314,18 @@ export async function processDailyDigestUser(options: {
 		let rumorsResult: GrokSectionResult | null = null;
 
 		if (grokAllowed) {
+			// Seed search with issuer identity (brand/legal names), not tickers alone.
+			const identities = userAssets.map((asset) => ({
+				symbol: asset.symbol,
+				companyName: asset.name,
+			}));
 			[newsResult, rumorsResult] = await Promise.all([
 				isDailyNotificationFacetEnabled(user.prefs, "news")
 					? generateNewsWithGrok({
 							tickers,
 							localDateIso: scheduledDate,
 							timezone: user.timezone,
+							identities,
 							providerNewsContext: newsContext || undefined,
 						})
 					: Promise.resolve(null),
@@ -304,6 +334,7 @@ export async function processDailyDigestUser(options: {
 							tickers,
 							localDateIso: scheduledDate,
 							timezone: user.timezone,
+							identities,
 						})
 					: Promise.resolve(null),
 			]);

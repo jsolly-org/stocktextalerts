@@ -21,7 +21,7 @@ const faqs = [
 	},
 	{
 		question: "What are Price Move Alerts?",
-		answer: "Price Move Alerts notify you when a tracked stock moves past a threshold you set — as a percent or a dollar change in a single US trading day. Set a threshold per stock (they're off until you do). The move is measured from yesterday's close on the first alert, then re-triggered on each additional move of that size, and delivery is limited to protect against noise during busy sessions."
+		answer: "Price Move Alerts notify you when a tracked stock moves 5% from yesterday's close in a single US trading day. Turn them on or off per stock (they're off until you opt a stock in). If the move continues in the same direction, the next alert fires at 2.5%. A move the other way still needs a full 5% from the last alert. Delivery is limited to protect against noise during busy sessions."
 	},
 	{
 		question: "How do delivery channels work?",
@@ -53,11 +53,11 @@ const faqs = [
 	},
 	{
 		question: "When are updates sent?",
-		answer: 'You can choose up to eight delivery times for scheduled market asset price notifications. Times shown in <a href="/profile#timezone-heading" class="link-primary">your local timezone</a>, anchored to US market hours (4:30 AM – 7:30 PM ET). Notifications send whenever US markets are trading (pre-market, regular hours, or after-hours). Sends are skipped on weekends, full-day holidays, and after early-close days (~3 per year). Price Move Alerts (if enabled) run during US market hours and trigger when a tracked stock crosses your configured threshold, with delivery limited per symbol per US trading day. The daily digest is sent once per day at your selected daily delivery time, and asset events (calendar events like earnings/dividends/splits, upcoming IPOs, and optional extras like insider trades and analyst consensus) are delivered at the same time (note: analyst consensus may be sent up to once per month).'
+		answer: 'You can choose up to eight delivery times for scheduled market asset price notifications. Times shown in <a href="/profile#timezone-heading" class="link-primary">your local timezone</a>, anchored to US market hours (4:30 AM – 7:30 PM ET). Notifications send whenever US markets are trading (pre-market, regular hours, or after-hours). Sends are skipped on weekends, full-day holidays, and after early-close days (~3 per year). Price Move Alerts (if enabled) run during US market hours and trigger at 5% from yesterday\'s close (2.5% more on a same-direction continuation), with delivery limited per symbol per US trading day. The daily digest is sent once per session day at 9:00 AM ET (30 minutes before the US cash open), and asset events (calendar events like earnings/dividends/splits, upcoming IPOs, and optional extras like insider trades and analyst consensus) are delivered at the same time (note: analyst consensus may be sent up to once per month).'
 	},
 	{
 		question: "What is the Daily Digest?",
-		answer: "The Daily Digest is a once-daily summary of your tracked asset prices that\u2019s separate from asset price alerts. You can add optional extras like News and Rumors for the assets you track. News and Rumors (AI summaries) are included when Email is your delivery channel, and may include clickable source links."
+		answer: "The Daily Digest is a once-daily summary of your tracked asset prices that\u2019s separate from asset price alerts. It is sent at 9:00 AM ET on US session days (weekends and full-day holidays are skipped). You can add optional extras like News and Rumors for the assets you track. News and Rumors (AI summaries) are included when Email is your delivery channel, and may include clickable source links."
 	},
 	{
 		question: "What are Asset Events?",

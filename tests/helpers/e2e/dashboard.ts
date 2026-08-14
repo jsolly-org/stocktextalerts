@@ -109,7 +109,7 @@ export async function waitForDeliveryChannel(
 		.toBe(expectedValue);
 }
 
-/** Select a delivery-channel radio in the Notification Channels panel. */
+/** Select a delivery-channel radio in the Notifications panel. */
 export async function selectDeliveryChannel(
 	page: Page,
 	channel: "Email" | "Telegram" | "Disabled",

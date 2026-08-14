@@ -39,6 +39,7 @@ import { getUsMarketClosureInfoForInstant } from "../time/market/calendar";
 import type { MarketClosureInfo } from "../time/types";
 import type { AssetPriceMap, ExtendedQuoteMap, MarketSession } from "../types";
 import { enqueuePriceHistoryStoreRetry } from "../vendors/backfill/enqueue";
+import { maybeWakeAssetBuyerFromDailyDigest } from "./asset-buyer-digest-wakeup";
 import { resolveMarketSessionWithFallback } from "./market-session";
 
 const EMPTY_TOTALS: ScheduledNotificationTotals = {
@@ -128,7 +129,11 @@ async function deliverDueNotifications(options: {
 	const currentTime = DateTime.utc();
 	const currentTimeIso = toIsoOrThrow(currentTime, "Failed to format UTC ISO string");
 
-	const [marketUsers, dailyUsers] = await Promise.all([
+	// allSettled so a throw on one query cannot leak the sibling past Lambda
+	// END (Promise.all rejects on first failure while the other fetch is still
+	// in Envoy timeout). Throw after both settle — fetchUsersWithRetry's throw
+	// is the AWS/Lambda Errors contract for a real DB/API outage.
+	const [marketResult, dailyResult] = await Promise.allSettled([
 		fetchMarketScheduledUsers({
 			supabase,
 			logger,
@@ -142,6 +147,14 @@ async function deliverDueNotifications(options: {
 			currentTimeIso,
 		}),
 	]);
+	if (marketResult.status === "rejected") {
+		throw marketResult.reason;
+	}
+	if (dailyResult.status === "rejected") {
+		throw dailyResult.reason;
+	}
+	const marketUsers = marketResult.value;
+	const dailyUsers = dailyResult.value;
 
 	// Batch-load user assets for market users first (single query).
 	// Derive unique symbols from the map for price fetching to avoid a redundant DB round-trip.
@@ -262,7 +275,7 @@ async function deliverDueNotifications(options: {
 						userId: user.id,
 						user,
 						currentTimeIso,
-						marketOpen,
+						marketSession,
 						supabase,
 						sendEmail,
 						getTelegramSender,
@@ -325,6 +338,21 @@ export async function runScheduledNotifications(options: {
 			session: schedulerMarketSession,
 			equitySession: equityTradeSession,
 		});
+	}
+
+	try {
+		await maybeWakeAssetBuyerFromDailyDigest({
+			supabase,
+			logger,
+			now: DateTime.utc(),
+			equitySession: equityTradeSession,
+		});
+	} catch (error) {
+		logger.warn(
+			"Asset-buyer daily digest wakeup failed (fail-open)",
+			{ action: "sta_daily_digest" },
+			error,
+		);
 	}
 
 	// Fetch the watched-symbol quote universe for the price-history capture below. The

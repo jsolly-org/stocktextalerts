@@ -1,11 +1,11 @@
 <template>
 	<section :id="DASHBOARD_SECTION_IDS.notificationChannels" class="space-y-4">
-		<header>
-			<h2 class="text-xl sm:text-2xl font-bold text-heading">
-				Notification Channels
+		<header class="section-header">
+			<h2 class="section-title">
+				Notifications
 			</h2>
-			<p :id="props.notificationChannelsDescId" class="text-sm text-body-secondary mt-1.5">
-				Choose how to receive alerts. Content toggles in each section stay the same — this only picks the delivery pipe.
+			<p :id="props.notificationChannelsDescId" class="section-desc">
+				Choose how to receive alerts. Content toggles in each section stay the same—this only picks the delivery pipe.
 			</p>
 		</header>
 
@@ -70,81 +70,24 @@
 			</div>
 		</fieldset>
 
-		<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pt-2">
-			<div class="min-w-0">
-				<span
-					id="daily_digest_time_label"
-					class="text-base font-semibold text-heading"
-				>
-					Daily notification delivery time
-				</span>
-				<p
-					id="daily_digest_time_description"
-					class="text-sm text-body-secondary mt-0.5"
-				>
-					Controls when your <a :href="DASHBOARD_SECTION_HASHES.dailyNotifications" class="link-primary">Daily Digest</a> is sent each day.
-				</p>
-			</div>
-			<div class="sm:shrink-0">
-				<div class="flex flex-col sm:flex-row sm:items-center gap-2">
-					<TimePicker
-						:input-id="`daily_digest_time`"
-						:input-name="`daily_digest_time`"
-						:initial-time="props.dailyDeliveryTimeInput"
-						input-aria-label="Daily notification delivery time"
-						:input-aria-describedby="'daily_digest_time_description'"
-						:clearable="props.dailyDeliveryTimeMinutes !== null"
-						clear-aria-label="Clear delivery time"
-						:is24="props.is24"
-						@time-change="emit('dailyTimeChange', $event)"
-						@clear="emit('clearDeliveryTime')"
-					/>
-					<button
-						v-if="props.beforeOpenLabel"
-						type="button"
-						class="btn btn-md btn-secondary h-[41px] shrink-0 whitespace-nowrap"
-						:disabled="!canSetBeforeOpen"
-						:aria-label="`Set delivery time to before US market open (${props.beforeOpenLabel})`"
-						@click="emit('setBeforeOpen')"
-					>
-						<PresentationChartLineIcon class="size-4 shrink-0 me-1" aria-hidden="true" />
-						Before open
-					</button>
-				</div>
-			</div>
-		</div>
-
 	</section>
 </template>
 
 <script lang="ts" setup>
 import { computed } from "vue";
 import CheckCircleIcon from "../../../icons/check-circle-20.svg?component";
-import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
-import type { DeliveryChannelMode } from "../../../lib/constants";
-import { DASHBOARD_SECTION_HASHES, DASHBOARD_SECTION_IDS } from "../../../lib/constants";
+import { DASHBOARD_SECTION_IDS, type DeliveryChannelMode } from "../../../lib/constants";
 import { useDashboardUser } from "../composables/useDashboardUser";
-import TimePicker from "../shared/TimePicker.vue";
 import ConnectTelegramCard from "./ConnectTelegramCard.vue";
 
 interface Props {
 	deliveryChannel: DeliveryChannelMode;
 	notificationChannelsDescId: string;
-	dailyDeliveryTimeInput: string | null;
-	dailyDeliveryTimeMinutes: number | null;
-	is24: boolean;
-	beforeOpenLabel: string | null;
-	isBeforeOpenTime: boolean;
 }
 
 const props = defineProps<Props>();
 
-const emit = defineEmits<{
-	(event: "update:deliveryChannel", value: DeliveryChannelMode): void;
-	(event: "dailyTimeChange", value: string): void;
-	(event: "clearDeliveryTime"): void;
-	(event: "setBeforeOpen"): void;
-}>();
+const emit = defineEmits<(event: "update:deliveryChannel", value: DeliveryChannelMode) => void>();
 
 const user = useDashboardUser();
 const telegramConnected = computed(() => user.value.telegram_chat_id != null);
@@ -174,8 +117,4 @@ function selectChannel(value: DeliveryChannelMode) {
 	if (option?.disabled) return;
 	selectedChannel.value = value;
 }
-
-const canSetBeforeOpen = computed(
-	() => props.beforeOpenLabel != null && !props.isBeforeOpenTime,
-);
 </script>

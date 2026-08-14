@@ -17,6 +17,22 @@ export function dashboardButtonUrl(message: TelegramMessage | undefined): string
 	return button && "url" in button ? button.url : undefined;
 }
 
+/** URL of an inline-keyboard button matching `buttonText`. */
+export function inlineKeyboardButtonUrl(
+	message: TelegramMessage | undefined,
+	buttonText: string,
+): string | undefined {
+	if (message?.replyMarkup === undefined) return undefined;
+	for (const row of message.replyMarkup.inline_keyboard) {
+		for (const button of row) {
+			if (button.text === buttonText && "url" in button) {
+				return button.url;
+			}
+		}
+	}
+	return undefined;
+}
+
 /** Body/caption text for text and photo messages. */
 export function telegramMessageText(message: TelegramMessage | undefined): string | undefined {
 	return message?.text;

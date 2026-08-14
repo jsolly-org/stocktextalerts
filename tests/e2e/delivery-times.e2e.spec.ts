@@ -1,6 +1,7 @@
 import type { BrowserContext, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { rootLogger } from "../../src/lib/logging";
+import { getUsBeforeOpenLocalMinutes } from "../../src/lib/time/conversion";
 import { TEST_PASSWORD } from "../helpers/constants";
 import { signIn } from "../helpers/e2e/auth";
 import { waitForAutosave } from "../helpers/e2e/dashboard";
@@ -206,26 +207,17 @@ test.describe("delivery times and timepicker", () => {
 		await expect(form.getByRole("button", { name: "Add time" })).toBeEnabled();
 	});
 
-	test("daily digest picker: any hour allowed, pick persists to DB", async () => {
-		// The daily-digest TimePicker is unconstrained — no market-hour window.
-		const input = page.locator("#daily_digest_time");
-		await input.scrollIntoViewIfNeeded();
-		await input.click();
+	test("daily digest clock is locked to 09:00 ET with no time picker", async () => {
+		await page.goto("/dashboard#notification-channels");
+		const form = page.locator('form[aria-label="Notification preferences"]');
+		await expect(form).toBeVisible();
+		await expect(page.locator("#daily_digest_time")).toHaveCount(0);
+		await expect(form.getByRole("button", { name: /Before open/i })).toHaveCount(0);
+		await expect(form.getByText(/Daily notification delivery time/i)).toHaveCount(0);
+		await expect(form.getByText(/Always 9:00 AM Eastern/i)).toHaveCount(0);
 
-		const menu = page.locator(".dp--menu");
-		await expect(menu).toBeVisible();
-		await menu.locator('[data-test-id="hours-toggle-overlay-btn-0"]').click();
-
-		// No constraints → no disabled cells in the hour grid.
-		await expect(menu.locator(".dp--overlay-cell-disabled")).toHaveCount(0);
-
-		// Pick 10 (AM, since the picker defaults to 09:00 AM via timeConfig.startTime).
-		await menu.locator('[role="option"][data-test-id="10"]').click();
-
-		await waitForAutosave(page, async () => {
-			await menu.getByRole("button", { name: "Select" }).click();
-		});
-
-		expect(await getDailyDigestTime(userId as string)).toBe(600);
+		expect(await getDailyDigestTime(userId as string)).toBe(
+			getUsBeforeOpenLocalMinutes("America/Chicago"),
+		);
 	});
 });

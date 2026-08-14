@@ -2,7 +2,7 @@
 	<div class="rounded-lg border border-edge bg-surface-alt p-4">
 		<div class="min-w-0">
 			<h3 class="text-base font-semibold text-heading">Telegram</h3>
-			<p class="mt-0.5 text-sm text-body-secondary">Get alerts as bot messages.</p>
+			<p class="mt-0.5 text-sm text-body-secondary">Receive alerts as bot messages.</p>
 		</div>
 
 		<div class="mt-3">

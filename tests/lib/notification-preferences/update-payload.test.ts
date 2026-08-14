@@ -4,6 +4,7 @@ import {
 	buildNotificationPreferencesUpdatePayload,
 	computeTimezoneUpdatePayload,
 } from "../../../src/lib/notification-preferences/update-payload";
+import { getUsBeforeOpenLocalMinutes } from "../../../src/lib/time/conversion";
 
 function makeUser(overrides: Partial<User> = {}): User {
 	return {
@@ -186,6 +187,27 @@ describe("Notification preference update payloads stay aligned with user schedul
 		const payload = computeTimezoneUpdatePayload("America/Chicago", user, false);
 
 		expect(payload.daily_notification_next_send_at).toBeUndefined();
+		expect(payload.daily_notification_time).toBe(getUsBeforeOpenLocalMinutes("America/Chicago"));
+	});
+
+	it("Ignores client daily_digest_time and always persists 09:00 ET as local minutes.", () => {
+		const user = makeUser({ timezone: "America/Los_Angeles", daily_notification_time: 540 });
+		const formData = new FormData();
+		formData.set("daily_digest_time", "10:00");
+
+		const payload = buildNotificationPreferencesUpdatePayload({
+			parsedData: { daily_digest_time: 600 },
+			formData,
+			rawTimesValue: null,
+			dbUser: user,
+			dailyNotificationEnabledAfterUpdate: true,
+			dailyNotificationOptionsChanged: false,
+		});
+
+		expect(payload.daily_notification_time).toBe(
+			getUsBeforeOpenLocalMinutes("America/Los_Angeles"),
+		);
+		expect(payload.daily_notification_time).not.toBe(600);
 	});
 
 	it("Normalizes and sorts submitted scheduled times before persistence.", () => {

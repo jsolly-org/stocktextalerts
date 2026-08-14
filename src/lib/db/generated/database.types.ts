@@ -715,6 +715,11 @@ export type Database = {
           last_notification_at: string
           last_notification_price: number
           last_why_at: string | null
+          last_why_catalyst_type: string | null
+          last_why_event_date: string | null
+          last_why_grade: string | null
+          last_why_key_entity: string | null
+          last_why_packet: Json | null
           last_why_summary: string | null
           last_why_verdict: string | null
           pending_alert_direction: number | null
@@ -730,6 +735,11 @@ export type Database = {
           last_notification_at?: string
           last_notification_price: number
           last_why_at?: string | null
+          last_why_catalyst_type?: string | null
+          last_why_event_date?: string | null
+          last_why_grade?: string | null
+          last_why_key_entity?: string | null
+          last_why_packet?: Json | null
           last_why_summary?: string | null
           last_why_verdict?: string | null
           pending_alert_direction?: number | null
@@ -745,6 +755,11 @@ export type Database = {
           last_notification_at?: string
           last_notification_price?: number
           last_why_at?: string | null
+          last_why_catalyst_type?: string | null
+          last_why_event_date?: string | null
+          last_why_grade?: string | null
+          last_why_key_entity?: string | null
+          last_why_packet?: Json | null
           last_why_summary?: string | null
           last_why_verdict?: string | null
           pending_alert_direction?: number | null
@@ -782,7 +797,7 @@ export type Database = {
         Insert: {
           created_at?: string
           symbol: string
-          threshold_unit: Database["public"]["Enums"]["price_move_threshold_unit"]
+          threshold_unit?: Database["public"]["Enums"]["price_move_threshold_unit"]
           threshold_value: number
           user_id: string
         }
@@ -1099,6 +1114,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      claim_asset_buyer_digest_wake: {
+        Args: { p_et_date: string }
+        Returns: boolean
+      }
       claim_email_dispatch_key: { Args: { p_key: string }; Returns: boolean }
       claim_flat_price_alert: {
         Args: {
@@ -1147,6 +1166,10 @@ export type Database = {
         Args: { p_retention_days?: number }
         Returns: number
       }
+      release_asset_buyer_digest_wake: {
+        Args: { p_et_date: string }
+        Returns: boolean
+      }
       release_flat_price_alert: {
         Args: { p_symbol: string; p_user_id: string }
         Returns: boolean
@@ -1164,7 +1187,6 @@ export type Database = {
           p_baseline_price: number
           p_new_price: number
           p_symbol: string
-          p_threshold_unit: string
           p_threshold_value: number
           p_user_id: string
         }

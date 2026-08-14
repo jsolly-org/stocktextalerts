@@ -10,7 +10,7 @@ import {
 import type { TelegramMessage, TelegramSender } from "../../../../src/lib/messaging/types";
 import type { EnrichedAlert } from "../../../../src/lib/price-alerts/types";
 import type { ChannelDeliveryStats, IntradayCandle } from "../../../../src/lib/types";
-import { dashboardButtonUrl } from "../../../helpers/messaging-doubles";
+import { dashboardButtonUrl, inlineKeyboardButtonUrl } from "../../../helpers/messaging-doubles";
 
 function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 	return {
@@ -80,6 +80,19 @@ describe("A price-move alert is rendered for Telegram with entity formatting and
 		expect(whyIdx).toBeGreaterThan(headlineIdx);
 		expect(whyIdx).toBeLessThan(footerIdx);
 		expect(result.text.endsWith(buildTelegramPriceFooter())).toBe(true);
+	});
+
+	it("renders the lede only — no grade or packet internals", async () => {
+		const result = await formatPriceAlertTelegram(
+			makeAlert({ why: "Leidos slipped after a contract protest was filed." }),
+			[],
+		);
+		expect(result.text).toContain("Leidos slipped after a contract protest was filed.");
+		for (const token of ["confirmed", "reported", "narrative", "unexplained", "grade"]) {
+			expect(result.text.toLowerCase()).not.toContain(token);
+		}
+		expect(result.text).not.toContain("catalyst_type");
+		expect(result.text).not.toContain("move_onset");
 	});
 
 	it("never shows unrendered markdown links in final Telegram copy", async () => {
@@ -178,5 +191,25 @@ describe("deliverTelegramPriceAlert attaches the 'Manage notifications' dashboar
 		const sent = sendTelegram.mock.calls[0]?.[0] as TelegramMessage;
 		expect(sent.kind).toBe("text");
 		expect(dashboardButtonUrl(sent)).toContain("#market-notifications");
+	});
+
+	it("adds a Full report button above Manage notifications when a report URL is set", async () => {
+		const sendTelegram = vi.fn<TelegramSender>(async () => ({ success: true }));
+		const reportUrl = "http://localhost/dashboard/price-move/LDOS";
+
+		await deliverTelegramPriceAlert({
+			alert: makeAlert({ intradayCandles: [] }),
+			user: { id: "user-3", telegram_chat_id: 4444 },
+			sendTelegram,
+			supabase: makeInsertOnlySupabase(),
+			stats: makeStats(),
+			fullReportUrl: reportUrl,
+		});
+
+		const sent = sendTelegram.mock.calls[0]?.[0] as TelegramMessage;
+		expect(inlineKeyboardButtonUrl(sent, "Full report")).toBe(reportUrl);
+		expect(inlineKeyboardButtonUrl(sent, "⚙️ Manage notifications")).toContain(
+			"#market-notifications",
+		);
 	});
 });

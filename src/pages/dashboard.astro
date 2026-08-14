@@ -54,7 +54,7 @@ const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: a
 // is logged so a permanent break is greppable rather than silent.
 const { data: thresholdRows, error: thresholdReadError } = await supabase
 	.from("price_move_alert_thresholds")
-	.select("symbol, threshold_value, threshold_unit")
+	.select("symbol, threshold_value")
 	.eq("user_id", authUser.id);
 if (thresholdReadError) {
 	rootLogger.warn(
@@ -67,7 +67,6 @@ const priceMoveThresholds: PriceMoveThresholdMap = {};
 for (const row of thresholdRows ?? []) {
 	priceMoveThresholds[row.symbol] = {
 		value: Number(row.threshold_value),
-		unit: row.threshold_unit,
 	};
 }
 
@@ -94,10 +93,10 @@ const user = { ...dbUser, ...prefSnapshot } as import("../lib/db/types").Dashboa
 		</header>
 
 		<main id="main-content" class="max-w-4xl mx-auto px-0 py-0 md:px-6 md:py-12">
-			<header class="mb-8 hidden md:block">
-				<h1 class="text-2xl sm:text-3xl font-bold text-heading">Dashboard</h1>
-				<p class="mt-2 text-sm text-body-secondary">
-					Manage your alert channels, tracked assets, and delivery schedule.
+			<header class="mb-8">
+				<h1 class="text-2xl sm:text-3xl font-bold text-heading max-md:sr-only">Dashboard</h1>
+				<p class="mt-2 text-sm text-body-secondary hidden md:block">
+					Manage alert channels, tracked assets, and delivery schedule.
 				</p>
 			</header>
 			<DashboardPanels

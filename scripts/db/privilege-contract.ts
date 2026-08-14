@@ -76,7 +76,7 @@ export function executeRolesFor(entry: Pick<RpcPrivilege, "class">): RoleName[] 
 export const RPC_PRIVILEGES: RpcPrivilege[] = [
 	// --- Delivery-state RPCs (the incident surface) -------------------------
 	{
-		signature: "reserve_flat_price_alert(p_user_id uuid, p_symbol text, p_baseline_price numeric, p_new_price numeric, p_threshold_value numeric, p_threshold_unit text)",
+		signature: "reserve_flat_price_alert(p_user_id uuid, p_symbol text, p_baseline_price numeric, p_new_price numeric, p_threshold_value numeric)",
 		class: "server-only",
 		reason: "Schedule Lambda claims a flat-price-alert delivery slot",
 	},
@@ -104,6 +104,16 @@ export const RPC_PRIVILEGES: RpcPrivilege[] = [
 		signature: "claim_email_dispatch_key(p_key text)",
 		class: "server-only",
 		reason: "Email-dispatch Lambda claims an idempotency key (with expired-key reclaim)",
+	},
+	{
+		signature: "claim_asset_buyer_digest_wake(p_et_date text)",
+		class: "server-only",
+		reason: "Schedule Lambda claims the once-per-session-day asset-buyer sta_daily_digest wake",
+	},
+	{
+		signature: "release_asset_buyer_digest_wake(p_et_date text)",
+		class: "server-only",
+		reason: "Schedule Lambda releases a digest-wake claim after a failed heartbeat invoke so the same session day can retry",
 	},
 	{
 		signature: "try_consume_notification_budget(p_user_id uuid, p_kind text, p_count integer)",

@@ -1,3 +1,6 @@
+/** Channels that render a delivery-pipe preview. Disabled hides it. */
+export type NotificationPreviewChannel = "email" | "telegram";
+
 /** Demo asset shape used by the notification preview panel. */
 export interface PreviewAsset {
 	symbol: string;
@@ -22,4 +25,14 @@ export interface PreviewAlert {
 	svgDataUri: string;
 	/** Rendered headline sentence (the Telegram channel's, which this panel previews). */
 	headline: string;
+}
+
+/** One scheduled-price email row, mirroring formatAssetHtmlLine. */
+export interface PreviewEmailRow {
+	symbol: string;
+	price: string;
+	change: string;
+	changeColor: string;
+	sparklineSrc: string | null;
+	sparklineLabel: string;
 }

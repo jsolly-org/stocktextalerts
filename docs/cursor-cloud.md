@@ -8,8 +8,8 @@ Use this runbook for service startup and non-obvious wiring in a fresh Cursor Cl
 
 | Hook | Script | Purpose |
 | --- | --- | --- |
-| `install` (update) | `.cursor/install-cloud-skills.sh` then `.cursor/cloud-agent-install.sh` | Public skills package; Docker CE + fuse-overlayfs + iptables-legacy; Node 24 via nvm; `npm ci`; `.env.local` + `users.json` bootstrap |
-| `start` | `.cursor/cloud-agent-start.sh` | Start `dockerd` (PID 1 is `tini`, not systemd), `npm run db:start`, sync Supabase keys into `.env.local`, and `db:reset` once if `db:doctor` fails |
+| `install` (update) | `.cursor/install-cloud-skills.sh` then `.cursor/cloud-agent-install.sh` then `.cursor/aws-oidc-login.sh` | Public skills package; Docker CE + fuse-overlayfs + iptables-legacy; Node 24 via nvm; `npm ci`; `.env.local` + `users.json` bootstrap; Cursor OIDC → `agent-readonly` |
+| `start` | `.cursor/aws-oidc-login.sh` then `.cursor/cloud-agent-start.sh` | Refresh `agent-readonly` via OIDC (`credential_process`); start `dockerd` (PID 1 is `tini`, not systemd), `npm run db:start`, sync Supabase keys into `.env.local`, and `db:reset` once if `db:doctor` fails |
 
 After a successful `install`, Cursor checkpoints a snapshot so later agents skip the heavy apt/npm work. `start` still runs every boot.
 
@@ -17,6 +17,7 @@ If a session somehow lacks Docker (stale snapshot, install skipped), re-run:
 
 ```bash
 bash .cursor/cloud-agent-install.sh
+bash .cursor/aws-oidc-login.sh
 bash .cursor/cloud-agent-start.sh
 ```
 
@@ -51,7 +52,7 @@ npm run dev
 
 Astro runs at <http://localhost:4321>; Mailpit runs at <http://127.0.0.1:54324>.
 
-For a quick authenticated smoke, sign in at `/auth/signin` with `DEFAULT_USER` and `DEFAULT_PASSWORD` from `.env.local`. The seeded `dev@example.com` user is pre-confirmed and pre-approved, so it lands on `/dashboard` without Mailpit or admin approval. Use the **My Watchlist** search to exercise `POST /api/assets/update`.
+For a quick authenticated smoke, sign in at `/auth/signin` with `DEFAULT_USER` and `DEFAULT_PASSWORD` from `.env.local`. The seeded `dev@example.com` user is pre-confirmed and pre-approved, so it lands on `/dashboard` without Mailpit or admin approval. Use the **Watchlist** search to exercise `POST /api/assets/update`.
 
 ## Local test suites
 

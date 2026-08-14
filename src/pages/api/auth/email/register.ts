@@ -8,6 +8,7 @@ import { parseWithSchema } from "../../../../lib/forms/parse";
 import { createLogger, type Logger } from "../../../../lib/logging";
 import { buildDefaultPreferenceRows } from "../../../../lib/messaging/notification-prefs";
 import { seedDefaultNotificationPreferences } from "../../../../lib/notification-preferences/preferences";
+import { getUsBeforeOpenLocalMinutes } from "../../../../lib/time/conversion";
 import { resolveTimezone } from "../../../../lib/time/timezone/cache";
 
 async function cleanupOrphanedAuthUser(
@@ -104,6 +105,7 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 			id: data.user.id,
 			email: trimmedEmail,
 			timezone: userTimezone,
+			daily_notification_time: getUsBeforeOpenLocalMinutes(userTimezone),
 		};
 
 		const { error: profileError } = await adminSupabase.from("users").upsert(userProfileData, {

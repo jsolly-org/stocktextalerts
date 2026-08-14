@@ -4,18 +4,12 @@
 		:id="DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID"
 		method="POST"
 		action="/api/notification-preferences/update"
-		aria-label="Daily Notification"
+		aria-label="Daily Digest"
 		:aria-busy="isSaving"
 		@input="handleFormInput"
 		@change="handleFormChange"
 		@submit="handleFormSubmit"
 	>
-		<input
-			v-if="shouldSubmitDailyDigestTime"
-			type="hidden"
-			name="daily_digest_time"
-			:value="dailyDigestTimeInputForSubmit ?? ''"
-		/>
 		<section class="card relative">
 			<FormStatusBadge
 				:status-message="statusMessage"
@@ -24,16 +18,22 @@
 			/>
 
 			<div class="card-body">
-			<header class="mb-4">
+			<header class="section-header">
 				<h2
 					:id="DASHBOARD_SECTION_IDS.dailyNotifications"
-					class="text-xl sm:text-2xl font-bold text-heading"
+					class="section-title"
 				>
-					Daily Notification
+					Daily Digest
 				</h2>
-			<p class="text-sm text-body-secondary mt-1">
-				Everything you enable below is bundled into <strong class="font-semibold text-label">one daily message</strong> sent at your <a href="#daily_digest_time" class="link-primary">daily notification delivery time</a>.
-			</p>
+				<p class="section-desc">
+					Everything enabled below is bundled into <strong class="font-semibold text-label">one daily message</strong> sent 30 minutes before US regular trading hours (9:00 AM ET) on session days. Weekends and full-day holidays are skipped.
+				</p>
+				<div v-if="isHydrated && nextDailyDeliveryText" class="mt-3">
+					<p class="inline-flex items-center gap-2 text-sm text-body-secondary">
+						<BellAlertIcon class="size-4 shrink-0 text-success-strong" aria-hidden="true" />
+						<span>Next delivery <span class="font-medium text-heading">{{ nextDailyDeliveryText }}</span>. It can take a minute or two for the notification to arrive.</span>
+					</p>
+				</div>
 			</header>
 
 		<SetupRequiredNotice
@@ -42,42 +42,42 @@
 		/>
 
 	<fieldset
-			class="divide-y divide-divider transition-opacity duration-200"
+			class="transition-opacity duration-200"
 				:class="{ 'opacity-50': notificationSetupBlocked }"
-				:aria-disabled="notificationSetupBlocked ? 'true' : undefined"
 			>
-					<legend class="sr-only">Daily notification settings</legend>
+					<legend class="sr-only">Daily digest settings</legend>
 
-				<div class="flex flex-row items-center justify-between gap-3 py-3">
-					<span class="text-xs font-semibold uppercase tracking-wider text-faint select-none">Select all</span>
-					<label class="inline-flex items-center gap-1.5">
+				<div class="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 divide-y divide-divider">
+				<div class="col-span-2 grid grid-cols-subgrid items-center gap-x-3 py-3">
+					<span class="select-all-text inline-flex h-4 items-center text-xs font-semibold uppercase tracking-wider text-faint select-none">Select all</span>
+					<label class="inline-flex items-center justify-self-end gap-1.5 leading-none">
 						<input
 							ref="selectAllRef"
 							type="checkbox"
 							:checked="allChecked"
-							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-							aria-label="Select all daily notification options"
+							class="select-all-checkbox"
+							aria-label="Select all daily digest options"
 							@change="toggleAll"
 						/>
-						<span class="text-sm font-medium text-body-secondary">All</span>
+						<span class="select-all-text text-xs font-semibold text-body-secondary leading-none">All</span>
 					</label>
 				</div>
 
 				<div
 					v-for="option in digestOptions"
 					:key="option.field"
-					class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+					class="col-span-2 grid grid-cols-subgrid items-center gap-x-3 py-3"
 				>
-					<input
-						type="hidden"
-						:name="option.field"
-						:value="option.model.value ? 'on' : 'off'"
-					/>
 					<div class="min-w-0">
+						<input
+							type="hidden"
+							:name="option.field"
+							:value="option.model.value ? 'on' : 'off'"
+						/>
 						<div class="flex items-center gap-2">
 							<span
 								:id="`${option.field}_label`"
-								class="text-base font-semibold text-heading"
+								class="option-title"
 							>
 								{{ option.label }}
 							</span>
@@ -98,12 +98,12 @@
 						</div>
 						<p
 							:id="`${option.field}_description`"
-							class="text-sm text-body-secondary mt-0.5"
+							class="option-desc"
 						>
 							{{ option.description }}
 						</p>
 					</div>
-					<div class="shrink-0">
+					<div class="shrink-0 justify-self-end">
 						<ToggleSwitch
 							v-model="option.model.value"
 							:sr-label="`Toggle ${option.label}`"
@@ -114,19 +114,14 @@
 				</div>
 
 				<DailyAssetEventsFieldset
+					class="col-span-2 grid grid-cols-subgrid"
 					:has-tracked-assets="hasTrackedAssets"
 					:models="assetEventModels"
 					@update:models="onAssetEventModelsUpdate"
 				/>
+				</div>
 
 				</fieldset>
-
-				<div v-if="isHydrated && nextDailyDeliveryText" class="mt-4">
-					<p class="inline-flex items-center gap-2 text-sm text-body-secondary">
-						<BellAlertIcon class="size-4 shrink-0 text-success-strong" aria-hidden="true" />
-						<span>Next delivery <span class="font-medium text-heading">{{ nextDailyDeliveryText }}</span>. It can take a minute or two for the notification to arrive.</span>
-					</p>
-				</div>
 			</div>
 		</section>
 	</form>
@@ -143,7 +138,7 @@ import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import PolymarketLogoIcon from "../../../icons/polymarket.svg?component";
 import { DASHBOARD_SECTION_IDS } from "../../../lib/constants";
 import { needsNotificationChannelSelection } from "../../../lib/messaging/delivery-channel";
-import { etMinuteToUserLocal } from "../../../lib/time/conversion";
+import { getUsBeforeOpenLocalMinutes } from "../../../lib/time/conversion";
 import {
 	formatCountdownWithSeconds,
 	getSecondsUntilNextSend,
@@ -305,20 +300,18 @@ function toggleAll() {
 	for (const option of digestOptions) {
 		option.model.value = next;
 	}
-	for (const key of selectableAssetEventKeys.value) {
-		assetEventModels[key] = next;
+	if (next) {
+		for (const key of selectableAssetEventKeys.value) {
+			assetEventModels[key] = true;
+		}
+	} else {
+		for (const eventType of ASSET_EVENT_TYPES) {
+			assetEventModels[eventType.key] = false;
+		}
 	}
 }
 
-const dailyEnabled = computed(
-	() =>
-		includePrices.value ||
-		includeTopMovers.value ||
-		includeNews.value ||
-		includeRumors.value ||
-		includePredictionMarkets.value ||
-		anyAssetEventEnabled.value,
-);
+const dailyEnabled = computed(() => digestSomeChecked.value || anyAssetEventEnabled.value);
 
 for (const eventType of ASSET_EVENT_TYPES) {
 	const field = `asset_events_include_${eventType.key}` as AssetEventUserField;
@@ -375,27 +368,13 @@ watch(
 	},
 );
 
-function getEarliestMarketNotificationTime(): number | null {
-	const times = user.value.market_scheduled_asset_price_times;
-	if (!times || times.length === 0) return null;
-	const local = times.map((et) => etMinuteToUserLocal(et, user.value.timezone));
-	return Math.min(...local);
-}
-
-const shouldSubmitDailyDigestTime = computed(() => dailyEnabled.value);
-
-const dailyDigestTimeInputForSubmit = computed(() => {
-	const minutes = user.value.daily_notification_time ?? getEarliestMarketNotificationTime();
-	return minutes !== null ? minutesToTimeInputValue(minutes) : null;
-});
-
 const nextDailyDeliveryText = computed(() => {
 	if (!isHydrated.value || !dailyEnabled.value) return null;
 	void tick.value;
 	const timeInput =
 		user.value.daily_notification_time !== null
 			? minutesToTimeInputValue(user.value.daily_notification_time)
-			: dailyDigestTimeInputForSubmit.value;
+			: minutesToTimeInputValue(getUsBeforeOpenLocalMinutes(user.value.timezone));
 	if (user.value.daily_notification_next_send_at == null && timeInput == null) return null;
 
 	const secondsUntil = getSecondsUntilNextSend({

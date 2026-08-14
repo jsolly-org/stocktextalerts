@@ -71,6 +71,7 @@ scripts/data/users.json
 !.cursor/install-cloud-skills.sh
 !.cursor/cloud-agent-install.sh
 !.cursor/cloud-agent-start.sh
+!.cursor/aws-oidc-login.sh
 !.cursor/settings.json
 !.cursor/install-cloud-skills.sh
 

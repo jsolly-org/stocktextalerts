@@ -61,7 +61,7 @@
 		--edge: var(--color-gray-200);
 		--edge-strong: var(--color-gray-300);
 		--divider: var(--color-gray-100);
-		--toggle-off: var(--color-gray-300);
+		--toggle-off: #e9e9ea;
 		--disabled-bg: var(--color-gray-100);
 	}
 
@@ -78,7 +78,7 @@
 			--edge: var(--color-gray-700);
 			--edge-strong: var(--color-gray-600);
 			--divider: var(--color-gray-800);
-			--toggle-off: var(--color-gray-600);
+			--toggle-off: #39393d;
 			--disabled-bg: var(--color-gray-800);
 
 			--color-primary-soft: var(--color-blue-900);
@@ -208,6 +208,35 @@ body {
 	@apply px-4 py-3 rounded-md;
 }
 
+/* Native checkboxes paint a smaller widget than their CSS box, so labels look dropped.
+   Draw the square ourselves so "All" can flex-center on the visible control. */
+.select-all-checkbox {
+	@apply size-4 m-0 shrink-0 appearance-none rounded border border-edge-strong bg-toggle-off;
+	@apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0;
+}
+.select-all-checkbox:checked,
+.select-all-checkbox:indeterminate {
+	@apply border-primary bg-primary;
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: 100% 100%;
+}
+.select-all-checkbox:checked {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M3.5 8.5 6.5 11.5 12.5 4.5'/%3E%3C/svg%3E");
+}
+.select-all-checkbox:indeterminate {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='white' stroke-width='2' stroke-linecap='round' d='M4 8h8'/%3E%3C/svg%3E");
+}
+/* Longhands: Tailwind's [text-box:trim-both_cap_alphabetic] drops trim-both. */
+.select-all-text {
+	text-box-trim: trim-both;
+	text-box-edge: cap alphabetic;
+}
+.select-all-checkbox + span {
+	text-box-trim: trim-both;
+	text-box-edge: cap alphabetic;
+}
+
 /* ============= Link Utilities ============= */
 
 .link-primary {
@@ -225,6 +254,45 @@ body {
 
 .card-body {
 	@apply p-5 sm:p-6;
+}
+
+/* Logged-in section chrome. Keep recipes here so dashboard + profile do not drift. */
+.section-header {
+	@apply mb-4;
+}
+.section-title {
+	@apply text-xl sm:text-2xl font-bold text-heading;
+}
+.section-desc {
+	@apply mt-1 text-sm text-body-secondary;
+}
+
+.option-row {
+	@apply flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3;
+}
+.option-row-start {
+	@apply flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3;
+}
+.option-title {
+	@apply text-base font-semibold text-heading;
+}
+.option-desc {
+	@apply mt-0.5 text-sm text-body-secondary;
+}
+
+.select-all-row {
+	@apply flex items-center justify-between gap-3 py-3;
+}
+
+.nested-block {
+	@apply mt-4 border-t border-divider pt-4;
+}
+
+.subsection-title {
+	@apply text-lg sm:text-xl font-bold text-heading mb-1;
+}
+.subsection-desc {
+	@apply text-sm text-body-secondary mb-4;
 }
 
 /* ============= Animation Utilities ============= */

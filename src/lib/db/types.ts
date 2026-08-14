@@ -1,21 +1,6 @@
 import type { NotificationOptionFieldName } from "../constants";
 import type { AssetType } from "../types";
-import { Constants, type Database } from "./generated/database.types";
-
-/* =============
-Enum aliases (Postgres enums)
-============= */
-
-/** Unit a per-stock price-move threshold is expressed in (percent vs absolute dollars). */
-export type PriceMoveThresholdUnit = Database["public"]["Enums"]["price_move_threshold_unit"];
-
-/** Narrow unknown input (API bodies) to a valid price-move threshold unit. */
-export function isPriceMoveThresholdUnit(value: unknown): value is PriceMoveThresholdUnit {
-	return (
-		typeof value === "string" &&
-		(Constants.public.Enums.price_move_threshold_unit as readonly string[]).includes(value)
-	);
-}
+import type { Database } from "./generated/database.types";
 
 /* =============
 Row Types
