@@ -18,14 +18,14 @@
 			/>
 
 			<div class="card-body">
-			<header class="mb-4">
+			<header class="section-header">
 				<h2
 					:id="DASHBOARD_SECTION_IDS.dailyNotifications"
-					class="text-xl sm:text-2xl font-bold text-heading"
+					class="section-title"
 				>
 					Daily Digest
 				</h2>
-				<p class="text-sm text-body-secondary mt-1">
+				<p class="section-desc">
 					Everything enabled below is bundled into <strong class="font-semibold text-label">one daily message</strong> sent 30 minutes before US regular trading hours (9:00 AM ET) on session days. Weekends and full-day holidays are skipped.
 				</p>
 				<div v-if="isHydrated && nextDailyDeliveryText" class="mt-3">
@@ -77,7 +77,7 @@
 						<div class="flex items-center gap-2">
 							<span
 								:id="`${option.field}_label`"
-								class="text-base font-semibold text-heading"
+								class="option-title"
 							>
 								{{ option.label }}
 							</span>
@@ -98,7 +98,7 @@
 						</div>
 						<p
 							:id="`${option.field}_description`"
-							class="text-sm text-body-secondary mt-0.5"
+							class="option-desc"
 						>
 							{{ option.description }}
 						</p>

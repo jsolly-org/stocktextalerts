@@ -22,10 +22,10 @@
 		</FadeTransition>
 
 		<div class="card-body">
-		<header class="flex items-center gap-2 mb-4">
+		<header class="section-header flex items-center gap-2">
 			<h2
 				:id="DASHBOARD_SECTION_IDS.assets"
-				class="text-xl sm:text-2xl font-bold text-heading"
+				class="section-title"
 			>
 				Watchlist
 			</h2>

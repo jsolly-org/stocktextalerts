@@ -19,17 +19,15 @@
 
 		<div class="card-body">
 		<fieldset class="min-w-0">
-		<header class="mb-4">
+		<header class="section-header">
 			<h2
 					:id="DASHBOARD_SECTION_IDS.marketNotifications"
-					class="text-xl sm:text-2xl font-bold text-heading transition-opacity duration-200"
+					class="section-title transition-opacity duration-200"
 					:class="{ 'opacity-50': notificationSetupBlocked }"
 				>
 					Market Notifications
 				</h2>
-			<p
-				class="text-sm text-body-secondary mt-1"
-			>
+			<p class="section-desc">
 				Configure market-related notifications for your tracked assets during trading hours.
 			</p>
 			</header>
@@ -43,7 +41,7 @@
 				class="transition-opacity duration-200"
 				:class="{ 'opacity-50': notificationSetupBlocked }"
 			>
-				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+				<div class="option-row">
 					<input
 						type="hidden"
 						name="market_scheduled_asset_price_enabled"
@@ -58,13 +56,13 @@
 						<div class="flex items-center gap-2">
 							<span
 								id="market_scheduled_asset_price_enabled_label"
-								class="text-base font-semibold text-heading"
+								class="option-title"
 							>
 								Scheduled Asset Price Notifications
 							</span>
 							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
 						</div>
-						<p id="market_scheduled_asset_price_enabled_description" class="text-sm text-body-secondary mt-0.5">
+						<p id="market_scheduled_asset_price_enabled_description" class="option-desc">
 							Scheduled asset price updates for all tracked assets, including ETFs, at fixed notification times.
 						</p>
 					</div>
@@ -79,7 +77,7 @@
 				</div>
 
 				<FadeTransition>
-					<div v-if="marketNotificationsEnabled" class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4">
+					<div v-if="marketNotificationsEnabled" class="mt-3">
 						<p class="text-sm text-body-secondary mb-3">
 							Delivery times for scheduled asset price notifications.
 						</p>
@@ -124,7 +122,7 @@
 			</div>
 
 			<div
-				class="mt-6 border-t border-divider pt-6 transition-opacity duration-200"
+				class="nested-block transition-opacity duration-200"
 				:class="{ 'opacity-50': notificationSetupBlocked }"
 			>
 				<input
@@ -132,18 +130,18 @@
 					name="price_move_alerts_include"
 					:value="priceMoveAlertsInclude ? 'on' : 'off'"
 				/>
-				<div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+				<div class="option-row-start">
 					<div class="min-w-0">
 						<div class="flex items-center gap-2">
 							<span
 								id="price_move_alerts_label"
-								class="text-base font-semibold text-heading"
+								class="option-title"
 							>
 								Price Move Alerts
 							</span>
 							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
 						</div>
-						<p id="price_move_alerts_description" class="text-sm text-body-secondary mt-0.5">
+						<p id="price_move_alerts_description" class="option-desc">
 							Get notified when a tracked stock moves 5% from yesterday's close in a single trading day. If the move continues in the same direction, the next alert fires at 2.5%. A move the other way still needs a full 5% from the last alert.
 						</p>
 					</div>
@@ -160,7 +158,7 @@
 				<FadeTransition>
 					<div
 						v-if="priceMoveAlertsEnabled && !notificationSetupBlocked"
-						class="mt-3 border-t border-divider pt-3"
+						class="mt-3"
 					>
 						<p
 							v-if="trackedAssets.length === 0"
@@ -171,11 +169,11 @@
 						<fieldset
 							v-else
 							class="min-w-0 border-0 p-0"
+							aria-labelledby="price-move-per-stock-heading"
 							data-autosave-ignore
 						>
-							<legend class="sr-only">Per-stock alerts</legend>
-							<div class="mb-2 flex w-full items-center justify-between gap-2">
-								<span class="text-sm text-label" aria-hidden="true">Per-stock alerts</span>
+							<div class="flex w-full items-baseline justify-between gap-2">
+								<h3 id="price-move-per-stock-heading" class="subsection-title">Per-stock alerts</h3>
 								<span
 									class="text-xs transition-opacity duration-200"
 									:class="[
@@ -186,11 +184,8 @@
 									aria-live="polite"
 								>{{ thresholdStatusText }}</span>
 							</div>
-							<p class="mb-2 text-xs text-muted">
-								Turn alerts on or off per stock below.
-							</p>
-							<div class="mb-2 flex flex-row items-center justify-between gap-3 px-2">
-								<span class="select-all-text text-xs font-semibold uppercase tracking-wider text-faint select-none">Select all</span>
+							<div class="select-all-row">
+								<span class="select-all-text inline-flex h-4 items-center text-xs font-semibold uppercase tracking-wider text-faint select-none">Select all</span>
 								<label class="inline-flex items-center gap-1.5 leading-none">
 									<input
 										ref="selectAllRef"

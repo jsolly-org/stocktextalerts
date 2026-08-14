@@ -1,10 +1,10 @@
 <template>
 	<section :id="DASHBOARD_SECTION_IDS.notificationChannels" class="space-y-4">
-		<header>
-			<h2 class="text-xl sm:text-2xl font-bold text-heading">
+		<header class="section-header">
+			<h2 class="section-title">
 				Notifications
 			</h2>
-			<p :id="props.notificationChannelsDescId" class="text-sm text-body-secondary mt-1.5">
+			<p :id="props.notificationChannelsDescId" class="section-desc">
 				Choose how to receive alerts. Content toggles in each section stay the same—this only picks the delivery pipe.
 			</p>
 		</header>

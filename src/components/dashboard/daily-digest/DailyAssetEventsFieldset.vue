@@ -1,8 +1,8 @@
 <template>
 	<div class="grid grid-cols-subgrid !border-t-0">
 		<div class="col-span-2 pt-4 pb-1">
-			<h3 class="text-lg sm:text-xl font-bold text-heading mb-1">Asset events</h3>
-			<p class="text-sm text-body-secondary mb-3">
+			<h3 class="subsection-title">Asset events</h3>
+			<p class="subsection-desc">
 				Calendar, IPO, analyst, insider, SEC filing, and short interest updates bundled into
 				the same daily message.
 			</p>
@@ -37,7 +37,7 @@
 				<div class="flex items-center gap-2">
 					<span
 						:id="`asset_events_${eventType.key}_label`"
-						class="text-base font-semibold text-heading"
+						class="option-title"
 					>
 						{{ eventType.label }}
 					</span>
@@ -66,7 +66,7 @@
 				</div>
 				<p
 					:id="`asset_events_${eventType.key}_description`"
-					class="text-sm text-body-secondary mt-0.5"
+					class="option-desc"
 				>
 					<template v-if="eventType.key === 'insider' || eventType.key === 'analyst'">
 						{{ eventType.description }}
