@@ -39,6 +39,7 @@ import {
 import type { SparklineData, SparklineMap } from "../parts/sparkline";
 import { boldTickerPrefixesTelegram, isTickerPrefixLine } from "../parts/ticker-prefix";
 import { appendTelegramAssetPriceLines } from "../telegram/asset-price-lines";
+import { packFormattedStrings } from "../telegram/limits";
 import type { NotificationExtras, TopMoversData } from "../types";
 
 /** One top-mover line: `TICKER — $1,234.56 (+1.23%)`. Shared numeric primitives keep
@@ -370,7 +371,7 @@ export function formatDailyDigestEmail(options: {
 	return { subject, text, html };
 }
 
-/** Render a daily digest as a Telegram message using parse-mode entities. */
+/** Render a daily digest as packed Telegram sendMessage chunks (parse-mode entities). */
 export function formatDailyDigestTelegram(opts: {
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
@@ -386,7 +387,24 @@ export function formatDailyDigestTelegram(opts: {
 	timeZone?: string;
 	sparklines?: SparklineMap;
 	marketOpen?: boolean;
-}): FormattedString {
+}): FormattedString[] {
+	return packFormattedStrings(buildDailyDigestTelegramSections(opts));
+}
+
+/** One FormattedString per digest section (header+prices, extras, footer). */
+function buildDailyDigestTelegramSections(opts: {
+	userAssets: UserAssetRow[];
+	assetPrices: AssetPriceMap;
+	extras: NotificationExtras;
+	assetEvents?: AssetEventsResult;
+	dateLabel: string;
+	delayBanner?: string | null;
+	marketClosureInfo?: MarketClosureInfo | null;
+	is24Hour?: boolean;
+	timeZone?: string;
+	sparklines?: SparklineMap;
+	marketOpen?: boolean;
+}): FormattedString[] {
 	// The Telegram channel renders its own market-closed banner from raw data (the
 	// Telegram-specific price map + is24 flag) so its "as of" staleness hint matches
 	// what this channel shows — no pre-rendered banner string is threaded in.
@@ -398,16 +416,15 @@ export function formatDailyDigestTelegram(opts: {
 					formatDigestQuoteAsOf(opts.assetPrices, opts.is24Hour ?? false),
 				)
 			: null;
-	let msg = fmt`${FormattedString.bold(`📊 Daily Digest · ${opts.dateLabel}`)}`;
+	let header = fmt`${FormattedString.bold(`📊 Daily Digest · ${opts.dateLabel}`)}`;
 	if (opts.delayBanner) {
-		msg = fmt`${msg}\n${opts.delayBanner}`;
+		header = fmt`${header}\n${opts.delayBanner}`;
 	}
 	if (marketClosedBanner) {
-		msg = fmt`${msg}\n${marketClosedBanner}`;
+		header = fmt`${header}\n${marketClosedBanner}`;
 	}
-
-	msg = appendTelegramAssetPriceLines({
-		msg,
+	header = appendTelegramAssetPriceLines({
+		msg: header,
 		userAssets: opts.userAssets,
 		assetPrices: opts.assetPrices,
 		getSparkline: (symbol) => opts.sparklines?.get(symbol),
@@ -415,45 +432,65 @@ export function formatDailyDigestTelegram(opts: {
 			shouldShowDigestChangePercent(opts.marketOpen, opts.sparklines?.get(symbol)),
 	});
 
+	const sections: FormattedString[] = [header];
+
 	if (opts.extras.topMovers) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("📈 Top movers")}\n${boldTickerPrefixesTelegram(renderTopMoversBody(opts.extras.topMovers))}`;
+		sections.push(
+			fmt`${FormattedString.bold("📈 Top movers")}\n${boldTickerPrefixesTelegram(renderTopMoversBody(opts.extras.topMovers))}`,
+		);
 	}
 	if (opts.extras.news) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("📰 News")}\n${FormattedString.blockquote(boldTickerPrefixesTelegram(opts.extras.news))}`;
+		sections.push(
+			fmt`${FormattedString.bold("📰 News")}\n${FormattedString.blockquote(boldTickerPrefixesTelegram(opts.extras.news))}`,
+		);
 	}
 	if (opts.extras.rumors) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("💬 Rumors")}\n${FormattedString.blockquote(boldTickerPrefixesTelegram(opts.extras.rumors))}`;
+		sections.push(
+			fmt`${FormattedString.bold("💬 Rumors")}\n${FormattedString.blockquote(boldTickerPrefixesTelegram(opts.extras.rumors))}`,
+		);
 	}
 
 	const ae = opts.assetEvents;
 	if (ae?.eventsSection?.earnings) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("📅 Earnings")}\n${boldTickerPrefixesTelegram(ae.eventsSection.earnings)}`;
+		sections.push(
+			fmt`${FormattedString.bold("📅 Earnings")}\n${boldTickerPrefixesTelegram(ae.eventsSection.earnings)}`,
+		);
 	}
 	if (ae?.eventsSection?.dividends) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("💰 Ex-Dividend")}\n${boldTickerPrefixesTelegram(ae.eventsSection.dividends)}`;
+		sections.push(
+			fmt`${FormattedString.bold("💰 Ex-Dividend")}\n${boldTickerPrefixesTelegram(ae.eventsSection.dividends)}`,
+		);
 	}
 	if (ae?.eventsSection?.splits) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("✂️ Splits")}\n${boldTickerPrefixesTelegram(ae.eventsSection.splits)}`;
+		sections.push(
+			fmt`${FormattedString.bold("✂️ Splits")}\n${boldTickerPrefixesTelegram(ae.eventsSection.splits)}`,
+		);
 	}
 	if (ae?.eventsSection?.ipos) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("🆕 Upcoming IPOs")}\n${boldTickerPrefixesTelegram(ae.eventsSection.ipos)}`;
+		sections.push(
+			fmt`${FormattedString.bold("🆕 Upcoming IPOs")}\n${boldTickerPrefixesTelegram(ae.eventsSection.ipos)}`,
+		);
 	}
 	if (ae?.insiderSection) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("🏦 Insider Trades")}\n${boldTickerPrefixesTelegram(ae.insiderSection)}`;
+		sections.push(
+			fmt`${FormattedString.bold("🏦 Insider Trades")}\n${boldTickerPrefixesTelegram(ae.insiderSection)}`,
+		);
 	}
 	if (ae?.analystSection) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("📊 Analyst Consensus (published monthly on the 1st)")}\n${boldTickerPrefixesTelegram(ae.analystSection)}`;
+		sections.push(
+			fmt`${FormattedString.bold("📊 Analyst Consensus (published monthly on the 1st)")}\n${boldTickerPrefixesTelegram(ae.analystSection)}`,
+		);
 	}
 	const filingsTelegram = ae?.filingsLines?.length
 		? formatFilingsSectionTelegram(ae.filingsLines)
 		: null;
 	if (filingsTelegram) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("📄 SEC Filings")}\n${filingsTelegram}`;
+		sections.push(fmt`${FormattedString.bold("📄 SEC Filings")}\n${filingsTelegram}`);
 	}
 	if (ae?.shortInterest) {
 		const title = formatShortInterestSectionTitle(ae.shortInterest);
 		const body = formatShortInterestSectionLines(ae.shortInterest);
-		msg = fmt`${msg}\n\n${FormattedString.bold(`📉 ${title}`)}\n${boldTickerPrefixesTelegram(body)}`;
+		sections.push(fmt`${FormattedString.bold(`📉 ${title}`)}\n${boldTickerPrefixesTelegram(body)}`);
 	}
 
 	// Prediction Markets last among content sections (after Upcoming IPOs / asset events).
@@ -467,9 +504,11 @@ export function formatDailyDigestTelegram(opts: {
 			? formatPredictionMarketsTelegram(opts.extras.predictionMarkets)
 			: null;
 	if (predictionMarketsTelegram) {
-		msg = fmt`${msg}\n\n${FormattedString.bold("🎯 Prediction Markets")}\n${predictionMarketsTelegram}`;
+		sections.push(
+			fmt`${FormattedString.bold("🎯 Prediction Markets")}\n${predictionMarketsTelegram}`,
+		);
 	}
 
-	msg = fmt`${msg}\n\n${TELEGRAM_FOOTER}`;
-	return msg;
+	sections.push(fmt`${TELEGRAM_FOOTER}`);
+	return sections;
 }
