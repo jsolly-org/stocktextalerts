@@ -100,7 +100,7 @@
 			</div>
 			<ul v-else class="space-y-2" role="list">
 				<li
-					v-for="asset in draftAssets"
+					v-for="(asset, index) in draftAssets"
 					:key="asset.symbol"
 					class="group flex items-center gap-3 p-3 bg-surface-alt rounded-lg hover:bg-surface-active transition-colors"
 				>
@@ -115,6 +115,7 @@
 						v-if="sparklines.get(asset.symbol)"
 						class="hidden sm:block shrink-0 w-12 h-5 opacity-70"
 						:values="sparklines.get(asset.symbol) ?? []"
+						:draw-delay-ms="Math.min(index * 40, 320)"
 					/>
 					<button
 						type="button"
