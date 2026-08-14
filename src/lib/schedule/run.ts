@@ -129,7 +129,11 @@ async function deliverDueNotifications(options: {
 	const currentTime = DateTime.utc();
 	const currentTimeIso = toIsoOrThrow(currentTime, "Failed to format UTC ISO string");
 
-	const [marketUsers, dailyUsers] = await Promise.all([
+	// allSettled so a throw on one query cannot leak the sibling past Lambda
+	// END (Promise.all rejects on first failure while the other fetch is still
+	// in Envoy timeout). Throw after both settle — fetchUsersWithRetry's throw
+	// is the AWS/Lambda Errors contract for a real DB/API outage.
+	const [marketResult, dailyResult] = await Promise.allSettled([
 		fetchMarketScheduledUsers({
 			supabase,
 			logger,
@@ -143,6 +147,14 @@ async function deliverDueNotifications(options: {
 			currentTimeIso,
 		}),
 	]);
+	if (marketResult.status === "rejected") {
+		throw marketResult.reason;
+	}
+	if (dailyResult.status === "rejected") {
+		throw dailyResult.reason;
+	}
+	const marketUsers = marketResult.value;
+	const dailyUsers = dailyResult.value;
 
 	// Batch-load user assets for market users first (single query).
 	// Derive unique symbols from the map for price fetching to avoid a redundant DB round-trip.
