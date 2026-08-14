@@ -96,6 +96,13 @@ Resources:
       CodeUri: src/handlers
       Timeout: 300
       MemorySize: 512
+      # Scheduler delivers asynchronously. Handler throws retry on Lambda's
+      # EventInvokeConfig (default 2), which is what 3×d invokes during the
+      # 2026-08-14 gateway blip (209 invokes / ~70 ticks). The next minute
+      # is the retry — do not stack async retries on a 1-minute cron.
+      EventInvokeConfig:
+        MaximumRetryAttempts: 0
+        MaximumEventAgeInSeconds: 60
       LoggingConfig:
         LogGroup: !Ref ScheduleLogGroup
       Policies:
@@ -152,6 +159,11 @@ Resources:
             ScheduleExpression: "rate(1 minute)"
             State: ENABLED
             RoleArn: !GetAtt StockTextAlertsSchedulerRole.Arn
+            # Delivery-failure throttle only (throttles/perms). Handler throws
+            # are Lambda EventInvokeConfig above; AWS default here is 185/24h.
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+              MaximumEventAgeInSeconds: 60
 
   AssetMaintenanceFunction:
     Type: AWS::Serverless::Function
