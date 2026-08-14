@@ -433,10 +433,11 @@ describe("Users can load pages without unexpected errors.", () => {
 	});
 
 	it("An allowlisted admin can view pending users.", async () => {
-		vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
+		const adminEmail = createTestEmail("admin");
+		vi.stubEnv("ADMIN_EMAILS", adminEmail);
 		await withTestUser(
 			{
-				email: "admin@example.com",
+				email: adminEmail,
 				password: TEST_PASSWORD,
 				confirmed: true,
 				approved: true,

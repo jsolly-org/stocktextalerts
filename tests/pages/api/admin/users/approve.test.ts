@@ -5,7 +5,7 @@ import { POST } from "../../../../../src/pages/api/admin/users/approve";
 import { createApiContext } from "../../../../helpers/api-context";
 import { TEST_PASSWORD } from "../../../../helpers/constants";
 import { createAuthenticatedCookies } from "../../../../helpers/test-env";
-import { createTestUser } from "../../../../helpers/test-user";
+import { createTestEmail, createTestUser } from "../../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../../helpers/test-user-cleanup";
 import { expectConsoleError } from "../../../../setup";
 
@@ -60,10 +60,11 @@ describe("admin user approval API", () => {
 	});
 
 	it("approves a pending user and redirects with success.", async () => {
-		vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
+		const adminEmail = createTestEmail("admin");
+		vi.stubEnv("ADMIN_EMAILS", adminEmail);
 		vi.stubEnv("EMAIL_FROM", "StockTextAlerts <notify@example.com>");
 		const admin = await createTestUser({
-			email: "admin@example.com",
+			email: adminEmail,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			approved: true,
@@ -86,9 +87,10 @@ describe("admin user approval API", () => {
 	});
 
 	it("does not email an already-approved user.", async () => {
-		vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
+		const adminEmail = createTestEmail("admin");
+		vi.stubEnv("ADMIN_EMAILS", adminEmail);
 		const admin = await createTestUser({
-			email: "admin@example.com",
+			email: adminEmail,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			approved: true,
@@ -117,9 +119,10 @@ describe("admin user approval API", () => {
 			error: "SMTP down",
 			errorCode: "smtp_error",
 		});
-		vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
+		const adminEmail = createTestEmail("admin");
+		vi.stubEnv("ADMIN_EMAILS", adminEmail);
 		const admin = await createTestUser({
-			email: "admin@example.com",
+			email: adminEmail,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			approved: true,
