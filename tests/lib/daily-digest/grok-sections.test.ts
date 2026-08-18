@@ -221,6 +221,28 @@ describe("omitEmptyTickerSnippets drops nothing-found digest bullets", () => {
 			"AAPL: Apple unveiled a modem [CNBC](https://www.cnbc.com/aapl).",
 		);
 	});
+
+	it("strips numbered and indented prefixes so filler tickers are not glued onto the previous item", () => {
+		const markdown = [
+			"  1. AAPL: Apple fell after an FTC inquiry [CNBC](https://www.cnbc.com/aapl).",
+			"  2. BAH: No noteworthy chatter found.",
+			"\tLDOS: No news found.",
+		].join("\n");
+		expect(omitEmptyTickerSnippets(markdown)).toBe(
+			"AAPL: Apple fell after an FTC inquiry [CNBC](https://www.cnbc.com/aapl).",
+		);
+	});
+
+	it("drops filler and citation-only bodies after stripping markdown links", () => {
+		const markdown = [
+			"BAH: No noteworthy chatter found [Source](https://x.com/x/status/1).",
+			"IBM: [CNBC](https://www.cnbc.com/x).",
+			"TSLA: Chatter about a robotaxi delay [@elonmusk](https://x.com/elonmusk/status/3).",
+		].join("\n");
+		expect(omitEmptyTickerSnippets(markdown)).toBe(
+			"TSLA: Chatter about a robotaxi delay [@elonmusk](https://x.com/elonmusk/status/3).",
+		);
+	});
 });
 
 describe("Grok digest generation omits empty ticker sections", () => {

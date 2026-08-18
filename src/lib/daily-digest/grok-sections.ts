@@ -52,7 +52,7 @@ const EMPTY_TICKER_FILLER_RE =
 	/^(?:no(?:thing)?|none)(?: (?:noteworthy|significant|material|relevant|substantial|company specific))?(?: (?:news|rumou?rs?|chatter|reports?|updates?|headlines?|information|items?|coverage))?(?: or (?:unconfirmed )?(?:news|rumou?rs?|chatter|reports?|updates?|headlines?|information))?(?: (?:was|were))?(?: (?:found|surfaced|reported|available|identified|emerged|appeared|today|this session|this period|crossed the wire))*(?: to report)?$/;
 
 function stripLeadingListMarker(line: string): string {
-	return line.replace(/^[-*]\s+/, "");
+	return line.trimStart().replace(/^([-*]|\d+[.)])\s+/, "");
 }
 
 function normalizeTickerBody(body: string): string {
@@ -67,9 +67,9 @@ function normalizeTickerBody(body: string): string {
 }
 
 function isEmptyTickerSnippetBody(body: string): boolean {
-	const trimmed = body.trim();
-	if (trimmed.length === 0) return true;
-	return EMPTY_TICKER_FILLER_RE.test(normalizeTickerBody(trimmed));
+	const normalized = normalizeTickerBody(body);
+	if (normalized.length === 0) return true;
+	return EMPTY_TICKER_FILLER_RE.test(normalized);
 }
 
 function splitTickerSnippets(markdown: string): string[] {
