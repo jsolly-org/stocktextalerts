@@ -7,6 +7,7 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";
 import { createLogger } from "../../lib/logging";
+import { logHousekeepingPurgeFailure } from "../../lib/logging/errors";
 import { RELEASE_ID } from "../../lib/logging/release-id";
 import { runLambda } from "../../lib/logging/request-context";
 import { runScheduledNotifications } from "../../lib/schedule/run";
@@ -35,7 +36,8 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 					"purge_expired_email_dispatch_keys",
 				);
 				if (purgeKeysError) {
-					logger.error(
+					logHousekeepingPurgeFailure(
+						logger,
 						"Failed to purge expired email-dispatch keys",
 						{ action: "purge_email_dispatch_keys" },
 						purgeKeysError,
@@ -47,7 +49,8 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 					});
 				}
 			} catch (error) {
-				logger.error(
+				logHousekeepingPurgeFailure(
+					logger,
 					"Failed to purge expired email-dispatch keys",
 					{ action: "purge_email_dispatch_keys" },
 					error,
