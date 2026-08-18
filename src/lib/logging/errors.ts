@@ -35,6 +35,67 @@ export function extractErrorMessage(error: unknown): string {
 	return String(error);
 }
 
+function postgrestLikeCode(error: unknown): string | undefined {
+	if (error === null || typeof error !== "object" || !("code" in error)) {
+		return undefined;
+	}
+	const code = (error as { code: unknown }).code;
+	if (typeof code !== "string") {
+		return undefined;
+	}
+	const trimmed = code.trim();
+	return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function isGatewayOrTransientUpstreamMessage(message: string): boolean {
+	const lower = message.trim().toLowerCase();
+	if (/^internal server error\.?$/.test(lower)) {
+		return true;
+	}
+	if (lower.startsWith("upstream html error response")) {
+		return true;
+	}
+	if (lower.includes("upstream connect error")) {
+		return true;
+	}
+	if (lower.includes("disconnect/reset before headers")) {
+		return true;
+	}
+	return false;
+}
+
+/**
+ * True for API-gateway / CDN blips that supabase-js surfaces without a
+ * PostgREST or Postgres `code` (plaintext 555 "Internal server error.", HTML
+ * error pages, Envoy connect-refused). Structured SQLSTATE / PGRST codes are
+ * real DB failures and must stay pageable.
+ */
+export function isGatewayOrTransientUpstreamError(error: unknown): boolean {
+	if (postgrestLikeCode(error)) {
+		return false;
+	}
+	return isGatewayOrTransientUpstreamMessage(extractErrorMessage(error));
+}
+
+type HousekeepingLogger = {
+	warn: (message: string, context?: Record<string, unknown>, error?: unknown) => void;
+	error: (message: string, context?: Record<string, unknown>, error?: unknown) => void;
+};
+
+/** Housekeeping RPCs: gateway blips warn (no pager); coded DB errors still error. */
+export function logHousekeepingPurgeFailure(
+	logger: HousekeepingLogger,
+	message: string,
+	context: Record<string, unknown>,
+	error: unknown,
+): void {
+	if (isGatewayOrTransientUpstreamError(error)) {
+		logger.warn(message, context, error);
+		return;
+	}
+	logger.error(message, context, error);
+}
+
 /** Third argument to logger.error — preserves Postgrest-like plain objects. */
 export function createErrorForLogging(error: unknown): unknown {
 	if (error instanceof Error) {
