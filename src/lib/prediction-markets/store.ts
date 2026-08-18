@@ -1,5 +1,6 @@
 import type { SupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
+import { logHousekeepingPurgeFailure } from "../logging/errors";
 
 /** Purge odds snapshots older than the retention window. Soft-fails on RPC error. */
 export async function purgeOldPredictionMarketOdds(
@@ -11,7 +12,12 @@ export async function purgeOldPredictionMarketOdds(
 		p_retention_days: retentionDays,
 	});
 	if (error) {
-		logger.error("Failed to purge prediction_market_odds", { retentionDays }, error);
+		logHousekeepingPurgeFailure(
+			logger,
+			"Failed to purge prediction_market_odds",
+			{ retentionDays },
+			error,
+		);
 		return 0;
 	}
 	return typeof data === "number" ? data : 0;
