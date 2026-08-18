@@ -44,6 +44,87 @@ function stripBold(markdown: string): string {
 	return markdown.replace(/\*\*([^*\n]+)\*\*/g, "$1");
 }
 
+/** Same ticker-prefix shape as digest extras (`AAPL:` / `SKHY V:`), without pulling Telegram deps. */
+const DIGEST_TICKER_LINE_RE = /^([A-Z][A-Z0-9.-]{0,9}(?: [A-Z0-9.-]{1,5})?)(:| — )(.*)$/;
+
+/** Whole-body "nothing there" phrases Grok emits instead of omitting the ticker. */
+const EMPTY_TICKER_FILLER_RE =
+	/^(?:no(?:thing)?|none)(?: (?:noteworthy|significant|material|relevant|substantial|company specific))?(?: (?:news|rumou?rs?|chatter|reports?|updates?|headlines?|information|items?|coverage))?(?: or (?:unconfirmed )?(?:news|rumou?rs?|chatter|reports?|updates?|headlines?|information))?(?: (?:was|were))?(?: (?:found|surfaced|reported|available|identified|emerged|appeared|today|this session|this period|crossed the wire))*(?: to report)?$/;
+
+function stripLeadingListMarker(line: string): string {
+	return line.replace(/^[-*]\s+/, "");
+}
+
+function normalizeTickerBody(body: string): string {
+	return body
+		.replace(/\[[^\]]*]\([^)]*\)/g, " ")
+		.replace(/https?:\/\/\S+/g, " ")
+		.replace(/[*_`#]/g, "")
+		.replace(/[.,;:!?…'"“”‘’()[\]/-]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim()
+		.toLowerCase();
+}
+
+function isEmptyTickerSnippetBody(body: string): boolean {
+	const trimmed = body.trim();
+	if (trimmed.length === 0) return true;
+	return EMPTY_TICKER_FILLER_RE.test(normalizeTickerBody(trimmed));
+}
+
+function splitTickerSnippets(markdown: string): string[] {
+	const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+	const snippets: string[] = [];
+	let current: string[] = [];
+
+	const flush = () => {
+		const text = current.join("\n").trim();
+		if (text) snippets.push(text);
+		current = [];
+	};
+
+	for (const rawLine of lines) {
+		const line = stripLeadingListMarker(rawLine);
+		if (DIGEST_TICKER_LINE_RE.test(line)) {
+			flush();
+			current.push(line);
+			continue;
+		}
+		if (current.length > 0) {
+			current.push(line);
+		}
+	}
+	flush();
+	return snippets;
+}
+
+function tickerSnippetBody(snippet: string): string {
+	const lines = snippet.split("\n");
+	const first = lines[0] ?? "";
+	const match = DIGEST_TICKER_LINE_RE.exec(first);
+	if (!match) return snippet.trim();
+	const rest = (match[3] ?? "").trim();
+	return [rest, ...lines.slice(1)].join("\n").trim();
+}
+
+/**
+ * Drop ticker bullets whose body is empty or a "nothing found" filler.
+ * Grok is already told to skip those tickers; this strips the ones it still emits.
+ */
+export function omitEmptyTickerSnippets(markdown: string): string {
+	const kept = splitTickerSnippets(markdown).filter(
+		(snippet) => !isEmptyTickerSnippetBody(tickerSnippetBody(snippet)),
+	);
+	return kept.join("\n\n");
+}
+
+function omitEmptyTickersRule(bulletCount: number): string {
+	return (
+		`- One bullet per ticker, up to ${bulletCount}. Skip tickers with nothing noteworthy — omit them entirely.\n` +
+		`- Never write filler such as "No noteworthy chatter found", "No news found", or "Nothing to report".`
+	);
+}
+
 /** Search-seeding names per ticker so Grok looks for brands, not cashtags. */
 function buildIdentityBlock(identities: readonly DigestAssetIdentity[] | undefined): string {
 	if (!identities || identities.length === 0) return "";
@@ -91,7 +172,7 @@ function buildNewsPrompt(options: {
 		(identityBlock !== "" ? `${identityBlock}\n` : "") +
 		newsContextBlock +
 		"\nRules:\n" +
-		`- One bullet per ticker, up to ${bulletCount}. Skip tickers with nothing noteworthy.\n` +
+		`${omitEmptyTickersRule(bulletCount)}\n` +
 		"- Search the issuer identity names above, not the ticker symbol alone.\n" +
 		"- Each bullet starts with the ticker (e.g. 'AAPL: ...').\n" +
 		"- Each bullet must include at least one source citation as `[Source](https://...)` using a real URL from search results.\n" +
@@ -129,7 +210,7 @@ function buildRumorsPrompt(options: {
 		`Local date: ${options.localDateIso} (${options.timezone}).\n` +
 		(identityBlock !== "" ? `${identityBlock}\n` : "") +
 		"\nRules:\n" +
-		`- One bullet per ticker, up to ${bulletCount}. Skip tickers with nothing noteworthy.\n` +
+		`${omitEmptyTickersRule(bulletCount)}\n` +
 		"- Search the issuer identity names above, not the cashtag alone.\n" +
 		"- Each bullet starts with the ticker (e.g. 'AAPL: ...').\n" +
 		"- Every @handle attribution must be a markdown link to the actual X post: `[@handle](https://x.com/handle/status/POST_ID)`.\n" +
@@ -162,7 +243,14 @@ async function callGrokSectionApi(options: {
 	}
 
 	const annotated = applyAnnotationsInline(rawMarkdown, collectMessageAnnotations(data));
-	return { content: stripBold(annotated), citations: [] };
+	const content = omitEmptyTickerSnippets(stripBold(annotated));
+	if (!content) {
+		rootLogger.info("Grok digest section had no noteworthy ticker items; omit section", {
+			...options.logContext,
+		});
+		return null;
+	}
+	return { content, citations: [] };
 }
 
 /**
