@@ -56,11 +56,14 @@ describe("stock-buyer → asset-buyer Lambda ping", () => {
 		);
 
 		const asOf = "2026-08-08T16:30:00.000Z";
+		const quote = { price: 220, prevClose: 232.5, dayOpen: 230, changePercent: -5.4 };
 		const ok = await wakeupAssetBuyerFromFlatAlert({
 			symbol: "TSLA",
 			triggerPercent: -5.4,
 			isAcceleration: false,
 			asOf,
+			quote,
+			session: "regular",
 		});
 
 		expect(ok).toBe(true);
@@ -90,6 +93,8 @@ describe("stock-buyer → asset-buyer Lambda ping", () => {
 			triggerPercent: -5.4,
 			isAcceleration: false,
 			asOf,
+			quote,
+			session: "regular",
 		});
 	});
 
@@ -100,6 +105,8 @@ describe("stock-buyer → asset-buyer Lambda ping", () => {
 			symbol: "NVDA",
 			triggerPercent: 5.1,
 			isAcceleration: true,
+			quote: { price: 120, prevClose: 114, dayOpen: 115, changePercent: 5.1 },
+			session: "regular",
 		});
 
 		expect(ok).toBe(true);
@@ -121,6 +128,13 @@ describe("stock-buyer → asset-buyer Lambda ping", () => {
 		expect(payload.direction).toBe("up");
 		expect(payload.isAcceleration).toBe(true);
 		expect(payload.prioritizeTicker).toBe("NVDA");
+		expect(payload.session).toBe("regular");
+		expect(payload.quote).toEqual({
+			price: 120,
+			prevClose: 114,
+			dayOpen: 115,
+			changePercent: 5.1,
+		});
 	});
 
 	it("provision watchlist stays within the 50-asset cap and matches buyer universe size", () => {

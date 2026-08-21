@@ -15,8 +15,13 @@ import { deliverTelegramPriceAlert } from "../../messaging/telegram/price-alert"
 import type { EmailSender, TelegramSender } from "../../messaging/types";
 import { consumeNotificationBudget, releaseNotificationBudget } from "../../notification-budget";
 import { buildFlatAlertEnriched } from "../../price-alerts/compose";
-import type { ChannelDeliveryStats, ExtendedAssetQuote, IntradayBarsResult } from "../../types";
-import { wakeupAssetBuyerFromFlatAlert } from "./asset-buyer-wakeup";
+import type {
+	ActiveMarketSession,
+	ChannelDeliveryStats,
+	ExtendedAssetQuote,
+	IntradayBarsResult,
+} from "../../types";
+import { wakeupAssetBuyerFromFlatAlert, wakeupQuoteFromExtended } from "./asset-buyer-wakeup";
 import { buildSubject, formatFlatPriceAlertEmail, formatRelativeMinutesAgo } from "./format";
 import type { FlatPriceAlertUser } from "./users";
 
@@ -49,6 +54,8 @@ export async function deliverFlatPriceAlert(options: {
 	reportUrl?: string | null;
 	/** Full catalyst packet forwarded to the asset-buyer wakeup; omitted when why was omitted. */
 	catalystPacket?: Record<string, unknown> | null;
+	/** Required for lambda wakeup so heartbeat does not re-quote Massive. */
+	session?: ActiveMarketSession;
 }): Promise<boolean> {
 	const {
 		user,
@@ -73,6 +80,7 @@ export async function deliverFlatPriceAlert(options: {
 		whyText,
 		reportUrl,
 		catalystPacket,
+		session,
 	} = options;
 
 	let delivered = false;
@@ -90,10 +98,19 @@ export async function deliverFlatPriceAlert(options: {
 			});
 			return false;
 		}
+		if (!session) {
+			rootLogger.warn("Lambda flat alert wakeup skipped: missing session", {
+				userId: user.id,
+				symbol,
+			});
+			return false;
+		}
 		const woke = await wakeupAssetBuyerFromFlatAlert({
 			symbol,
 			triggerPercent,
 			isAcceleration,
+			quote: wakeupQuoteFromExtended(quote),
+			session,
 			...(catalystPacket ? { catalystPacket } : {}),
 		});
 		if (!woke) {

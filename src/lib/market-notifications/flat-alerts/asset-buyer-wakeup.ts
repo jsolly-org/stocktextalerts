@@ -2,10 +2,18 @@ import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { readEnv } from "../../db/env";
 import { createLogger } from "../../logging";
+import type { ActiveMarketSession, ExtendedAssetQuote } from "../../types";
 
 const logger = createLogger({ module: "asset-buyer-wakeup" });
 
 const HEARTBEAT_ARN_SSM_PATH = "/asset-buyer/heartbeat-arn";
+
+export type AssetBuyerWakeupQuote = {
+	price: number;
+	prevClose: number | null;
+	dayOpen?: number | null;
+	changePercent?: number | null;
+};
 
 export type AssetBuyerWakeupPayload = {
 	source: "sta_flat_price_alert";
@@ -15,9 +23,20 @@ export type AssetBuyerWakeupPayload = {
 	triggerPercent: number;
 	isAcceleration: boolean;
 	asOf: string;
+	quote: AssetBuyerWakeupQuote;
+	session: ActiveMarketSession;
 	/** Full catalyst report when why succeeded. Omitted when why was omitted. */
 	catalystPacket?: Record<string, unknown>;
 };
+
+export function wakeupQuoteFromExtended(quote: ExtendedAssetQuote): AssetBuyerWakeupQuote {
+	return {
+		price: quote.price,
+		prevClose: quote.prevClose,
+		...(quote.dayOpen !== undefined ? { dayOpen: quote.dayOpen } : {}),
+		...(quote.changePercent !== undefined ? { changePercent: quote.changePercent } : {}),
+	};
+}
 
 export type AssetBuyerDailyDigestWakeupPayload = {
 	source: "sta_daily_digest";
@@ -88,6 +107,8 @@ export async function wakeupAssetBuyerFromFlatAlert(options: {
 	symbol: string;
 	triggerPercent: number;
 	isAcceleration: boolean;
+	quote: AssetBuyerWakeupQuote;
+	session: ActiveMarketSession;
 	asOf?: string;
 	catalystPacket?: Record<string, unknown>;
 	/** Injectable for unit tests. */
@@ -98,6 +119,8 @@ export async function wakeupAssetBuyerFromFlatAlert(options: {
 		symbol,
 		triggerPercent,
 		isAcceleration,
+		quote,
+		session,
 		asOf = new Date().toISOString(),
 		catalystPacket,
 		invoke,
@@ -119,6 +142,8 @@ export async function wakeupAssetBuyerFromFlatAlert(options: {
 		triggerPercent,
 		isAcceleration,
 		asOf,
+		quote,
+		session,
 		...(catalystPacket !== undefined ? { catalystPacket } : {}),
 	};
 
@@ -133,6 +158,8 @@ export async function wakeupAssetBuyerFromFlatAlert(options: {
 			direction: payload.direction,
 			triggerPercent,
 			isAcceleration,
+			session,
+			price: quote.price,
 		});
 		return true;
 	} catch (err) {

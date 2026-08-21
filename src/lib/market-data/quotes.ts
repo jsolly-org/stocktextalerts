@@ -39,6 +39,14 @@ function volumeOrNull(value: unknown): number | null {
 	return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
+/** Regular session needs a real day tape, not leftover `session.close` from the daily reset. */
+function hasRegularTape(sessionBar: UnifiedSnapshotResult["session"]): boolean {
+	return (
+		positiveOrNull(sessionBar?.open) !== null ||
+		(typeof sessionBar?.volume === "number" && sessionBar.volume > 0)
+	);
+}
+
 /** Convert Massive nanosecond timestamps to unix seconds. */
 function snapshotTimestampSeconds(value: unknown): number | null {
 	return typeof value === "number" && Number.isFinite(value) && value > 0
@@ -66,6 +74,8 @@ function parseMarketStatus(value: unknown): SnapshotMarketStatus | null {
  * must not gate session attribution. Use Massive's `market_status` instead, and
  * never fall back to `last_minute` during regular hours (that would accept delayed
  * pre-market prints right after the open while `session.close` is still empty).
+ * Regular also requires a real tape (`session.open` or `session.volume`); leftover
+ * `session.close === previous_close` after the daily reset is not a print.
  */
 function parseUnifiedSnapshotResult(
 	result: UnifiedSnapshotResult,
@@ -86,7 +96,7 @@ function parseUnifiedSnapshotResult(
 			price = marketStatus === "late_trading" ? minutePrice : dayPrice;
 			break;
 		case "regular":
-			price = dayPrice;
+			price = dayPrice !== null && hasRegularTape(sessionBar) ? dayPrice : null;
 			break;
 		case "closed":
 			price = dayPrice;

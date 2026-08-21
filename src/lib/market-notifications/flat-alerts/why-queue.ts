@@ -1,7 +1,7 @@
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { readEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
-import { isRecord } from "../../types";
+import { type ActiveMarketSession, isActiveMarketSession, isRecord } from "../../types";
 
 type PriceMoveWhyQueueQuote = {
 	price: number;
@@ -25,6 +25,8 @@ export type PriceMoveWhyMessage = {
 	lastNotificationAt: string | null;
 	iconUrl: string | null;
 	reason?: string;
+	/** Schedule tick session. Required for lambda wakeup; optional on in-flight messages. */
+	session?: ActiveMarketSession;
 };
 
 let sqsClient: SQSClient | undefined;
@@ -110,6 +112,10 @@ export function parsePriceMoveWhyMessage(body: string): PriceMoveWhyMessage | nu
 
 	const dayOpen = parseOptionalFiniteNumber(parsed.quote.dayOpen);
 	const changePercent = parseOptionalFiniteNumber(parsed.quote.changePercent);
+	const session =
+		typeof parsed.session === "string" && isActiveMarketSession(parsed.session)
+			? parsed.session
+			: undefined;
 
 	return {
 		kind: "price-move-why",
@@ -131,6 +137,7 @@ export function parsePriceMoveWhyMessage(body: string): PriceMoveWhyMessage | nu
 		lastNotificationAt,
 		iconUrl,
 		reason: typeof parsed.reason === "string" ? parsed.reason : undefined,
+		...(session !== undefined ? { session } : {}),
 	};
 }
 
@@ -158,6 +165,7 @@ export async function enqueuePriceMoveWhy(
 		lastNotificationAt: message.lastNotificationAt,
 		iconUrl: message.iconUrl,
 		reason: message.reason,
+		...(message.session !== undefined ? { session: message.session } : {}),
 	};
 
 	try {
