@@ -12,7 +12,7 @@ import { isFacetEnabled } from "../../messaging/notification-prefs";
 import { createNotificationSenders } from "../../messaging/senders";
 import { loadPersistedAliases } from "../../prediction-markets/alias-enrich";
 import type { ChannelDeliveryStats, ExtendedAssetQuote } from "../../types";
-import { wakeupAssetBuyerFromFlatAlert } from "./asset-buyer-wakeup";
+import { wakeupAssetBuyerFromFlatAlert, wakeupQuoteFromExtended } from "./asset-buyer-wakeup";
 import { deliverFlatPriceAlert } from "./delivery";
 import { buildPriceMoveReportUrl } from "./report-url";
 import { finalizeFlatPriceAlert, releaseFlatPriceAlert } from "./state";
@@ -310,10 +310,20 @@ export async function processPriceMoveWhyAlert(options: {
 	const stats = emptyChannelStats();
 
 	if (user.delivery_channel === "lambda") {
+		if (!message.session) {
+			await releaseFlatPriceAlert(supabase, userId, symbol);
+			logger.warn("Price-move why job released lambda user: missing session on why message", {
+				userId,
+				symbol,
+			});
+			return { delivered: false, lambdaWakeup: false, stats };
+		}
 		const woke = await wakeupAssetBuyerFromFlatAlert({
 			symbol,
 			triggerPercent: message.triggerPercent,
 			isAcceleration: message.isAcceleration,
+			quote: wakeupQuoteFromExtended(quote),
+			session: message.session,
 			...(whyPacket ? { catalystPacket: whyPacket } : {}),
 		});
 		if (!woke) {
@@ -398,6 +408,7 @@ export async function processPriceMoveWhyAlert(options: {
 		whyText,
 		reportUrl,
 		catalystPacket: whyPacket,
+		...(message.session !== undefined ? { session: message.session } : {}),
 	});
 
 	if (delivered) {
