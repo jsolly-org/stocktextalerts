@@ -2,7 +2,13 @@ import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../../constants";
 import type { SupabaseAdminClient } from "../../db/supabase";
 import { createLogger } from "../../logging";
-import type { ChannelDeliveryStats, ExtendedQuoteMap, MarketSession } from "../../types";
+import {
+	type ActiveMarketSession,
+	type ChannelDeliveryStats,
+	type ExtendedQuoteMap,
+	isActiveMarketSession,
+	type MarketSession,
+} from "../../types";
 import {
 	fetchFlatPriceAlertState,
 	fetchPriceMoveThresholds,
@@ -17,8 +23,8 @@ import { runPriceMoveWhyInline } from "./why-job";
 import { enqueuePriceMoveWhy } from "./why-queue";
 
 /** Equity trade window for stock-buyer lambda wakes (matches asset-buyer 04:00–20:00 ET). */
-function isEquityTradeSession(session: MarketSession): boolean {
-	return session === "pre" || session === "regular" || session === "after";
+function isEquityTradeSession(session: MarketSession): session is ActiveMarketSession {
+	return isActiveMarketSession(session);
 }
 
 /** Human flat alerts stay RTH-only; lambda (stock-buyer) runs all equity sessions. */
@@ -323,6 +329,7 @@ export async function processFlatPriceAlerts(options: {
 			isAcceleration: alert.isAcceleration,
 			lastNotificationAt: alert.lastNotificationAt ? alert.lastNotificationAt.toISOString() : null,
 			iconUrl: alert.iconUrl,
+			...(isActiveMarketSession(marketSession) ? { session: marketSession } : {}),
 		};
 
 		try {

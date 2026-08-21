@@ -24,6 +24,8 @@ describe("wakeupAssetBuyerFromFlatAlert", () => {
 			symbol: "NVDA",
 			triggerPercent: 5.5,
 			isAcceleration: false,
+			quote: { price: 120, prevClose: 114, changePercent: 5.5 },
+			session: "pre",
 			resolveArn: async () => undefined,
 			invoke,
 		});
@@ -34,11 +36,14 @@ describe("wakeupAssetBuyerFromFlatAlert", () => {
 	it("async-invokes with the expected payload shape", async () => {
 		const invoke = vi.fn(async () => {});
 		const asOf = "2026-08-08T20:00:00.000Z";
+		const quote = { price: 118, prevClose: 126, dayOpen: 124, changePercent: -6.25 };
 		const ok = await wakeupAssetBuyerFromFlatAlert({
 			symbol: "nvda",
 			triggerPercent: -6.25,
 			isAcceleration: true,
 			asOf,
+			quote,
+			session: "after",
 			resolveArn: async () => "arn:aws:lambda:us-east-1:123:function:asset-buyer-heartbeat",
 			invoke,
 		});
@@ -54,6 +59,8 @@ describe("wakeupAssetBuyerFromFlatAlert", () => {
 				triggerPercent: -6.25,
 				isAcceleration: true,
 				asOf,
+				quote,
+				session: "after",
 			},
 		);
 	});
@@ -66,6 +73,8 @@ describe("wakeupAssetBuyerFromFlatAlert", () => {
 			triggerPercent: 5.1,
 			isAcceleration: false,
 			asOf: "2026-08-12T15:00:00.000Z",
+			quote: { price: 195, prevClose: 185, dayOpen: 186, changePercent: 5.1 },
+			session: "regular",
 			catalystPacket: packet,
 			resolveArn: async () => "arn:aws:lambda:us-east-1:123:function:asset-buyer-heartbeat",
 			invoke,
@@ -85,6 +94,8 @@ describe("wakeupAssetBuyerFromFlatAlert", () => {
 			symbol: "MSFT",
 			triggerPercent: 5,
 			isAcceleration: false,
+			quote: { price: 420, prevClose: 400, changePercent: 5 },
+			session: "regular",
 			resolveArn: async () => "arn:aws:lambda:us-east-1:123:function:asset-buyer-heartbeat",
 			invoke: async () => {
 				throw new Error("boom");

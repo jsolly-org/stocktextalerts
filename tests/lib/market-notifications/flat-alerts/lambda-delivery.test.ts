@@ -16,9 +16,19 @@ import type {
 import { makePrefRows } from "../../../helpers/user-record-fixture";
 
 const wakeupAssetBuyerFromFlatAlert = vi.hoisted(() => vi.fn(async () => true));
-vi.mock("../../../../src/lib/market-notifications/flat-alerts/asset-buyer-wakeup", () => ({
-	wakeupAssetBuyerFromFlatAlert,
-}));
+vi.mock(
+	"../../../../src/lib/market-notifications/flat-alerts/asset-buyer-wakeup",
+	async (importOriginal) => {
+		const actual =
+			await importOriginal<
+				typeof import("../../../../src/lib/market-notifications/flat-alerts/asset-buyer-wakeup")
+			>();
+		return {
+			...actual,
+			wakeupAssetBuyerFromFlatAlert,
+		};
+	},
+);
 
 type RecordedInsert = { table: string; row: Record<string, unknown> };
 
@@ -106,6 +116,7 @@ describe("deliverFlatPriceAlert lambda channel", () => {
 			logoCache: createLogoCache(),
 			stats,
 			catalystPacket,
+			session: "regular",
 		});
 
 		expect(delivered).toBe(true);
@@ -113,6 +124,8 @@ describe("deliverFlatPriceAlert lambda channel", () => {
 			symbol: "NVDA",
 			triggerPercent: 20,
 			isAcceleration: false,
+			quote: { price: 120, prevClose: 100, dayOpen: 105, changePercent: 20 },
+			session: "regular",
 			catalystPacket,
 		});
 		expect(sendEmail).not.toHaveBeenCalled();
@@ -162,6 +175,7 @@ describe("deliverFlatPriceAlert lambda channel", () => {
 			logoCache: createLogoCache(),
 			stats: makeStats(),
 			catalystPacket: null,
+			session: "regular",
 		});
 
 		expect(delivered).toBe(true);
@@ -169,6 +183,8 @@ describe("deliverFlatPriceAlert lambda channel", () => {
 			symbol: "NVDA",
 			triggerPercent: 20,
 			isAcceleration: false,
+			quote: { price: 120, prevClose: 100, dayOpen: 105, changePercent: 20 },
+			session: "regular",
 		});
 	});
 
@@ -257,9 +273,55 @@ describe("deliverFlatPriceAlert lambda channel", () => {
 			sendEmail: vi.fn(async (): Promise<DeliveryResult> => ({ success: true })),
 			logoCache: createLogoCache(),
 			stats: makeStats(),
+			session: "regular",
 		});
 
 		expect(delivered).toBe(false);
 		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledOnce();
+	});
+
+	it("returns false when session is missing so heartbeat is not invoked without a mark", async () => {
+		wakeupAssetBuyerFromFlatAlert.mockClear();
+		const { client } = makeSupabaseMock();
+		const user: FlatPriceAlertUser = {
+			id: "00000000-0000-0000-0000-000000000099",
+			email: STOCK_BUYER_EMAIL,
+			delivery_channel: "lambda",
+			use_24_hour_time: false,
+			telegram_chat_id: null,
+			price_move_why_window_start: null,
+			price_move_why_sends_in_window: 0,
+			prefs: makePrefRows([["price_move_alerts", "", true]]),
+		};
+
+		const delivered = await deliverFlatPriceAlert({
+			user,
+			symbol: "AMD",
+			companyName: "AMD",
+			quote: {
+				price: 110,
+				prevClose: 100,
+				changePercent: 10,
+				dayOpen: 101,
+				timestamp: 0,
+			} as ExtendedAssetQuote,
+			baseline: 100,
+			triggerPercent: 10,
+			isReTrigger: false,
+			isAcceleration: false,
+			lastNotificationAt: null,
+			nowMs: Date.now(),
+			intraday: null,
+			sevenDaySparkline: null,
+			iconUrl: null,
+			iconBase64: null,
+			supabase: client,
+			sendEmail: vi.fn(async (): Promise<DeliveryResult> => ({ success: true })),
+			logoCache: createLogoCache(),
+			stats: makeStats(),
+		});
+
+		expect(delivered).toBe(false);
+		expect(wakeupAssetBuyerFromFlatAlert).not.toHaveBeenCalled();
 	});
 });

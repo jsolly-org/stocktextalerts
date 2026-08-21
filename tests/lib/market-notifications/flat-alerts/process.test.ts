@@ -79,9 +79,19 @@ vi.mock("../../../../src/lib/market-notifications/flat-alerts/why-queue", async 
 });
 
 const wakeupAssetBuyerFromFlatAlert = vi.hoisted(() => vi.fn(async () => true));
-vi.mock("../../../../src/lib/market-notifications/flat-alerts/asset-buyer-wakeup", () => ({
-	wakeupAssetBuyerFromFlatAlert,
-}));
+vi.mock(
+	"../../../../src/lib/market-notifications/flat-alerts/asset-buyer-wakeup",
+	async (importOriginal) => {
+		const actual =
+			await importOriginal<
+				typeof import("../../../../src/lib/market-notifications/flat-alerts/asset-buyer-wakeup")
+			>();
+		return {
+			...actual,
+			wakeupAssetBuyerFromFlatAlert,
+		};
+	},
+);
 
 const generatePriceMoveWhyWithGrok = vi.hoisted(() => vi.fn());
 vi.mock("../../../../src/lib/market-notifications/flat-alerts/why", () => ({
@@ -232,6 +242,13 @@ describe("processFlatPriceAlerts", () => {
 			symbol: "AAPL",
 			triggerPercent: expect.any(Number),
 			isAcceleration: false,
+			quote: {
+				price: 195.86,
+				prevClose: 186.0,
+				dayOpen: 184.5,
+				changePercent: 5.3,
+			},
+			session: "regular",
 			catalystPacket: WHY_PACKET,
 		});
 		const wakeupCall = wakeupAssetBuyerFromFlatAlert.mock.calls[0] as unknown as
@@ -276,6 +293,13 @@ describe("processFlatPriceAlerts", () => {
 			symbol: "AAPL",
 			triggerPercent: expect.any(Number),
 			isAcceleration: false,
+			quote: {
+				price: 195.86,
+				prevClose: 186.0,
+				dayOpen: 184.5,
+				changePercent: 5.3,
+			},
+			session: "regular",
 		});
 	});
 
@@ -333,9 +357,20 @@ describe("processFlatPriceAlerts", () => {
 		expect(totals.usersChecked).toBe(1);
 		expect(totals.alertsTriggered).toBe(1);
 		expect(totals.lambdaWakeups).toBe(1);
-		// Lambda users run the same why job as humans; the queue is just the transport.
 		expect(enqueuePriceMoveWhy).toHaveBeenCalledOnce();
-		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledOnce();
+		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledWith({
+			symbol: "AAPL",
+			triggerPercent: expect.any(Number),
+			isAcceleration: false,
+			quote: {
+				price: 195.86,
+				prevClose: 186.0,
+				dayOpen: 184.5,
+				changePercent: 5.3,
+			},
+			session: "pre",
+			catalystPacket: WHY_PACKET,
+		});
 	});
 
 	it("lambda wakes during after-hours session", async () => {
@@ -360,7 +395,19 @@ describe("processFlatPriceAlerts", () => {
 		});
 
 		expect(totals.lambdaWakeups).toBe(1);
-		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledOnce();
+		expect(wakeupAssetBuyerFromFlatAlert).toHaveBeenCalledWith({
+			symbol: "AAPL",
+			triggerPercent: expect.any(Number),
+			isAcceleration: false,
+			quote: {
+				price: 195.86,
+				prevClose: 186.0,
+				dayOpen: 184.5,
+				changePercent: 5.3,
+			},
+			session: "after",
+			catalystPacket: WHY_PACKET,
+		});
 	});
 
 	it("User in Pacific timezone receives first alert on AAPL overnight gap", async () => {
