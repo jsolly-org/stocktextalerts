@@ -173,7 +173,7 @@ async function getStateRow(userId: string, symbol: string) {
 beforeEach(() => {
 	vi.clearAllMocks();
 	// The why toolkit runs for every channel, lambda included, so the job needs a key.
-	vi.stubEnv("XAI_API_KEY", "test-key");
+	vi.stubEnv("XAI_API_KEY_STOCKTEXTALERTS", "test-key");
 	mockEmailSender.mockResolvedValue({ success: true });
 	enqueuePriceMoveWhy.mockResolvedValue(false);
 	wakeupAssetBuyerFromFlatAlert.mockResolvedValue(true);

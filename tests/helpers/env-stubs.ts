@@ -4,7 +4,7 @@ import { vi } from "vitest";
 export function restoreBaselineTestEnvStubs(): void {
 	vi.stubEnv("MASSIVE_API_KEY", "test-massive-key");
 	vi.stubEnv("FINNHUB_API_KEY", "test-finnhub-key");
-	vi.stubEnv("XAI_API_KEY", "");
+	vi.stubEnv("XAI_API_KEY_STOCKTEXTALERTS", "");
 	vi.stubEnv("UNSUBSCRIBE_TOKEN_SECRET", "test-unsubscribe-secret");
 	vi.stubEnv("TELEGRAM_LINK_TOKEN_SECRET", "test-telegram-link-token-secret");
 	vi.stubEnv("TELEGRAM_WEBHOOK_SECRET", "test-telegram-webhook-secret");

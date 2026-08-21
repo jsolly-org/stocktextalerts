@@ -247,7 +247,7 @@ export async function processPriceMoveWhyAlert(options: {
 	}
 
 	const nowUtc = DateTime.utc();
-	const xaiAvailable = Boolean(readEnv("XAI_API_KEY")?.trim());
+	const xaiAvailable = Boolean(readEnv("XAI_API_KEY_STOCKTEXTALERTS")?.trim());
 	let whyText: string | null = null;
 	let whyVerdict: PriceMoveWhyVerdict | null = null;
 	let whyGrade: PriceMoveWhyGrade | null = null;

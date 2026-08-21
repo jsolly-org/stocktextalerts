@@ -43,7 +43,7 @@ describe("Grok digest parsers strip stray markdown bold", () => {
 	});
 
 	it("daily-digest news: schema-wrapped markdown strips **…** and posts text.format", async () => {
-		vi.stubEnv("XAI_API_KEY", "test-key");
+		vi.stubEnv("XAI_API_KEY_STOCKTEXTALERTS", "test-key");
 		const newsBody =
 			"**LDOS: Leidos benefits from the Pentagon's accelerating shift toward AI-driven systems.**\n" +
 			"**BAH: Booz Allen Hamilton is positioned to gain from the Pentagon's AI pivot.**";
@@ -64,7 +64,7 @@ describe("Grok digest parsers strip stray markdown bold", () => {
 	});
 
 	it("daily-digest rumors: stripped output preserves @handle mentions and hedge phrasing", async () => {
-		vi.stubEnv("XAI_API_KEY", "test-key");
+		vi.stubEnv("XAI_API_KEY_STOCKTEXTALERTS", "test-key");
 		const rumorsBody =
 			"**AAPL: Chatter from @TechBullish about Siri delays, reportedly pressuring shares.**\n" +
 			"**NVDA: @ChipAnalyst notes unconfirmed UBS price-target hike ahead of earnings.**";
@@ -99,7 +99,7 @@ describe("Grok digest prompts seed search with issuer identity", () => {
 	];
 
 	it("news prompt carries identity names and labels Massive headlines incomplete", async () => {
-		vi.stubEnv("XAI_API_KEY", "test-key");
+		vi.stubEnv("XAI_API_KEY_STOCKTEXTALERTS", "test-key");
 		const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockXaiResponse("GOOGL: ok"));
 
 		await generateNewsWithGrok({
@@ -120,7 +120,7 @@ describe("Grok digest prompts seed search with issuer identity", () => {
 	});
 
 	it("rumors prompt carries identity names alongside the dated x_search window", async () => {
-		vi.stubEnv("XAI_API_KEY", "test-key");
+		vi.stubEnv("XAI_API_KEY_STOCKTEXTALERTS", "test-key");
 		const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockXaiResponse("GOOGL: ok"));
 
 		await generateRumorsWithGrok({

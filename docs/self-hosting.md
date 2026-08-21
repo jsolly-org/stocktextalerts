@@ -112,7 +112,7 @@ Set for Production (and Preview as needed). Do **not** mirror all of `.env.local
 | `TELEGRAM_WEBHOOK_SECRET` | Header check on `/api/messaging/telegram` |
 | `TELEGRAM_LINK_TOKEN_SECRET` | Link-token HMAC |
 
-Omit on Vercel: `FINNHUB_API_KEY`, `XAI_API_KEY`, `EMAIL_FROM`, `DATABASE_URL`, `DEFAULT_USER`, `DEFAULT_PASSWORD`, static AWS keys.
+Omit on Vercel: `FINNHUB_API_KEY`, `XAI_API_KEY_STOCKTEXTALERTS`, `EMAIL_FROM`, `DATABASE_URL`, `DEFAULT_USER`, `DEFAULT_PASSWORD`, static AWS keys.
 
 ## 7. Telegram (manual scripts)
 
@@ -163,7 +163,7 @@ Suggested branch protection: require a PR + the `CI / ci` check (non-strict is f
 | `EMAIL_DISPATCH_*` | optional | yes | secret in SSM | — |
 | `MASSIVE_API_KEY` | yes | yes | SSM | — |
 | `FINNHUB_API_KEY` | stub/tests | no | SSM | — |
-| `XAI_API_KEY` | optional | no | SSM optional | — |
+| `XAI_API_KEY_STOCKTEXTALERTS` | optional | no | SSM optional | — |
 | `TELEGRAM_BOT_TOKEN` | scripts | yes | SSM | — |
 | `TELEGRAM_BOT_USERNAME` | yes | yes | — | — |
 | `TELEGRAM_WEBHOOK_SECRET` | scripts | yes | — | — |

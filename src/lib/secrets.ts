@@ -28,19 +28,19 @@ export const STOCKTEXTALERTS_SECRET_NAMES = [
 	"SUPABASE_SECRET_KEY",
 	"MASSIVE_API_KEY",
 	"FINNHUB_API_KEY",
-	"XAI_API_KEY",
+	"XAI_API_KEY_STOCKTEXTALERTS",
 	"EMAIL_DISPATCH_SECRET",
 	"UNSUBSCRIBE_TOKEN_SECRET",
 	"TELEGRAM_BOT_TOKEN",
 ] as const;
 
 // Secrets whose feature degrades gracefully when absent, so a NOT-provisioned SSM
-// param must NOT hard-fail the handler. XAI_API_KEY drives the optional Grok
+// param must NOT hard-fail the handler. XAI_API_KEY_STOCKTEXTALERTS drives the optional Grok
 // summary: every consumer reads it with `readEnv` and skips the AI call when it's
 // missing (grok-summary.ts, grok.ts). It was also optional under the old SAM
-// wiring (`XaiApiKey=${XAI_API_KEY:-}`). So for these, a ParameterNotFound is
+// wiring (`XaiApiKey=${XAI_API_KEY_STOCKTEXTALERTS:-}`). So for these, a ParameterNotFound is
 // swallowed (left unset → readEnv degrades); any other error still fails loud.
-const OPTIONAL_SECRET_NAMES = new Set<string>(["XAI_API_KEY"]);
+const OPTIONAL_SECRET_NAMES = new Set<string>(["XAI_API_KEY_STOCKTEXTALERTS"]);
 
 const cache = new Map<string, string>();
 let ssmClient: SSMClient | undefined;

@@ -79,7 +79,7 @@ Mailpit (local email UI): <http://127.0.0.1:54324>. Ports and Astro 7 lock notes
 | **Lambda** | Secrets via SSM under `SSM_PREFIX` (default `/stocktextalerts`); see [docs/self-hosting.md](docs/self-hosting.md) |
 | **GitHub `Production` env** | `DATABASE_URL_PROD`, `AWS_REGION`, `AWS_DEPLOY_ROLE_ARN`, `PRODUCTION_SITE_URL` |
 
-Do **not** put `FINNHUB_API_KEY`, `XAI_API_KEY`, `EMAIL_FROM`, `DATABASE_URL`, `DEFAULT_USER`, or `DEFAULT_PASSWORD` on Vercel.
+Do **not** put `FINNHUB_API_KEY`, `XAI_API_KEY_STOCKTEXTALERTS`, `EMAIL_FROM`, `DATABASE_URL`, `DEFAULT_USER`, or `DEFAULT_PASSWORD` on Vercel.
 
 ## Testing
 
