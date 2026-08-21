@@ -11,7 +11,7 @@ describe("fetchGrokResponse auth short-circuit", () => {
 
 	beforeEach(() => {
 		resetGrokAuthExhausted();
-		vi.stubEnv("XAI_API_KEY", "test-key");
+		vi.stubEnv("XAI_API_KEY_STOCKTEXTALERTS", "test-key");
 		// Spy after network-guard install so this double replaces the guard for the test.
 		fetchSpy = vi.spyOn(globalThis, "fetch");
 	});

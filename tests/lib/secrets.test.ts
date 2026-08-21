@@ -28,10 +28,10 @@ function clearEnv() {
 	delete process.env[`${NAME}_SSM_PARAM`];
 	delete process.env[OTHER];
 	delete process.env[`${OTHER}_SSM_PARAM`];
-	// XAI_API_KEY is exercised by the optional-secret tests; .env.local may set it,
+	// XAI_API_KEY_STOCKTEXTALERTS is exercised by the optional-secret tests; .env.local may set it,
 	// which would short-circuit the SSM path. Clear it (and its param) per test.
-	delete process.env.XAI_API_KEY;
-	delete process.env.XAI_API_KEY_SSM_PARAM;
+	delete process.env.XAI_API_KEY_STOCKTEXTALERTS;
+	delete process.env.XAI_API_KEY_STOCKTEXTALERTS_SSM_PARAM;
 }
 
 // Re-import after vi.resetModules() so the module-level cache starts empty per test.
@@ -168,24 +168,24 @@ describe("loadSecretsIntoEnv", () => {
 		await expect(loadSecretsIntoEnv([NAME])).rejects.toThrow(/AccessDenied/);
 	});
 
-	it("tolerates a ParameterNotFound for an optional secret (XAI_API_KEY), leaving it unset", async () => {
-		process.env.XAI_API_KEY_SSM_PARAM = "/stocktextalerts/xai-api-key";
+	it("tolerates a ParameterNotFound for an optional secret (XAI_API_KEY_STOCKTEXTALERTS), leaving it unset", async () => {
+		process.env.XAI_API_KEY_STOCKTEXTALERTS_SSM_PARAM = "/stocktextalerts/xai-api-key";
 		const notFound = Object.assign(new Error("not found"), { name: "ParameterNotFound" });
 		sendMock.mockRejectedValue(notFound);
 		const { loadSecretsIntoEnv } = await freshModule();
 
-		await expect(loadSecretsIntoEnv(["XAI_API_KEY"])).resolves.toBeUndefined();
-		expect(process.env.XAI_API_KEY).toBeUndefined();
-		delete process.env.XAI_API_KEY_SSM_PARAM;
+		await expect(loadSecretsIntoEnv(["XAI_API_KEY_STOCKTEXTALERTS"])).resolves.toBeUndefined();
+		expect(process.env.XAI_API_KEY_STOCKTEXTALERTS).toBeUndefined();
+		delete process.env.XAI_API_KEY_STOCKTEXTALERTS_SSM_PARAM;
 	});
 
 	it("still fails loud on a non-ParameterNotFound error for an optional secret", async () => {
-		process.env.XAI_API_KEY_SSM_PARAM = "/stocktextalerts/xai-api-key";
+		process.env.XAI_API_KEY_STOCKTEXTALERTS_SSM_PARAM = "/stocktextalerts/xai-api-key";
 		const denied = Object.assign(new Error("denied"), { name: "AccessDeniedException" });
 		sendMock.mockRejectedValue(denied);
 		const { loadSecretsIntoEnv } = await freshModule();
 
-		await expect(loadSecretsIntoEnv(["XAI_API_KEY"])).rejects.toThrow(/denied/);
-		delete process.env.XAI_API_KEY_SSM_PARAM;
+		await expect(loadSecretsIntoEnv(["XAI_API_KEY_STOCKTEXTALERTS"])).rejects.toThrow(/denied/);
+		delete process.env.XAI_API_KEY_STOCKTEXTALERTS_SSM_PARAM;
 	});
 });

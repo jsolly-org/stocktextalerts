@@ -173,9 +173,9 @@ export async function fetchGrokResponse(options: {
 	requestBody: GrokResponsesRequest;
 	logContext: Record<string, unknown>;
 }): Promise<GrokResponsesResponse | null> {
-	const apiKey = readEnv("XAI_API_KEY");
+	const apiKey = readEnv("XAI_API_KEY_STOCKTEXTALERTS");
 	if (!apiKey || apiKey.trim() === "") {
-		rootLogger.warn("XAI_API_KEY is not set; skipping Grok call", {
+		rootLogger.warn("XAI_API_KEY_STOCKTEXTALERTS is not set; skipping Grok call", {
 			...options.logContext,
 			reason: "missing_api_key",
 		});

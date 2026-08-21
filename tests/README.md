@@ -115,7 +115,7 @@ For scoped env overrides inside a file, prefer `resetTestEnvStubs()` (`unstubAll
 
 ## Production credentials
 
-Provider keys (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`, `XAI_API_KEY`, `TELEGRAM_BOT_TOKEN`) live in the Lambda runtime and are **always stubbed locally**. `MASSIVE_API_KEY` is also on Vercel (logo endpoint); `TELEGRAM_BOT_TOKEN` is on Vercel (webhook). There are no local live-provider round-trips.
+Provider keys (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`, `XAI_API_KEY_STOCKTEXTALERTS`, `TELEGRAM_BOT_TOKEN`) live in the Lambda runtime and are **always stubbed locally**. `MASSIVE_API_KEY` is also on Vercel (logo endpoint); `TELEGRAM_BOT_TOKEN` is on Vercel (webhook). There are no local live-provider round-trips.
 
 Post-deploy live verification uses the `stocktextalerts-live-provider-check` Lambda (`src/handlers/maintenance/live-provider-check.ts`), which also runs on weekday EventBridge schedules at 08:00 / 12:00 / 17:30 America/New_York (pre / regular / after) with session-specific quote expectations. Schedule changes in `aws/template.yaml` need `npm run deploy:infra`.
 

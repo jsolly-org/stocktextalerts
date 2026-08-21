@@ -268,6 +268,10 @@ export type MarketSession = "pre" | "regular" | "after" | "closed";
 /** A session in which trading is actually happening (never "closed"). */
 export type ActiveMarketSession = Exclude<MarketSession, "closed">;
 
+export function isActiveMarketSession(session: string): session is ActiveMarketSession {
+	return session === "pre" || session === "regular" || session === "after";
+}
+
 /* =============
 Delivery
 ============= */

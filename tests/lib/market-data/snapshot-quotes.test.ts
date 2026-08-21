@@ -175,6 +175,34 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		expect(quote.timestamp).toBe(Math.floor(NOW_UTC / 1000));
 	});
 
+	it("returns no_session_trade in regular when close equals previous_close with empty open and volume", async () => {
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			snapshotResponse([
+				{
+					ticker: "MOD",
+					type: "stocks",
+					market_status: "open",
+					session: {
+						open: 0,
+						high: 0,
+						low: 0,
+						close: 100,
+						volume: 0,
+						previous_close: 100,
+						last_updated: polygonUpdatedNs(Math.floor(NOW_UTC / 1000)),
+					},
+					last_minute: {
+						close: 107.76,
+						last_updated: polygonUpdatedNs(Math.floor(NOW_UTC / 1000)),
+					},
+				},
+			]),
+		);
+
+		const quotes = await fetchSnapshotQuotes(["MOD"], "regular");
+		expect(quotes.get("MOD")).toBe("no_session_trade");
+	});
+
 	it("does not fall back to last_minute during regular hours when session.close is empty", async () => {
 		// Starter delay: market_status can already be open while session.close is empty and
 		// last_minute.close is still a pre-market print. last_updated is a refresh clock

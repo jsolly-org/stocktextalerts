@@ -2,7 +2,7 @@ import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../constants";
 import type { SupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
-import { createErrorForLogging } from "../logging/errors";
+import { createErrorForLogging, logHousekeepingPurgeFailure } from "../logging/errors";
 import { downsampleEvenly, type SparklineData, toSparkline } from "../messaging/parts/sparkline";
 import type { DailyOHLCVBar, ExtendedQuoteMap, IntradayBarsResult, IntradayCandle } from "../types";
 import { fetchIntradayBars } from "./bars";
@@ -157,10 +157,20 @@ export async function purgeOldPriceHistoryCache(
 		}),
 	]);
 	if (minuteResult.error) {
-		rootLogger.error("Failed to purge asset_price_history", {}, minuteResult.error);
+		logHousekeepingPurgeFailure(
+			rootLogger,
+			"Failed to purge asset_price_history",
+			{},
+			minuteResult.error,
+		);
 	}
 	if (dailyResult.error) {
-		rootLogger.error("Failed to purge asset_daily_closes", {}, dailyResult.error);
+		logHousekeepingPurgeFailure(
+			rootLogger,
+			"Failed to purge asset_daily_closes",
+			{},
+			dailyResult.error,
+		);
 	}
 	return {
 		minutePurged: typeof minuteResult.data === "number" ? minuteResult.data : 0,
