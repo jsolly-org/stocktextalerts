@@ -141,7 +141,7 @@ describe("Grok digest prompts seed search with issuer identity", () => {
 	});
 
 	it("news and rumors prompts forbid empty-ticker filler instead of covering every symbol", async () => {
-		vi.stubEnv("XAI_API_KEY", "test-key");
+		vi.stubEnv("XAI_API_KEY_STOCKTEXTALERTS", "test-key");
 		const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockXaiResponse("GOOGL: ok"));
 
 		await generateNewsWithGrok({
@@ -252,7 +252,7 @@ describe("Grok digest generation omits empty ticker sections", () => {
 	});
 
 	it("filters filler tickers out of a mixed news response", async () => {
-		vi.stubEnv("XAI_API_KEY", "test-key");
+		vi.stubEnv("XAI_API_KEY_STOCKTEXTALERTS", "test-key");
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			mockXaiResponse(
 				"AAPL: Apple fell after an FTC inquiry [CNBC](https://www.cnbc.com/aapl).\nBAH: No noteworthy chatter found.",
@@ -270,7 +270,7 @@ describe("Grok digest generation omits empty ticker sections", () => {
 	});
 
 	it("returns null when rumors are only empty filler", async () => {
-		vi.stubEnv("XAI_API_KEY", "test-key");
+		vi.stubEnv("XAI_API_KEY_STOCKTEXTALERTS", "test-key");
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			mockXaiResponse(
 				"BAH: No noteworthy chatter found.\nDELL: No noteworthy rumors or unconfirmed reports surfaced.",
