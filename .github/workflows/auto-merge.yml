@@ -54,4 +54,4 @@ jobs:
             exit 0
           fi
           echo "::warning::REPO_AUTOMATION_TOKEN unset — arming GitHub auto-merge with GITHUB_TOKEN; main push workflows will be suppressed (ensure-main-ci.yml is the recovery path)."
-          gh pr merge --auto --squash --repo "$GITHUB_REPOSITORY" "$PR_NUMBER"
+          gh pr merge --auto --squash --delete-branch --repo "$GITHUB_REPOSITORY" "$PR_NUMBER"
